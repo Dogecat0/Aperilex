@@ -1,0 +1,52 @@
+version: "3.8"
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: aperilex
+      POSTGRES_USER: aperilex
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-dev_password}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U aperilex"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    command: redis-server --requirepass ${REDIS_PASSWORD:-dev_password}
+    healthcheck:
+      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  app:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: postgresql+asyncpg://aperilex:${DB_PASSWORD:-dev_password}@postgres/aperilex
+      REDIS_URL: redis://:${REDIS_PASSWORD:-dev_password}@redis:6379
+      SECRET_KEY: ${SECRET_KEY:-dev-secret-key-change-in-production}
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY:-dev-encryption-key-32-characters}
+      DEBUG: "true"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./src:/app/src
+      - ./tests:/app/tests
+    command: uvicorn src.presentation.api.app:app --reload --host 0.0.0.0 --port 8000
+
+volumes:
+  postgres_data:
