@@ -2,7 +2,7 @@
 
 ## Executive Summary
 
-This document outlines a comprehensive rewrite strategy for the Aperilex SEC Filing Analysis Engine, addressing critical security vulnerabilities and architectural issues identified in the security analysis. The rewrite will transform a monolithic application with significant technical debt into a modern, secure, and maintainable system following best practices in software architecture and engineering.
+This document outlines a comprehensive rewrite strategy for the [SEC Filing Analysis Engine](https://github.com/Dogecat0/sec-filing-analysis), now named Aperilex, addressing critical security vulnerabilities and architectural issues identified in the security analysis. The rewrite will transform a monolithic application with significant technical debt into a modern, secure, and maintainable system following best practices in software architecture and engineering.
 
 ## Current State Analysis
 
