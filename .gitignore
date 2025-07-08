@@ -173,6 +173,7 @@ Desktop.ini
 
 # Security analysis output
 sec-analysis-repomix-output.xml
+repomix-output.xml
 
 # Local development
 *.local
