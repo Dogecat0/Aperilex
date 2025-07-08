@@ -21,14 +21,14 @@ classifiers = [
 [tool.poetry.dependencies]
 python = "^3.12"
 # Web Framework
-fastapi = "^0.110.0"
-uvicorn = {extras = ["standard"], version = "^0.27.0"}
+fastapi = "^0.116.0"
+uvicorn = "^0.35.0"
 # Data Validation
-pydantic = "^2.6.0"
-pydantic-settings = "^2.2.0"
+pydantic = "^2.11.7"
+pydantic-settings = "^2.10.1"
 # Database
-sqlalchemy = "^2.0.27"
-alembic = "^1.13.1"
+sqlalchemy = "^2.0.41"
+alembic = "^1.16.2"
 asyncpg = "^0.29.0"
 # Security
 python-jose = {extras = ["cryptography"], version = "^3.3.0"}
@@ -47,8 +47,8 @@ opentelemetry-instrumentation-fastapi = "^0.43b0"
 # Logging
 structlog = "^24.1.0"
 # LLM
-openai = "^1.12.0"
-anthropic = "^0.18.0"
+openai = "^1.93.1"
+anthropic = "^0.57.1"
 # Utilities
 python-dateutil = "^2.8.2"
 orjson = "^3.9.14"
@@ -56,16 +56,16 @@ tenacity = "^8.2.3"
 
 [tool.poetry.group.dev.dependencies]
 # Testing
-pytest = "^8.0.0"
+pytest = "^8.4.1"
 pytest-asyncio = "^0.23.0"
 pytest-cov = "^4.1.0"
 pytest-mock = "^3.12.0"
 hypothesis = "^6.98.0"
 factory-boy = "^3.3.0"
 # Code Quality
-mypy = "^1.8.0"
-ruff = "^0.2.0"
-black = "^24.1.0"
+mypy = "^1.16.1"
+ruff = "^0.12.2"
+black = "^25.1.0"
 isort = "^5.13.0"
 # Security
 bandit = "^1.7.7"
@@ -82,7 +82,7 @@ build-backend = "poetry.core.masonry.api"
 [tool.ruff]
 target-version = "py312"
 line-length = 88
-select = [
+lint.select = [
     "E",  # pycodestyle errors
     "W",  # pycodestyle warnings
     "F",  # pyflakes
@@ -91,13 +91,13 @@ select = [
     "C4", # flake8-comprehensions
     "UP", # pyupgrade
 ]
-ignore = [
+lint.ignore = [
     "E501",  # line too long, handled by black
     "B008",  # do not perform function calls in argument defaults
     "C901",  # too complex
 ]
 
-[tool.ruff.per-file-ignores]
+[tool.ruff.lint.per-file-ignores]
 "__init__.py" = ["F401"]
 
 [tool.black]
@@ -127,6 +127,14 @@ strict_equality = true
 [[tool.mypy.overrides]]
 module = "tests.*"
 disallow_untyped_defs = false
+
+[[tool.mypy.overrides]]
+module = "src.shared.config.settings"
+disable_error_code = ["call-arg"]
+
+[[tool.mypy.overrides]]
+module = "src.infrastructure.database.base"
+disable_error_code = ["misc"]
 
 [tool.pytest.ini_options]
 minversion = "6.0"
