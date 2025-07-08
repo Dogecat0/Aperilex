@@ -257,14 +257,5 @@ Once setup is complete:
 1. Explore the codebase structure
 2. Run the test suite
 3. Read the architecture documentation
-4. Start with small contributions
-5. Join project discussions
-
-## Getting Help
-
-- Check existing GitHub issues
-- Review documentation in `docs/`
-- Ask questions in discussions
-- Read the contributing guide
 
 Happy coding! 🚀
