@@ -171,6 +171,8 @@ See `PHASES.md` for completed phases and detailed project timeline.
 - Repository interfaces for data persistence
 - Value objects for financial data structures
 
+**Detailed Plan**: See `docs/phases/PHASE_2_DETAILED_PLAN.md`
+
 ## Code Quality Standards
 
 ### Type Checking
@@ -196,7 +198,7 @@ The following overrides are configured in `pyproject.toml`:
 
 ## Next Steps
 
-**Immediate**: Begin Phase 2 domain model implementation. Reference `PHASES.md` for detailed project roadmap and deliverables.
+**Immediate**: Begin Phase 2 domain model implementation. Reference `docs/phases/PHASES.md` for detailed project roadmap and deliverables.
 
 **Quick Start for Phase 2**:
 1. Create domain entities in `src/domain/entities/`
