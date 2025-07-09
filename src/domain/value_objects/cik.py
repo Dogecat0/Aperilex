@@ -8,8 +8,8 @@ class CIK:
     """Central Index Key - SEC company identifier.
 
     CIK is a 10-digit number assigned by the SEC to identify companies.
-    It can be stored with or without leading zeros, but should be validated
-    and can be formatted consistently.
+    This value object provides validation and type safety for CIK values.
+    For formatting operations, use edgartools directly.
     """
 
     def __init__(self, value: str) -> None:
@@ -42,6 +42,11 @@ class CIK:
         except ValueError as e:
             raise ValueError("CIK must be a valid number") from e
 
+    @property
+    def value(self) -> str:
+        """Return the raw CIK value."""
+        return self._value
+
     def __str__(self) -> str:
         """Return CIK as string without leading zeros."""
         return str(int(self._value))
@@ -59,16 +64,3 @@ class CIK:
     def __repr__(self) -> str:
         """Return string representation for debugging."""
         return f"CIK('{self._value}')"
-
-    def to_padded_string(self) -> str:
-        """Return CIK as zero-padded 10-digit string.
-
-        Returns:
-            CIK formatted as 10-digit string with leading zeros
-        """
-        return str(int(self._value)).zfill(10)
-
-    @property
-    def value(self) -> str:
-        """Return the raw CIK value."""
-        return self._value
