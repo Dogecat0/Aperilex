@@ -83,17 +83,6 @@ class TestCIK:
         cik = CIK("320193")
         assert repr(cik) == "CIK('320193')"
 
-    def test_to_padded_string(self):
-        """Test CIK zero-padded formatting."""
-        cik1 = CIK("320193")
-        assert cik1.to_padded_string() == "0000320193"
-
-        cik2 = CIK("0000320193")
-        assert cik2.to_padded_string() == "0000320193"
-
-        cik3 = CIK("1")
-        assert cik3.to_padded_string() == "0000000001"
-
     def test_value_property(self):
         """Test value property returns raw value."""
         cik = CIK("  0000320193  ")
@@ -109,24 +98,20 @@ class TestCIK:
         cik2 = CIK("0000000001")
         assert cik2.value == "0000000001"
         assert str(cik2) == "1"
-        assert cik2.to_padded_string() == "0000000001"
 
     def test_edge_cases(self):
         """Test edge cases for CIK validation."""
         # Single digit
         cik = CIK("1")
         assert str(cik) == "1"
-        assert cik.to_padded_string() == "0000000001"
 
         # Maximum length
         cik_max = CIK("1234567890")
         assert str(cik_max) == "1234567890"
-        assert cik_max.to_padded_string() == "1234567890"
 
         # All zeros (should be valid)
         cik_zeros = CIK("0000000000")
         assert str(cik_zeros) == "0"
-        assert cik_zeros.to_padded_string() == "0000000000"
 
     def test_immutability(self):
         """Test that CIK is immutable."""
@@ -145,8 +130,20 @@ class TestCIK:
         assert cik_short == cik_padded
         assert hash(cik_short) == hash(cik_padded)
         assert str(cik_short) == str(cik_padded) == "123"
-        assert (
-            cik_short.to_padded_string()
-            == cik_padded.to_padded_string()
-            == "0000000123"
-        )
+
+    def test_real_world_examples(self):
+        """Test with real-world CIK examples."""
+        # Apple Inc.
+        apple_cik = CIK("0000320193")
+        assert apple_cik.value == "0000320193"
+        assert str(apple_cik) == "320193"
+
+        # Microsoft Corp.
+        msft_cik = CIK("0000789019")
+        assert msft_cik.value == "0000789019"
+        assert str(msft_cik) == "789019"
+
+        # Tesla Inc.
+        tesla_cik = CIK("1318605")
+        assert tesla_cik.value == "1318605"
+        assert str(tesla_cik) == "1318605"

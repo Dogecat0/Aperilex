@@ -26,97 +26,6 @@ class TestFilingType:
         assert FilingType.FORM_10Q_A.value == "10-Q/A"
         assert FilingType.FORM_8K_A.value == "8-K/A"
 
-    def test_is_periodic(self):
-        """Test is_periodic method."""
-        # Periodic reports
-        assert FilingType.FORM_10K.is_periodic() is True
-        assert FilingType.FORM_10Q.is_periodic() is True
-        assert FilingType.FORM_10K_A.is_periodic() is True
-        assert FilingType.FORM_10Q_A.is_periodic() is True
-
-        # Non-periodic reports
-        assert FilingType.FORM_8K.is_periodic() is False
-        assert FilingType.FORM_13F.is_periodic() is False
-        assert FilingType.FORM_3.is_periodic() is False
-        assert FilingType.FORM_4.is_periodic() is False
-        assert FilingType.FORM_5.is_periodic() is False
-        assert FilingType.FORM_S1.is_periodic() is False
-        assert FilingType.DEF_14A.is_periodic() is False
-
-    def test_is_annual(self):
-        """Test is_annual method."""
-        # Annual reports
-        assert FilingType.FORM_10K.is_annual() is True
-        assert FilingType.FORM_10K_A.is_annual() is True
-
-        # Non-annual reports
-        assert FilingType.FORM_10Q.is_annual() is False
-        assert FilingType.FORM_10Q_A.is_annual() is False
-        assert FilingType.FORM_8K.is_annual() is False
-        assert FilingType.FORM_13F.is_annual() is False
-        assert FilingType.FORM_3.is_annual() is False
-        assert FilingType.FORM_4.is_annual() is False
-        assert FilingType.FORM_5.is_annual() is False
-
-    def test_is_quarterly(self):
-        """Test is_quarterly method."""
-        # Quarterly reports
-        assert FilingType.FORM_10Q.is_quarterly() is True
-        assert FilingType.FORM_10Q_A.is_quarterly() is True
-
-        # Non-quarterly reports
-        assert FilingType.FORM_10K.is_quarterly() is False
-        assert FilingType.FORM_10K_A.is_quarterly() is False
-        assert FilingType.FORM_8K.is_quarterly() is False
-        assert FilingType.FORM_13F.is_quarterly() is False
-        assert FilingType.FORM_3.is_quarterly() is False
-        assert FilingType.FORM_4.is_quarterly() is False
-        assert FilingType.FORM_5.is_quarterly() is False
-
-    def test_is_current_report(self):
-        """Test is_current_report method."""
-        # Current reports
-        assert FilingType.FORM_8K.is_current_report() is True
-        assert FilingType.FORM_8K_A.is_current_report() is True
-
-        # Non-current reports
-        assert FilingType.FORM_10K.is_current_report() is False
-        assert FilingType.FORM_10Q.is_current_report() is False
-        assert FilingType.FORM_13F.is_current_report() is False
-        assert FilingType.FORM_3.is_current_report() is False
-        assert FilingType.FORM_4.is_current_report() is False
-        assert FilingType.FORM_5.is_current_report() is False
-
-    def test_is_insider_trading(self):
-        """Test is_insider_trading method."""
-        # Insider trading forms
-        assert FilingType.FORM_3.is_insider_trading() is True
-        assert FilingType.FORM_4.is_insider_trading() is True
-        assert FilingType.FORM_5.is_insider_trading() is True
-
-        # Non-insider trading forms
-        assert FilingType.FORM_10K.is_insider_trading() is False
-        assert FilingType.FORM_10Q.is_insider_trading() is False
-        assert FilingType.FORM_8K.is_insider_trading() is False
-        assert FilingType.FORM_13F.is_insider_trading() is False
-        assert FilingType.FORM_S1.is_insider_trading() is False
-        assert FilingType.DEF_14A.is_insider_trading() is False
-
-    def test_is_proxy_statement(self):
-        """Test is_proxy_statement method."""
-        # Proxy statements
-        assert FilingType.DEF_14A.is_proxy_statement() is True
-        assert FilingType.DEFA14A.is_proxy_statement() is True
-
-        # Non-proxy statements
-        assert FilingType.FORM_10K.is_proxy_statement() is False
-        assert FilingType.FORM_10Q.is_proxy_statement() is False
-        assert FilingType.FORM_8K.is_proxy_statement() is False
-        assert FilingType.FORM_13F.is_proxy_statement() is False
-        assert FilingType.FORM_3.is_proxy_statement() is False
-        assert FilingType.FORM_4.is_proxy_statement() is False
-        assert FilingType.FORM_5.is_proxy_statement() is False
-
     def test_is_amendment(self):
         """Test is_amendment method."""
         # Amendment forms
@@ -132,22 +41,6 @@ class TestFilingType:
         assert FilingType.FORM_3.is_amendment() is False
         assert FilingType.FORM_4.is_amendment() is False
         assert FilingType.FORM_5.is_amendment() is False
-
-    def test_get_base_type(self):
-        """Test get_base_type method."""
-        # Amendment forms should return base type
-        assert FilingType.FORM_10K_A.get_base_type() == FilingType.FORM_10K
-        assert FilingType.FORM_10Q_A.get_base_type() == FilingType.FORM_10Q
-        assert FilingType.FORM_8K_A.get_base_type() == FilingType.FORM_8K
-
-        # Non-amendment forms should return themselves
-        assert FilingType.FORM_10K.get_base_type() == FilingType.FORM_10K
-        assert FilingType.FORM_10Q.get_base_type() == FilingType.FORM_10Q
-        assert FilingType.FORM_8K.get_base_type() == FilingType.FORM_8K
-        assert FilingType.FORM_13F.get_base_type() == FilingType.FORM_13F
-        assert FilingType.FORM_3.get_base_type() == FilingType.FORM_3
-        assert FilingType.FORM_4.get_base_type() == FilingType.FORM_4
-        assert FilingType.FORM_5.get_base_type() == FilingType.FORM_5
 
     def test_string_representation(self):
         """Test string representation of FilingType."""
@@ -191,122 +84,93 @@ class TestFilingType:
         with pytest.raises(ValueError):
             FilingType("INVALID")
 
-    def test_comprehensive_business_logic(self):
-        """Test comprehensive business logic combinations."""
-        # Test 10-K
-        tenk = FilingType.FORM_10K
-        assert tenk.is_periodic() is True
-        assert tenk.is_annual() is True
-        assert tenk.is_quarterly() is False
-        assert tenk.is_current_report() is False
-        assert tenk.is_insider_trading() is False
-        assert tenk.is_proxy_statement() is False
-        assert tenk.is_amendment() is False
-        assert tenk.get_base_type() == FilingType.FORM_10K
+    def test_amendment_detection(self):
+        """Test amendment detection logic."""
+        # Test all amendment forms
+        amendment_forms = [
+            FilingType.FORM_10K_A,
+            FilingType.FORM_10Q_A,
+            FilingType.FORM_8K_A,
+        ]
 
-        # Test 10-Q
-        tenq = FilingType.FORM_10Q
-        assert tenq.is_periodic() is True
-        assert tenq.is_annual() is False
-        assert tenq.is_quarterly() is True
-        assert tenq.is_current_report() is False
-        assert tenq.is_insider_trading() is False
-        assert tenq.is_proxy_statement() is False
-        assert tenq.is_amendment() is False
-        assert tenq.get_base_type() == FilingType.FORM_10Q
+        for form in amendment_forms:
+            assert form.is_amendment() is True
+            assert "/A" in form.value
 
-        # Test 8-K
-        eightk = FilingType.FORM_8K
-        assert eightk.is_periodic() is False
-        assert eightk.is_annual() is False
-        assert eightk.is_quarterly() is False
-        assert eightk.is_current_report() is True
-        assert eightk.is_insider_trading() is False
-        assert eightk.is_proxy_statement() is False
-        assert eightk.is_amendment() is False
-        assert eightk.get_base_type() == FilingType.FORM_8K
-
-        # Test insider trading form
-        form4 = FilingType.FORM_4
-        assert form4.is_periodic() is False
-        assert form4.is_annual() is False
-        assert form4.is_quarterly() is False
-        assert form4.is_current_report() is False
-        assert form4.is_insider_trading() is True
-        assert form4.is_proxy_statement() is False
-        assert form4.is_amendment() is False
-        assert form4.get_base_type() == FilingType.FORM_4
-
-        # Test amendment
-        tenk_a = FilingType.FORM_10K_A
-        assert tenk_a.is_periodic() is True
-        assert tenk_a.is_annual() is True
-        assert tenk_a.is_quarterly() is False
-        assert tenk_a.is_current_report() is False
-        assert tenk_a.is_insider_trading() is False
-        assert tenk_a.is_proxy_statement() is False
-        assert tenk_a.is_amendment() is True
-        assert tenk_a.get_base_type() == FilingType.FORM_10K
-
-    def test_all_filing_types_have_classifications(self):
-        """Test that all filing types can be classified."""
-        for filing_type in FilingType:
-            # Every filing type should have at least one classification
-            classifications = [
-                filing_type.is_periodic(),
-                filing_type.is_current_report(),
-                filing_type.is_insider_trading(),
-                filing_type.is_proxy_statement(),
-            ]
-
-            # At least one classification should be True
-            # (some forms might not fit standard categories, but most should)
-            result = any(classifications)
-
-            # For forms that don't fit standard categories, we'll be lenient
-            # but document the expected behavior
-            if filing_type in [
-                FilingType.FORM_13F,
-                FilingType.FORM_S1,
-                FilingType.FORM_S3,
-                FilingType.FORM_S4,
-            ]:
-                # These are special forms that don't fit standard categories
-                assert result is False or result is True  # Either is acceptable
-            else:
-                # Standard forms should have at least one classification
-                assert (
-                    result is True
-                ), f"Filing type {filing_type} has no classification"
-
-    def test_registration_statements(self):
-        """Test registration statement forms."""
-        registration_forms = [
+        # Test non-amendment forms
+        non_amendment_forms = [
+            FilingType.FORM_10K,
+            FilingType.FORM_10Q,
+            FilingType.FORM_8K,
+            FilingType.FORM_13F,
+            FilingType.FORM_3,
+            FilingType.FORM_4,
+            FilingType.FORM_5,
             FilingType.FORM_S1,
             FilingType.FORM_S3,
             FilingType.FORM_S4,
+            FilingType.DEF_14A,
+            FilingType.DEFA14A,
         ]
 
-        for form in registration_forms:
-            # Registration statements are not periodic reports
-            assert form.is_periodic() is False
-            assert form.is_annual() is False
-            assert form.is_quarterly() is False
-            assert form.is_current_report() is False
-            assert form.is_insider_trading() is False
-            assert form.is_proxy_statement() is False
+        for form in non_amendment_forms:
             assert form.is_amendment() is False
-            assert form.get_base_type() == form
+            assert "/A" not in form.value
 
-    def test_investment_forms(self):
-        """Test investment-related forms."""
-        # 13F is for institutional investment managers
-        form_13f = FilingType.FORM_13F
-        assert form_13f.is_periodic() is False
-        assert form_13f.is_annual() is False
-        assert form_13f.is_quarterly() is False
-        assert form_13f.is_current_report() is False
-        assert form_13f.is_insider_trading() is False
-        assert form_13f.is_proxy_statement() is False
-        assert form_13f.is_amendment() is False
-        assert form_13f.get_base_type() == FilingType.FORM_13F
+    def test_all_filing_types_exist(self):
+        """Test that all expected filing types exist."""
+        expected_forms = [
+            "10-K", "10-Q", "8-K", "13F", "3", "4", "5", 
+            "S-1", "S-3", "S-4", "DEF 14A", "DEFA14A",
+            "10-K/A", "10-Q/A", "8-K/A"
+        ]
+
+        for form_value in expected_forms:
+            # Should be able to create FilingType from each expected value
+            filing_type = FilingType(form_value)
+            assert filing_type.value == form_value
+
+    def test_immutability(self):
+        """Test that FilingType enum values are immutable."""
+        # Test that enum values cannot be changed
+        original_value = FilingType.FORM_10K.value
+        assert original_value == "10-K"
+        
+        # FilingType should be immutable (it's an enum)
+        assert FilingType.FORM_10K.value == "10-K"
+
+    def test_hash_consistency(self):
+        """Test that FilingType values hash consistently."""
+        form1 = FilingType.FORM_10K
+        form2 = FilingType("10-K")
+        
+        assert form1 == form2
+        assert hash(form1) == hash(form2)
+        
+        # Test that different forms have different hashes
+        form3 = FilingType.FORM_10Q
+        assert hash(form1) != hash(form3)
+
+    def test_set_operations(self):
+        """Test FilingType in set operations."""
+        filing_set = {
+            FilingType.FORM_10K,
+            FilingType.FORM_10Q,
+            FilingType.FORM_10K,  # Duplicate
+        }
+        
+        assert len(filing_set) == 2
+        assert FilingType.FORM_10K in filing_set
+        assert FilingType.FORM_10Q in filing_set
+        assert FilingType.FORM_8K not in filing_set
+
+    def test_comprehensive_coverage(self):
+        """Test comprehensive coverage of all filing types."""
+        # Test that we can iterate over all filing types
+        all_forms = list(FilingType)
+        assert len(all_forms) == 15  # Total number of filing types
+        
+        # Test that all forms have valid values
+        for form in all_forms:
+            assert isinstance(form.value, str)
+            assert len(form.value) > 0

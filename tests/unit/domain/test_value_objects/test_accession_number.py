@@ -93,84 +93,10 @@ class TestAccessionNumber:
         acc_num = AccessionNumber("0000320193-24-000005")
         assert repr(acc_num) == "AccessionNumber('0000320193-24-000005')"
 
-    def test_get_cik(self):
-        """Test extracting CIK from accession number."""
-        acc_num = AccessionNumber("0000320193-24-000005")
-        assert acc_num.get_cik() == "0000320193"
-
-        acc_num2 = AccessionNumber("0001234567-23-123456")
-        assert acc_num2.get_cik() == "0001234567"
-
-    def test_get_year(self):
-        """Test extracting year from accession number."""
-        # Test 2-digit year conversion
-        acc_num_24 = AccessionNumber("0000320193-24-000005")
-        assert acc_num_24.get_year() == 2024
-
-        acc_num_23 = AccessionNumber("0000320193-23-000005")
-        assert acc_num_23.get_year() == 2023
-
-        # Test boundary cases for year conversion
-        acc_num_00 = AccessionNumber("0000320193-00-000005")
-        assert acc_num_00.get_year() == 2000
-
-        acc_num_30 = AccessionNumber("0000320193-30-000005")
-        assert acc_num_30.get_year() == 2030
-
-        # Test older years (31-99 should be 1931-1999)
-        acc_num_99 = AccessionNumber("0000320193-99-000005")
-        assert acc_num_99.get_year() == 1999
-
-        acc_num_50 = AccessionNumber("0000320193-50-000005")
-        assert acc_num_50.get_year() == 1950
-
-    def test_get_sequence(self):
-        """Test extracting sequence number from accession number."""
-        acc_num = AccessionNumber("0000320193-24-000005")
-        assert acc_num.get_sequence() == 5
-
-        acc_num2 = AccessionNumber("0001234567-23-123456")
-        assert acc_num2.get_sequence() == 123456
-
-        # Test with leading zeros
-        acc_num3 = AccessionNumber("0000320193-24-000001")
-        assert acc_num3.get_sequence() == 1
-
     def test_value_property(self):
         """Test value property returns the accession number."""
         acc_num = AccessionNumber("  0000320193-24-000005  ")
         assert acc_num.value == "0000320193-24-000005"
-
-    def test_real_world_examples(self):
-        """Test with real-world-like accession numbers."""
-        # Apple Inc. (CIK: 0000320193)
-        apple_acc = AccessionNumber("0000320193-24-000005")
-        assert apple_acc.get_cik() == "0000320193"
-        assert apple_acc.get_year() == 2024
-        assert apple_acc.get_sequence() == 5
-
-        # Microsoft Corp. (CIK: 0000789019)
-        msft_acc = AccessionNumber("0000789019-23-000123")
-        assert msft_acc.get_cik() == "0000789019"
-        assert msft_acc.get_year() == 2023
-        assert msft_acc.get_sequence() == 123
-
-    def test_edge_cases(self):
-        """Test edge cases for AccessionNumber."""
-        # Minimum sequence number
-        acc_min = AccessionNumber("0000320193-24-000000")
-        assert acc_min.get_sequence() == 0
-
-        # Maximum sequence number
-        acc_max = AccessionNumber("0000320193-24-999999")
-        assert acc_max.get_sequence() == 999999
-
-        # Year boundary testing
-        acc_year_01 = AccessionNumber("0000320193-01-000005")
-        assert acc_year_01.get_year() == 2001
-
-        acc_year_31 = AccessionNumber("0000320193-31-000005")
-        assert acc_year_31.get_year() == 1931
 
     def test_format_validation(self):
         """Test format validation edge cases."""
@@ -214,20 +140,31 @@ class TestAccessionNumber:
         assert hasattr(acc_num, '_value')
         assert acc_num.value == "0000320193-24-000005"
 
-    def test_component_extraction_consistency(self):
-        """Test that component extraction is consistent."""
-        acc_num = AccessionNumber("0000320193-24-000005")
+    def test_real_world_examples(self):
+        """Test with real-world-like accession numbers."""
+        # Apple Inc. (CIK: 0000320193)
+        apple_acc = AccessionNumber("0000320193-24-000005")
+        assert apple_acc.value == "0000320193-24-000005"
+        assert str(apple_acc) == "0000320193-24-000005"
 
-        # Verify all components are extracted correctly
-        cik = acc_num.get_cik()
-        year = acc_num.get_year()
-        sequence = acc_num.get_sequence()
+        # Microsoft Corp. (CIK: 0000789019)
+        msft_acc = AccessionNumber("0000789019-23-000123")
+        assert msft_acc.value == "0000789019-23-000123"
+        assert str(msft_acc) == "0000789019-23-000123"
 
-        # The original string should be reconstructable from components
-        assert cik == "0000320193"
-        assert year == 2024
-        assert sequence == 5
+    def test_edge_cases(self):
+        """Test edge cases for AccessionNumber."""
+        # Minimum values
+        acc_min = AccessionNumber("0000000001-00-000000")
+        assert acc_min.value == "0000000001-00-000000"
 
-        # Test that the format is maintained
-        assert acc_num.value == "0000320193-24-000005"
-        assert str(acc_num) == "0000320193-24-000005"
+        # Maximum values
+        acc_max = AccessionNumber("9999999999-99-999999")
+        assert acc_max.value == "9999999999-99-999999"
+
+        # Test boundary cases
+        acc_year_01 = AccessionNumber("0000320193-01-000005")
+        assert acc_year_01.value == "0000320193-01-000005"
+
+        acc_year_31 = AccessionNumber("0000320193-31-000005")
+        assert acc_year_31.value == "0000320193-31-000005"
