@@ -10,7 +10,7 @@ from src.infrastructure.database.base import Base
 class User(Base):
     """User model for authentication and authorization."""
 
-    __tablename__ = "users"  # type: ignore[assignment]
+    __tablename__ = "users"
 
     id: Mapped[UUID] = mapped_column(
         PostgresUUID(as_uuid=True),
