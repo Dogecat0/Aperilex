@@ -161,19 +161,17 @@ safety check
 - **Infrastructure Layer**: External integrations (SEC API, LLM providers, Database)
 - **Presentation Layer**: REST API endpoints
 
-## Current Phase
-**Phase 2: Core Domain Implementation (Week 3) - 🔄 IN PROGRESS**
-
-See `PHASES.md` for completed phases and detailed project timeline.
-
-**Current Focus**: Implementing domain models based on edgartools patterns
-- Domain entities: Company, Filing, FinancialStatement, XBRLData, Transaction
-- Repository interfaces for data persistence
-- Value objects for financial data structures
-
-**Detailed Plan**: See `docs/phases/PHASE_2_DETAILED_PLAN.md`
 
 ## Code Quality Standards
+
+### Engineering Practices
+- **SOLID Principles**: Single responsibility, open/closed, Liskov substitution, interface segregation, dependency inversion
+- **Clean Code**: Meaningful names, small functions (<20 lines), single responsibility per function
+- **Domain-Driven Design**: Clear separation of entities, value objects, and aggregates
+- **Immutability**: Value objects should be immutable, use dataclasses with `frozen=True`
+- **Dependency Injection**: Use constructor injection, depend on abstractions not concretions
+- **Error Handling**: Use custom exceptions for domain errors, fail fast with clear error messages
+- **Testing**: Unit tests for domain logic, integration tests for external dependencies
 
 ### Type Checking
 - **MyPy**: Strict type checking enabled with targeted overrides in `pyproject.toml`
@@ -196,14 +194,16 @@ The following overrides are configured in `pyproject.toml`:
 - `src.shared.config.settings`: Disabled `call-arg` errors for Settings instantiation
 - `src.infrastructure.database.base`: Disabled `misc` errors for DeclarativeBase overrides
 
-## Next Steps
+## Current Phase
+**Phase 2: Core Domain Implementation (Week 3) - 🔄 IN PROGRESS**
 
-**Immediate**: Begin Phase 2 domain model implementation. Reference `docs/phases/PHASES.md` for detailed project roadmap and deliverables.
+See `PHASES.md` for completed phases and detailed project timeline.
 
-**Quick Start for Phase 2**:
-1. Create domain entities in `src/domain/entities/`
-2. Define repository interfaces in `src/domain/repositories/`
-3. Implement value objects for financial data structures
-4. Set up unit tests for domain logic
+**Current Focus**: Implementing domain models based on edgartools patterns
+- Domain entities: Company, Filing, FinancialStatement, XBRLData, Transaction
+- Repository interfaces for data persistence
+- Value objects for financial data structures
+
+**Detailed Plan**: See `docs/phases/PHASE_2_DETAILED_PLAN.md`
 
 **EdgarTools Integration Note**: All implementations should reference Context7 Library ID `/dgunning/edgartools` for examples and patterns.
