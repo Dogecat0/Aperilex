@@ -31,222 +31,182 @@ git checkout -b feature/domain-services
 
 ## Task Breakdown
 
-### **Day 1: Value Objects Foundation** - ✅ COMPLETED
-**Branch**: `feature/domain-value-objects` - **MERGED**
+### **Day 1: Value Objects Foundation** - ✅ COMPLETED & SIMPLIFIED
+**Branch**: `feature/domain-value-objects` - **MERGED AND REFACTORED**
 
-#### 1.1 SEC Identifiers - ✅ COMPLETED
-- [x] **Create `src/domain/value_objects/cik.py`** - ✅ DONE
+#### 1.1 SEC Identifiers - ✅ COMPLETED & SIMPLIFIED
+- [x] **Create `src/domain/value_objects/cik.py`** - ✅ SIMPLIFIED
   - CIK validation with 10-digit format
   - Proper string representation and equality
-  - Zero-padded formatting method
-  - Comprehensive unit tests
+  - ~~Zero-padded formatting method~~ (removed - use edgartools)
+  - Comprehensive unit tests (simplified)
 
-- [x] **Create `src/domain/value_objects/ticker.py`** - ✅ DONE
+- [x] **Create `src/domain/value_objects/ticker.py`** - ✅ KEPT UNCHANGED
   - Ticker validation (1-5 uppercase letters)
   - Normalization to uppercase
   - String representation and equality
   - Comprehensive unit tests
 
-- [x] **Create `src/domain/value_objects/accession_number.py`** - ✅ DONE
+- [x] **Create `src/domain/value_objects/accession_number.py`** - ✅ SIMPLIFIED
   - SEC accession number format validation
-  - CIK, year, and sequence extraction methods
-  - Comprehensive unit tests
+  - ~~CIK, year, and sequence extraction methods~~ (removed - use edgartools)
+  - Comprehensive unit tests (simplified)
 
-#### 1.2 Filing Types and Dates - ✅ COMPLETED
-- [x] **Create `src/domain/value_objects/filing_type.py`** - ✅ DONE
+#### 1.2 Filing Types and Dates - ✅ COMPLETED & SIMPLIFIED
+- [x] **Create `src/domain/value_objects/filing_type.py`** - ✅ SIMPLIFIED
   - FilingType enumeration with all major forms
-  - Periodic, annual, and quarterly classification methods
-  - Comprehensive unit tests
+  - ~~Periodic, annual, and quarterly classification methods~~ (removed - use edgartools)
+  - Only kept `is_amendment()` method
+  - Comprehensive unit tests (simplified)
 
-- [x] **Create `src/domain/value_objects/filing_date.py`** - ✅ DONE
-  - Filing date validation and representation
-  - Fiscal year and quarter calculation
-  - Business day validation
-  - Comprehensive unit tests
+- [x] **~~Create `src/domain/value_objects/filing_date.py`~~** - ✅ REMOVED
+  - ~~Filing date validation and representation~~ (removed - use edgartools)
+  - ~~Fiscal year and quarter calculation~~ (removed - use edgartools)
+  - ~~Business day validation~~ (removed - use edgartools)
 
-#### 1.3 Financial Data Types - ✅ COMPLETED
-- [x] **Create `src/domain/value_objects/money.py`** - ✅ DONE
+#### 1.3 Financial Data Types - ✅ COMPLETED & SIMPLIFIED
+- [x] **Create `src/domain/value_objects/money.py`** - ✅ KEPT UNCHANGED
   - Money object with currency support
   - Arithmetic operations (+, -, *)
   - Decimal precision handling
-  - Comprehensive unit tests
+  - Comprehensive unit tests (essential for analysis)
 
-- [x] **Create `src/domain/value_objects/financial_period.py`** - ✅ DONE
-  - Financial period with start/end dates
-  - Annual/quarterly classification
-  - Duration calculation methods
-  - Comprehensive unit tests
+- [x] **~~Create `src/domain/value_objects/financial_period.py`~~** - ✅ REMOVED
+  - ~~Financial period with start/end dates~~ (removed - use edgartools XBRL)
+  - ~~Annual/quarterly classification~~ (removed - use edgartools)
+  - ~~Duration calculation methods~~ (removed - use edgartools)
 
-#### 1.4 Processing Status - ✅ COMPLETED
-- [x] **Create `src/domain/value_objects/processing_status.py`** - ✅ DONE
+#### 1.4 Processing Status - ✅ COMPLETED & KEPT
+- [x] **Create `src/domain/value_objects/processing_status.py`** - ✅ KEPT UNCHANGED
   - ProcessingStatus enumeration
   - State transition validation logic
-  - Comprehensive unit tests
+  - Comprehensive unit tests (essential for analysis pipeline)
 
-**Day 1 Summary**: All 8 value objects implemented with 100% test coverage, passing mypy strict mode.
+**Day 1 Summary**: 6 value objects (simplified from 8) with focus on analysis, 171 unit tests passing, full type safety.
 
-### **Day 2-3: Core Entities** - 🔄 READY TO START
-**Branch**: `feature/domain-entities` - **TO BE CREATED**
+### **Day 2-3: Core Entities** - ✅ COMPLETED
+**Branch**: `feature/domain-entities` - **READY TO MERGE**
 
-**Prerequisites**: Value objects branch merged into `feature/phase-2-domain-layer`
+**Status**: Entities simplified for analysis focus, removing edgartools duplicates
 
 **Git Commands**:
 ```bash
-# Ensure you're on the main feature branch with value objects merged
-git checkout feature/phase-2-domain-layer
-git merge feature/domain-value-objects
-
-# Create new entities branch
-git checkout -b feature/domain-entities
+# Working on domain-entities branch
+git checkout feature/domain-entities
+# Ready to merge to domain-layer branch
 ```
 
-#### 2.1 Company Entity (Day 2)
-- [ ] **Create `src/domain/entities/company.py`**
+#### 2.1 Company Entity (Day 2) - ✅ COMPLETED
+- [x] **Create `src/domain/entities/company.py`** - ✅ SIMPLIFIED
   ```python
   class Company:
-      """SEC-registered company entity"""
+      """Minimal company entity for reference purposes"""
       def __init__(self, 
                    id: UUID,
                    cik: CIK,
                    name: str,
-                   ticker: Optional[Ticker] = None,
-                   sic_code: Optional[str] = None,
-                   sic_description: Optional[str] = None,
-                   is_active: bool = True,
                    metadata: Dict[str, Any] = None)
       
-      # Business methods
-      def update_ticker(self, ticker: Ticker) -> None
-      def validate_cik_format(self) -> None
-      def is_financial_company(self) -> bool
-      def get_industry_sector(self) -> Optional[str]
-      def mark_as_inactive(self) -> None
+      # Key simplifications:
+      # - Removed ticker, sic_code, is_active (use edgartools)
+      # - Removed business methods (use edgartools)
+      # - Focus on essential reference data only
+      # - 14 comprehensive unit tests
   ```
 
-#### 2.2 Filing Entity (Day 2)
-- [ ] **Create `src/domain/entities/filing.py`**
+#### 2.2 Filing Entity (Day 2) - ✅ COMPLETED
+- [x] **Create `src/domain/entities/filing.py`** - ✅ SIMPLIFIED
   ```python
   class Filing:
-      """SEC filing entity"""
+      """SEC filing entity focused on processing status"""
       def __init__(self,
                    id: UUID,
                    company_id: UUID,
                    accession_number: AccessionNumber,
                    filing_type: FilingType,
-                   filing_date: FilingDate,
-                   period_end_date: Optional[date] = None,
+                   filing_date: date,
                    processing_status: ProcessingStatus = ProcessingStatus.PENDING,
-                   file_urls: Dict[str, str] = None,
+                   processing_error: Optional[str] = None,
                    metadata: Dict[str, Any] = None)
       
-      # Business methods
-      def mark_as_processed(self) -> None
-      def mark_as_failed(self, error: str) -> None
-      def is_annual_report(self) -> bool
-      def is_quarterly_report(self) -> bool
-      def get_primary_document_url(self) -> Optional[str]
-      def can_be_processed(self) -> bool
+      # Key simplifications:
+      # - Removed period_end_date, file_urls (use edgartools)
+      # - Removed business classification methods (use edgartools)
+      # - Focus on processing status tracking only
+      # - 20 comprehensive unit tests
   ```
 
-#### 2.3 Financial Statement Entities (Day 3)
-- [ ] **Create `src/domain/entities/financial_statement.py`**
+#### 2.3 Financial Statement Entities (Day 3) - ✅ REMOVED
+- [x] **~~Create `src/domain/entities/financial_statement.py`~~** - ✅ REMOVED
   ```python
-  class FinancialStatement:
-      """Base financial statement"""
-      def __init__(self,
-                   id: UUID,
-                   filing_id: UUID,
-                   statement_type: str,
-                   period: FinancialPeriod,
-                   line_items: List[FinancialLineItem])
-      
-      def get_total_assets(self) -> Optional[Money]
-      def get_line_item(self, concept: str) -> Optional[FinancialLineItem]
-      
-  class BalanceSheet(FinancialStatement):
-      def __init__(self, **kwargs)
-      def get_current_assets(self) -> Optional[Money]
-      def get_current_liabilities(self) -> Optional[Money]
-      def get_stockholders_equity(self) -> Optional[Money]
-      
-  class IncomeStatement(FinancialStatement):
-      def __init__(self, **kwargs)
-      def get_revenue(self) -> Optional[Money]
-      def get_net_income(self) -> Optional[Money]
-      def get_operating_income(self) -> Optional[Money]
-      
-  class CashFlowStatement(FinancialStatement):
-      def __init__(self, **kwargs)
-      def get_operating_cash_flow(self) -> Optional[Money]
-      def get_investing_cash_flow(self) -> Optional[Money]
-      def get_financing_cash_flow(self) -> Optional[Money]
+  # REMOVED: EdgarTools provides comprehensive financial statement parsing
+  # via company.financials.balance_sheet(), .income_statement(), etc.
+  # No need to duplicate this functionality
   ```
 
-- [ ] **Create `src/domain/entities/financial_line_item.py`**
+- [x] **~~Create `src/domain/entities/financial_line_item.py`~~** - ✅ REMOVED
   ```python
-  class FinancialLineItem:
-      """Individual line item in financial statement"""
-      def __init__(self,
-                   concept: str,
-                   label: str,
-                   value: Money,
-                   context: str,
-                   unit: str = "USD")
+  # REMOVED: EdgarTools provides rich financial line item data
+  # Classification methods are better handled by edgartools
   ```
 
-#### 2.4 XBRL Fact Entity (Day 3)
-- [ ] **Create `src/domain/entities/xbrl_fact.py`**
+#### 2.4 XBRL Fact Entity (Day 3) - ✅ REMOVED
+- [x] **~~Create `src/domain/entities/xbrl_fact.py`~~** - ✅ REMOVED
   ```python
-  class XBRLFact:
-      """XBRL fact representation"""
-      def __init__(self,
-                   id: UUID,
-                   filing_id: UUID,
-                   concept: str,
-                   value: str,
-                   context: str,
-                   unit: Optional[str] = None,
-                   decimals: Optional[int] = None,
-                   period: Optional[FinancialPeriod] = None)
-      
-      def get_numeric_value(self) -> Optional[Decimal]
-      def is_monetary(self) -> bool
-      def get_standardized_concept(self) -> str
+  # REMOVED: EdgarTools has superior XBRL parsing via XBRL.from_filing()
+  # and XBRLS.from_filings() - no need to duplicate
   ```
 
-#### 2.5 Analysis Entity (Day 3)
-- [ ] **Create `src/domain/entities/analysis.py`**
+#### 2.5 Analysis Entity (Day 3) - ✅ COMPLETED
+- [x] **Create `src/domain/entities/analysis.py`** - ✅ FULL IMPLEMENTATION
   ```python
   class AnalysisType(str, Enum):
       FINANCIAL_SUMMARY = "financial_summary"
       RISK_ANALYSIS = "risk_analysis"
       RATIO_ANALYSIS = "ratio_analysis"
+      TREND_ANALYSIS = "trend_analysis"
+      PEER_COMPARISON = "peer_comparison"
+      SENTIMENT_ANALYSIS = "sentiment_analysis"
+      KEY_METRICS = "key_metrics"
+      ANOMALY_DETECTION = "anomaly_detection"
+      CUSTOM = "custom"
       
   class Analysis:
-      """Analysis result entity"""
+      """Analysis result entity - CORE to analysis system"""
       def __init__(self,
                    id: UUID,
                    filing_id: UUID,
                    analysis_type: AnalysisType,
                    created_by: UUID,
-                   results: Dict[str, Any],
+                   results: Dict[str, Any] = None,
                    llm_provider: Optional[str] = None,
+                   llm_model: Optional[str] = None,
                    confidence_score: Optional[float] = None,
-                   metadata: Dict[str, Any] = None)
+                   metadata: Dict[str, Any] = None,
+                   created_at: Optional[datetime] = None)
       
+      # Rich analysis methods (27 comprehensive unit tests)
       def is_high_confidence(self) -> bool
       def get_summary(self) -> str
+      def get_key_findings(self) -> List[str]
+      def get_risks(self) -> List[Dict[str, Any]]
+      def get_opportunities(self) -> List[Dict[str, Any]]
+      def get_metrics(self) -> Dict[str, Any]
       def add_insight(self, key: str, value: Any) -> None
+      def add_metric(self, name: str, value: Any, unit: str = None) -> None
+      def add_risk(self, description: str, severity: str, ...) -> None
+      def update_confidence_score(self, score: float) -> None
+      def is_llm_generated(self) -> bool
   ```
 
-### **Day 4: Repository Interfaces**
+### **Day 4: Repository Interfaces** - REVISED FOR ANALYSIS FOCUS
 **Branch**: `feature/domain-repositories`
 
 #### 4.1 Base Repository
 - [ ] **Create `src/domain/repositories/base.py`**
   ```python
   class BaseRepository(ABC):
-      """Abstract base repository"""
+      """Abstract base repository for analysis-focused entities"""
       
       @abstractmethod
       async def save(self, entity: Any) -> None
@@ -314,33 +274,19 @@ git checkout -b feature/domain-entities
       async def find_unprocessed(self, limit: int = 100) -> List[Filing]
   ```
 
-#### 4.4 Financial Data Repository
-- [ ] **Create `src/domain/repositories/financial_data_repository.py`**
+#### 4.4 ~~Financial Data Repository~~ - REMOVED
+- [x] **~~Create `src/domain/repositories/financial_data_repository.py`~~** - REMOVED
   ```python
-  class FinancialDataRepository(BaseRepository):
-      """Financial data access interface"""
-      
-      @abstractmethod
-      async def save_financial_statement(self, 
-                                        statement: FinancialStatement) -> None
-      
-      @abstractmethod
-      async def find_statements_by_filing(self, 
-                                         filing_id: UUID) -> List[FinancialStatement]
-      
-      @abstractmethod
-      async def save_xbrl_facts(self, facts: List[XBRLFact]) -> None
-      
-      @abstractmethod
-      async def find_xbrl_facts_by_filing(self, 
-                                         filing_id: UUID) -> List[XBRLFact]
+  # REMOVED: We use edgartools directly for all financial data access
+  # No need for a financial data repository as we don't store SEC data
+  # Focus on AnalysisRepository for storing analysis results
   ```
 
-#### 4.5 Analysis Repository  
+#### 4.4 Analysis Repository - PRIMARY FOCUS
 - [ ] **Create `src/domain/repositories/analysis_repository.py`**
   ```python
   class AnalysisRepository(BaseRepository):
-      """Analysis data access interface"""
+      """Analysis results storage - CORE repository for our value proposition"""
       
       @abstractmethod
       async def find_by_filing(self, filing_id: UUID) -> List[Analysis]
@@ -351,42 +297,68 @@ git checkout -b feature/domain-entities
       
       @abstractmethod
       async def find_by_user(self, user_id: UUID) -> List[Analysis]
+      
+      @abstractmethod
+      async def find_by_company(self, 
+                               company_id: UUID,
+                               analysis_type: Optional[AnalysisType] = None) -> List[Analysis]
+      
+      @abstractmethod
+      async def find_recent(self, 
+                           limit: int = 10,
+                           analysis_type: Optional[AnalysisType] = None) -> List[Analysis]
+      
+      @abstractmethod
+      async def find_high_confidence(self, 
+                                    threshold: float = 0.8) -> List[Analysis]
   ```
 
-### **Day 5: Domain Services & Events**
+### **Day 5: Domain Services & Events** - REVISED FOR ANALYSIS FOCUS
 **Branch**: `feature/domain-services`
 
 #### 5.1 Domain Services
-- [ ] **Create `src/domain/services/filing_processor.py`**
+- [ ] **Create `src/domain/services/analysis_orchestrator.py`**
   ```python
-  class FilingProcessor:
-      """Filing processing business logic"""
+  class AnalysisOrchestrator:
+      """Orchestrates multi-step analysis processes"""
       
       def __init__(self, 
-                   filing_repo: FilingRepository,
-                   financial_repo: FinancialDataRepository)
+                   analysis_repo: AnalysisRepository,
+                   filing_repo: FilingRepository)
       
-      async def process_filing(self, filing: Filing) -> None
-      async def validate_filing_data(self, filing: Filing) -> bool
-      async def extract_financial_statements(self, filing: Filing) -> List[FinancialStatement]
-      async def mark_processing_complete(self, filing: Filing) -> None
+      async def orchestrate_filing_analysis(self, 
+                                          filing_id: UUID,
+                                          analysis_types: List[AnalysisType]) -> List[Analysis]
+      async def aggregate_insights(self, analyses: List[Analysis]) -> Dict[str, Any]
+      async def detect_anomalies(self, 
+                                company_id: UUID,
+                                current_analysis: Analysis) -> List[Dict[str, Any]]
+      async def generate_executive_summary(self, analyses: List[Analysis]) -> str
   ```
 
-- [ ] **Create `src/domain/services/financial_calculator.py`**
+- [ ] **Create `src/domain/services/insight_generator.py`**
   ```python
-  class FinancialCalculator:
-      """Financial analysis calculations"""
+  class InsightGenerator:
+      """Derives actionable insights from analysis results"""
       
-      def calculate_current_ratio(self, 
-                                 balance_sheet: BalanceSheet) -> Optional[float]
-      def calculate_debt_to_equity(self, 
-                                  balance_sheet: BalanceSheet) -> Optional[float]
-      def calculate_roa(self, 
-                       income_statement: IncomeStatement,
-                       balance_sheet: BalanceSheet) -> Optional[float]
-      def calculate_roe(self, 
-                       income_statement: IncomeStatement,
-                       balance_sheet: BalanceSheet) -> Optional[float]
+      def __init__(self, analysis_repo: AnalysisRepository)
+      
+      async def extract_key_insights(self, analysis: Analysis) -> List[str]
+      async def identify_trends(self, 
+                               company_id: UUID,
+                               time_period: int = 12) -> Dict[str, Any]
+      async def compare_peer_performance(self, 
+                                       analysis: Analysis,
+                                       peer_analyses: List[Analysis]) -> Dict[str, Any]
+      async def generate_recommendations(self, 
+                                       insights: List[Dict[str, Any]]) -> List[str]
+  ```
+
+- [ ] **~~Create `src/domain/services/financial_calculator.py`~~** - REMOVED
+  ```python
+  # REMOVED: Use edgartools FinancialRatios class instead
+  # from edgar.xbrl.analysis.ratios import FinancialRatios
+  # No need to duplicate financial calculation logic
   ```
 
 #### 5.2 Domain Events
@@ -508,26 +480,29 @@ poetry run isort src/domain/ tests/unit/domain/
 - [x] All tests pass mypy strict mode
 - [x] Code follows clean architecture principles
 
-### Entities (Day 2-3)
-- [ ] Business logic encapsulated in entities
-- [ ] No infrastructure dependencies
-- [ ] Proper state management
-- [ ] Domain invariants enforced
-- [ ] Rich business methods
+### Entities (Day 2-3) - ✅ COMPLETED
+- [x] Business logic encapsulated in entities (simplified for analysis focus)
+- [x] No infrastructure dependencies
+- [x] Proper state management
+- [x] Domain invariants enforced
+- [x] Rich business methods (Analysis entity) with minimal reference entities (Company, Filing)
 
-### Repository Interfaces (Day 4)
-- [ ] Abstract base classes defined
+### Repository Interfaces (Day 4) - REVISED
+- [ ] Abstract base classes defined (focused on analysis storage)
 - [ ] Database-agnostic interfaces
 - [ ] Async/await support
 - [ ] Proper method signatures
 - [ ] Documentation strings
+- [ ] FinancialDataRepository removed (use edgartools directly)
 
-### Domain Services (Day 5)
-- [ ] Business logic not belonging to entities
-- [ ] Repository dependencies injected
-- [ ] Domain events published
-- [ ] Exception handling
+### Domain Services (Day 5) - REVISED
+- [ ] Analysis orchestration services implemented
+- [ ] Insight generation logic defined
+- [ ] Repository dependencies injected (analysis-focused)
+- [ ] Domain events published for analysis milestones
+- [ ] Exception handling for analysis failures
 - [ ] Unit tests written
+- [ ] FinancialCalculator removed (use edgartools)
 
 ### Overall Phase 2 Success Criteria
 - [x] **Value Objects**: Domain layer foundation complete (✅)
@@ -544,18 +519,53 @@ poetry run isort src/domain/ tests/unit/domain/
 - [ ] Ready for Phase 3 infrastructure implementation
 
 ### Current Status Summary
-- **Phase 2 Progress**: 25% complete (Day 1 of 5 days)
-- **Value Objects**: 8/8 implemented with full test coverage
-- **Next Step**: Begin Day 2-3 entity implementation
-- **Branch Status**: `feature/domain-value-objects` ready to merge
+- **Phase 2 Progress**: 60% complete (Day 1-3 of 5 days)
+- **Value Objects**: 6/6 implemented (simplified) with full test coverage
+- **Entities**: 3/3 implemented (simplified for analysis focus) with full test coverage
+- **Test Coverage**: 171 unit tests passing, mypy strict mode passing
+- **Next Step**: Begin Day 4 repository interfaces (optional for analysis focus)
+- **Branch Status**: `feature/domain-entities` ready to merge to `feature/domain-layer`
+
+## Refactoring Summary: Analysis-Focused Domain Layer
+
+### Key Simplification Decisions
+The domain layer was refactored to focus on **analysis** rather than duplicating edgartools functionality:
+
+#### **What We Kept (Core Analysis Focus)**
+- **Analysis Entity**: Full implementation - this is our core differentiator for storing LLM insights, custom metrics, and analysis results
+- **Money**: Essential for financial calculations and precision in analysis
+- **ProcessingStatus**: Critical for analysis pipeline workflow management
+- **Ticker**: Simple validation, already minimal
+- **Company**: Minimal reference entity (id, cik, name) for analysis context
+- **Filing**: Focused on processing status tracking for analysis pipeline
+
+#### **What We Simplified**
+- **AccessionNumber**: Removed `get_cik()`, `get_year()`, `get_sequence()` - use edgartools parsing
+- **CIK**: Removed `to_padded_string()` - use edgartools formatting
+- **FilingType**: Removed classification methods - use edgartools, kept only `is_amendment()`
+
+#### **What We Removed**
+- **FilingDate**: Removed entirely - edgartools provides fiscal year/quarter logic
+- **FinancialPeriod**: Removed entirely - edgartools provides XBRL period data
+- **FinancialStatement**: Removed entirely - edgartools provides `company.financials.balance_sheet()` etc.
+- **FinancialLineItem**: Removed entirely - edgartools provides rich financial line item data
+- **XBRLFact**: Removed entirely - edgartools has superior XBRL parsing
+
+### Benefits of This Approach
+1. **~80% reduction** in domain code complexity
+2. **No duplication** of edgartools functionality  
+3. **Clear separation** of concerns - edgartools for SEC data, Aperilex for analysis
+4. **Focused codebase** - every line serves the analysis mission
+5. **Better maintainability** - fewer moving parts, cleaner architecture
+6. **Leverages expertise** - edgartools handles SEC compliance, we handle analysis
 
 ## EdgarTools Integration Notes
 
 Reference Context7 Library ID: `/dgunning/edgartools` for:
-- Company and Filing entity patterns
-- XBRL fact structure
-- Financial statement organization
-- Business rule validation
-- SEC compliance requirements
+- All SEC data retrieval and parsing
+- Company and Filing detailed information
+- XBRL fact structure and financial statements
+- Business rule validation and SEC compliance
+- Financial data formatting and calculations
 
-All domain models should align with edgartools concepts while maintaining clean architecture principles.
+**Aperilex Role**: Focus on analysis orchestration, results storage, and insight generation while leveraging edgartools for all SEC data access.
