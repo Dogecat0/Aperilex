@@ -1,4 +1,3 @@
-
 from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings
 
@@ -28,9 +27,7 @@ class Settings(BaseSettings):
     edgar_identity: str = Field(default="", validation_alias="EDGAR_IDENTITY")
 
     # LLM
-    openai_api_key: str | None = Field(
-        default=None, validation_alias="OPENAI_API_KEY"
-    )
+    openai_api_key: str | None = Field(default=None, validation_alias="OPENAI_API_KEY")
     anthropic_api_key: str | None = Field(
         default=None, validation_alias="ANTHROPIC_API_KEY"
     )
