@@ -1,9 +1,16 @@
 # Aperilex Development Context
 
 ## Project Overview
-Aperilex is a SEC Filing Analysis Engine being built as a complete rewrite of an existing application. The project uses clean architecture principles with a focus on security, scalability, and maintainability.
+Aperilex is a SEC Filing Analysis Engine being built as a complete rewrite of an existing application.
+Aperilex is designed to:
+- Fetch and analyze SEC filings (10-K, 10-Q, 8-K) using the edgartools library
+- Provide AI-powered insights and analysis through multiple LLM providers
+- Offer a secure, scalable API for enterprise use
+- Support background processing for large-scale analysis operations
 
 ## EdgarTools Reference
+
+**EdgarTools Integration Note**: All implementations should reference Context7 Library ID `/dgunning/edgartools` for examples and patterns.
 
 The previous version used edgartools (Context7 Library ID: `/dgunning/edgartools`), a Python library for accessing SEC EDGAR filings. Based on the Context7 documentation, here's what we need to know:
 
@@ -194,21 +201,10 @@ The following overrides are configured in `pyproject.toml`:
 - `src.shared.config.settings`: Disabled `call-arg` errors for Settings instantiation
 - `src.infrastructure.database.base`: Disabled `misc` errors for DeclarativeBase overrides
 
-## Current Phase
-**Phase 2: Core Domain Implementation (Week 3) - ✅ COMPLETED**
+## Phase Reference
 
-See `docs/phases/PHASES.md` for completed phases and detailed project timeline.
+**General Phase Information**: See `docs/phases/PHASES.md` for completed phases and detailed project info.
 
-**Completed Focus**: Simplified, analysis-focused domain layer
-- Domain entities: Analysis (rich), Company (minimal), Filing (processing tracker)
-- Value objects: Money, ProcessingStatus, Ticker, FilingType
-- ~80% code reduction by leveraging edgartools for all SEC data
+**Detailed Plan**: See `docs/phases/PHASE_*_DETAILED_PLAN.md`.
 
-**Next Phase**: Infrastructure Layer (Week 4)
-- Direct edgartools integration (no wrapper)
-- Analysis-focused repositories (AnalysisRepository as primary)
-- LLM provider abstractions for analysis
-
-**Detailed Plan**: See `docs/phases/PHASE_2_DETAILED_PLAN.md`
-
-**EdgarTools Integration Note**: All implementations should reference Context7 Library ID `/dgunning/edgartools` for examples and patterns.
+**Phase Notes**: When creating new phase plans, no need to add timeline information, no need to provide example code.
