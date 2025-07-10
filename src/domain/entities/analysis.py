@@ -3,21 +3,16 @@
 from datetime import datetime
 from enum import Enum
 from typing import Any
-from uuid import UUID, uuid4
+from uuid import UUID
 
 
 class AnalysisType(str, Enum):
     """Types of analysis that can be performed."""
 
-    FINANCIAL_SUMMARY = "financial_summary"
-    RISK_ANALYSIS = "risk_analysis"
-    RATIO_ANALYSIS = "ratio_analysis"
-    TREND_ANALYSIS = "trend_analysis"
-    PEER_COMPARISON = "peer_comparison"
-    SENTIMENT_ANALYSIS = "sentiment_analysis"
-    KEY_METRICS = "key_metrics"
-    ANOMALY_DETECTION = "anomaly_detection"
-    CUSTOM = "custom"
+    FILING_ANALYSIS = "filing_analysis"  # Complete filing analysis from LLM
+    CUSTOM_QUERY = "custom_query"  # Custom analysis based on user query
+    COMPARISON = "comparison"  # Multi-filing or peer comparison
+    HISTORICAL_TREND = "historical_trend"  # Time-series analysis across filings
 
 
 class Analysis:
@@ -64,7 +59,6 @@ class Analysis:
         self._confidence_score = confidence_score
         self._metadata = metadata or {}
         self._created_at = created_at or datetime.utcnow()
-        self._insights: list[dict[str, Any]] = []
 
         self._validate_invariants()
 
@@ -118,12 +112,13 @@ class Analysis:
         """Get creation timestamp."""
         return self._created_at
 
-    @property
-    def insights(self) -> list[dict[str, Any]]:
-        """Get analysis insights."""
-        import copy
+    def is_filing_analysis(self) -> bool:
+        """Check if this is a comprehensive filing analysis.
 
-        return copy.deepcopy(self._insights)
+        Returns:
+            True if analysis type is FILING_ANALYSIS
+        """
+        return self._analysis_type == AnalysisType.FILING_ANALYSIS
 
     def is_high_confidence(self) -> bool:
         """Check if analysis has high confidence.
@@ -155,135 +150,98 @@ class Analysis:
             return True  # No score = low confidence
         return self._confidence_score < 0.5
 
-    def get_summary(self) -> str:
-        """Get analysis summary.
+    def get_filing_summary(self) -> str:
+        """Get filing summary from comprehensive analysis.
 
         Returns:
-            Summary text if available, empty string otherwise
+            Filing summary text if available, empty string otherwise
         """
-        return str(self._results.get("summary", ""))
+        return str(self._results.get("filing_summary", ""))
 
-    def get_key_findings(self) -> list[str]:
-        """Get key findings from analysis.
+    def get_executive_summary(self) -> str:
+        """Get executive summary from comprehensive analysis.
 
         Returns:
-            List of key findings
+            Executive summary text if available, empty string otherwise
         """
-        findings = self._results.get("key_findings", [])
-        if isinstance(findings, list):
-            return [str(f) for f in findings]
+        return str(self._results.get("executive_summary", ""))
+
+    def get_key_insights(self) -> list[str]:
+        """Get key insights from analysis.
+
+        Returns:
+            List of key insights
+        """
+        insights = self._results.get("key_insights", [])
+        if isinstance(insights, list):
+            return [str(i) for i in insights]
         return []
 
-    def get_risks(self) -> list[dict[str, Any]]:
-        """Get identified risks.
+    def get_risk_factors(self) -> list[str]:
+        """Get risk factors from analysis.
 
         Returns:
-            List of risk items
+            List of risk factors
         """
-        risks = self._results.get("risks", [])
+        risks = self._results.get("risk_factors", [])
         if isinstance(risks, list):
-            return risks
+            return [str(r) for r in risks]
         return []
 
-    def get_opportunities(self) -> list[dict[str, Any]]:
+    def get_opportunities(self) -> list[str]:
         """Get identified opportunities.
 
         Returns:
-            List of opportunity items
+            List of opportunities
         """
         opportunities = self._results.get("opportunities", [])
         if isinstance(opportunities, list):
-            return opportunities
+            return [str(o) for o in opportunities]
         return []
 
-    def get_metrics(self) -> dict[str, Any]:
-        """Get calculated metrics.
+    def get_financial_highlights(self) -> list[str]:
+        """Get financial highlights from analysis.
 
         Returns:
-            Dictionary of metrics
+            List of financial highlights
         """
-        metrics = self._results.get("metrics", {})
-        if isinstance(metrics, dict):
-            return metrics
-        return {}
+        highlights = self._results.get("financial_highlights", [])
+        if isinstance(highlights, list):
+            return [str(h) for h in highlights]
+        return []
 
-    def add_insight(self, key: str, value: Any) -> None:
-        """Add an insight to results.
+    def get_section_analyses(self) -> list[dict[str, Any]]:
+        """Get section analyses from comprehensive filing analysis.
+
+        Returns:
+            List of section analysis data
+        """
+        sections = self._results.get("section_analyses", [])
+        if isinstance(sections, list):
+            return sections
+        return []
+
+    def get_section_by_name(self, section_name: str) -> dict[str, Any] | None:
+        """Get a specific section analysis by name.
 
         Args:
-            key: Insight key
-            value: Insight value
+            section_name: Name of the section to retrieve
+
+        Returns:
+            Section analysis data or None if not found
         """
-        if not key or not key.strip():
-            raise ValueError("Insight key cannot be empty")
+        for section in self.get_section_analyses():
+            if section.get("section_name") == section_name:
+                return section
+        return None
 
-        self._results[key.strip()] = value
-
-        # Also add to insights list if it's a structured insight
-        if isinstance(value, dict) and "type" in value:
-            self._insights.append(
-                {
-                    "id": str(uuid4()),
-                    "key": key.strip(),
-                    "timestamp": datetime.utcnow().isoformat(),
-                    **value,
-                }
-            )
-
-    def add_metric(self, name: str, value: Any, unit: str | None = None) -> None:
-        """Add a metric to results.
+    def update_results(self, results: dict[str, Any]) -> None:
+        """Update analysis results.
 
         Args:
-            name: Metric name
-            value: Metric value
-            unit: Optional unit of measure
+            results: New results data to merge with existing
         """
-        if not name or not name.strip():
-            raise ValueError("Metric name cannot be empty")
-
-        if "metrics" not in self._results:
-            self._results["metrics"] = {}
-
-        metric_data = {"value": value}
-        if unit:
-            metric_data["unit"] = unit
-
-        self._results["metrics"][name.strip()] = metric_data
-
-    def add_risk(
-        self,
-        description: str,
-        severity: str,
-        probability: str | None = None,
-        impact: str | None = None,
-    ) -> None:
-        """Add a risk item.
-
-        Args:
-            description: Risk description
-            severity: Risk severity (high, medium, low)
-            probability: Risk probability
-            impact: Potential impact
-        """
-        if not description or not description.strip():
-            raise ValueError("Risk description cannot be empty")
-
-        if "risks" not in self._results:
-            self._results["risks"] = []
-
-        risk_item = {
-            "id": str(uuid4()),
-            "description": description.strip(),
-            "severity": severity,
-            "timestamp": datetime.utcnow().isoformat(),
-        }
-
-        if probability:
-            risk_item["probability"] = probability
-        if impact:
-            risk_item["impact"] = impact
-
-        self._results["risks"].append(risk_item)
+        self._results.update(results)
 
     def update_confidence_score(self, score: float) -> None:
         """Update confidence score.
@@ -296,14 +254,93 @@ class Analysis:
 
         self._confidence_score = score
 
-    def add_metadata(self, key: str, value: Any) -> None:
-        """Add metadata entry.
+    def get_total_sub_sections(self) -> int:
+        """Get total number of sub-sections analyzed.
 
-        Args:
-            key: Metadata key
-            value: Metadata value
+        Returns:
+            Total sub-sections count across all sections
         """
-        self._metadata[key] = value
+        total = 0
+        for section in self.get_section_analyses():
+            sub_sections = section.get("sub_sections", [])
+            if isinstance(sub_sections, list):
+                total += len(sub_sections)
+        return total
+
+    def get_analysis_depth(self) -> str:
+        """Get analysis depth indicator based on content.
+
+        Returns:
+            Analysis depth (shallow, medium, comprehensive)
+        """
+        if self.is_filing_analysis():
+            sections = len(self.get_section_analyses())
+            sub_sections = self.get_total_sub_sections()
+            if sections == 0 or sub_sections == 0:
+                return "shallow"
+            elif sections < 3 or sub_sections < 10:
+                return "medium"
+            else:
+                return "comprehensive"
+        else:
+            # For custom queries, base on results size
+            return "custom"
+
+    def to_api_response(self) -> dict[str, Any]:
+        """Convert analysis to API-friendly response format.
+
+        Returns:
+            Dictionary suitable for API responses
+        """
+        response = {
+            "id": str(self._id),
+            "filing_id": str(self._filing_id),
+            "analysis_type": self._analysis_type.value,
+            "created_by": str(self._created_by),
+            "created_at": self._created_at.isoformat(),
+            "llm_provider": self._llm_provider,
+            "llm_model": self._llm_model,
+            "confidence_score": self._confidence_score,
+            "metadata": {
+                **self._metadata,
+                "processing_time_seconds": self.get_processing_time(),
+            }
+        }
+
+        # For filing analysis, include the comprehensive results
+        if self.is_filing_analysis():
+            response.update(self._results)
+        else:
+            response["results"] = self._results
+
+        return response
+
+    def get_summary_for_api(self) -> dict[str, Any]:
+        """Get condensed summary for API list responses.
+
+        Returns:
+            Condensed analysis summary
+        """
+        summary = {
+            "id": str(self._id),
+            "filing_id": str(self._filing_id),
+            "analysis_type": self._analysis_type.value,
+            "created_at": self._created_at.isoformat(),
+            "confidence_score": self._confidence_score,
+        }
+
+        if self.is_filing_analysis():
+            summary.update({
+                "filing_summary": self.get_filing_summary(),
+                "key_insights_count": len(self.get_key_insights()),
+                "risk_factors_count": len(self.get_risk_factors()),
+                "opportunities_count": len(self.get_opportunities()),
+                "sections_analyzed": len(self.get_section_analyses()),
+            })
+        else:
+            summary["summary"] = self._results.get("summary", "")
+
+        return summary
 
     def get_processing_time(self) -> float | None:
         """Get processing time if recorded.
@@ -354,8 +391,12 @@ class Analysis:
         if self._confidence_score is not None:
             confidence_str = f" (confidence: {self._confidence_score:.2f})"
 
+        depth_str = ""
+        if self.is_filing_analysis():
+            depth_str = f" [{self.get_analysis_depth()}]"
+
         return (
-            f"Analysis: {self._analysis_type.value}{confidence_str} "
+            f"Analysis: {self._analysis_type.value}{confidence_str}{depth_str} "
             f"- {self._created_at.date()}"
         )
 
