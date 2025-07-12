@@ -29,7 +29,12 @@ from .schemas import (
 class OpenAIProvider(BaseLLMProvider):
     """OpenAI implementation of LLM provider with hierarchical analysis."""
 
-    def __init__(self, api_key: str | None = None, model: str = "gpt-4o-mini") -> None:
+    def __init__(
+        self,
+        api_key: str | None = None,
+        base_url: str | None = None,
+        model: str = "gpt-4o-mini",
+    ) -> None:
         """Initialize OpenAI provider.
 
         Args:
@@ -40,7 +45,11 @@ class OpenAIProvider(BaseLLMProvider):
         if not self.api_key:
             raise ValueError("OpenAI API key is required")
 
-        self.client = AsyncOpenAI(api_key=self.api_key)
+        self.base_url = base_url or settings.openai_base_url
+        if not self.base_url:
+            raise ValueError("OpenAI base URL is required")
+
+        self.client = AsyncOpenAI(api_key=self.api_key, base_url=self.base_url)
         self.model = model
 
         # Section to schema mapping

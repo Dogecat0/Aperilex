@@ -28,8 +28,8 @@ class Settings(BaseSettings):
 
     # LLM
     openai_api_key: str | None = Field(default=None, validation_alias="OPENAI_API_KEY")
-    anthropic_api_key: str | None = Field(
-        default=None, validation_alias="ANTHROPIC_API_KEY"
+    openai_base_url: str | None = Field(
+        default=None, validation_alias="OPENAI_BASE_URL"
     )
 
     # CORS
