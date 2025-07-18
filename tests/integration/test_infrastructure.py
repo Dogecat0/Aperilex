@@ -253,7 +253,7 @@ async def test_end_to_end() -> bool:
             ticker, FilingType.FORM_10K, latest=True
         )
 
-        # Analyze core sections: Business, MDA, and Risk Factors with comprehensive matching
+        # Analyze core sections: Business, MDA, Risk Factors, and Financial Statements with comprehensive matching
         core_section_keywords = {
             "business": [
                 "business",
@@ -280,6 +280,26 @@ async def test_end_to_end() -> bool:
                 "factors",
                 "risk factor",
             ],
+            "balance_sheet": [
+                "balance sheet",
+                "balance sheets",
+                "statement of financial position",
+                "consolidated balance sheet",
+            ],
+            "income_statement": [
+                "income statement",
+                "income statements",
+                "statement of operations",
+                "statement of earnings",
+                "consolidated statements of operations",
+                "consolidated statements of income",
+            ],
+            "cash_flow": [
+                "cash flow statement",
+                "cash flow statements",
+                "statement of cash flows",
+                "consolidated statements of cash flows",
+            ],
         }
 
         core_sections = {}
@@ -296,55 +316,79 @@ async def test_end_to_end() -> bool:
                         break
 
         # Second pass: prioritize the most specific matches
-        if len(core_sections) < 3:
-            remaining_sections = {
-                k: v for k, v in sections.items() if k not in core_sections
-            }
+        remaining_sections = {
+            k: v for k, v in sections.items() if k not in core_sections
+        }
 
-            # Look for business section more aggressively
-            if "business" not in section_matched:
-                for section_name, section_content in remaining_sections.items():
-                    section_lower = section_name.lower()
-                    if (
-                        "item" in section_lower
-                        and "1" in section_lower
-                        and (
-                            "business" in section_lower
-                            or section_lower.startswith("item 1")
-                        )
-                    ):
-                        core_sections[section_name] = section_content
-                        section_matched["business"] = section_name
-                        break
+        # Look for business section more aggressively
+        if "business" not in section_matched:
+            for section_name, section_content in remaining_sections.items():
+                section_lower = section_name.lower()
+                if (
+                    "item" in section_lower
+                    and "1" in section_lower
+                    and (
+                        "business" in section_lower
+                        or section_lower.startswith("item 1")
+                    )
+                ):
+                    core_sections[section_name] = section_content
+                    section_matched["business"] = section_name
+                    break
 
-            # Look for MDA section more aggressively
-            if "mda" not in section_matched:
-                for section_name, section_content in remaining_sections.items():
-                    section_lower = section_name.lower()
-                    if (
-                        "item" in section_lower and "7" in section_lower
-                    ) or "discussion" in section_lower:
-                        core_sections[section_name] = section_content
-                        section_matched["mda"] = section_name
-                        break
+        # Look for MDA section more aggressively
+        if "mda" not in section_matched:
+            for section_name, section_content in remaining_sections.items():
+                section_lower = section_name.lower()
+                if (
+                    "item" in section_lower and "7" in section_lower
+                ) or "discussion" in section_lower:
+                    core_sections[section_name] = section_content
+                    section_matched["mda"] = section_name
+                    break
 
-            # Look for risk factors more aggressively
-            if "risk_factors" not in section_matched:
-                for section_name, section_content in remaining_sections.items():
-                    section_lower = section_name.lower()
-                    if (
-                        "item" in section_lower and "1a" in section_lower
-                    ) or "risk" in section_lower:
-                        core_sections[section_name] = section_content
-                        section_matched["risk_factors"] = section_name
-                        break
+        # Look for risk factors more aggressively
+        if "risk_factors" not in section_matched:
+            for section_name, section_content in remaining_sections.items():
+                section_lower = section_name.lower()
+                if (
+                    "item" in section_lower and "1a" in section_lower
+                ) or "risk" in section_lower:
+                    core_sections[section_name] = section_content
+                    section_matched["risk_factors"] = section_name
+                    break
+
+        # Add financial sections (always include if available)
+        for section_name, section_content in remaining_sections.items():
+            section_lower = section_name.lower()
+            
+            # Look for balance sheet
+            if "balance_sheet" not in section_matched:
+                if any(keyword in section_lower for keyword in core_section_keywords["balance_sheet"]):
+                    core_sections[section_name] = section_content
+                    section_matched["balance_sheet"] = section_name
+                    continue
+            
+            # Look for income statement
+            if "income_statement" not in section_matched:
+                if any(keyword in section_lower for keyword in core_section_keywords["income_statement"]):
+                    core_sections[section_name] = section_content
+                    section_matched["income_statement"] = section_name
+                    continue
+            
+            # Look for cash flow statement
+            if "cash_flow" not in section_matched:
+                if any(keyword in section_lower for keyword in core_section_keywords["cash_flow"]):
+                    core_sections[section_name] = section_content
+                    section_matched["cash_flow"] = section_name
+                    continue
 
         print(f"✓ Selected {len(core_sections)} core sections for analysis:")
         for section_name in core_sections.keys():
             print(f"  - {section_name}")
 
         print(f"✓ Section matching results:")
-        for section_type in ["business", "mda", "risk_factors"]:
+        for section_type in ["business", "mda", "risk_factors", "balance_sheet", "income_statement", "cash_flow"]:
             if section_type in section_matched:
                 print(f"  - {section_type}: {section_matched[section_type]}")
             else:
@@ -355,7 +399,7 @@ async def test_end_to_end() -> bool:
             core_sections = dict(list(sections.items())[:3])
         elif len(core_sections) < 3:
             print(
-                f"⚠️  Only {len(core_sections)} core sections found, adding additional sections"
+                f"⚠️  Only {len(core_sections)} sections found, adding additional sections"
             )
             # Add more sections to reach at least 3
             additional_sections = {
