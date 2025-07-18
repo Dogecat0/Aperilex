@@ -185,79 +185,292 @@ class EdgarService:
 
             sections = {}
 
+            # For debugging - let's see what attributes are available
+            print(f"[EdgarService] Filing object type: {type(filing_obj)}")
+            print(
+                f"[EdgarService] Available attributes: {[attr for attr in dir(filing_obj) if not attr.startswith('_')][:20]}"
+            )
+
             # Extract sections based on filing type with comprehensive coverage
             if filing_type == FilingType.FORM_10K:
-                # Comprehensive 10-K sections mapping
+                # Comprehensive 10-K sections mapping with multiple attribute name variations
                 section_mapping = {
-                    "business": "Item 1 - Business",
-                    "risk_factors": "Item 1A - Risk Factors",
-                    "unresolved_staff_comments": "Item 1B - Unresolved Staff Comments",
-                    "properties": "Item 2 - Properties",
-                    "legal_proceedings": "Item 3 - Legal Proceedings",
-                    "mine_safety": "Item 4 - Mine Safety Disclosures",
-                    "market_price": "Item 5 - Market Price",
-                    "performance_graph": "Item 5 - Performance Graph",
-                    "selected_financial_data": "Item 6 - Selected Financial Data",
-                    "mda": "Item 7 - Management Discussion & Analysis",
-                    "financial_statements": "Item 8 - Financial Statements",
-                    "changes_disagreements": "Item 9 - Changes and Disagreements",
-                    "controls_procedures": "Item 9A - Controls and Procedures",
-                    "other_information": "Item 9B - Other Information",
-                    "directors_officers": "Item 10 - Directors and Officers",
-                    "executive_compensation": "Item 11 - Executive Compensation",
-                    "ownership": "Item 12 - Security Ownership",
-                    "relationships": "Item 13 - Relationships and Transactions",
-                    "principal_accountant": "Item 14 - Principal Accountant",
-                    "exhibits": "Item 15 - Exhibits",
+                    # Primary attributes with fallback variations
+                    ("business", "business_description", "item1"): "Item 1 - Business",
+                    ("risk_factors", "risks", "item1a"): "Item 1A - Risk Factors",
+                    (
+                        "unresolved_staff_comments",
+                        "staff_comments",
+                        "item1b",
+                    ): "Item 1B - Unresolved Staff Comments",
+                    ("properties", "property", "item2"): "Item 2 - Properties",
+                    (
+                        "legal_proceedings",
+                        "legal",
+                        "item3",
+                    ): "Item 3 - Legal Proceedings",
+                    ("mine_safety", "item4"): "Item 4 - Mine Safety Disclosures",
+                    ("market_price", "market", "item5"): "Item 5 - Market Price",
+                    ("performance_graph", "graph"): "Item 5 - Performance Graph",
+                    (
+                        "selected_financial_data",
+                        "financial_data",
+                        "item6",
+                    ): "Item 6 - Selected Financial Data",
+                    (
+                        "mda",
+                        "management_discussion",
+                        "management_discussion_and_analysis",
+                        "item7",
+                    ): "Item 7 - Management Discussion & Analysis",
+                    (
+                        "financial_statements",
+                        "financials",
+                        "item8",
+                    ): "Item 8 - Financial Statements",
+                    (
+                        "changes_disagreements",
+                        "disagreements",
+                        "item9",
+                    ): "Item 9 - Changes and Disagreements",
+                    (
+                        "controls_procedures",
+                        "controls",
+                        "item9a",
+                    ): "Item 9A - Controls and Procedures",
+                    (
+                        "other_information",
+                        "other",
+                        "item9b",
+                    ): "Item 9B - Other Information",
+                    (
+                        "directors_officers",
+                        "directors",
+                        "item10",
+                    ): "Item 10 - Directors and Officers",
+                    (
+                        "executive_compensation",
+                        "compensation",
+                        "item11",
+                    ): "Item 11 - Executive Compensation",
+                    (
+                        "ownership",
+                        "security_ownership",
+                        "item12",
+                    ): "Item 12 - Security Ownership",
+                    (
+                        "relationships",
+                        "related_transactions",
+                        "item13",
+                    ): "Item 13 - Relationships and Transactions",
+                    (
+                        "principal_accountant",
+                        "accountant",
+                        "item14",
+                    ): "Item 14 - Principal Accountant",
+                    ("exhibits", "exhibit_index", "item15"): "Item 15 - Exhibits",
                 }
 
-                for attr_name, section_name in section_mapping.items():
-                    if hasattr(filing_obj, attr_name):
-                        section_text = getattr(filing_obj, attr_name)
-                        if section_text and str(section_text).strip():
-                            sections[section_name] = str(section_text).strip()
+                # Try multiple attribute variations for each section
+                for attr_variations, section_name in section_mapping.items():
+                    found = False
+                    for attr_name in attr_variations:
+                        if hasattr(filing_obj, attr_name):
+                            section_text = getattr(filing_obj, attr_name)
+                            if section_text and str(section_text).strip():
+                                sections[section_name] = str(section_text).strip()
+                                found = True
+                                break
+                    if found:
+                        continue
 
             elif filing_type == FilingType.FORM_10Q:
-                # Comprehensive 10-Q sections mapping
+                # Comprehensive 10-Q sections mapping with variations
                 section_mapping = {
-                    "financial_statements": "Part I Item 1 - Financial Statements",
-                    "mda": "Part I Item 2 - Management Discussion & Analysis",
-                    "quantitative_qualitative": "Part I Item 3 - Quantitative and Qualitative Disclosures",
-                    "controls_procedures": "Part I Item 4 - Controls and Procedures",
-                    "legal_proceedings": "Part II Item 1 - Legal Proceedings",
-                    "risk_factors": "Part II Item 1A - Risk Factors",
-                    "unregistered_sales": "Part II Item 2 - Unregistered Sales",
-                    "defaults": "Part II Item 3 - Defaults",
-                    "mine_safety": "Part II Item 4 - Mine Safety",
-                    "other_information": "Part II Item 5 - Other Information",
-                    "exhibits": "Part II Item 6 - Exhibits and Reports",
+                    (
+                        "financial_statements",
+                        "financials",
+                        "part1_item1",
+                    ): "Part I Item 1 - Financial Statements",
+                    (
+                        "mda",
+                        "management_discussion",
+                        "management_discussion_and_analysis",
+                        "part1_item2",
+                    ): "Part I Item 2 - Management Discussion & Analysis",
+                    (
+                        "quantitative_qualitative",
+                        "market_risk",
+                        "part1_item3",
+                    ): "Part I Item 3 - Quantitative and Qualitative Disclosures",
+                    (
+                        "controls_procedures",
+                        "controls",
+                        "part1_item4",
+                    ): "Part I Item 4 - Controls and Procedures",
+                    (
+                        "legal_proceedings",
+                        "legal",
+                        "part2_item1",
+                    ): "Part II Item 1 - Legal Proceedings",
+                    (
+                        "risk_factors",
+                        "risks",
+                        "part2_item1a",
+                    ): "Part II Item 1A - Risk Factors",
+                    (
+                        "unregistered_sales",
+                        "unregistered",
+                        "part2_item2",
+                    ): "Part II Item 2 - Unregistered Sales",
+                    ("defaults", "default", "part2_item3"): "Part II Item 3 - Defaults",
+                    ("mine_safety", "part2_item4"): "Part II Item 4 - Mine Safety",
+                    (
+                        "other_information",
+                        "other",
+                        "part2_item5",
+                    ): "Part II Item 5 - Other Information",
+                    (
+                        "exhibits",
+                        "exhibit_index",
+                        "part2_item6",
+                    ): "Part II Item 6 - Exhibits and Reports",
                 }
 
-                for attr_name, section_name in section_mapping.items():
-                    if hasattr(filing_obj, attr_name):
-                        section_text = getattr(filing_obj, attr_name)
-                        if section_text and str(section_text).strip():
-                            sections[section_name] = str(section_text).strip()
+                # Try multiple attribute variations for each section
+                for attr_variations, section_name in section_mapping.items():
+                    found = False
+                    for attr_name in attr_variations:
+                        if hasattr(filing_obj, attr_name):
+                            section_text = getattr(filing_obj, attr_name)
+                            if section_text and str(section_text).strip():
+                                sections[section_name] = str(section_text).strip()
+                                found = True
+                                break
 
             elif filing_type == FilingType.FORM_8K:
-                # 8-K sections mapping
+                # 8-K sections mapping with variations
                 section_mapping = {
-                    "completion_acquisition": "Item 1.01 - Completion of Acquisition",
-                    "results_operations": "Item 2.02 - Results of Operations",
-                    "material_agreements": "Item 1.01 - Material Agreements",
-                    "bankruptcy": "Item 1.03 - Bankruptcy",
-                    "cost_associated": "Item 2.05 - Costs Associated with Exit Activities",
-                    "material_impairments": "Item 2.06 - Material Impairments",
-                    "regulation_fd": "Item 7.01 - Regulation FD Disclosure",
-                    "other_events": "Item 8.01 - Other Events",
-                    "financial_statements": "Item 9.01 - Financial Statements",
+                    (
+                        "completion_acquisition",
+                        "acquisition",
+                        "item101",
+                    ): "Item 1.01 - Completion of Acquisition",
+                    (
+                        "results_operations",
+                        "operations",
+                        "item202",
+                    ): "Item 2.02 - Results of Operations",
+                    (
+                        "material_agreements",
+                        "agreements",
+                        "item101",
+                    ): "Item 1.01 - Material Agreements",
+                    ("bankruptcy", "item103"): "Item 1.03 - Bankruptcy",
+                    (
+                        "cost_associated",
+                        "costs",
+                        "item205",
+                    ): "Item 2.05 - Costs Associated with Exit Activities",
+                    (
+                        "material_impairments",
+                        "impairments",
+                        "item206",
+                    ): "Item 2.06 - Material Impairments",
+                    (
+                        "regulation_fd",
+                        "fd",
+                        "item701",
+                    ): "Item 7.01 - Regulation FD Disclosure",
+                    ("other_events", "events", "item801"): "Item 8.01 - Other Events",
+                    (
+                        "financial_statements",
+                        "financials",
+                        "item901",
+                    ): "Item 9.01 - Financial Statements",
                 }
 
-                for attr_name, section_name in section_mapping.items():
-                    if hasattr(filing_obj, attr_name):
-                        section_text = getattr(filing_obj, attr_name)
-                        if section_text and str(section_text).strip():
-                            sections[section_name] = str(section_text).strip()
+                # Try multiple attribute variations for each section
+                for attr_variations, section_name in section_mapping.items():
+                    found = False
+                    for attr_name in attr_variations:
+                        if hasattr(filing_obj, attr_name):
+                            section_text = getattr(filing_obj, attr_name)
+                            if section_text and str(section_text).strip():
+                                sections[section_name] = str(section_text).strip()
+                                found = True
+                                break
+
+            # If we didn't get enough sections with attributes, try alternative approaches
+            if len(sections) < 3:  # Expecting at least 3 core sections
+                print(
+                    f"[EdgarService] Only found {len(sections)} sections via attributes. Trying alternative methods..."
+                )
+
+                # Try to get sections from filing text using edgartools section methods
+                try:
+                    # Some filings might have sections as a dictionary or other structure
+                    if hasattr(filing, 'sections'):
+                        filing_sections = filing.sections
+                        if isinstance(filing_sections, dict):
+                            for key, value in filing_sections.items():
+                                if value and str(value).strip() and key not in sections:
+                                    sections[key] = str(value).strip()
+                except Exception as e:
+                    print(
+                        f"[EdgarService] Could not extract sections via filing.sections: {e}"
+                    )
+
+                # If still missing core sections, use text extraction with section markers
+                if len(sections) < 3:
+                    try:
+                        # Get the full filing text
+                        full_text = (
+                            filing.text()
+                            if hasattr(filing, 'text')
+                            else filing.markdown()
+                        )
+
+                        # Try to find sections by common patterns
+                        if filing_type == FilingType.FORM_10K:
+                            section_patterns = {
+                                "Item 1 - Business": [
+                                    r"Item\s+1\.\s+Business",
+                                    r"ITEM\s+1\.\s+BUSINESS",
+                                ],
+                                "Item 1A - Risk Factors": [
+                                    r"Item\s+1A\.\s+Risk\s+Factors",
+                                    r"ITEM\s+1A\.\s+RISK\s+FACTORS",
+                                ],
+                                "Item 7 - Management Discussion & Analysis": [
+                                    r"Item\s+7\.\s+Management",
+                                    r"ITEM\s+7\.\s+MANAGEMENT",
+                                ],
+                            }
+
+                            import re
+
+                            for section_name, patterns in section_patterns.items():
+                                if section_name not in sections:
+                                    for pattern in patterns:
+                                        match = re.search(
+                                            pattern, full_text, re.IGNORECASE
+                                        )
+                                        if match:
+                                            # Extract section content (simplified - just get first 50k chars after match)
+                                            start_pos = match.start()
+                                            section_text = full_text[
+                                                start_pos : start_pos + 50000
+                                            ]
+                                            sections[section_name] = section_text
+                                            print(
+                                                f"[EdgarService] Found {section_name} via text pattern"
+                                            )
+                                            break
+                    except Exception as e:
+                        print(
+                            f"[EdgarService] Could not extract sections via text patterns: {e}"
+                        )
 
             # Validate section extraction success
             if not sections:
@@ -265,6 +478,9 @@ class EdgarService:
                     f"No structured sections found for {filing_type.value} filing. "
                     f"Filing may not be properly parsed or sections may be empty."
                 )
+
+            print(f"[EdgarService] Successfully extracted {len(sections)} sections")
+            print(f"[EdgarService] Sections found: {list(sections.keys())}")
 
             return sections
 
@@ -278,9 +494,9 @@ class EdgarService:
             name=company.name,
             ticker=company.ticker if hasattr(company, "ticker") else None,
             sic_code=str(company.sic) if hasattr(company, "sic") else None,
-            sic_description=company.sic_description
-            if hasattr(company, "sic_description")
-            else None,
+            sic_description=(
+                company.sic_description if hasattr(company, "sic_description") else None
+            ),
             address=company.address if hasattr(company, "address") else None,
         )
 
@@ -312,3 +528,67 @@ class EdgarService:
             content_text=content_text,
             raw_html=raw_html,
         )
+
+    def extract_financial_statements(
+        self, ticker: Ticker, filing_type: FilingType = FilingType.FORM_10K
+    ) -> dict[str, str]:
+        """Extract financial statement data directly from edgartools attributes."""
+        try:
+            # Get the filing object directly from edgartools
+            company = Company(ticker.value)
+            filings = company.get_filings(form=filing_type.value)
+            filing = filings.latest()
+
+            if not filing:
+                raise ValueError(f"No {filing_type.value} filing found")
+
+            filing_obj = filing.obj()
+
+            print(f"[EdgarService] Extracting financial statements for {ticker.value}")
+
+            statements = {}
+
+            # Try to extract balance sheet
+            if hasattr(filing_obj, 'balance_sheet'):
+                balance_sheet = filing_obj.balance_sheet
+                if balance_sheet:
+                    statements["balance_sheet"] = str(balance_sheet)
+                    print(
+                        f"[EdgarService] Balance sheet extracted: {len(str(balance_sheet))} characters"
+                    )
+
+            # Try to extract income statement
+            if hasattr(filing_obj, 'income_statement'):
+                income_statement = filing_obj.income_statement
+                if income_statement:
+                    statements["income_statement"] = str(income_statement)
+                    print(
+                        f"[EdgarService] Income statement extracted: {len(str(income_statement))} characters"
+                    )
+
+            # Try to extract cash flow statement
+            if hasattr(filing_obj, 'cash_flow_statement'):
+                cash_flow_statement = filing_obj.cash_flow_statement
+                if cash_flow_statement:
+                    statements["cash_flow_statement"] = str(cash_flow_statement)
+                    print(
+                        f"[EdgarService] Cash flow statement extracted: {len(str(cash_flow_statement))} characters"
+                    )
+
+            # Try to extract financials (may contain additional financial data)
+            if hasattr(filing_obj, 'financials'):
+                financials = filing_obj.financials
+                if financials:
+                    statements["financials"] = str(financials)
+                    print(
+                        f"[EdgarService] Financials extracted: {len(str(financials))} characters"
+                    )
+
+            print(
+                f"[EdgarService] Successfully extracted {len(statements)} financial statements"
+            )
+            return statements
+
+        except Exception as e:
+            print(f"[EdgarService] Error extracting financial statements: {str(e)}")
+            raise ValueError(f"Failed to extract financial statements: {str(e)}") from e
