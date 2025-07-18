@@ -1,13 +1,16 @@
 """Edgar Tools integration service for SEC data access."""
 
-from typing import Any
 
-from edgar import Company, Filing, set_identity  # type: ignore[import-untyped]
-from pydantic import BaseModel, Field
+from edgar import (  # type: ignore[import-untyped]
+    Company,
+    Filing,
+    set_identity,
+)
 
 from src.domain.value_objects import CIK, AccessionNumber, FilingType, Ticker
 from src.infrastructure.edgar.schemas.company_data import CompanyData
 from src.infrastructure.edgar.schemas.filing_data import FilingData
+from src.infrastructure.edgar.schemas.filing_query import FilingQueryParams
 from src.shared.config import settings
 
 
@@ -61,40 +64,60 @@ class EdgarService:
             ) from e
 
     def get_filing(
-        self, ticker: Ticker, filing_type: FilingType, latest: bool = True
+        self,
+        ticker: Ticker,
+        filing_type: FilingType,
+        *,
+        latest: bool = True,
+        year: int | list[int] | range | None = None,
+        quarter: int | list[int] | None = None,
+        filing_date: str | None = None,
+        limit: int | None = None,
+        amendments: bool = True,
     ) -> FilingData:
-        """Get specific filing for a company.
+        """Get specific filing for a company with flexible parameters.
 
         Args:
             ticker: Company ticker symbol
             filing_type: Type of filing to retrieve
-            latest: Whether to get the latest filing (default) or all
+            latest: Whether to get the latest filing (default behavior)
+            year: Year(s) to filter by. Can be int, list of ints, or range
+            quarter: Quarter(s) to filter by (1-4). Can be int or list of ints
+            filing_date: Date or date range filter. Format: 'YYYY-MM-DD' or 'YYYY-MM-DD:YYYY-MM-DD'
+            limit: Maximum number of filings to return
+            amendments: Whether to include amended filings
 
         Returns:
             Filing data
 
         Raises:
-            ValueError: If filing not found
+            ValueError: If filing not found or invalid parameters
         """
-        try:
-            company = Company(ticker.value)
-            filings = company.get_filings(form=filing_type.value)
+        # Create and validate query parameters
+        query_params = FilingQueryParams(
+            latest=latest,
+            year=year,
+            quarter=quarter,
+            filing_date=filing_date,
+            limit=limit,
+            amendments=amendments,
+        )
 
-            if latest:
-                filing = filings.latest()
-                if not filing:
-                    raise ValueError(
-                        f"No {filing_type.value} filing found for {ticker.value}"
-                    )
-                return self._extract_filing_data(filing)
-            else:
-                # Return first available if not requesting latest
-                filing = filings[0] if len(filings) > 0 else None
-                if not filing:
-                    raise ValueError(
-                        f"No {filing_type.value} filing found for {ticker.value}"
-                    )
-                return self._extract_filing_data(filing)
+        # Validate parameter combinations
+        if query_params.has_flexible_params():
+            query_params.validate_param_combination()
+
+        try:
+            # Get filings using flexible parameters
+            filings = self._get_filings_with_params(ticker, filing_type, query_params)
+
+            if not filings:
+                raise ValueError(
+                    f"No {filing_type.value} filing found for {ticker.value} with specified parameters"
+                )
+
+            # Return the first (most recent) filing
+            return self._extract_filing_data(filings[0])
 
         except Exception as e:
             raise ValueError(f"Failed to get filing: {str(e)}") from e
@@ -130,29 +153,55 @@ class EdgarService:
             raise ValueError(f"Failed to get filing by accession: {str(e)}") from e
 
     def extract_filing_sections(
-        self, ticker: Ticker, filing_type: FilingType, latest: bool = True
+        self,
+        ticker: Ticker,
+        filing_type: FilingType,
+        *,
+        latest: bool = True,
+        year: int | list[int] | range | None = None,
+        quarter: int | list[int] | None = None,
+        filing_date: str | None = None,
+        limit: int | None = None,
+        amendments: bool = True,
     ) -> dict[str, str]:
-        """Extract structured sections from filing.
+        """Extract structured sections from filing with flexible parameters.
 
         Args:
             ticker: Company ticker symbol
             filing_type: Type of filing
             latest: Whether to get the latest filing
+            year: Year(s) to filter by. Can be int, list of ints, or range
+            quarter: Quarter(s) to filter by (1-4). Can be int or list of ints
+            filing_date: Date or date range filter. Format: 'YYYY-MM-DD' or 'YYYY-MM-DD:YYYY-MM-DD'
+            limit: Maximum number of filings to return
+            amendments: Whether to include amended filings
 
         Returns:
             Dictionary of section_name -> section_text
         """
+        # Create and validate query parameters
+        query_params = FilingQueryParams(
+            latest=latest,
+            year=year,
+            quarter=quarter,
+            filing_date=filing_date,
+            limit=limit,
+            amendments=amendments,
+        )
+
+        # Validate parameter combinations
+        if query_params.has_flexible_params():
+            query_params.validate_param_combination()
+
         try:
-            company = Company(ticker.value)
-            filings = company.get_filings(form=filing_type.value)
+            # Get filings using flexible parameters
+            filings = self._get_filings_with_params(ticker, filing_type, query_params)
 
-            if latest:
-                filing = filings.latest()
-            else:
-                filing = filings[0] if len(filings) > 0 else None
-
-            if not filing:
+            if not filings:
                 raise ValueError(f"No {filing_type.value} filing found")
+
+            # Use the first (most recent) filing
+            filing = filings[0]
 
             # Use edgartools' built-in section extraction
             # The .obj() method returns a form-specific object with parsed sections
@@ -169,7 +218,10 @@ class EdgarService:
             # Extract sections based on filing type with comprehensive coverage
             if filing_type == FilingType.FORM_10K:
                 # Comprehensive 10-K sections mapping with multiple attribute name variations
-                section_mapping = {
+                section_mapping: dict[
+                    tuple[str, str, str] | tuple[str, str] | tuple[str, str, str, str],
+                    str,
+                ] = {
                     # Primary attributes with fallback variations
                     ("business", "business_description", "item1"): "Item 1 - Business",
                     ("risk_factors", "risks", "item1a"): "Item 1A - Risk Factors",
@@ -376,102 +428,33 @@ class EdgarService:
                                 found = True
                                 break
 
-            # If we didn't get enough sections with attributes, try alternative approaches
-            if len(sections) < 3:  # Expecting at least 3 core sections
-                print(
-                    f"[EdgarService] Only found {len(sections)} sections via attributes. Trying alternative methods..."
-                )
-
-                # Try to get sections from filing text using edgartools section methods
-                try:
-                    # Some filings might have sections as a dictionary or other structure
-                    if hasattr(filing, 'sections'):
-                        filing_sections = filing.sections
-                        if isinstance(filing_sections, dict):
-                            for key, value in filing_sections.items():
-                                if value and str(value).strip() and key not in sections:
-                                    sections[key] = str(value).strip()
-                except Exception as e:
-                    print(
-                        f"[EdgarService] Could not extract sections via filing.sections: {e}"
-                    )
-
-                # If still missing core sections, use text extraction with section markers
-                if len(sections) < 3:
-                    try:
-                        # Get the full filing text
-                        full_text = (
-                            filing.text()
-                            if hasattr(filing, 'text')
-                            else filing.markdown()
-                        )
-
-                        # Try to find sections by common patterns
-                        if filing_type == FilingType.FORM_10K:
-                            section_patterns = {
-                                "Item 1 - Business": [
-                                    r"Item\s+1\.\s+Business",
-                                    r"ITEM\s+1\.\s+BUSINESS",
-                                ],
-                                "Item 1A - Risk Factors": [
-                                    r"Item\s+1A\.\s+Risk\s+Factors",
-                                    r"ITEM\s+1A\.\s+RISK\s+FACTORS",
-                                ],
-                                "Item 7 - Management Discussion & Analysis": [
-                                    r"Item\s+7\.\s+Management",
-                                    r"ITEM\s+7\.\s+MANAGEMENT",
-                                ],
-                            }
-
-                            import re
-
-                            for section_name, patterns in section_patterns.items():
-                                if section_name not in sections:
-                                    for pattern in patterns:
-                                        match = re.search(
-                                            pattern, full_text, re.IGNORECASE
-                                        )
-                                        if match:
-                                            # Extract section content (simplified - just get first 50k chars after match)
-                                            start_pos = match.start()
-                                            section_text = full_text[
-                                                start_pos : start_pos + 50000
-                                            ]
-                                            sections[section_name] = section_text
-                                            print(
-                                                f"[EdgarService] Found {section_name} via text pattern"
-                                            )
-                                            break
-                    except Exception as e:
-                        print(
-                            f"[EdgarService] Could not extract sections via text patterns: {e}"
-                        )
-
             # Extract financial statement sections for comprehensive analysis
             try:
                 # Use the existing filing_obj to extract financial statements efficiently
-                financial_statements = {}
+                financial_statements: dict[str, str] = {}
 
                 # Try to extract balance sheet
-                if hasattr(filing_obj, 'balance_sheet'):
+                if hasattr(filing_obj, "balance_sheet"):
                     balance_sheet = filing_obj.balance_sheet
                     if balance_sheet:
                         financial_statements["balance_sheet"] = str(balance_sheet)
 
                 # Try to extract income statement
-                if hasattr(filing_obj, 'income_statement'):
+                if hasattr(filing_obj, "income_statement"):
                     income_statement = filing_obj.income_statement
                     if income_statement:
                         financial_statements["income_statement"] = str(income_statement)
 
                 # Try to extract cash flow statement
-                if hasattr(filing_obj, 'cash_flow_statement'):
+                if hasattr(filing_obj, "cash_flow_statement"):
                     cash_flow_statement = filing_obj.cash_flow_statement
                     if cash_flow_statement:
-                        financial_statements["cash_flow_statement"] = str(cash_flow_statement)
+                        financial_statements["cash_flow_statement"] = str(
+                            cash_flow_statement
+                        )
 
                 # Try to extract financials (may contain additional financial data)
-                if hasattr(filing_obj, 'financials'):
+                if hasattr(filing_obj, "financials"):
                     financials = filing_obj.financials
                     if financials:
                         financial_statements["financials"] = str(financials)
@@ -482,21 +465,32 @@ class EdgarService:
                     print("[EdgarService] Added Balance Sheet section")
 
                 if financial_statements.get("income_statement"):
-                    sections["Income Statement"] = financial_statements["income_statement"]
+                    sections["Income Statement"] = financial_statements[
+                        "income_statement"
+                    ]
                     print("[EdgarService] Added Income Statement section")
 
                 if financial_statements.get("cash_flow_statement"):
-                    sections["Cash Flow Statement"] = financial_statements["cash_flow_statement"]
+                    sections["Cash Flow Statement"] = financial_statements[
+                        "cash_flow_statement"
+                    ]
                     print("[EdgarService] Added Cash Flow Statement section")
 
                 # Add general financials section if available and not already covered
-                if financial_statements.get("financials") and len(financial_statements) == 1:
+                if (
+                    financial_statements.get("financials")
+                    and len(financial_statements) == 1
+                ):
                     # Only add if no specific statements were found
-                    sections["Financial Statements"] = financial_statements["financials"]
+                    sections["Financial Statements"] = financial_statements[
+                        "financials"
+                    ]
                     print("[EdgarService] Added Financial Statements section")
 
             except Exception as e:
-                print(f"[EdgarService] Warning: Could not extract financial statements: {e}")
+                print(
+                    f"[EdgarService] Warning: Could not extract financial statements: {e}"
+                )
                 # Continue without financial statements rather than failing
 
             # Validate section extraction success
@@ -556,66 +550,143 @@ class EdgarService:
             raw_html=raw_html,
         )
 
-    def extract_financial_statements(
-        self, ticker: Ticker, filing_type: FilingType = FilingType.FORM_10K
-    ) -> dict[str, str]:
-        """Extract financial statement data directly from edgartools attributes."""
+    def get_filings(
+        self,
+        ticker: Ticker,
+        filing_type: FilingType,
+        *,
+        year: int | list[int] | range | None = None,
+        quarter: int | list[int] | None = None,
+        filing_date: str | None = None,
+        limit: int | None = None,
+        amendments: bool = True,
+    ) -> list[FilingData]:
+        """Get multiple filings for a company with flexible parameters.
+
+        Args:
+            ticker: Company ticker symbol
+            filing_type: Type of filing to retrieve
+            year: Year(s) to filter by. Can be int, list of ints, or range
+            quarter: Quarter(s) to filter by (1-4). Can be int or list of ints
+            filing_date: Date or date range filter. Format: 'YYYY-MM-DD' or 'YYYY-MM-DD:YYYY-MM-DD'
+            limit: Maximum number of filings to return
+            amendments: Whether to include amended filings
+
+        Returns:
+            List of filing data
+
+        Raises:
+            ValueError: If invalid parameters
+        """
+        # Create and validate query parameters
+        query_params = FilingQueryParams(
+            latest=False,  # Always false for multiple filings
+            year=year,
+            quarter=quarter,
+            filing_date=filing_date,
+            limit=limit,
+            amendments=amendments,
+        )
+
+        # Validate parameter combinations
+        query_params.validate_param_combination()
+
         try:
-            # Get the filing object directly from edgartools
-            company = Company(ticker.value)
-            filings = company.get_filings(form=filing_type.value)
-            filing = filings.latest()
+            # Get filings using flexible parameters
+            filings = self._get_filings_with_params(ticker, filing_type, query_params)
 
-            if not filing:
-                raise ValueError(f"No {filing_type.value} filing found")
-
-            filing_obj = filing.obj()
-
-            print(f"[EdgarService] Extracting financial statements for {ticker.value}")
-
-            statements = {}
-
-            # Try to extract balance sheet
-            if hasattr(filing_obj, 'balance_sheet'):
-                balance_sheet = filing_obj.balance_sheet
-                if balance_sheet:
-                    statements["balance_sheet"] = str(balance_sheet)
-                    print(
-                        f"[EdgarService] Balance sheet extracted: {len(str(balance_sheet))} characters"
-                    )
-
-            # Try to extract income statement
-            if hasattr(filing_obj, 'income_statement'):
-                income_statement = filing_obj.income_statement
-                if income_statement:
-                    statements["income_statement"] = str(income_statement)
-                    print(
-                        f"[EdgarService] Income statement extracted: {len(str(income_statement))} characters"
-                    )
-
-            # Try to extract cash flow statement
-            if hasattr(filing_obj, 'cash_flow_statement'):
-                cash_flow_statement = filing_obj.cash_flow_statement
-                if cash_flow_statement:
-                    statements["cash_flow_statement"] = str(cash_flow_statement)
-                    print(
-                        f"[EdgarService] Cash flow statement extracted: {len(str(cash_flow_statement))} characters"
-                    )
-
-            # Try to extract financials (may contain additional financial data)
-            if hasattr(filing_obj, 'financials'):
-                financials = filing_obj.financials
-                if financials:
-                    statements["financials"] = str(financials)
-                    print(
-                        f"[EdgarService] Financials extracted: {len(str(financials))} characters"
-                    )
-
-            print(
-                f"[EdgarService] Successfully extracted {len(statements)} financial statements"
-            )
-            return statements
+            # Convert to FilingData objects
+            return [self._extract_filing_data(filing) for filing in filings]
 
         except Exception as e:
-            print(f"[EdgarService] Error extracting financial statements: {str(e)}")
-            raise ValueError(f"Failed to extract financial statements: {str(e)}") from e
+            raise ValueError(f"Failed to get filings: {str(e)}") from e
+
+    def _get_filings_with_params(
+        self, ticker: Ticker, filing_type: FilingType, query_params: FilingQueryParams
+    ) -> list[Filing]:
+        """Get filings using flexible parameters.
+
+        Args:
+            ticker: Company ticker symbol
+            filing_type: Type of filing to retrieve
+            query_params: Validated query parameters
+
+        Returns:
+            List of Filing objects
+        """
+        company = Company(ticker.value)
+
+        # If using legacy behavior (latest=True and no flexible params)
+        if query_params.latest and not query_params.has_flexible_params():
+            filings = company.get_filings(form=filing_type.value)
+            latest_filing = filings.latest()
+            return [latest_filing] if latest_filing else []
+
+        # Use flexible parameters
+        filings_result = company.get_filings(
+            form=filing_type.value,
+            filing_date=query_params.filing_date,
+        )
+
+        # Convert to list if needed
+        filings = list(filings_result)
+
+        # Apply year/quarter filtering if specified
+        if query_params.year is not None or query_params.quarter is not None:
+            filings = self._filter_by_year_quarter(filings, query_params.year, query_params.quarter)
+
+        # Apply amendments filter if specified
+        if not query_params.amendments:
+            filings = [f for f in filings if not f.form.endswith("/A")]
+
+        # Apply limit if specified
+        if query_params.limit is not None:
+            filings = filings[:query_params.limit]
+
+        return filings
+
+    def _filter_by_year_quarter(
+        self,
+        filings: list[Filing],
+        year: int | list[int] | range | None,
+        quarter: int | list[int] | None
+    ) -> list[Filing]:
+        """Filter filings by year and quarter.
+
+        Args:
+            filings: List of Filing objects
+            year: Year(s) to filter by
+            quarter: Quarter(s) to filter by
+
+        Returns:
+            Filtered list of Filing objects
+        """
+        filtered_filings = []
+
+        for filing in filings:
+            filing_date = filing.filing_date
+            filing_year = filing_date.year
+            filing_quarter = (filing_date.month - 1) // 3 + 1
+
+            # Check year filter
+            year_match = True
+            if year is not None:
+                if isinstance(year, int):
+                    year_match = filing_year == year
+                elif isinstance(year, list):
+                    year_match = filing_year in year
+                elif isinstance(year, range):
+                    year_match = filing_year in year
+
+            # Check quarter filter
+            quarter_match = True
+            if quarter is not None:
+                if isinstance(quarter, int):
+                    quarter_match = filing_quarter == quarter
+                elif isinstance(quarter, list):
+                    quarter_match = filing_quarter in quarter
+
+            if year_match and quarter_match:
+                filtered_filings.append(filing)
+
+        return filtered_filings
