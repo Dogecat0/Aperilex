@@ -304,7 +304,7 @@ class Analysis:
             "metadata": {
                 **self._metadata,
                 "processing_time_seconds": self.get_processing_time(),
-            }
+            },
         }
 
         # For filing analysis, include the comprehensive results
@@ -330,13 +330,15 @@ class Analysis:
         }
 
         if self.is_filing_analysis():
-            summary.update({
-                "filing_summary": self.get_filing_summary(),
-                "key_insights_count": len(self.get_key_insights()),
-                "risk_factors_count": len(self.get_risk_factors()),
-                "opportunities_count": len(self.get_opportunities()),
-                "sections_analyzed": len(self.get_section_analyses()),
-            })
+            summary.update(
+                {
+                    "filing_summary": self.get_filing_summary(),
+                    "key_insights_count": len(self.get_key_insights()),
+                    "risk_factors_count": len(self.get_risk_factors()),
+                    "opportunities_count": len(self.get_opportunities()),
+                    "sections_analyzed": len(self.get_section_analyses()),
+                }
+            )
         else:
             summary["summary"] = self._results.get("summary", "")
 
