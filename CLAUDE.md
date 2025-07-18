@@ -194,6 +194,9 @@ poetry run mypy src/ && poetry run ruff check src/
 
 # After making changes
 poetry run black src/ && poetry run isort src/ && poetry run mypy src/
+
+# Use poetry to run any tests when needed
+poetry run pytest
 ```
 
 ### MyPy Configuration
