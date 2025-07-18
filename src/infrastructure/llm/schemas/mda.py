@@ -121,7 +121,9 @@ class MDAAnalysisSection(BaseModel):
     outlook_sentiment: OutlookSentiment
     management_priorities: list[str] | None = Field(...)
 
-    @field_validator("key_financial_metrics", "operational_highlights", "market_conditions")
+    @field_validator(
+        "key_financial_metrics", "operational_highlights", "market_conditions"
+    )
     @classmethod
     def validate_required_lists(cls, v: list[Any]) -> list[Any]:
         """Require at least one item in key lists"""
