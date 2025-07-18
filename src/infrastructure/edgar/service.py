@@ -472,6 +472,58 @@ class EdgarService:
                             f"[EdgarService] Could not extract sections via text patterns: {e}"
                         )
 
+            # Extract financial statement sections for comprehensive analysis
+            try:
+                # Use the existing filing_obj to extract financial statements efficiently
+                financial_statements = {}
+
+                # Try to extract balance sheet
+                if hasattr(filing_obj, 'balance_sheet'):
+                    balance_sheet = filing_obj.balance_sheet
+                    if balance_sheet:
+                        financial_statements["balance_sheet"] = str(balance_sheet)
+
+                # Try to extract income statement
+                if hasattr(filing_obj, 'income_statement'):
+                    income_statement = filing_obj.income_statement
+                    if income_statement:
+                        financial_statements["income_statement"] = str(income_statement)
+
+                # Try to extract cash flow statement
+                if hasattr(filing_obj, 'cash_flow_statement'):
+                    cash_flow_statement = filing_obj.cash_flow_statement
+                    if cash_flow_statement:
+                        financial_statements["cash_flow_statement"] = str(cash_flow_statement)
+
+                # Try to extract financials (may contain additional financial data)
+                if hasattr(filing_obj, 'financials'):
+                    financials = filing_obj.financials
+                    if financials:
+                        financial_statements["financials"] = str(financials)
+
+                # Add financial statement sections if they exist
+                if financial_statements.get("balance_sheet"):
+                    sections["Balance Sheet"] = financial_statements["balance_sheet"]
+                    print("[EdgarService] Added Balance Sheet section")
+
+                if financial_statements.get("income_statement"):
+                    sections["Income Statement"] = financial_statements["income_statement"]
+                    print("[EdgarService] Added Income Statement section")
+
+                if financial_statements.get("cash_flow_statement"):
+                    sections["Cash Flow Statement"] = financial_statements["cash_flow_statement"]
+                    print("[EdgarService] Added Cash Flow Statement section")
+
+                # Add general financials section if available and not already covered
+                if financial_statements.get("financials") and len(financial_statements) == 1:
+                    # Only add if no specific statements were found
+                    sections["Financial Statements"] = financial_statements["financials"]
+                    print("[EdgarService] Added Financial Statements section")
+
+            except Exception as e:
+                print(f"[EdgarService] Warning: Could not extract financial statements: {e}")
+                # Continue without financial statements rather than failing
+
             # Validate section extraction success
             if not sections:
                 raise ValueError(
