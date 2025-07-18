@@ -6,34 +6,9 @@ from edgar import Company, Filing, set_identity  # type: ignore[import-untyped]
 from pydantic import BaseModel, Field
 
 from src.domain.value_objects import CIK, AccessionNumber, FilingType, Ticker
+from src.infrastructure.edgar.schemas.company_data import CompanyData
+from src.infrastructure.edgar.schemas.filing_data import FilingData
 from src.shared.config import settings
-
-
-class FilingData(BaseModel):
-    """SEC filing data extracted from edgartools."""
-
-    accession_number: str = Field(..., description="SEC accession number")
-    filing_type: str = Field(..., description="Type of SEC filing")
-    filing_date: str = Field(..., description="Date of filing")
-    company_name: str = Field(..., description="Name of the company")
-    cik: str = Field(..., description="Central Index Key")
-    ticker: str | None = Field(None, description="Company ticker symbol")
-    content_text: str = Field(..., description="Filing text content")
-    raw_html: str | None = Field(None, description="Raw HTML content")
-    sections: dict[str, str] = Field(
-        default_factory=dict, description="Filing sections"
-    )
-
-
-class CompanyData(BaseModel):
-    """Company data from SEC EDGAR."""
-
-    cik: str = Field(..., description="Central Index Key")
-    name: str = Field(..., description="Company name")
-    ticker: str | None = Field(None, description="Ticker symbol")
-    sic_code: str | None = Field(None, description="SIC code")
-    sic_description: str | None = Field(None, description="SIC description")
-    address: dict[str, Any] | None = Field(None, description="Company address")
 
 
 class EdgarService:
