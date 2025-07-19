@@ -2,7 +2,7 @@
 
 import sys
 import uuid
-from datetime import date
+from datetime import date, datetime
 from pathlib import Path
 from unittest.mock import Mock
 
@@ -162,3 +162,127 @@ def mock_openai_response():
     mock_response.choices = [Mock()]
     mock_response.choices[0].message.content = '{"analysis": "Mock analysis result"}'
     return mock_response
+
+
+# Import realistic fixtures
+from tests.fixtures.realistic_analysis_data import (
+    get_realistic_filing_analysis_response,
+    get_realistic_section_analysis_response,
+    get_realistic_edgar_filing_sections,
+    get_realistic_company_data,
+    get_realistic_filing_metadata,
+    get_processing_metadata,
+)
+
+
+@pytest.fixture
+def realistic_filing_analysis():
+    """Comprehensive filing analysis response matching real API output.
+    
+    Contains 28+ sub-sections across 6 major filing sections with
+    schema-specific analysis matching actual OpenAI API responses.
+    """
+    return get_realistic_filing_analysis_response()
+
+
+@pytest.fixture
+def realistic_section_analysis():
+    """Individual section analysis response with schema-matched structure."""
+    return get_realistic_section_analysis_response()
+
+
+@pytest.fixture
+def realistic_filing_sections():
+    """Filing sections with actual SEC filing content excerpts."""
+    return get_realistic_edgar_filing_sections()
+
+
+@pytest.fixture
+def realistic_company_data():
+    """Company data matching Edgar API response structure."""
+    return get_realistic_company_data()
+
+
+@pytest.fixture
+def realistic_filing_metadata():
+    """Filing metadata matching Edgar API response structure."""
+    return get_realistic_filing_metadata()
+
+
+@pytest.fixture
+def mock_comprehensive_openai_response(realistic_filing_analysis):
+    """Mock comprehensive OpenAI response with realistic analysis structure."""
+    import json
+    mock_response = Mock()
+    mock_response.choices = [Mock()]
+    mock_response.choices[0].message.content = json.dumps(realistic_filing_analysis)
+    return mock_response
+
+
+@pytest.fixture
+def mock_section_openai_response(realistic_section_analysis):
+    """Mock section analysis OpenAI response with realistic structure."""
+    import json
+    mock_response = Mock()
+    mock_response.choices = [Mock()]
+    mock_response.choices[0].message.content = json.dumps(realistic_section_analysis)
+    return mock_response
+
+
+@pytest.fixture
+def enhanced_mock_edgar_filing(realistic_filing_sections, realistic_filing_metadata):
+    """Enhanced mock Edgar Filing with realistic content and metadata."""
+    mock_filing = Mock()
+    
+    # Basic filing metadata
+    metadata = realistic_filing_metadata
+    mock_filing.accession_number = metadata["accession_number"]
+    mock_filing.form = metadata["form_type"]
+    mock_filing.filing_date = datetime.fromisoformat(metadata["filing_date"]).date()
+    mock_filing.company_name = "Microsoft Corporation"
+    mock_filing.company_cik = 789019
+    mock_filing.company_ticker = "MSFT"
+    
+    # Enhanced content methods with realistic data
+    mock_filing.text.return_value = "\n\n".join(realistic_filing_sections.values())
+    mock_filing.html.return_value = f"<html><body>{''.join(f'<section>{content}</section>' for content in realistic_filing_sections.values())}</body></html>"
+    
+    # Enhanced filing object with realistic sections
+    mock_filing_obj = Mock()
+    mock_filing_obj.business = realistic_filing_sections["Item 1 - Business"]
+    mock_filing_obj.risk_factors = realistic_filing_sections["Item 1A - Risk Factors"] 
+    mock_filing_obj.mda = realistic_filing_sections["Item 7 - Management Discussion & Analysis"]
+    mock_filing.obj.return_value = mock_filing_obj
+    
+    return mock_filing
+
+
+@pytest.fixture
+def enhanced_mock_edgar_company(realistic_company_data):
+    """Enhanced mock Edgar Company with realistic data."""
+    mock_company = Mock()
+    
+    # Basic company info
+    company_data = realistic_company_data
+    mock_company.cik = company_data["cik"]
+    mock_company.name = company_data["name"]
+    mock_company.ticker = company_data["ticker"]
+    mock_company.sic = company_data["sic_code"]
+    mock_company.sic_description = company_data["sic_description"]
+    mock_company.tickers = [company_data["ticker"]]
+    
+    # Enhanced address structure matching EdgarService expectations
+    mock_company.address = {
+        "street1": company_data["address"]["street1"],
+        "city": company_data["address"]["city"],
+        "stateOrCountry": company_data["address"]["state"],
+        "zipCode": company_data["address"]["zip"],
+    }
+    
+    mock_company.addresses = [
+        {
+            "mailing": mock_company.address
+        }
+    ]
+    
+    return mock_company

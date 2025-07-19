@@ -33,6 +33,24 @@ class TestEdgarService:
         return mock_company
 
     @pytest.fixture
+    def realistic_mock_company(self):
+        """Create a mock edgar Company object with realistic Microsoft data."""
+        mock_company = Mock()
+        mock_company.cik = 789019
+        mock_company.name = "Microsoft Corporation"
+        mock_company.ticker = "MSFT"
+        mock_company.sic = "7372"
+        mock_company.sic_description = "Services-Prepackaged Software"
+        mock_company.tickers = ["MSFT"]
+        mock_company.address = {
+            "street1": "One Microsoft Way",
+            "city": "Redmond",
+            "stateOrCountry": "WA",
+            "zipCode": "98052-6399",
+        }
+        return mock_company
+
+    @pytest.fixture
     def mock_filing(self):
         """Create a mock edgar Filing object."""
         mock_filing = Mock()
@@ -52,6 +70,35 @@ class TestEdgarService:
         mock_filing_obj.business = "Mock business description"
         mock_filing_obj.risk_factors = "Mock risk factors"
         mock_filing_obj.mda = "Mock management discussion and analysis"
+        mock_filing.obj.return_value = mock_filing_obj
+
+        return mock_filing
+
+    @pytest.fixture
+    def realistic_mock_filing(self, realistic_filing_sections: dict[str, str]) -> Mock:
+        """Create a mock edgar Filing object with realistic Microsoft content."""
+        mock_filing = Mock()
+        mock_filing.accession_number = "0001564590-24-000029"
+        mock_filing.form = "10-K"
+        mock_filing.filing_date = date(2024, 7, 30)
+        mock_filing.company = "Microsoft Corporation"
+        mock_filing.cik = 789019
+        mock_filing.ticker = "MSFT"
+
+        # Realistic content methods with actual SEC filing excerpts
+        realistic_content = "\n\n".join(realistic_filing_sections.values())
+        mock_filing.text.return_value = realistic_content
+        mock_filing.html.return_value = f"<html><body>{''.join(f'<section>{content}</section>' for content in realistic_filing_sections.values())}</body></html>"
+
+        # Mock the filing object with realistic sections
+        mock_filing_obj = Mock()
+        mock_filing_obj.business = realistic_filing_sections["Item 1 - Business"]
+        mock_filing_obj.risk_factors = realistic_filing_sections[
+            "Item 1A - Risk Factors"
+        ]
+        mock_filing_obj.mda = realistic_filing_sections[
+            "Item 7 - Management Discussion & Analysis"
+        ]
         mock_filing.obj.return_value = mock_filing_obj
 
         return mock_filing
@@ -112,13 +159,39 @@ class TestEdgarService:
         """Test company retrieval by ticker when company not found."""
         # Setup
         mock_company_class.side_effect = Exception("Company not found")
-        ticker = Ticker("NOTFOUND")  # Valid format ticker that doesn't exist
+        ticker = Ticker("NOTFD")  # Valid format ticker that doesn't exist
 
         # Execute & Assert
-        with pytest.raises(
-            ValueError, match="Failed to get company for ticker NOTFOUND"
-        ):
+        with pytest.raises(ValueError, match="Failed to get company for ticker NOTFD"):
             service.get_company_by_ticker(ticker)
+
+    @patch("src.infrastructure.edgar.service.Company")
+    def test_get_company_by_ticker_with_realistic_data(
+        self, mock_company_class, service, realistic_mock_company
+    ):
+        """Test company retrieval with realistic Microsoft data structure."""
+        # Setup
+        mock_company_class.return_value = realistic_mock_company
+        ticker = Ticker("MSFT")
+
+        # Execute
+        result = service.get_company_by_ticker(ticker)
+
+        # Assert
+        mock_company_class.assert_called_once_with("MSFT")
+        assert isinstance(result, CompanyData)
+        assert result.cik == "789019"
+        assert result.name == "Microsoft Corporation"
+        assert result.ticker == "MSFT"
+        assert result.sic_code == "7372"
+        assert result.sic_description == "Services-Prepackaged Software"
+
+        # Verify realistic address structure
+        assert result.address is not None
+        assert result.address["street1"] == "One Microsoft Way"
+        assert result.address["city"] == "Redmond"
+        assert result.address["stateOrCountry"] == "WA"
+        assert result.address["zipCode"] == "98052-6399"
 
     @patch("src.infrastructure.edgar.service.Company")
     def test_get_company_by_cik_success(
@@ -172,7 +245,7 @@ class TestEdgarService:
         assert result.filing_type == "10-K"
         assert result.filing_date == "2024-01-15"  # Filing date is stored as string
         assert result.company_name == "Apple Inc."
-        assert result.cik == 320193
+        assert result.cik == "320193"
         assert result.ticker == "AAPL"
 
     @patch("src.infrastructure.edgar.service.Company")
@@ -191,7 +264,8 @@ class TestEdgarService:
         result = service.get_filing(ticker, filing_type, latest=False, year=2024)
 
         # Assert
-        mock_company.get_filings.assert_called()
+        # Verify get_filings was called
+        assert mock_company.get_filings.called
         assert isinstance(result, FilingData)
 
     @patch("src.infrastructure.edgar.service.Company")
@@ -218,15 +292,51 @@ class TestEdgarService:
     def test_get_filing_not_found(self, mock_company_class, service, mock_company):
         """Test filing retrieval when no filing found."""
         # Setup
+        mock_filings = Mock()
+        mock_filings.latest.side_effect = IndexError("No filings found")
+        mock_company.get_filings.return_value = mock_filings
         mock_company_class.return_value = mock_company
-        mock_company.get_filings.return_value = []  # No filings
 
         ticker = Ticker("AAPL")
         filing_type = FilingType.FORM_10K
 
         # Execute & Assert
-        with pytest.raises(ValueError, match="No 10-K filing found for AAPL"):
+        with pytest.raises(ValueError, match="Failed to get filing"):
             service.get_filing(ticker, filing_type, latest=True)
+
+    @patch("src.infrastructure.edgar.service.Company")
+    def test_get_filing_with_realistic_metadata(
+        self, mock_company_class, service, realistic_mock_company, realistic_mock_filing
+    ):
+        """Test filing retrieval with realistic Microsoft filing metadata."""
+        # Setup
+        mock_filings = Mock()
+        mock_filings.latest.return_value = realistic_mock_filing
+        realistic_mock_company.get_filings.return_value = mock_filings
+        mock_company_class.return_value = realistic_mock_company
+
+        ticker = Ticker("MSFT")
+        filing_type = FilingType.FORM_10K
+
+        # Execute
+        result = service.get_filing(ticker, filing_type, latest=True)
+
+        # Assert - Company is called twice: once with ticker, once with CIK in _extract_filing_data
+        mock_company_class.assert_any_call("MSFT")
+        assert mock_company_class.call_count == 2
+        # Verify get_filings was called with correct form type
+        call_args = realistic_mock_company.get_filings.call_args
+        assert call_args[1]["form"] == "10-K"
+        mock_filings.latest.assert_called_once()
+
+        # Verify realistic filing metadata
+        assert isinstance(result, FilingData)
+        assert result.accession_number == "0001564590-24-000029"
+        assert result.filing_type == "10-K"
+        assert result.filing_date == "2024-07-30"
+        assert result.company_name == "Microsoft Corporation"
+        assert result.cik == "789019"
+        assert result.ticker == "MSFT"
 
     @patch("src.infrastructure.edgar.service.Company")
     def test_get_filing_by_accession_success(
@@ -242,10 +352,9 @@ class TestEdgarService:
         # Execute
         result = service.get_filing_by_accession(accession_number)
 
-        # Assert
-        mock_company_class.assert_called_once_with(
-            320193
-        )  # CIK extracted from accession
+        # Assert - Company is called twice: once in get_filing_by_accession, once in _extract_filing_data
+        assert mock_company_class.call_count == 2
+        mock_company_class.assert_any_call(320193)  # CIK extracted from accession
         assert isinstance(result, FilingData)
         assert result.accession_number == "0000320193-24-000005"
 
@@ -274,8 +383,10 @@ class TestEdgarService:
     ):
         """Test section extraction from 10-K filing."""
         # Setup
+        mock_filings = Mock()
+        mock_filings.latest.return_value = mock_filing
+        mock_company.get_filings.return_value = mock_filings
         mock_company_class.return_value = mock_company
-        mock_company.get_filings.return_value = [mock_filing]
 
         ticker = Ticker("AAPL")
         filing_type = FilingType.FORM_10K
@@ -291,6 +402,59 @@ class TestEdgarService:
         assert result["Item 1 - Business"] == "Mock business description"
 
     @patch("src.infrastructure.edgar.service.Company")
+    def test_extract_filing_sections_with_realistic_content(
+        self,
+        mock_company_class,
+        service,
+        realistic_mock_company,
+        realistic_mock_filing,
+        realistic_filing_sections,
+    ):
+        """Test section extraction with realistic SEC filing content."""
+        # Setup
+        mock_filings = Mock()
+        mock_filings.latest.return_value = realistic_mock_filing
+        realistic_mock_company.get_filings.return_value = mock_filings
+        mock_company_class.return_value = realistic_mock_company
+
+        ticker = Ticker("MSFT")
+        filing_type = FilingType.FORM_10K
+
+        # Execute
+        result = service.extract_filing_sections(ticker, filing_type)
+
+        # Assert
+        assert isinstance(result, dict)
+        assert len(result) > 0  # Should extract multiple sections
+
+        # Verify key sections are present
+        assert "Item 1 - Business" in result
+        assert "Item 1A - Risk Factors" in result
+        assert "Item 7 - Management Discussion & Analysis" in result
+
+        # Verify realistic Business section content
+        business_section = result.get("Item 1 - Business", "")
+        assert (
+            "Microsoft Corporation develops, licenses, and supports" in business_section
+        )
+        assert "Our mission is to empower every person" in business_section
+        assert "Productivity and Business Processes" in business_section
+        assert "Intelligent Cloud" in business_section
+        assert len(business_section) > 1000  # Substantial content
+
+        # Verify realistic Risk Factors section content
+        risk_section = result.get("Item 1A - Risk Factors", "")
+        assert "Our business faces a wide variety of risks" in risk_section
+        assert "COMPETITIVE FACTORS" in risk_section
+        assert "CYBERSECURITY AND DATA PRIVACY" in risk_section
+
+        # Verify realistic MDA section content
+        mda_section = result.get("Item 7 - Management Discussion & Analysis", "")
+        assert "Revenue increased $21.5 billion or 16%" in mda_section
+        assert "PRODUCTIVITY AND BUSINESS PROCESSES" in mda_section
+        assert "INTELLIGENT CLOUD" in mda_section
+
+    @patch("src.infrastructure.edgar.service.Company")
     def test_extract_filing_sections_10q(
         self, mock_company_class, service, mock_company
     ):
@@ -304,8 +468,10 @@ class TestEdgarService:
         mock_filing_obj.mda = "Mock Q MDA"
         mock_filing_10q.obj.return_value = mock_filing_obj
 
+        mock_filings = Mock()
+        mock_filings.latest.return_value = mock_filing_10q
+        mock_company.get_filings.return_value = mock_filings
         mock_company_class.return_value = mock_company
-        mock_company.get_filings.return_value = [mock_filing_10q]
 
         ticker = Ticker("AAPL")
         filing_type = FilingType.FORM_10Q
@@ -331,8 +497,10 @@ class TestEdgarService:
         mock_filing_obj.item2_02 = "Mock results of operations"
         mock_filing_8k.obj.return_value = mock_filing_obj
 
+        mock_filings = Mock()
+        mock_filings.latest.return_value = mock_filing_8k
+        mock_company.get_filings.return_value = mock_filings
         mock_company_class.return_value = mock_company
-        mock_company.get_filings.return_value = [mock_filing_8k]
 
         ticker = Ticker("AAPL")
         filing_type = FilingType.FORM_8K
@@ -358,8 +526,16 @@ class TestEdgarService:
         assert result.address["street1"] == "One Apple Park Way"
         assert result.address["city"] == "Cupertino"
 
-    def test_extract_filing_data_from_filing_object(self, service, mock_filing):
+    @patch("src.infrastructure.edgar.service.Company")
+    def test_extract_filing_data_from_filing_object(
+        self, mock_company_class, service, mock_filing
+    ):
         """Test filing data extraction from edgar Filing object."""
+        # Setup - mock Company call that happens in _extract_filing_data
+        mock_company = Mock()
+        mock_company.ticker = "AAPL"  # Provide ticker attribute for extraction
+        mock_company_class.return_value = mock_company
+
         # Execute
         result = service._extract_filing_data(mock_filing)
 
@@ -369,10 +545,10 @@ class TestEdgarService:
         assert result.filing_type == "10-K"
         assert result.filing_date == "2024-01-15"  # Filing date is stored as string
         assert result.company_name == "Apple Inc."
-        assert result.cik == 320193
+        assert result.cik == "320193"
         assert result.ticker == "AAPL"
-        assert result.text_content == "Mock filing text content"
-        assert result.html_content == "<html>Mock HTML content</html>"
+        assert result.content_text == "Mock filing text content"
+        assert result.raw_html == "<html>Mock HTML content</html>"
 
     @patch("src.infrastructure.edgar.service.Company")
     def test_network_error_handling(self, mock_company_class, service):
@@ -407,3 +583,51 @@ class TestEdgarService:
             # Execute & Assert
             with pytest.raises(ValueError, match="Failed to get filing"):
                 service.get_filing_by_accession(accession_number)
+
+    @patch("src.infrastructure.edgar.service.Company")
+    def test_get_filing_with_year_filter_realistic(
+        self, mock_company_class, service, realistic_mock_company
+    ):
+        """Test filing retrieval with year filtering using realistic Microsoft data."""
+        # Setup - Mock multiple filings with realistic data
+        mock_filing_2024 = Mock()
+        mock_filing_2024.filing_date = date(2024, 7, 30)
+        mock_filing_2024.accession_number = "0001564590-24-000029"
+        mock_filing_2024.company = "Microsoft Corporation"
+        mock_filing_2024.cik = 789019
+        mock_filing_2024.ticker = "MSFT"
+        mock_filing_2024.form = "10-K"
+
+        mock_filing_2023 = Mock()
+        mock_filing_2023.filing_date = date(2023, 7, 27)
+        mock_filing_2023.accession_number = "0001564590-23-000052"
+        mock_filing_2023.company = "Microsoft Corporation"
+        mock_filing_2023.cik = 789019
+        mock_filing_2023.ticker = "MSFT"
+        mock_filing_2023.form = "10-K"
+
+        # Mock content methods for both filings
+        for filing in [mock_filing_2024, mock_filing_2023]:
+            filing.text.return_value = "Mock filing text content"
+            filing.html.return_value = "<html>Mock HTML content</html>"
+
+        mock_filings = [mock_filing_2024, mock_filing_2023]
+        realistic_mock_company.get_filings.return_value = mock_filings
+        mock_company_class.return_value = realistic_mock_company
+
+        ticker = Ticker("MSFT")
+        filing_type = FilingType.FORM_10K
+        year = 2024
+
+        # Execute
+        result = service.get_filing(ticker, filing_type, latest=False, year=year)
+
+        # Assert - Company is called twice: once with ticker, once with CIK in _extract_filing_data
+        mock_company_class.assert_any_call("MSFT")
+        assert mock_company_class.call_count == 2
+        # Verify get_filings was called with correct form type
+        call_args = realistic_mock_company.get_filings.call_args
+        assert call_args[1]["form"] == "10-K"
+        assert isinstance(result, FilingData)
+        assert result.filing_date == "2024-07-30"
+        assert result.accession_number == "0001564590-24-000029"
