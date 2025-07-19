@@ -1,6 +1,6 @@
 """Analysis entity for filing analysis results."""
 
-from datetime import datetime
+from datetime import UTC, datetime
 from enum import Enum
 from typing import Any
 from uuid import UUID
@@ -58,7 +58,7 @@ class Analysis:
         self._llm_model = llm_model
         self._confidence_score = confidence_score
         self._metadata = metadata or {}
-        self._created_at = created_at or datetime.utcnow()
+        self._created_at = created_at or datetime.now(UTC)
 
         self._validate_invariants()
 
@@ -172,7 +172,7 @@ class Analysis:
         Returns:
             List of key insights
         """
-        insights = self._results.get("key_insights", [])
+        insights: Any = self._results.get("key_insights", [])
         if isinstance(insights, list):
             return [str(i) for i in insights]
         return []
