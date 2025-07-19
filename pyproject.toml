@@ -153,6 +153,8 @@ markers = [
     "slow: marks tests as slow (deselect with '-m \"not slow\"')",
     "integration: marks tests as integration tests",
     "unit: marks tests as unit tests",
+    "external_api: marks tests that make real external API calls (expensive/slow)",
+    "requires_api_keys: marks tests that require real API keys to run",
 ]
 
 [tool.coverage.run]
