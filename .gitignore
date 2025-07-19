@@ -50,6 +50,7 @@ coverage.xml
 .hypothesis/
 .pytest_cache/
 cover/
+test_results/
 
 # Translations
 *.mo
@@ -145,6 +146,9 @@ venv.bak/
 .dmypy.json
 dmypy.json
 
+# ruff
+.ruff_cache/
+
 # Pyre type checker
 .pyre/
 
@@ -216,3 +220,6 @@ coverage.xml
 
 # Performance profiling
 *.prof
+
+# Mermaid
+mermaid/

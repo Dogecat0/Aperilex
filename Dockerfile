@@ -1,50 +1,56 @@
-FROM python:3.12-slim as builder
+FROM python:3.12-slim
 
-# Install build dependencies
-RUN apt-get update && apt-get install -y \
+# Install system dependencies
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt,sharing=locked \
+    apt-get update && apt-get install -y \
     gcc \
     g++ \
     libffi-dev \
+    curl \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Poetry
-RUN pip install poetry
+RUN --mount=type=cache,target=/root/.cache/pip \
+    pip install poetry
 
-# Configure Poetry
+# Configure Poetry to not create virtual environment
 ENV POETRY_NO_INTERACTION=1 \
-    POETRY_VENV_IN_PROJECT=1 \
-    POETRY_CACHE_DIR=/opt/poetry_cache
+    POETRY_VENV_CREATE=false \
+    POETRY_CACHE_DIR=/opt/poetry_cache \
+    POETRY_VIRTUALENVS_CREATE=false \
+    POETRY_VIRTUALENVS_IN_PROJECT=false
 
 WORKDIR /app
 
 # Copy dependency files
-COPY pyproject.toml poetry.lock ./
+COPY pyproject.toml poetry.lock README.md ./
 
-# Install dependencies
-RUN poetry install --no-dev && rm -rf $POETRY_CACHE_DIR
+# Configure Poetry and install dependencies
+RUN --mount=type=cache,target=/opt/poetry_cache \
+    --mount=type=cache,target=/root/.cache/pypoetry \
+    poetry config virtualenvs.create false && \
+    poetry config virtualenvs.in-project false && \
+    poetry install --only=main --no-root && \
+    python -c "import uvicorn; import celery; import fastapi; print('All imports successful')"
 
-# Runtime stage
-FROM python:3.12-slim
+# Security: Create non-root user with home directory
+RUN groupadd -r appuser && useradd -r -g appuser -m -d /home/appuser appuser
 
-# Security: Create non-root user
-RUN groupadd -r appuser && useradd -r -g appuser appuser
+# Create necessary directories with proper permissions
+RUN mkdir -p /tmp/edgar_data /home/appuser/.edgar /home/appuser/.cache && \
+    chown -R appuser:appuser /tmp/edgar_data /home/appuser
 
-# Install runtime dependencies
-RUN apt-get update && apt-get install -y \
-    && rm -rf /var/lib/apt/lists/*
-
-# Copy virtual environment from builder stage
-ENV VIRTUAL_ENV=/app/.venv
-COPY --from=builder ${VIRTUAL_ENV} ${VIRTUAL_ENV}
-
-# Make sure we use the virtualenv
-ENV PATH="$VIRTUAL_ENV/bin:$PATH"
+# Set HOME environment variable
+ENV HOME=/home/appuser
 
 # Copy application code
-WORKDIR /app
-COPY --chown=appuser:appuser . .
+COPY . .
 
-# Security: Run as non-root user
+# Change ownership to appuser
+RUN chown -R appuser:appuser /app
+
+# Switch to non-root user
 USER appuser
 
 # Health check

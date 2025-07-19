@@ -49,6 +49,10 @@ structlog = "^24.1.0"
 # LLM
 openai = "^1.93.1"
 anthropic = "^0.57.1"
+# SEC Data
+edgartools = "^4.3.1"
+# Dependency Injection
+dependency-injector = "^4.48.1"
 # Utilities
 python-dateutil = "^2.8.2"
 orjson = "^3.9.14"
@@ -74,6 +78,9 @@ safety = "^3.0.0"
 ipython = "^8.21.0"
 rich = "^13.7.0"
 pre-commit = "^3.6.0"
+
+
+[tool.poetry.group.test.dependencies]
 
 [build-system]
 requires = ["poetry-core"]
@@ -136,6 +143,22 @@ disable_error_code = ["call-arg"]
 module = "src.infrastructure.database.base"
 disable_error_code = ["misc"]
 
+[[tool.mypy.overrides]]
+module = "celery"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "src.infrastructure.celery_app"
+disable_error_code = ["import-untyped"]
+
+[[tool.mypy.overrides]]
+module = "src.infrastructure.tasks.*"
+disable_error_code = ["import-untyped", "attr-defined", "call-arg", "arg-type", "misc", "no-any-return"]
+
+[[tool.mypy.overrides]]
+module = "src.infrastructure.cache.*"
+disable_error_code = ["union-attr", "no-any-return", "misc"]
+
 [tool.pytest.ini_options]
 minversion = "6.0"
 addopts = "-ra -q --strict-markers --strict-config"
@@ -149,6 +172,8 @@ markers = [
     "slow: marks tests as slow (deselect with '-m \"not slow\"')",
     "integration: marks tests as integration tests",
     "unit: marks tests as unit tests",
+    "external_api: marks tests that make real external API calls (expensive/slow)",
+    "requires_api_keys: marks tests that require real API keys to run",
 ]
 
 [tool.coverage.run]

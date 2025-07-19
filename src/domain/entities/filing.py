@@ -169,7 +169,10 @@ class Filing:
 
     def _validate_invariants(self) -> None:
         """Validate domain invariants."""
-        if self._processing_error and self._processing_status != ProcessingStatus.FAILED:
+        if (
+            self._processing_error
+            and self._processing_status != ProcessingStatus.FAILED
+        ):
             raise ValueError("Processing error can only be set when status is FAILED")
 
     def __eq__(self, other: object) -> bool:

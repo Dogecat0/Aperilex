@@ -10,7 +10,7 @@ Aperilex is designed to:
 
 ## EdgarTools Reference
 
-**EdgarTools Integration Note**: All implementations should reference Context7 Library ID `/dgunning/edgartools` for examples and patterns.
+**EdgarTools Integration Note**: All implementations should reference Context7 Library ID `/dgunning/edgartools` for examples and patterns. We should always use this as edgartool reference, not other ways like direct url/web search.
 
 The previous version used edgartools (Context7 Library ID: `/dgunning/edgartools`), a Python library for accessing SEC EDGAR filings. Based on the Context7 documentation, here's what we need to know:
 
@@ -194,6 +194,9 @@ poetry run mypy src/ && poetry run ruff check src/
 
 # After making changes
 poetry run black src/ && poetry run isort src/ && poetry run mypy src/
+
+# Use poetry to run any tests when needed
+poetry run pytest
 ```
 
 ### MyPy Configuration

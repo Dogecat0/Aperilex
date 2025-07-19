@@ -12,20 +12,15 @@ class TestAnalysisType:
 
     def test_analysis_type_values(self):
         """Test that all analysis types have correct values."""
-        assert AnalysisType.FINANCIAL_SUMMARY.value == "financial_summary"
-        assert AnalysisType.RISK_ANALYSIS.value == "risk_analysis"
-        assert AnalysisType.RATIO_ANALYSIS.value == "ratio_analysis"
-        assert AnalysisType.TREND_ANALYSIS.value == "trend_analysis"
-        assert AnalysisType.PEER_COMPARISON.value == "peer_comparison"
-        assert AnalysisType.SENTIMENT_ANALYSIS.value == "sentiment_analysis"
-        assert AnalysisType.KEY_METRICS.value == "key_metrics"
-        assert AnalysisType.ANOMALY_DETECTION.value == "anomaly_detection"
-        assert AnalysisType.CUSTOM.value == "custom"
+        assert AnalysisType.FILING_ANALYSIS.value == "filing_analysis"
+        assert AnalysisType.CUSTOM_QUERY.value == "custom_query"
+        assert AnalysisType.COMPARISON.value == "comparison"
+        assert AnalysisType.HISTORICAL_TREND.value == "historical_trend"
 
     def test_analysis_type_creation(self):
         """Test creating AnalysisType from string."""
-        analysis_type = AnalysisType("financial_summary")
-        assert analysis_type == AnalysisType.FINANCIAL_SUMMARY
+        analysis_type = AnalysisType("filing_analysis")
+        assert analysis_type == AnalysisType.FILING_ANALYSIS
 
 
 class TestAnalysis:
@@ -36,7 +31,7 @@ class TestAnalysis:
         analysis_id = uuid4()
         filing_id = uuid4()
         created_by = uuid4()
-        analysis_type = AnalysisType.FINANCIAL_SUMMARY
+        analysis_type = AnalysisType.FILING_ANALYSIS
         
         analysis = Analysis(
             id=analysis_id,
@@ -54,7 +49,6 @@ class TestAnalysis:
         assert analysis.llm_model is None
         assert analysis.confidence_score is None
         assert analysis.metadata == {}
-        assert analysis.insights == []
         assert isinstance(analysis.created_at, datetime)
 
     def test_init_with_all_params(self):
@@ -62,7 +56,7 @@ class TestAnalysis:
         analysis_id = uuid4()
         filing_id = uuid4()
         created_by = uuid4()
-        analysis_type = AnalysisType.RISK_ANALYSIS
+        analysis_type = AnalysisType.CUSTOM_QUERY
         results = {"summary": "Test summary", "key_findings": ["Finding 1", "Finding 2"]}
         llm_provider = "openai"
         llm_model = "gpt-4"
@@ -95,7 +89,7 @@ class TestAnalysis:
         analysis_id = uuid4()
         filing_id = uuid4()
         created_by = uuid4()
-        analysis_type = AnalysisType.FINANCIAL_SUMMARY
+        analysis_type = AnalysisType.FILING_ANALYSIS
         
         # Too low confidence score
         with pytest.raises(ValueError, match="Confidence score must be between 0.0 and 1.0"):
@@ -122,7 +116,7 @@ class TestAnalysis:
         analysis_id = uuid4()
         filing_id = uuid4()
         created_by = uuid4()
-        analysis_type = AnalysisType.FINANCIAL_SUMMARY
+        analysis_type = AnalysisType.FILING_ANALYSIS
         
         # High confidence
         high_conf = Analysis(
@@ -176,39 +170,39 @@ class TestAnalysis:
         analysis = self._create_test_analysis()
         
         # No summary
-        assert analysis.get_summary() == ""
+        assert analysis.get_filing_summary() == ""
         
         # With summary
-        analysis.add_insight("summary", "This is a test summary")
-        assert analysis.get_summary() == "This is a test summary"
+        analysis.update_results({"filing_summary": "This is a test summary"})
+        assert analysis.get_filing_summary() == "This is a test summary"
 
     def test_get_key_findings(self):
         """Test getting key findings."""
         analysis = self._create_test_analysis()
         
         # No findings
-        assert analysis.get_key_findings() == []
+        assert analysis.get_key_insights() == []
         
         # With findings
         findings = ["Finding 1", "Finding 2", "Finding 3"]
-        analysis.add_insight("key_findings", findings)
-        assert analysis.get_key_findings() == findings
+        analysis.update_results({"key_insights": findings})
+        assert analysis.get_key_insights() == findings
 
     def test_get_risks(self):
         """Test getting risks."""
         analysis = self._create_test_analysis()
         
         # No risks
-        assert analysis.get_risks() == []
+        assert analysis.get_risk_factors() == []
         
         # With risks
-        analysis.add_risk("High debt levels", "high", "medium", "significant")
-        risks = analysis.get_risks()
-        assert len(risks) == 1
-        assert risks[0]["description"] == "High debt levels"
-        assert risks[0]["severity"] == "high"
-        assert risks[0]["probability"] == "medium"
-        assert risks[0]["impact"] == "significant"
+        risks = ["High debt levels", "Market volatility", "Regulatory changes"]
+        analysis.update_results({"risk_factors": risks})
+        risk_factors = analysis.get_risk_factors()
+        assert len(risk_factors) == 3
+        assert risk_factors[0] == "High debt levels"
+        assert risk_factors[1] == "Market volatility"
+        assert risk_factors[2] == "Regulatory changes"
 
     def test_get_opportunities(self):
         """Test getting opportunities."""
@@ -218,11 +212,8 @@ class TestAnalysis:
         assert analysis.get_opportunities() == []
         
         # With opportunities
-        opportunities = [
-            {"description": "Market expansion", "potential": "high"},
-            {"description": "Cost reduction", "potential": "medium"}
-        ]
-        analysis.add_insight("opportunities", opportunities)
+        opportunities = ["Market expansion", "Cost reduction", "New partnerships"]
+        analysis.update_results({"opportunities": opportunities})
         assert analysis.get_opportunities() == opportunities
 
     def test_get_metrics(self):
@@ -230,24 +221,24 @@ class TestAnalysis:
         analysis = self._create_test_analysis()
         
         # No metrics
-        assert analysis.get_metrics() == {}
+        assert analysis.get_financial_highlights() == []
         
         # With metrics
-        analysis.add_metric("revenue_growth", 15.5, "%")
-        analysis.add_metric("debt_ratio", 0.35)
+        highlights = ["Revenue growth: 15.5%", "Debt ratio: 0.35", "Profit margin: 12.3%"]
+        analysis.update_results({"financial_highlights": highlights})
         
-        metrics = analysis.get_metrics()
-        assert metrics["revenue_growth"]["value"] == 15.5
-        assert metrics["revenue_growth"]["unit"] == "%"
-        assert metrics["debt_ratio"]["value"] == 0.35
-        assert "unit" not in metrics["debt_ratio"]
+        metrics = analysis.get_financial_highlights()
+        assert len(metrics) == 3
+        assert metrics[0] == "Revenue growth: 15.5%"
+        assert metrics[1] == "Debt ratio: 0.35"
+        assert metrics[2] == "Profit margin: 12.3%"
 
     def test_add_insight(self):
-        """Test adding insights."""
+        """Test adding insights with update_results."""
         analysis = self._create_test_analysis()
         
         # Simple insight
-        analysis.add_insight("key_metric", "Revenue increased 20%")
+        analysis.update_results({"key_metric": "Revenue increased 20%"})
         assert analysis.results["key_metric"] == "Revenue increased 20%"
         
         # Structured insight
@@ -256,97 +247,8 @@ class TestAnalysis:
             "description": "Revenue trending upward",
             "confidence": 0.9
         }
-        analysis.add_insight("revenue_trend", structured_insight)
+        analysis.update_results({"revenue_trend": structured_insight})
         assert analysis.results["revenue_trend"] == structured_insight
-        
-        # Should be added to insights list
-        insights = analysis.insights
-        assert len(insights) == 1
-        assert insights[0]["key"] == "revenue_trend"
-        assert insights[0]["type"] == "trend"
-        assert insights[0]["description"] == "Revenue trending upward"
-
-    def test_add_insight_with_invalid_key(self):
-        """Test adding insight with invalid key."""
-        analysis = self._create_test_analysis()
-        
-        # Empty key
-        with pytest.raises(ValueError, match="Insight key cannot be empty"):
-            analysis.add_insight("", "value")
-        
-        # Whitespace only key
-        with pytest.raises(ValueError, match="Insight key cannot be empty"):
-            analysis.add_insight("   ", "value")
-
-    def test_add_metric(self):
-        """Test adding metrics."""
-        analysis = self._create_test_analysis()
-        
-        # Metric with unit
-        analysis.add_metric("profit_margin", 12.5, "%")
-        
-        metrics = analysis.get_metrics()
-        assert metrics["profit_margin"]["value"] == 12.5
-        assert metrics["profit_margin"]["unit"] == "%"
-        
-        # Metric without unit
-        analysis.add_metric("pe_ratio", 18.5)
-        
-        metrics = analysis.get_metrics()
-        assert metrics["pe_ratio"]["value"] == 18.5
-        assert "unit" not in metrics["pe_ratio"]
-
-    def test_add_metric_with_invalid_name(self):
-        """Test adding metric with invalid name."""
-        analysis = self._create_test_analysis()
-        
-        # Empty name
-        with pytest.raises(ValueError, match="Metric name cannot be empty"):
-            analysis.add_metric("", 10.5)
-        
-        # Whitespace only name
-        with pytest.raises(ValueError, match="Metric name cannot be empty"):
-            analysis.add_metric("   ", 10.5)
-
-    def test_add_risk(self):
-        """Test adding risks."""
-        analysis = self._create_test_analysis()
-        
-        # Risk with all fields
-        analysis.add_risk("Market volatility", "high", "high", "significant")
-        
-        risks = analysis.get_risks()
-        assert len(risks) == 1
-        risk = risks[0]
-        assert risk["description"] == "Market volatility"
-        assert risk["severity"] == "high"
-        assert risk["probability"] == "high"
-        assert risk["impact"] == "significant"
-        assert "id" in risk
-        assert "timestamp" in risk
-        
-        # Risk with minimal fields
-        analysis.add_risk("Currency fluctuation", "medium")
-        
-        risks = analysis.get_risks()
-        assert len(risks) == 2
-        risk = risks[1]
-        assert risk["description"] == "Currency fluctuation"
-        assert risk["severity"] == "medium"
-        assert "probability" not in risk
-        assert "impact" not in risk
-
-    def test_add_risk_with_invalid_description(self):
-        """Test adding risk with invalid description."""
-        analysis = self._create_test_analysis()
-        
-        # Empty description
-        with pytest.raises(ValueError, match="Risk description cannot be empty"):
-            analysis.add_risk("", "high")
-        
-        # Whitespace only description
-        with pytest.raises(ValueError, match="Risk description cannot be empty"):
-            analysis.add_risk("   ", "high")
 
     def test_update_confidence_score(self):
         """Test updating confidence score."""
@@ -374,11 +276,14 @@ class TestAnalysis:
         """Test adding metadata."""
         analysis = self._create_test_analysis()
         
-        analysis.add_metadata("processing_time", 45.2)
-        analysis.add_metadata("model_version", "v1.2.3")
+        # Set processing time using proper method
+        analysis.set_processing_time(45.2)
+        
+        # Update metadata manually for testing
+        analysis._metadata["model_version"] = "v1.2.3"
         
         metadata = analysis.metadata
-        assert metadata["processing_time"] == 45.2
+        assert metadata["processing_time_seconds"] == 45.2
         assert metadata["model_version"] == "v1.2.3"
 
     def test_processing_time_methods(self):
@@ -401,7 +306,7 @@ class TestAnalysis:
         analysis_id = uuid4()
         filing_id = uuid4()
         created_by = uuid4()
-        analysis_type = AnalysisType.FINANCIAL_SUMMARY
+        analysis_type = AnalysisType.FILING_ANALYSIS
         
         # No LLM provider
         analysis = Analysis(
@@ -427,7 +332,7 @@ class TestAnalysis:
         analysis_id = uuid4()
         filing_id = uuid4()
         created_by = uuid4()
-        analysis_type = AnalysisType.FINANCIAL_SUMMARY
+        analysis_type = AnalysisType.FILING_ANALYSIS
         
         analysis1 = Analysis(
             id=analysis_id,
@@ -439,7 +344,7 @@ class TestAnalysis:
         analysis2 = Analysis(
             id=analysis_id,
             filing_id=uuid4(),  # Different filing ID
-            analysis_type=AnalysisType.RISK_ANALYSIS,  # Different type
+            analysis_type=AnalysisType.CUSTOM_QUERY,  # Different type
             created_by=uuid4()  # Different creator
         )
         
@@ -464,7 +369,7 @@ class TestAnalysis:
         analysis_id = uuid4()
         filing_id = uuid4()
         created_by = uuid4()
-        analysis_type = AnalysisType.FINANCIAL_SUMMARY
+        analysis_type = AnalysisType.FILING_ANALYSIS
         
         analysis1 = Analysis(
             id=analysis_id,
@@ -476,7 +381,7 @@ class TestAnalysis:
         analysis2 = Analysis(
             id=analysis_id,
             filing_id=uuid4(),
-            analysis_type=AnalysisType.RISK_ANALYSIS,
+            analysis_type=AnalysisType.CUSTOM_QUERY,
             created_by=uuid4()
         )
         
@@ -502,7 +407,7 @@ class TestAnalysis:
         
         # Without confidence score
         str_repr = str(analysis)
-        assert "Analysis: financial_summary" in str_repr
+        assert "Analysis: filing_analysis" in str_repr
         assert str(analysis.created_at.date()) in str_repr
         
         # With confidence score
@@ -523,7 +428,7 @@ class TestAnalysis:
     def test_results_isolation(self):
         """Test that results property returns a copy."""
         analysis = self._create_test_analysis()
-        analysis.add_insight("test_key", "test_value")
+        analysis.update_results({"test_key": "test_value"})
         
         # Get results copy
         results = analysis.results
@@ -535,7 +440,7 @@ class TestAnalysis:
     def test_metadata_isolation(self):
         """Test that metadata property returns a copy."""
         analysis = self._create_test_analysis()
-        analysis.add_metadata("test_key", "test_value")
+        analysis._metadata["test_key"] = "test_value"
         
         # Get metadata copy
         metadata = analysis.metadata
@@ -545,62 +450,56 @@ class TestAnalysis:
         assert analysis.metadata["test_key"] == "test_value"
 
     def test_insights_isolation(self):
-        """Test that insights property returns a copy."""
+        """Test that results property returns a copy."""
         analysis = self._create_test_analysis()
         
-        # Add structured insight
-        structured_insight = {
-            "type": "trend",
-            "description": "Test trend"
-        }
-        analysis.add_insight("trend_insight", structured_insight)
+        # Add simple insight (not nested)
+        analysis.update_results({"trend_insight": "Original value"})
         
-        # Get insights copy
-        insights = analysis.insights
-        insights[0]["description"] = "Modified description"
+        # Get results copy
+        results = analysis.results
+        results["trend_insight"] = "Modified value"
         
-        # Original insights should be unchanged
-        assert analysis.insights[0]["description"] == "Test trend"
+        # Original results should be unchanged
+        assert analysis.results["trend_insight"] == "Original value"
 
     def test_comprehensive_analysis_workflow(self):
         """Test a comprehensive analysis workflow."""
         analysis = self._create_test_analysis()
         
-        # Add summary
-        analysis.add_insight("summary", "Apple Inc. shows strong financial performance")
-        
-        # Add key findings
-        analysis.add_insight("key_findings", [
-            "Revenue increased 15% YoY",
-            "Profit margins improved",
-            "Strong cash position"
-        ])
-        
-        # Add metrics
-        analysis.add_metric("revenue_growth", 15.2, "%")
-        analysis.add_metric("profit_margin", 23.1, "%")
-        analysis.add_metric("current_ratio", 1.1)
-        
-        # Add risks
-        analysis.add_risk("Market saturation", "medium", "high", "moderate")
-        analysis.add_risk("Supply chain disruption", "high", "medium", "significant")
-        
-        # Add opportunities
-        analysis.add_insight("opportunities", [
-            {"description": "Services expansion", "potential": "high"},
-            {"description": "Emerging markets", "potential": "medium"}
-        ])
+        # Add comprehensive results
+        analysis.update_results({
+            "filing_summary": "Apple Inc. shows strong financial performance",
+            "key_insights": [
+                "Revenue increased 15% YoY",
+                "Profit margins improved",
+                "Strong cash position"
+            ],
+            "financial_highlights": [
+                "Revenue growth: 15.2%",
+                "Profit margin: 23.1%",
+                "Current ratio: 1.1"
+            ],
+            "risk_factors": [
+                "Market saturation",
+                "Supply chain disruption"
+            ],
+            "opportunities": [
+                "Services expansion",
+                "Emerging markets"
+            ]
+        })
         
         # Update confidence and metadata
         analysis.update_confidence_score(0.88)
         analysis.set_processing_time(125.5)
-        analysis.add_metadata("model_version", "v2.1.0")
+        analysis._metadata["model_version"] = "v2.1.0"
         
         # Verify all data is accessible
-        assert analysis.get_summary() == "Apple Inc. shows strong financial performance"
-        assert len(analysis.get_key_findings()) == 3
-        assert len(analysis.get_metrics()) == 3
-        assert len(analysis.get_risks()) == 2
+        assert analysis.get_filing_summary() == "Apple Inc. shows strong financial performance"
+        assert len(analysis.get_key_insights()) == 3
+        assert len(analysis.get_financial_highlights()) == 3
+        assert len(analysis.get_risk_factors()) == 2
         assert len(analysis.get_opportunities()) == 2
         assert analysis.is_high_confidence() is True
         assert analysis.get_processing_time() == 125.5
@@ -611,7 +510,7 @@ class TestAnalysis:
         return Analysis(
             id=uuid4(),
             filing_id=uuid4(),
-            analysis_type=AnalysisType.FINANCIAL_SUMMARY,
+            analysis_type=AnalysisType.FILING_ANALYSIS,
             created_by=uuid4(),
             llm_provider="openai",
             llm_model="gpt-4"
