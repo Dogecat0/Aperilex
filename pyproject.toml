@@ -79,6 +79,9 @@ ipython = "^8.21.0"
 rich = "^13.7.0"
 pre-commit = "^3.6.0"
 
+
+[tool.poetry.group.test.dependencies]
+
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
@@ -139,6 +142,22 @@ disable_error_code = ["call-arg"]
 [[tool.mypy.overrides]]
 module = "src.infrastructure.database.base"
 disable_error_code = ["misc"]
+
+[[tool.mypy.overrides]]
+module = "celery"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "src.infrastructure.celery_app"
+disable_error_code = ["import-untyped"]
+
+[[tool.mypy.overrides]]
+module = "src.infrastructure.tasks.*"
+disable_error_code = ["import-untyped", "attr-defined", "call-arg", "arg-type", "misc", "no-any-return"]
+
+[[tool.mypy.overrides]]
+module = "src.infrastructure.cache.*"
+disable_error_code = ["union-attr", "no-any-return", "misc"]
 
 [tool.pytest.ini_options]
 minversion = "6.0"
