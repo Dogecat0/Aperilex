@@ -108,6 +108,8 @@ class Money:
         Raises:
             TypeError: If multiplier is not a number
         """
+        if not isinstance(multiplier, int | float | Decimal):
+            raise TypeError("Can only multiply Money by numbers")
 
         result = self._amount * Decimal(str(multiplier))
         return Money(result, self._currency)
@@ -125,6 +127,8 @@ class Money:
             TypeError: If divisor is not a number
             ValueError: If divisor is zero
         """
+        if not isinstance(divisor, int | float | Decimal):
+            raise TypeError("Can only divide Money by numbers")
 
         if divisor == 0:
             raise ValueError("Cannot divide by zero")
