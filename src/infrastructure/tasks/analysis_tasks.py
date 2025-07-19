@@ -8,7 +8,7 @@ from uuid import UUID
 from celery import Task
 
 from src.domain.entities.analysis import Analysis, AnalysisType
-from src.infrastructure.database.base import get_session
+from src.infrastructure.database.base import async_session_maker
 from src.infrastructure.llm.openai_provider import OpenAIProvider
 from src.infrastructure.repositories.analysis_repository import AnalysisRepository
 from src.infrastructure.repositories.filing_repository import FilingRepository
@@ -63,7 +63,7 @@ async def analyze_filing_task(
     )
 
     try:
-        async with get_session() as session:
+        async with async_session_maker() as session:
             filing_repo = FilingRepository(session)
             analysis_repo = AnalysisRepository(session)
 
@@ -251,7 +251,7 @@ async def batch_analyze_filings_task(
     )
 
     try:
-        async with get_session() as session:
+        async with async_session_maker() as session:
             filing_repo = FilingRepository(session)
 
             # Get recent filings for the company

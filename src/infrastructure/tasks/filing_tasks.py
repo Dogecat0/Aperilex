@@ -8,7 +8,7 @@ from uuid import UUID
 from celery import Task
 
 from src.domain.entities.filing import Filing
-from src.infrastructure.database.base import get_session
+from src.infrastructure.database.base import async_session_maker
 from src.infrastructure.edgar.service import EdgarService
 from src.infrastructure.repositories.company_repository import CompanyRepository
 from src.infrastructure.repositories.filing_repository import FilingRepository
@@ -52,7 +52,7 @@ async def fetch_company_filings_task(
     logger.info(f"Starting filing fetch task {task_id} for CIK {cik}")
 
     try:
-        async with get_session() as session:
+        async with async_session_maker() as session:
             company_repo = CompanyRepository(session)
             filing_repo = FilingRepository(session)
             edgar_service = EdgarService()
@@ -141,7 +141,7 @@ async def process_filing_task(self: AsyncTask, filing_id: str) -> dict[str, Any]
     logger.info(f"Starting filing processing task {task_id} for filing {filing_id}")
 
     try:
-        async with get_session() as session:
+        async with async_session_maker() as session:
             filing_repo = FilingRepository(session)
             edgar_service = EdgarService()
 
@@ -194,7 +194,7 @@ async def process_filing_task(self: AsyncTask, filing_id: str) -> dict[str, Any]
 
         # Mark filing as failed if we can access it
         try:
-            async with get_session() as session:
+            async with async_session_maker() as session:
                 filing_repo = FilingRepository(session)
                 filing = await filing_repo.get_by_id(filing_uuid)
                 if filing:
@@ -229,7 +229,7 @@ async def process_pending_filings_task(
     logger.info(f"Starting batch processing task {task_id} with limit {limit}")
 
     try:
-        async with get_session() as session:
+        async with async_session_maker() as session:
             filing_repo = FilingRepository(session)
 
             # Get pending filings
