@@ -65,7 +65,7 @@ def sample_filing(sample_company, sample_accession_number):
         accession_number=sample_accession_number,
         filing_type=FilingType.FORM_10K,
         filing_date=date(2024, 1, 15),
-        status=ProcessingStatus.PENDING,
+        processing_status=ProcessingStatus.PENDING,
         metadata={"fiscal_year": 2023},
     )
 
