@@ -50,21 +50,60 @@ async def test_edgar_service() -> bool:
         print(f"✗ Error: {e}")
         return False
 
-    # Test 3: Get filing sections
-    print("\n3. Testing section extraction...")
+    # Test 3: Get 10-K filing with year filtering
+    print("\n3. Testing 10-K filing with year filtering (2023)...")
+    try:
+        filing = service.get_filing(ticker, FilingType.FORM_10K, latest=False, year=2023)
+        print(f"✓ Found 2023 10-K filing: {filing.filing_type} filed on {filing.filing_date}")
+        print(f"  Accession Number: {filing.accession_number}")
+    except Exception as e:
+        print(f"⚠️  No 2023 10-K filing found or error: {e}")
+        # Fallback to latest filing if 2023 not available
+        try:
+            filing = service.get_filing(ticker, FilingType.FORM_10K, latest=True)
+            print(f"✓ Fallback to latest 10-K: {filing.filing_date}")
+        except Exception as e2:
+            print(f"✗ Error in fallback: {e2}")
+            return False
+
+    # Test 4: Get 10-Q filing with quarter filtering
+    print("\n4. Testing 10-Q filing with quarter filtering (Q1 or Q2)...")
+    try:
+        filing = service.get_filing(ticker, FilingType.FORM_10Q, latest=False, quarter=[1, 2], year=2023)
+        print(f"✓ Found quarterly filing: {filing.filing_type} filed on {filing.filing_date}")
+        print(f"  Accession Number: {filing.accession_number}")
+    except Exception as e:
+        print(f"⚠️  No Q1/Q2 2023 10-Q filing found: {e}")
+        # Fallback to latest 10-Q filing
+        try:
+            filing = service.get_filing(ticker, FilingType.FORM_10Q, latest=True)
+            print(f"✓ Fallback to latest 10-Q: {filing.filing_date}")
+        except Exception as e2:
+            print(f"⚠️  No 10-Q filings available: {e2}")
+
+    # Test 5: Get filing sections with year filtering
+    print("\n5. Testing section extraction with year filtering...")
     try:
         sections = service.extract_filing_sections(
-            ticker, FilingType.FORM_10K, latest=True
+            ticker, FilingType.FORM_10K, latest=False, year=2023
         )
-        print(f"✓ Extracted {len(sections)} sections:")
+        print(f"✓ Extracted {len(sections)} sections from 2023 10-K:")
         for section_name, section_text in list(sections.items())[
             :5
         ]:  # Show first 5 sections
             preview = section_text[:100].replace("\n", " ")
             print(f"  - {section_name}: {preview}...")
     except Exception as e:
-        print(f"✗ Error: {e}")
-        return False
+        print(f"⚠️  Error with year filtering, trying latest: {e}")
+        # Fallback to latest filing sections
+        try:
+            sections = service.extract_filing_sections(
+                ticker, FilingType.FORM_10K, latest=True
+            )
+            print(f"✓ Fallback: Extracted {len(sections)} sections from latest 10-K")
+        except Exception as e2:
+            print(f"✗ Error: {e2}")
+            return False
 
     return True
 
@@ -143,7 +182,7 @@ async def test_llm_provider() -> bool:
             company_name=filing.company_name,
         )
 
-        print(f"✓ Section analysis complete:")
+        print("✓ Section analysis complete:")
         print(f"  - Summary: {section_result.section_summary}")
         print(f"  - Sub-sections found: {len(section_result.sub_sections)}")
         print(f"  - Key insights: {len(section_result.consolidated_insights)}")
@@ -153,14 +192,14 @@ async def test_llm_provider() -> bool:
             sub = section_result.sub_sections[0]
             print(f"\n  First sub-section: {sub.sub_section_name}")
             print(f"  - Schema type: {sub.schema_type}")
-            
+
             # Validate schema-specific content
             if hasattr(sub, 'analysis') and sub.analysis:
                 print(f"  - Analysis type: {type(sub.analysis).__name__}")
                 if isinstance(sub.analysis, dict):
                     print(f"  - Analysis fields: {list(sub.analysis.keys())}")
                     print("  ✓ Schema-specific analysis structure preserved!")
-                    
+
                     # Show a sample of the analysis content
                     if 'operational_overview' in sub.analysis:
                         print(f"  - Operational overview: {str(sub.analysis['operational_overview'])[:100]}...")
@@ -169,7 +208,7 @@ async def test_llm_provider() -> bool:
                 else:
                     print(f"  - Analysis fields: {list(sub.analysis.__class__.model_fields.keys()) if hasattr(sub.analysis, '__class__') else 'N/A'}")
                     print("  ✓ Schema-specific analysis structure preserved!")
-                    
+
             else:
                 print("  ⚠️ No schema-specific analysis found")
 
@@ -361,21 +400,21 @@ async def test_end_to_end() -> bool:
         # Add financial sections (always include if available)
         for section_name, section_content in remaining_sections.items():
             section_lower = section_name.lower()
-            
+
             # Look for balance sheet
             if "balance_sheet" not in section_matched:
                 if any(keyword in section_lower for keyword in core_section_keywords["balance_sheet"]):
                     core_sections[section_name] = section_content
                     section_matched["balance_sheet"] = section_name
                     continue
-            
+
             # Look for income statement
             if "income_statement" not in section_matched:
                 if any(keyword in section_lower for keyword in core_section_keywords["income_statement"]):
                     core_sections[section_name] = section_content
                     section_matched["income_statement"] = section_name
                     continue
-            
+
             # Look for cash flow statement
             if "cash_flow" not in section_matched:
                 if any(keyword in section_lower for keyword in core_section_keywords["cash_flow"]):
@@ -387,7 +426,7 @@ async def test_end_to_end() -> bool:
         for section_name in core_sections.keys():
             print(f"  - {section_name}")
 
-        print(f"✓ Section matching results:")
+        print("✓ Section matching results:")
         for section_type in ["business", "mda", "risk_factors", "balance_sheet", "income_statement", "cash_flow"]:
             if section_type in section_matched:
                 print(f"  - {section_type}: {section_matched[section_type]}")
@@ -418,7 +457,7 @@ async def test_end_to_end() -> bool:
 
         filing.mark_as_completed()
 
-        print(f"✓ Analysis complete!")
+        print("✓ Analysis complete!")
         print(f"  - Overall summary: {result.filing_summary}")
         print(f"  - Sections analyzed: {len(result.section_analyses)}")
         print(f"  - Total sub-sections: {result.total_sub_sections_analyzed}")
@@ -426,15 +465,15 @@ async def test_end_to_end() -> bool:
         # Show a sample risk
         if result.risk_factors:
             print(f"\n  Sample risk: {result.risk_factors[0]}")
-        
+
         # Validate schema-specific content preservation
         schema_sections_found = 0
         for section_analysis in result.section_analyses:
             for sub_section in section_analysis.sub_sections:
                 if hasattr(sub_section, 'analysis') and sub_section.analysis:
                     schema_sections_found += 1
-                    
-        print(f"\n  📋 Schema validation:")
+
+        print("\n  📋 Schema validation:")
         print(f"    - Total sub-sections: {result.total_sub_sections_analyzed}")
         print(f"    - Schema-specific analysis found: {schema_sections_found}")
         if schema_sections_found > 0:
@@ -482,12 +521,12 @@ def create_analysis_summary() -> None:
     for file_path in sorted(results_files):
         print(f"\n📄 {file_path.name}")
         try:
-            with open(file_path, "r") as f:
+            with open(file_path) as f:
                 data = json.load(f)
 
             # Analyze different types of results
             if "filing_analysis" in file_path.name:
-                print(f"  📊 Filing Analysis:")
+                print("  📊 Filing Analysis:")
                 print(f"    - Summary length: {len(data.get('filing_summary', ''))}")
                 print(f"    - Risk factors: {len(data.get('risk_factors', []))}")
                 print(f"    - Opportunities: {len(data.get('opportunities', []))}")
@@ -497,7 +536,7 @@ def create_analysis_summary() -> None:
                 print(
                     f"    - Sub-sections analyzed: {data.get('total_sub_sections_analyzed', 0)}"
                 )
-                
+
                 # Check for schema-specific content
                 schema_sections = 0
                 schema_types = set()
@@ -507,19 +546,19 @@ def create_analysis_summary() -> None:
                             schema_sections += 1
                             if sub_section.get('schema_type'):
                                 schema_types.add(sub_section.get('schema_type'))
-                
+
                 print(f"    - Schema-specific sections: {schema_sections}")
                 if schema_types:
                     print(f"    - Schema types used: {', '.join(sorted(schema_types))}")
                     print("    ✓ Schema-specific analysis preserved!")
 
             elif "section_analysis" in file_path.name:
-                print(f"  📋 Section Analysis:")
+                print("  📋 Section Analysis:")
                 print(f"    - Section: {data.get('section_name', 'Unknown')}")
                 print(f"    - Summary length: {len(data.get('section_summary', ''))}")
                 print(f"    - Sub-sections: {len(data.get('sub_sections', []))}")
                 print(f"    - Insights: {len(data.get('consolidated_insights', []))}")
-                
+
                 # Check for schema-specific content
                 schema_sections = 0
                 schema_types = set()
@@ -528,7 +567,7 @@ def create_analysis_summary() -> None:
                         schema_sections += 1
                         if sub_section.get('schema_type'):
                             schema_types.add(sub_section.get('schema_type'))
-                
+
                 if schema_sections > 0:
                     print(f"    - Schema-specific sections: {schema_sections}")
                     if schema_types:
@@ -536,7 +575,7 @@ def create_analysis_summary() -> None:
                     print("    ✓ Schema-specific analysis preserved!")
 
             elif "filing_sections" in file_path.name:
-                print(f"  📄 Raw Filing Sections:")
+                print("  📄 Raw Filing Sections:")
                 sections = list(data.keys()) if isinstance(data, dict) else []
                 print(f"    - Sections: {len(sections)}")
                 for section in sections:
