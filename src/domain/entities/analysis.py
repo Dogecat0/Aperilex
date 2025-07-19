@@ -27,7 +27,7 @@ class Analysis:
         id: UUID,
         filing_id: UUID,
         analysis_type: AnalysisType,
-        created_by: UUID,
+        created_by: str | None,
         results: dict[str, Any] | None = None,
         llm_provider: str | None = None,
         llm_model: str | None = None,
@@ -41,7 +41,7 @@ class Analysis:
             id: Unique identifier for the analysis
             filing_id: ID of the filing analyzed
             analysis_type: Type of analysis performed
-            created_by: User ID who initiated the analysis
+            created_by: Identifier of who initiated the analysis (e.g., API key, email)
             results: Analysis results data
             llm_provider: LLM provider used (e.g., "openai", "anthropic")
             llm_model: Specific model used (e.g., "gpt-4", "claude-3")
@@ -78,8 +78,8 @@ class Analysis:
         return self._analysis_type
 
     @property
-    def created_by(self) -> UUID:
-        """Get creator user ID."""
+    def created_by(self) -> str | None:
+        """Get creator identifier."""
         return self._created_by
 
     @property
