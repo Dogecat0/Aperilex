@@ -1,11 +1,6 @@
 """Edgar Tools integration service for SEC data access."""
 
-
-from edgar import (  # type: ignore[import-untyped]
-    Company,
-    Filing,
-    set_identity,
-)
+from edgar import Company, Filing, set_identity  # type: ignore[import-untyped]
 
 from src.domain.value_objects import CIK, AccessionNumber, FilingType, Ticker
 from src.infrastructure.edgar.schemas.company_data import CompanyData
@@ -207,7 +202,7 @@ class EdgarService:
             # The .obj() method returns a form-specific object with parsed sections
             filing_obj = filing.obj()
 
-            sections = {}
+            sections: dict[str, str] = {}
 
             # For debugging - let's see what attributes are available
             print(f"[EdgarService] Filing object type: {type(filing_obj)}")
@@ -510,15 +505,25 @@ class EdgarService:
 
     def _extract_company_data(self, company: Company) -> CompanyData:
         """Extract company data from edgartools Company object."""
+        # Safely extract ticker with fallback to None
+        ticker_value = None
+        if hasattr(company, "ticker"):
+            ticker_attr = getattr(company, "ticker", None)
+            if ticker_attr is not None:
+                ticker_value = str(ticker_attr)
+
         return CompanyData(
             cik=str(company.cik),
-            name=company.name,
-            ticker=company.ticker if hasattr(company, "ticker") else None,
+            name=company.name or "Unknown Company",
+            ticker=ticker_value,
             sic_code=str(company.sic) if hasattr(company, "sic") else None,
             sic_description=(
-                company.sic_description if hasattr(company, "sic_description") else None
+                str(getattr(company, "sic_description", None))
+                if hasattr(company, "sic_description")
+                and getattr(company, "sic_description", None) is not None
+                else None
             ),
-            address=company.address if hasattr(company, "address") else None,
+            address=getattr(company, "address", None),
         )
 
     def _extract_filing_data(self, filing: Filing) -> FilingData:
@@ -539,13 +544,26 @@ class EdgarService:
         except Exception:
             raw_html = None
 
+        # Extract ticker from company - Filing object doesn't have ticker attribute
+        ticker_value = None
+        try:
+            # Get company object and extract ticker if available
+            company = Company(filing.cik)
+            if hasattr(company, "ticker"):
+                ticker_attr = getattr(company, "ticker", None)
+                if ticker_attr is not None:
+                    ticker_value = str(ticker_attr)
+        except Exception:
+            # If we can't get company info, ticker remains None
+            pass
+
         return FilingData(
             accession_number=filing.accession_number,
             filing_type=filing.form,
             filing_date=str(filing.filing_date),
             company_name=filing.company,
             cik=str(filing.cik),
-            ticker=filing.ticker if hasattr(filing, "ticker") else None,
+            ticker=ticker_value,
             content_text=content_text,
             raw_html=raw_html,
         )
@@ -633,7 +651,9 @@ class EdgarService:
 
         # Apply year/quarter filtering if specified
         if query_params.year is not None or query_params.quarter is not None:
-            filings = self._filter_by_year_quarter(filings, query_params.year, query_params.quarter)
+            filings = self._filter_by_year_quarter(
+                filings, query_params.year, query_params.quarter
+            )
 
         # Apply amendments filter if specified
         if not query_params.amendments:
@@ -641,7 +661,7 @@ class EdgarService:
 
         # Apply limit if specified
         if query_params.limit is not None:
-            filings = filings[:query_params.limit]
+            filings = filings[: query_params.limit]
 
         return filings
 
@@ -649,7 +669,7 @@ class EdgarService:
         self,
         filings: list[Filing],
         year: int | list[int] | range | None,
-        quarter: int | list[int] | None
+        quarter: int | list[int] | None,
     ) -> list[Filing]:
         """Filter filings by year and quarter.
 
