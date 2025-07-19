@@ -15,6 +15,35 @@ class Settings(BaseSettings):
     # Redis
     redis_url: str = Field(default="", validation_alias="REDIS_URL")
 
+    # Celery
+    celery_broker_url: str = Field(default="", validation_alias="CELERY_BROKER_URL")
+    celery_result_backend: str = Field(
+        default="", validation_alias="CELERY_RESULT_BACKEND"
+    )
+    celery_worker_concurrency: int = Field(
+        default=4, validation_alias="CELERY_WORKER_CONCURRENCY"
+    )
+    celery_task_serializer: str = Field(
+        default="json", validation_alias="CELERY_TASK_SERIALIZER"
+    )
+    celery_result_serializer: str = Field(
+        default="json", validation_alias="CELERY_RESULT_SERIALIZER"
+    )
+    celery_accept_content: list[str] = Field(
+        default=["json"], validation_alias="CELERY_ACCEPT_CONTENT"
+    )
+    celery_timezone: str = Field(default="UTC", validation_alias="CELERY_TIMEZONE")
+    celery_enable_utc: bool = Field(default=True, validation_alias="CELERY_ENABLE_UTC")
+    celery_task_track_started: bool = Field(
+        default=True, validation_alias="CELERY_TASK_TRACK_STARTED"
+    )
+    celery_task_time_limit: int = Field(
+        default=3600, validation_alias="CELERY_TASK_TIME_LIMIT"
+    )  # 1 hour
+    celery_task_soft_time_limit: int = Field(
+        default=3300, validation_alias="CELERY_TASK_SOFT_TIME_LIMIT"
+    )  # 55 minutes
+
     # Security
     secret_key: str = Field(default="", validation_alias="SECRET_KEY")
     encryption_key: str = Field(default="", validation_alias="ENCRYPTION_KEY")

@@ -35,6 +35,8 @@ services:
     environment:
       DATABASE_URL: postgresql+asyncpg://aperilex:${DB_PASSWORD:-dev_password}@postgres/aperilex
       REDIS_URL: redis://:${REDIS_PASSWORD:-dev_password}@redis:6379
+      CELERY_BROKER_URL: redis://:${REDIS_PASSWORD:-dev_password}@redis:6379
+      CELERY_RESULT_BACKEND: redis://:${REDIS_PASSWORD:-dev_password}@redis:6379
       SECRET_KEY: ${SECRET_KEY:-dev-secret-key-change-in-production}
       ENCRYPTION_KEY: ${ENCRYPTION_KEY:-dev-encryption-key-32-characters}
       DEBUG: "true"
@@ -47,6 +49,42 @@ services:
       - ./src:/app/src
       - ./tests:/app/tests
     command: uvicorn src.presentation.api.app:app --reload --host 0.0.0.0 --port 8000
+
+  celery-worker:
+    build: .
+    environment:
+      DATABASE_URL: postgresql+asyncpg://aperilex:${DB_PASSWORD:-dev_password}@postgres/aperilex
+      REDIS_URL: redis://:${REDIS_PASSWORD:-dev_password}@redis:6379
+      CELERY_BROKER_URL: redis://:${REDIS_PASSWORD:-dev_password}@redis:6379
+      CELERY_RESULT_BACKEND: redis://:${REDIS_PASSWORD:-dev_password}@redis:6379
+      SECRET_KEY: ${SECRET_KEY:-dev-secret-key-change-in-production}
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY:-dev-encryption-key-32-characters}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./src:/app/src
+    command: celery -A src.infrastructure.tasks.celery_app:celery_app worker --loglevel=info --queues=filing_queue,analysis_queue
+
+  celery-beat:
+    build: .
+    environment:
+      DATABASE_URL: postgresql+asyncpg://aperilex:${DB_PASSWORD:-dev_password}@postgres/aperilex
+      REDIS_URL: redis://:${REDIS_PASSWORD:-dev_password}@redis:6379
+      CELERY_BROKER_URL: redis://:${REDIS_PASSWORD:-dev_password}@redis:6379
+      CELERY_RESULT_BACKEND: redis://:${REDIS_PASSWORD:-dev_password}@redis:6379
+      SECRET_KEY: ${SECRET_KEY:-dev-secret-key-change-in-production}
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY:-dev-encryption-key-32-characters}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./src:/app/src
+    command: celery -A src.infrastructure.tasks.celery_app:celery_app beat --loglevel=info
 
 volumes:
   postgres_data:
