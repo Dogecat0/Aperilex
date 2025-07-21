@@ -154,24 +154,36 @@ src/infrastructure/
 
 ## Next Phase
 
-### Phase 4: Application Services - 📋 PLANNED
-**Dependencies**: Complete Phase 3
+### Phase 4: Application Services - 🔄 IN PROGRESS (17% Complete)
+**Dependencies**: Complete Phase 3 ✅
 
-#### Planned Deliverables:
-1. **Analysis Use Cases**:
-   - `AnalyzeFilingCommand` - Trigger analysis on SEC filings
-   - `GenerateInsightsCommand` - Derive insights from multiple analyses
-   - `CompareAnalysesQuery` - Compare results across companies/periods
+#### Status Update:
+**Progress**: 1/6 major components complete
+- ✅ **Base CQRS Infrastructure** - Complete with 114 tests, 99.40% coverage
+- 🔄 **Request/Response DTOs** - In progress (next component)
+- ⏳ **Remaining components** - Pending
+
+#### ✅ Completed Deliverables:
+1. **Base CQRS Infrastructure**:
+   - `BaseCommand` and `BaseQuery` abstract classes with validation
+   - `CommandHandler` and `QueryHandler` interfaces with full type safety
+   - `Dispatcher` with dependency injection and handler registration
+   - Comprehensive error handling and structured logging
+   - 114 unit tests with 99.40% coverage
+
+#### 🔄 Revised Scope (Due to LLM Infrastructure Limitations):
+
+**Analysis Use Cases** (Limited by current LLM capabilities):
+- ✅ `AnalyzeFilingCommand` - Supported by existing `analyze_filing()` LLM method
+- ❌ `GenerateInsightsCommand` - **POSTPONED** (requires multi-analysis LLM methods)
+- ❌ `CompareAnalysesQuery` - **POSTPONED** (requires cross-analysis LLM capabilities)
    
-2. **Domain Services**:
-   - `AnalysisOrchestrator` - Coordinate multi-step analysis
-   - `InsightGenerator` - Extract actionable insights
-   - `AnalysisTemplateService` - Manage reusable analysis configurations
+**Domain Services** (Adjusted scope):
+- ✅ `AnalysisOrchestrator` - Single-filing analysis coordination
+- ❌ `InsightGenerator` - **POSTPONED** (depends on multi-analysis LLM infrastructure)
+- ✅ `AnalysisTemplateService` - Manage LLM schema-based analysis configurations
 
-3. **Integration Services**:
-   - Direct edgartools usage for filing retrieval
-   - LLM service for content analysis
-   - Notification service for alerts 
+**Rationale**: Current LLM infrastructure (`OpenAIProvider`) supports single-filing analysis only. Multi-analysis intelligence capabilities require additional LLM methods that don't exist yet and would require significant infrastructure development. 
 
 ### Phase 5: API Development - 📋 PLANNED
 **Dependencies**: Complete Phase 4
