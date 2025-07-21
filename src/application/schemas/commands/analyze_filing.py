@@ -8,7 +8,6 @@ from src.domain.value_objects.accession_number import AccessionNumber
 from src.domain.value_objects.cik import CIK
 
 
-
 class AnalysisTemplate(str, Enum):
     """Analysis templates aligned with available LLM schemas.
 

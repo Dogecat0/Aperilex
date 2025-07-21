@@ -3,7 +3,6 @@
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
-from uuid import UUID
 
 from src.application.base.query import BaseQuery
 from src.domain.entities.analysis import AnalysisType
