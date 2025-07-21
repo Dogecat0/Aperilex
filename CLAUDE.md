@@ -1,12 +1,18 @@
 # Aperilex Development Context
 
 ## Project Overview
-Aperilex is a SEC Filing Analysis Engine being built as a complete rewrite of an existing application.
-Aperilex is designed to:
-- Fetch and analyze SEC filings (10-K, 10-Q, 8-K) using the edgartools library
-- Provide AI-powered insights and analysis through multiple LLM providers
-- Offer a secure, scalable API for enterprise use
-- Support background processing for large-scale analysis operations
+Aperilex is an open-source financial analysis platform that makes SEC filings accessible and understandable for everyone. Whether you're an investor, analyst, student, or simply curious about public companies, Aperilex transforms complex financial documents into clear, actionable insights.
+
+**Mission**: Democratize financial analysis by making SEC filings as easy to understand as reading a news article.
+
+Aperilex provides:
+- **User-Friendly Interface**: Web-based dashboard that anyone can use, no financial expertise required
+- **AI-Powered Insights**: Automatic extraction of key risks, opportunities, and financial trends from filings
+- **Visual Financial Analysis**: Charts, graphs, and comparisons that make complex data understandable
+- **Smart Summaries**: Plain-English explanations of what filings mean for investors
+- **Company Research Tools**: Compare companies, track changes over time, and identify trends
+- **Developer API**: Powerful REST API for building financial applications and integrations
+- **Advanced Technical Architecture**: Robust backend using edgartools library with multiple LLM providers
 
 ## EdgarTools Reference
 
@@ -101,14 +107,23 @@ liquidity = ratios.calculate_liquidity_ratios()
 
 ### Aperilex Enhancement Opportunities
 
-1. **Caching Layer**: Add Redis caching for frequently accessed filings and parsed XBRL data
-2. **LLM Integration**: Use AI for intelligent filing analysis, risk extraction, and summarization
-3. **Async Processing**: Leverage FastAPI's async capabilities with background Celery tasks
-4. **Enhanced Security**: Add authentication, authorization, and audit logging for compliance
-5. **Scalability**: Use Celery for background processing of large XBRL parsing operations
-6. **Monitoring**: Add metrics for API usage, edgartools performance, and error tracking
-7. **Data Pipeline**: Build ETL pipeline for continuous filing updates and analysis
-8. **Advanced Analytics**: Implement peer comparison, trend detection, and anomaly detection
+#### User-Focused Features
+1. **Interactive Visualizations**: Charts and graphs for financial trends, ratios, and comparisons
+2. **Smart Alerts**: Notify users of significant changes in filings or financial metrics
+3. **Company Comparison Tools**: Side-by-side analysis of multiple companies
+4. **Portfolio Tracking**: Monitor holdings and get insights on owned companies
+5. **Educational Content**: Explanations and tutorials for financial concepts
+6. **Export & Sharing**: Generate reports, PDFs, and shareable insights
+7. **Mobile Experience**: Responsive design for mobile financial research
+
+#### Technical Infrastructure
+1. **Caching Layer**: Redis caching for frequently accessed filings and parsed XBRL data
+2. **Advanced LLM Integration**: Multi-provider AI for intelligent filing analysis and summarization
+3. **Real-time Processing**: WebSocket updates for live analysis and notifications
+4. **Data Pipeline**: ETL pipeline for continuous filing updates and analysis
+5. **Advanced Analytics**: Peer comparison, trend detection, and anomaly detection algorithms
+6. **Performance Monitoring**: Metrics for API usage, edgartools performance, and user experience
+7. **Background Processing**: Celery for large-scale XBRL parsing and analysis operations
 
 ## Development Commands
 
@@ -163,22 +178,38 @@ safety check
 
 ## Architecture Notes
 
-- **Domain Layer**: Business entities and logic (Filing, Company, Analysis)
-- **Application Layer**: Use cases (AnalyzeFilingCommand, SearchFilingsQuery)
-- **Infrastructure Layer**: External integrations (SEC API, LLM providers, Database)
-- **Presentation Layer**: REST API endpoints
+Aperilex uses clean architecture principles to enable both powerful user features and robust technical capabilities:
 
+- **Domain Layer**: Core business entities and logic (Filing, Company, Analysis) that represent real-world financial concepts
+- **Application Layer**: Use cases and commands (AnalyzeFilingCommand, SearchFilingsQuery) that orchestrate user workflows
+- **Infrastructure Layer**: External integrations (SEC API, LLM providers, Database) that power data access and AI insights
+- **Presentation Layer**: Both REST API endpoints for developers AND web UI for end users
+
+## Git Integration
+Before any code changes or implementation, ensure we are in the correct Git branch that follows the best git practice and the development plan in `docs/phases/PHASE_*_DETAILED_PLAN.md`:
+
+```bash
+# Check current branch
+git branch
+
+# Switch to or create the appropriate feature branch
+git checkout -b feature/your-feature-name
+
+# Or switch to existing feature branch
+git checkout feature/existing-feature
+```
 
 ## Code Quality Standards
 
 ### Engineering Practices
 - **SOLID Principles**: Single responsibility, open/closed, Liskov substitution, interface segregation, dependency inversion
 - **Clean Code**: Meaningful names, small functions (<20 lines), single responsibility per function
-- **Domain-Driven Design**: Clear separation of entities, value objects, and aggregates
+- **Domain-Driven Design**: Clear separation of entities, value objects, and aggregates that model real financial concepts
 - **Immutability**: Value objects should be immutable, use dataclasses with `frozen=True`
 - **Dependency Injection**: Use constructor injection, depend on abstractions not concretions
 - **Error Handling**: Use custom exceptions for domain errors, fail fast with clear error messages
 - **Testing**: Unit tests for domain logic, integration tests for external dependencies
+- **User-Centric Design**: Every technical decision should ultimately serve end-user value
 
 ### Type Checking
 - **MyPy**: Strict type checking enabled with targeted overrides in `pyproject.toml`
