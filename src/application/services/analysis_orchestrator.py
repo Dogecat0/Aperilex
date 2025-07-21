@@ -134,8 +134,8 @@ class AnalysisOrchestrator:
             await self.track_analysis_progress(analysis.id, 0.1, "Analysis started")
 
             # Step 4: Resolve analysis template and schemas
-            schemas_to_use = self.template_service.map_template_to_schemas(
-                command.analysis_template, command.custom_schema_selection
+            schemas_to_use = self.template_service.get_schemas_for_template(
+                command.analysis_template
             )
             await self.track_analysis_progress(analysis.id, 0.2, "Template resolved")
 
@@ -175,8 +175,7 @@ class AnalysisOrchestrator:
             metadata = {
                 "template_used": command.analysis_template.value,
                 "schemas_processed": schemas_to_use,
-                "processing_time_minutes": command.estimated_processing_time_minutes,
-                "custom_instructions": command.custom_instructions,
+                "processing_time_minutes": 15,  # Default processing time
                 "edgar_accession": command.accession_number.value,
                 "force_reprocessed": command.force_reprocess,
             }

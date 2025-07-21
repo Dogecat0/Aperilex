@@ -9,7 +9,7 @@ from uuid import uuid4
 
 from src.application.base.command import BaseCommand
 from src.application.base.dispatcher import Dispatcher
-from src.application.base.exceptions import DependencyError, HandlerNotFoundError
+from src.application.base.exceptions import HandlerNotFoundError
 from src.application.base.handlers import CommandHandler, QueryHandler
 from src.application.base.query import BaseQuery
 

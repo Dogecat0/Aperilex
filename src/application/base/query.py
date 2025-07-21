@@ -1,13 +1,11 @@
 """Base query infrastructure for CQRS pattern.
 
 Queries represent read operations that don't change system state. They include
-pagination support and metadata for tracking.
+pagination support.
 """
 
 from abc import ABC
-from dataclasses import dataclass, field
-from datetime import datetime
-from uuid import UUID, uuid4
+from dataclasses import dataclass
 
 
 @dataclass(frozen=True)
@@ -15,18 +13,14 @@ class BaseQuery(ABC):  # noqa: B024
     """Base class for all queries in the system.
 
     Queries are immutable data structures that represent a request for data
-    without changing system state. They include pagination and tracking metadata.
+    without changing system state. They include pagination support.
 
     Attributes:
-        query_id: Unique identifier for this query instance
-        timestamp: When the query was created
         user_id: Optional identifier of the user making the query
         page: Page number for pagination (1-based)
         page_size: Number of items per page
     """
 
-    query_id: UUID = field(default_factory=uuid4)
-    timestamp: datetime = field(default_factory=datetime.utcnow)
     user_id: str | None = None
     page: int = 1
     page_size: int = 20

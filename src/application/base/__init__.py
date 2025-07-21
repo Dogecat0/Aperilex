@@ -8,11 +8,7 @@ from .command import BaseCommand
 from .dispatcher import Dispatcher
 from .exceptions import (
     ApplicationError,
-    BusinessRuleViolationError,
-    DependencyError,
     HandlerNotFoundError,
-    ResourceNotFoundError,
-    ValidationError,
 )
 from .handlers import CommandHandler, QueryHandler
 from .query import BaseQuery
@@ -27,9 +23,5 @@ __all__ = [
     "Dispatcher",
     # Exceptions
     "ApplicationError",
-    "BusinessRuleViolationError",
-    "DependencyError",
     "HandlerNotFoundError",
-    "ResourceNotFoundError",
-    "ValidationError",
 ]
