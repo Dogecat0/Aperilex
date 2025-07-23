@@ -1,10 +1,10 @@
 At the end of this message, I will ask you to do something. Please follow the "Explore, Plan, Code, Test" workflow when you start.
 
 # Explore
-First, use parallel subagents to find and read all files that may be useful for implementing the task/ticket, either as examples or as edit targets. The subagents should return relevant file paths, and any other info that may be useful.
+First, use parallel subagents to find and read all files that may be useful for implementing the task/ticket, either as examples or as edit targets. The subagents should return relevant file paths, and any other info that may be useful. During this step, you should ignore all the existing tests files.
 
 # Plan
-Next, think hard and write up a detailed implementation plan. Don't forget to include tests, lookbook components, and documentation. Use your judgement as to what is necessary, given the standards of this repo.
+Next, think ultrahard and write up a detailed implementation plan. Don't forget to include tests, lookbook components, and documentation. Use your judgement as to what is necessary, given the standards of this repo.
 
 If there are things you are not sure about, use parallel subagents to do some web research. They should only return useful information, no noise.
 

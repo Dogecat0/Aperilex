@@ -1,7 +1,7 @@
 At the end of this message, I will ask you to do something. Please follow the "Explore, Plan, Code, Test" workflow when you start.
 
 # Explore
-First, use parallel subagents to find and read all files that may be useful for implementing the task/ticket, either as examples or as edit targets. The subagents should return relevant file paths, and any other info that may be useful.
+First, use parallel subagents to find and read all files that may be useful for implementing the task/ticket, either as examples or as edit targets. The subagents should return relevant file paths, and any other info that may be useful. During this step, you should ignore all the existing tests files.
 
 # Review
 Before implementing the plan, it's important to review the existing codebase and any relevant documentation. This will help ensure that the implementation is consistent with the project's standards and practices.
