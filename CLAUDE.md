@@ -39,16 +39,10 @@ The previous version used edgartools (Context7 Library ID: `/dgunning/edgartools
    - Converts to form-specific data objects automatically
    - Text extraction for LLM processing: `.chunk_text(chunk_size=4000)`
 
-3. **XBRL and Financial Statements**:
-   - `XBRL.from_filing(filing)`: Parse XBRL data from filings
-   - `XBRLS.from_filings(filings)`: Stitch multiple periods together
-   - Access statements: `xbrl.statements.balance_sheet()`, `.income_statement()`, `.cashflow_statement()`
-   - Convert to DataFrames: `.to_dataframe()`, `.to_markdown()`
-
-4. **Financial Analysis Tools**:
-   - `FinancialRatios(xbrl)`: Calculate liquidity, profitability, leverage ratios
-   - Time series analysis: `facts.time_series('Revenue')`
-   - Custom metric extraction: `financials.get_fact_for_metric("CustomXBRLConcept")`
+3. **Financial Analysis Tools**:
+   - **Important Note**: Aperilex does NOT use XBRL for financial data extraction at this stage
+   - Financial statements are accessed as text through filing objects
+   - The system relies on LLM analysis to interpret financial data rather than structured parsing
 
 5. **Specialized Features**:
    - **Investment Funds**: `Fund`, `FundClass`, portfolio holdings analysis
@@ -69,40 +63,48 @@ The previous version used edgartools (Context7 Library ID: `/dgunning/edgartools
 
 3. **Data Access Patterns**:
    ```python
-   # Company → Filings → Filing → Data Object → Specific Data
-   company = Company("MSFT")
-   filings = company.get_filings(form="10-K")
-   latest_10k = filings.latest()
-   tenk = latest_10k.obj()  # Structured Form10K object
-   balance_sheet = tenk.financials.balance_sheet
+   # Aperilex Implementation Pattern (NOT using XBRL)
+   # Financial data is extracted as text from filing objects
+   filing_obj = filing.obj()
+   
+   # Check for financial statement attributes
+   if hasattr(filing_obj, "balance_sheet"):
+       balance_sheet_text = str(filing_obj.balance_sheet)
+   if hasattr(filing_obj, "income_statement"):
+       income_statement_text = str(filing_obj.income_statement)
+   if hasattr(filing_obj, "cash_flow_statement"):
+       cash_flow_text = str(filing_obj.cash_flow_statement)
+   
+   # Financial data is then analyzed by LLM for insights
+   # NOT parsed into structured numeric values
    ```
-
-4. **Advanced XBRL Capabilities**:
-   - Query by statement type, value thresholds, periods
-   - Multi-period stitching for trend analysis
-   - Financial fact extraction with time series support
 
 ### Example Implementation Patterns
 
 ```python
-# Quick example of core edgartools usage
+# Aperilex pattern - Financial data via LLM analysis
 from edgar import *
+from infrastructure.edgar.service import EdgarService
+from infrastructure.llm.openai_provider import OpenAIProvider
+
 set_identity("aperilex@company.com")
 
-# Get company and financials
-company = Company("AAPL")
-financials = company.get_financials()
-balance_sheet = financials.balance_sheet()
+# Get filing through EdgarService
+edgar_service = EdgarService()
+filing_data = edgar_service.extract_filing_sections(
+    ticker="AAPL",
+    form_type="10-K"
+)
 
-# Multi-period analysis
-filings = company.get_filings(form="10-K").head(3)
-xbrls = XBRLS.from_filings(filings)
-income_trend = xbrls.statements.income_statement()
+# Financial statements are extracted as text sections
+# The LLM provider analyzes these for insights
+llm_provider = OpenAIProvider()
+analysis = llm_provider.analyze_filing(
+    filing_data=filing_data,
+    analysis_sections=["balance_sheet", "income_statement"]
+)
 
-# Financial ratios
-from edgar.xbrl.analysis.ratios import FinancialRatios
-ratios = FinancialRatios(xbrl)
-liquidity = ratios.calculate_liquidity_ratios()
+# Results include AI-generated insights, not raw numbers
 ```
 
 ### Aperilex Enhancement Opportunities
@@ -117,13 +119,13 @@ liquidity = ratios.calculate_liquidity_ratios()
 7. **Mobile Experience**: Responsive design for mobile financial research
 
 #### Technical Infrastructure
-1. **Caching Layer**: Redis caching for frequently accessed filings and parsed XBRL data
+1. **Caching Layer**: Redis caching for frequently accessed filings and financial data
 2. **Advanced LLM Integration**: Multi-provider AI for intelligent filing analysis and summarization
 3. **Real-time Processing**: WebSocket updates for live analysis and notifications
 4. **Data Pipeline**: ETL pipeline for continuous filing updates and analysis
 5. **Advanced Analytics**: Peer comparison, trend detection, and anomaly detection algorithms
 6. **Performance Monitoring**: Metrics for API usage, edgartools performance, and user experience
-7. **Background Processing**: Celery for large-scale XBRL parsing and analysis operations
+7. **Background Processing**: Celery for large-scale analysis operations
 
 ## Development Commands
 
@@ -234,6 +236,65 @@ poetry run pytest
 The following overrides are configured in `pyproject.toml`:
 - `src.shared.config.settings`: Disabled `call-arg` errors for Settings instantiation
 - `src.infrastructure.database.base`: Disabled `misc` errors for DeclarativeBase overrides
+
+## LLM Integration
+
+**CRITICAL REQUIREMENT**: ALL insights, analysis, summaries, and interpretations of SEC filings MUST be LLM-powered. Never implement hardcoded logic or fake analysis functions.
+
+### Current LLM Implementation
+
+Aperilex currently uses OpenAI as the sole LLM provider (`infrastructure.llm.openai_provider.OpenAIProvider`) with comprehensive filing analysis capabilities:
+
+**Core Analysis Features**:
+- **Filing-Level Analysis**: Complete SEC filing analysis with executive summary, key insights, financial highlights, risk factors, and growth opportunities
+- **Section-Level Analysis**: Detailed breakdown of specific filing sections with consolidated insights and sentiment scoring
+- **Sub-Section Analysis**: Granular analysis using specialized schemas for business operations, financials, risks, and management discussions
+
+**Supported Analysis Schemas**:
+- Business Analysis (operations, products, competitive advantages, strategy)
+- Financial Statement Analysis (balance sheet, income statement, cash flow)
+- Risk Factors Analysis
+- Management Discussion & Analysis (MD&A)
+
+**Analysis Templates**:
+- COMPREHENSIVE: All available analysis schemas
+- FINANCIAL_FOCUSED: Financial statements only
+- RISK_FOCUSED: Risk factors and MD&A
+- BUSINESS_FOCUSED: Business operations and MD&A
+
+### Implementation Requirements
+
+When implementing ANY feature that involves understanding, summarizing, or extracting insights from filings:
+
+1. **Check Existing LLM Capabilities**: Review `infrastructure/llm/` for current analysis methods
+2. **Use Existing Methods When Possible**: The OpenAIProvider has extensive analysis capabilities
+3. **Extend LLM Functions If Needed**: If current methods don't support your use case:
+   - Add new analysis methods to the LLM provider
+   - Create new Pydantic schemas for structured output
+   - Never bypass the LLM layer with hardcoded logic
+
+4. **Examples of Required LLM Usage**:
+   - Extracting key metrics from filings → Use LLM analysis
+   - Summarizing risk factors → Use LLM analysis  
+   - Comparing year-over-year changes → Use LLM analysis
+   - Identifying business trends → Use LLM analysis
+   - ANY interpretation of filing content → Use LLM analysis
+
+5. **Architecture Pattern**:
+   ```python
+   # CORRECT: Using LLM for insights
+   llm_provider = get_llm_provider()
+   analysis = llm_provider.analyze_filing(filing_data, template="FINANCIAL_FOCUSED")
+   
+   # INCORRECT: Hardcoded analysis
+   def extract_revenue_growth(filing_text):
+       # Never do this - use LLM instead
+       return "Revenue grew 10%"  # ❌ WRONG
+   ```
+
+### Future LLM Enhancements
+
+The system is designed for multi-provider support. Future providers should implement the `BaseLLMProvider` interface and maintain the same analysis capabilities.
 
 ## Phase Reference
 
