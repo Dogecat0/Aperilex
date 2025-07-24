@@ -1,6 +1,8 @@
 """Analysis Orchestrator Service for coordinating filing analysis workflows."""
 
+import inspect
 import logging
+from collections.abc import Callable, Coroutine
 from datetime import UTC, datetime
 from typing import Any
 from uuid import UUID, uuid4
@@ -71,8 +73,40 @@ class AnalysisOrchestrator:
         self.llm_provider = llm_provider
         self.template_service = template_service
 
+    async def _call_progress_callback(
+        self,
+        progress_callback: (
+            Callable[[float, str], None]
+            | Callable[[float, str], Coroutine[Any, Any, None]]
+            | None
+        ),
+        progress: float,
+        message: str,
+    ) -> None:
+        """Helper to call progress callback whether it's sync or async.
+        
+        Progress callback errors are logged but don't interrupt the orchestration.
+        """
+        if progress_callback:
+            try:
+                if inspect.iscoroutinefunction(progress_callback):
+                    await progress_callback(progress, message)
+                else:
+                    progress_callback(progress, message)
+            except Exception as e:
+                logger.warning(
+                    f"Progress callback failed at {progress:.1%}: {str(e)}",
+                    extra={"progress": progress, "callback_message": message}
+                )
+
     async def orchestrate_filing_analysis(
-        self, command: AnalyzeFilingCommand
+        self,
+        command: AnalyzeFilingCommand,
+        progress_callback: (
+            Callable[[float, str], None]
+            | Callable[[float, str], Coroutine[Any, Any, None]]
+            | None
+        ) = None,
     ) -> Analysis:
         """Orchestrate the complete filing analysis workflow.
 
@@ -85,6 +119,7 @@ class AnalysisOrchestrator:
 
         Args:
             command: Analysis command with filing details and parameters
+            progress_callback: Optional callback for progress updates (progress: float, message: str)
 
         Returns:
             Analysis entity with complete results
@@ -105,10 +140,7 @@ class AnalysisOrchestrator:
             # Step 1: Validate filing access and retrieve filing data
             # After validation, accession_number is guaranteed to be non-None
             assert command.accession_number is not None
-            await self.validate_filing_access(command.accession_number)
-            filing_data = self.edgar_service.get_filing_by_accession(
-                command.accession_number
-            )
+            filing_data = await self.validate_filing_access_and_get_data(command.accession_number)
 
             # Get or create filing entity in database
             filing = await self.filing_repository.get_by_accession_number(
@@ -132,12 +164,18 @@ class AnalysisOrchestrator:
             # Step 3: Create analysis entity and track progress
             analysis = await self._create_analysis_entity(filing.id, command)
             await self.track_analysis_progress(analysis.id, 0.1, "Analysis started")
+            await self._call_progress_callback(
+                progress_callback, 0.1, "Analysis started"
+            )
 
             # Step 4: Resolve analysis template and schemas
             schemas_to_use = self.template_service.get_schemas_for_template(
                 command.analysis_template
             )
             await self.track_analysis_progress(analysis.id, 0.2, "Template resolved")
+            await self._call_progress_callback(
+                progress_callback, 0.2, "Template resolved"
+            )
 
             # Step 5: Extract filing sections based on schemas needed
             filing_sections = await self._extract_relevant_filing_sections(
@@ -145,6 +183,9 @@ class AnalysisOrchestrator:
             )
             await self.track_analysis_progress(
                 analysis.id, 0.4, "Filing sections extracted"
+            )
+            await self._call_progress_callback(
+                progress_callback, 0.4, "Filing sections extracted"
             )
 
             # Step 6: Perform LLM analysis
@@ -162,6 +203,9 @@ class AnalysisOrchestrator:
                 )
                 await self.track_analysis_progress(
                     analysis.id, 0.8, "LLM analysis completed"
+                )
+                await self._call_progress_callback(
+                    progress_callback, 0.8, "LLM analysis completed"
                 )
             except Exception as e:
                 await self.handle_analysis_failure(analysis.id, e)
@@ -185,6 +229,9 @@ class AnalysisOrchestrator:
             # Step 8: Persist final analysis
             analysis = await self.analysis_repository.update(analysis)
             await self.track_analysis_progress(analysis.id, 1.0, "Analysis completed")
+            await self._call_progress_callback(
+                progress_callback, 1.0, "Analysis completed"
+            )
 
             logger.info(f"Analysis orchestration completed: {analysis.id}")
             return analysis
@@ -198,14 +245,14 @@ class AnalysisOrchestrator:
                 f"Analysis orchestration failed: {str(e)}"
             ) from e
 
-    async def validate_filing_access(self, accession_number: AccessionNumber) -> bool:
-        """Validate that a filing can be accessed and processed.
+    async def validate_filing_access_and_get_data(self, accession_number: AccessionNumber):
+        """Validate that a filing can be accessed and return the filing data.
 
         Args:
             accession_number: SEC accession number to validate
 
         Returns:
-            True if filing is accessible
+            Filing data from EdgarService
 
         Raises:
             FilingAccessError: If filing cannot be accessed or is invalid
@@ -222,8 +269,33 @@ class AnalysisOrchestrator:
                 raise FilingAccessError("Filing missing required filing type")
 
             logger.debug(f"Filing validation successful: {accession_number.value}")
+            return filing_data
+
+        except ValueError as e:
+            raise FilingAccessError(
+                f"Failed to access filing {accession_number.value}: {str(e)}"
+            ) from e
+
+    async def validate_filing_access(self, accession_number: AccessionNumber) -> bool:
+        """Validate that a filing can be accessed and processed.
+
+        Args:
+            accession_number: SEC accession number to validate
+
+        Returns:
+            True if filing is accessible
+
+        Raises:
+            FilingAccessError: If filing cannot be accessed or is invalid
+        """
+        try:
+            # Use the new method that returns data but just return True for compatibility
+            await self.validate_filing_access_and_get_data(accession_number)
             return True
 
+        except FilingAccessError:
+            # Re-raise FilingAccessError as-is
+            raise
         except ValueError as e:
             raise FilingAccessError(
                 f"Cannot access filing {accession_number.value}: {str(e)}"
