@@ -1,27 +1,16 @@
 """Handler for template queries - retrieves analysis template information."""
 
 import logging
-from typing import Any
 
 from src.application.base.handlers import QueryHandler
-from src.application.base.query import BaseQuery
+from src.application.schemas.queries.get_templates import GetTemplatesQuery
+from src.application.schemas.responses.templates_response import TemplatesResponse
 from src.application.services.analysis_template_service import AnalysisTemplateService
 
 logger = logging.getLogger(__name__)
 
 
-class GetTemplatesQuery(BaseQuery):
-    """Query to retrieve all available analysis templates.
-
-    This query has no parameters beyond the base query fields.
-    """
-
-    pass
-
-
-class GetTemplatesQueryHandler(
-    QueryHandler[GetTemplatesQuery, dict[str, dict[str, Any]]]
-):
+class GetTemplatesQueryHandler(QueryHandler[GetTemplatesQuery, TemplatesResponse]):
     """Handler for retrieving analysis template information.
 
     This handler processes GetTemplatesQuery by:
@@ -40,14 +29,14 @@ class GetTemplatesQueryHandler(
         """
         self.template_service = template_service
 
-    async def handle(self, query: GetTemplatesQuery) -> dict[str, dict[str, Any]]:
+    async def handle(self, query: GetTemplatesQuery) -> TemplatesResponse:
         """Process the get templates query.
 
         Args:
             query: The query for template information
 
         Returns:
-            Dictionary with template metadata and descriptions
+            TemplatesResponse with template metadata and descriptions
 
         """
         logger.info(
@@ -59,17 +48,17 @@ class GetTemplatesQueryHandler(
 
         try:
             # Get all templates with metadata from service
-            templates = self.template_service.get_all_templates()
+            response = TemplatesResponse.from_template_service(self.template_service)
 
             logger.info(
-                f"Successfully retrieved {len(templates)} templates",
+                f"Successfully retrieved {response.total_count} templates",
                 extra={
-                    "template_count": len(templates),
-                    "template_names": list(templates.keys()),
+                    "template_count": response.total_count,
+                    "template_names": list(response.templates.keys()),
                 },
             )
 
-            return templates
+            return response
 
         except Exception as e:
             logger.error(
