@@ -78,7 +78,7 @@ class CompanyRepository(BaseRepository[CompanyModel, Company]):
         """
         # Search for ticker in the meta_data JSON field
         stmt = select(CompanyModel).where(
-            CompanyModel.meta_data["ticker"].astext == str(ticker)
+            CompanyModel.meta_data["ticker"].as_string() == str(ticker)
         )
         result = await self.session.execute(stmt)
         model = result.scalar_one_or_none()
