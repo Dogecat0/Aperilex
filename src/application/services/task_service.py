@@ -140,8 +140,7 @@ class TaskService:
             memory_info["updated_at"] = datetime.fromisoformat(
                 memory_info["updated_at"]
             )
-        if isinstance(memory_info["task_id"], str):
-            memory_info["task_id"] = UUID(memory_info["task_id"])
+        # Keep task_id as string for consistency
 
         self.tasks[str(task_id)] = memory_info
 
@@ -197,8 +196,7 @@ class TaskService:
                 task_info["created_at"] = task_info["created_at"].isoformat()
             if isinstance(task_info["updated_at"], datetime):
                 task_info["updated_at"] = task_info["updated_at"].isoformat()
-            if isinstance(task_info["task_id"], UUID):
-                task_info["task_id"] = str(task_info["task_id"])
+            # task_id is already a string, no conversion needed
             return task_info
         return None
 
@@ -306,7 +304,7 @@ class TaskService:
             },
         )
 
-    async def get_task_status(self, task_id: str) -> TaskResponse | None:
+    async def get_task_status(self, task_id: str | UUID) -> TaskResponse | None:
         """Get current status of a task.
 
         Args:
@@ -315,12 +313,13 @@ class TaskService:
         Returns:
             TaskResponse with current status, or None if task not found
         """
-        task_info = await self._get_task(task_id)
+        task_id_str = str(task_id) if isinstance(task_id, UUID) else task_id
+        task_info = await self._get_task(task_id_str)
         if not task_info:
             return None
 
         return TaskResponse(
-            task_id=task_id,
+            task_id=task_id_str,
             status=task_info["status"],
             result=task_info["result"],
         )

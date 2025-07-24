@@ -1,7 +1,6 @@
 """Background task coordinator for managing long-running analysis operations."""
 
 import logging
-from uuid import UUID
 
 from src.application.schemas.commands.analyze_filing import AnalyzeFilingCommand
 from src.application.schemas.responses.task_response import TaskResponse
@@ -86,12 +85,12 @@ class BackgroundTaskCoordinator:
                     exc_info=True,
                 )
                 await self.task_service.fail_task(
-                    UUID(task_response.task_id), f"Failed to queue task: {str(e)}"
+                    task_response.task_id, f"Failed to queue task: {str(e)}"
                 )
         else:
             # Process synchronously for development/testing
             try:
-                await self._execute_analysis_task(UUID(task_response.task_id), command)
+                await self._execute_analysis_task(task_response.task_id, command)
             except Exception as e:
                 logger.error(
                     f"Analysis task {task_response.task_id} failed during execution",
@@ -134,22 +133,22 @@ class BackgroundTaskCoordinator:
 
             # Update task to processing status
             await self.task_service.update_task_progress(
-                UUID(task_id), 0.05, "Queued for background processing"
+                task_id, 0.05, "Queued for background processing"
             )
 
         except ImportError as e:
             logger.error(f"Celery tasks not available: {e}")
             # Fallback to synchronous processing
-            await self._execute_analysis_task(UUID(task_id), command)
+            await self._execute_analysis_task(task_id, command)
         except Exception as e:
             logger.error(f"Failed to queue Celery task: {e}")
             await self.task_service.fail_task(
-                UUID(task_id), f"Failed to queue background task: {str(e)}"
+                task_id, f"Failed to queue background task: {str(e)}"
             )
             raise
 
     async def _execute_analysis_task(
-        self, task_id: UUID, command: AnalyzeFilingCommand
+        self, task_id: str, command: AnalyzeFilingCommand
     ) -> None:
         """Execute the analysis task with progress tracking.
 
@@ -228,7 +227,7 @@ class BackgroundTaskCoordinator:
             raise
 
     async def _update_analysis_progress(
-        self, task_id: UUID, progress: float, message: str
+        self, task_id: str, progress: float, message: str
     ) -> None:
         """Update analysis progress (callback for orchestrator).
 
@@ -239,7 +238,7 @@ class BackgroundTaskCoordinator:
         """
         await self.task_service.update_task_progress(task_id, progress, message)
 
-    async def get_task_status(self, task_id: UUID) -> TaskResponse | None:
+    async def get_task_status(self, task_id: str) -> TaskResponse | None:
         """Get status of a background task.
 
         Args:
@@ -250,7 +249,7 @@ class BackgroundTaskCoordinator:
         """
         return await self.task_service.get_task_status(task_id)
 
-    async def retry_failed_task(self, task_id: UUID) -> TaskResponse | None:
+    async def retry_failed_task(self, task_id: str) -> TaskResponse | None:
         """Retry a failed analysis task.
 
         Args:

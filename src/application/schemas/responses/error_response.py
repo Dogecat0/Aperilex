@@ -49,7 +49,9 @@ class ErrorResponse:
         return self.error_type == ErrorType.NOT_FOUND.value
 
     @classmethod
-    def validation_error(cls, message: str, details: str | None = None) -> "ErrorResponse":
+    def validation_error(
+        cls, message: str, details: str | None = None
+    ) -> "ErrorResponse":
         """Create a validation error response.
 
         Args:
@@ -66,7 +68,9 @@ class ErrorResponse:
         )
 
     @classmethod
-    def resource_not_found(cls, resource_type: str, resource_id: str) -> "ErrorResponse":
+    def resource_not_found(
+        cls, resource_type: str, resource_id: str
+    ) -> "ErrorResponse":
         """Create a resource not found error response.
 
         Args:

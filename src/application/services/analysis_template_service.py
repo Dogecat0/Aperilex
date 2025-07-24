@@ -41,14 +41,16 @@ class AnalysisTemplateService:
     """Simplified service for analysis template management."""
 
     # Available schemas for backward compatibility with tests
-    AVAILABLE_SCHEMAS = frozenset({
-        "BusinessAnalysisSection",
-        "RiskFactorsAnalysisSection", 
-        "MDAAnalysisSection",
-        "BalanceSheetAnalysisSection",
-        "IncomeStatementAnalysisSection",
-        "CashFlowAnalysisSection",
-    })
+    AVAILABLE_SCHEMAS = frozenset(
+        {
+            "BusinessAnalysisSection",
+            "RiskFactorsAnalysisSection",
+            "MDAAnalysisSection",
+            "BalanceSheetAnalysisSection",
+            "IncomeStatementAnalysisSection",
+            "CashFlowAnalysisSection",
+        }
+    )
 
     # Template schema mapping for backward compatibility
     TEMPLATE_SCHEMA_MAPPING = TEMPLATE_SCHEMAS
@@ -100,7 +102,9 @@ class AnalysisTemplateService:
         }
         return name_mapping.get(name)
 
-    def validate_template(self, template: AnalysisTemplate, custom_schemas: list[str] | None = None) -> bool:
+    def validate_template(
+        self, template: AnalysisTemplate, custom_schemas: list[str] | None = None
+    ) -> bool:
         """Validate a template configuration.
 
         Args:
@@ -136,7 +140,9 @@ class AnalysisTemplateService:
         """
         return sorted(self.AVAILABLE_SCHEMAS)
 
-    def map_template_to_schemas(self, template: AnalysisTemplate, custom_schemas: list[str] | None = None) -> list[str]:
+    def map_template_to_schemas(
+        self, template: AnalysisTemplate, custom_schemas: list[str] | None = None
+    ) -> list[str]:
         """Map template to its schema list.
 
         Args:
@@ -148,7 +154,9 @@ class AnalysisTemplateService:
         """
         return self.get_schemas_for_template(template).copy()
 
-    def estimate_processing_time_minutes(self, template: AnalysisTemplate, custom_schemas: list[str] | None = None) -> int:
+    def estimate_processing_time_minutes(
+        self, template: AnalysisTemplate, custom_schemas: list[str] | None = None
+    ) -> int:
         """Estimate processing time for a template in minutes.
 
         Args:
@@ -160,13 +168,13 @@ class AnalysisTemplateService:
         """
         # Base overhead time for processing
         base_overhead = 3
-        
+
         # Time per schema (roughly 2 minutes per schema)
         time_per_schema = 2
-        
+
         schemas = self.get_schemas_for_template(template)
         schema_count = len(schemas)
-        
+
         return base_overhead + (schema_count * time_per_schema)
 
     def get_template_info(self, template: AnalysisTemplate) -> dict[str, Any]:
@@ -179,7 +187,7 @@ class AnalysisTemplateService:
             Dictionary with template information
         """
         schemas = self.get_schemas_for_template(template)
-        
+
         return {
             "name": template.value,
             "description": self.get_template_description(template),

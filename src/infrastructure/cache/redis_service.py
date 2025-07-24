@@ -18,7 +18,7 @@ class RedisService:
 
     def __init__(self, redis_url: str | None = None) -> None:
         """Initialize Redis connection.
-        
+
         Args:
             redis_url: Redis connection URL. If not provided, uses settings.redis_url
         """

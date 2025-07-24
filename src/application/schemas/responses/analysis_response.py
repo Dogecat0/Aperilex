@@ -194,9 +194,9 @@ class AnalysisResponse:
         """Check if this is a comprehensive filing analysis.
 
         Returns:
-            True if analysis type is FILING_ANALYSIS
+            True if analysis type is FILING_ANALYSIS or COMPREHENSIVE
         """
-        return self.analysis_type == AnalysisType.FILING_ANALYSIS.value
+        return self.analysis_type in (AnalysisType.FILING_ANALYSIS.value, AnalysisType.COMPREHENSIVE.value)
 
     @property
     def has_insights(self) -> bool:

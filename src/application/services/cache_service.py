@@ -378,7 +378,7 @@ class CacheService:
                 value_size = len(json.dumps(cache_entry, default=str).encode('utf-8'))
                 total_size += key_size + value_size
 
-            return round(total_size / (1024 * 1024), 2)
+            return round(total_size / (1024 * 1024), 6)
         except Exception:
             return 0.0
 

@@ -11,6 +11,7 @@ from src.application.schemas.commands.analyze_filing import AnalyzeFilingCommand
 from src.application.services.analysis_template_service import AnalysisTemplateService
 from src.domain.entities.analysis import Analysis, AnalysisType
 from src.domain.value_objects.accession_number import AccessionNumber
+from src.infrastructure.edgar.schemas.filing_data import FilingData
 from src.infrastructure.edgar.service import EdgarService
 from src.infrastructure.llm.base import BaseLLMProvider
 from src.infrastructure.repositories.analysis_repository import AnalysisRepository
@@ -84,7 +85,7 @@ class AnalysisOrchestrator:
         message: str,
     ) -> None:
         """Helper to call progress callback whether it's sync or async.
-        
+
         Progress callback errors are logged but don't interrupt the orchestration.
         """
         if progress_callback:
@@ -96,7 +97,7 @@ class AnalysisOrchestrator:
             except Exception as e:
                 logger.warning(
                     f"Progress callback failed at {progress:.1%}: {str(e)}",
-                    extra={"progress": progress, "callback_message": message}
+                    extra={"progress": progress, "callback_message": message},
                 )
 
     async def orchestrate_filing_analysis(
@@ -140,7 +141,9 @@ class AnalysisOrchestrator:
             # Step 1: Validate filing access and retrieve filing data
             # After validation, accession_number is guaranteed to be non-None
             assert command.accession_number is not None
-            filing_data = await self.validate_filing_access_and_get_data(command.accession_number)
+            filing_data = await self.validate_filing_access_and_get_data(
+                command.accession_number
+            )
 
             # Get or create filing entity in database
             filing = await self.filing_repository.get_by_accession_number(
@@ -245,7 +248,9 @@ class AnalysisOrchestrator:
                 f"Analysis orchestration failed: {str(e)}"
             ) from e
 
-    async def validate_filing_access_and_get_data(self, accession_number: AccessionNumber):
+    async def validate_filing_access_and_get_data(
+        self, accession_number: AccessionNumber
+    ) -> FilingData:
         """Validate that a filing can be accessed and return the filing data.
 
         Args:
@@ -273,7 +278,7 @@ class AnalysisOrchestrator:
 
         except ValueError as e:
             raise FilingAccessError(
-                f"Failed to access filing {accession_number.value}: {str(e)}"
+                f"Cannot access filing {accession_number.value}: {str(e)}"
             ) from e
 
     async def validate_filing_access(self, accession_number: AccessionNumber) -> bool:
