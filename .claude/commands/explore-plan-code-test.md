@@ -20,6 +20,8 @@ If your changes touch the UX in a major way, use the browser to make sure that e
 
 If your testing shows problems, go back to the planning stage and think ultrahard.
 
+Once you are satisfied with your code, run the tests and do the code quality check again to make sure everything is still passing. When you run python commands, remember we are using Poetry, so use `poetry run` before the command.
+
 # Write up your work
 When you are happy with your work, write up a short report that could be used as the PR description. Include what you set out to do, the choices you made with their brief justification, and any commands you ran in the process that may be useful for future developers to know about.
 
