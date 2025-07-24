@@ -8,7 +8,6 @@ from typing import Any
 
 from src.application.schemas.commands.analyze_filing import (
     AnalysisTemplate, 
-    AnalysisPriority, 
     AnalyzeFilingCommand
 )
 from src.application.services.analysis_orchestrator import (
@@ -21,6 +20,7 @@ from src.application.services.analysis_template_service import AnalysisTemplateS
 from src.domain.entities.analysis import Analysis, AnalysisType
 from src.domain.value_objects.accession_number import AccessionNumber
 from src.domain.value_objects.cik import CIK
+from src.domain.value_objects.filing_type import FilingType
 
 
 class TestAnalysisOrchestrator:
@@ -54,7 +54,7 @@ class TestAnalysisOrchestrator:
     def mock_template_service(self) -> MagicMock:
         """Mock AnalysisTemplateService."""
         service = MagicMock(spec=AnalysisTemplateService)
-        service.map_template_to_schemas.return_value = [
+        service.get_schemas_for_template.return_value = [
             "BusinessAnalysisSection",
             "RiskFactorsAnalysisSection"
         ]
@@ -85,7 +85,6 @@ class TestAnalysisOrchestrator:
             company_cik=CIK("1234567890"),
             accession_number=AccessionNumber("1234567890-12-123456"),
             analysis_template=AnalysisTemplate.COMPREHENSIVE,
-            priority=AnalysisPriority.NORMAL,
             user_id="test_user",
         )
 
@@ -94,7 +93,7 @@ class TestAnalysisOrchestrator:
         """Mock filing data from EdgarService."""
         filing_data = MagicMock()
         filing_data.company_name = "Test Company"
-        filing_data.filing_type = "10-K"
+        filing_data.filing_type = FilingType.FORM_10K.value  # Use FilingType enum value
         filing_data.accession_number = "1234567890-12-123456"
         filing_data.ticker = "TEST"
         return filing_data
@@ -378,7 +377,7 @@ class TestAnalysisOrchestrator:
     ) -> None:
         """Test successful orchestration of filing analysis."""
         # Setup mocks for successful flow
-        mock_edgar_service.get_filing_by_accession.return_value = mock_filing_data
+        # Note: We patch validate_filing_access_and_get_data, so Edgar service setup is not needed
         mock_filing_repository.get_by_accession_number.return_value = mock_filing_entity
         mock_analysis_repository.create.return_value = mock_analysis_entity
         mock_analysis_repository.get_by_id.return_value = mock_analysis_entity
@@ -395,8 +394,8 @@ class TestAnalysisOrchestrator:
             "Item 1 - Business": "Business content"
         }
 
-        with patch.object(orchestrator, 'validate_filing_access') as mock_validate:
-            mock_validate.return_value = True
+        with patch.object(orchestrator, 'validate_filing_access_and_get_data') as mock_validate:
+            mock_validate.return_value = mock_filing_data
             
             result = await orchestrator.orchestrate_filing_analysis(sample_command)
 
@@ -404,8 +403,8 @@ class TestAnalysisOrchestrator:
         
         # Verify key method calls
         mock_validate.assert_called_once_with(sample_command.accession_number)
-        mock_edgar_service.get_filing_by_accession.assert_called_once()
-        mock_template_service.map_template_to_schemas.assert_called_once()
+        # Note: mock_edgar_service.get_filing_by_accession is not called because we patch validate_filing_access_and_get_data
+        mock_template_service.get_schemas_for_template.assert_called_once()
         mock_llm_provider.analyze_filing.assert_called_once()
         
         # Verify the orchestration completed successfully
@@ -418,7 +417,7 @@ class TestAnalysisOrchestrator:
         sample_command: AnalyzeFilingCommand,
     ) -> None:
         """Test orchestration with filing access error."""
-        with patch.object(orchestrator, 'validate_filing_access') as mock_validate:
+        with patch.object(orchestrator, 'validate_filing_access_and_get_data') as mock_validate:
             mock_validate.side_effect = FilingAccessError("Cannot access filing")
             
             with pytest.raises(FilingAccessError):

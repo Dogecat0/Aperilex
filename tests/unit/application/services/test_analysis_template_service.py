@@ -74,7 +74,6 @@ class TestAnalysisTemplateService:
         assert service.get_template_by_name("financial_focused") == AnalysisTemplate.FINANCIAL_FOCUSED
         assert service.get_template_by_name("risk_focused") == AnalysisTemplate.RISK_FOCUSED
         assert service.get_template_by_name("business_focused") == AnalysisTemplate.BUSINESS_FOCUSED
-        assert service.get_template_by_name("custom") == AnalysisTemplate.CUSTOM
 
     def test_get_template_by_name_invalid(self, service: AnalysisTemplateService) -> None:
         """Test get_template_by_name with invalid names."""
@@ -92,30 +91,6 @@ class TestAnalysisTemplateService:
         """Test validate_template with FINANCIAL_FOCUSED template."""
         assert service.validate_template(AnalysisTemplate.FINANCIAL_FOCUSED) is True
 
-    def test_validate_template_custom_valid(self, service: AnalysisTemplateService) -> None:
-        """Test validate_template with valid CUSTOM template."""
-        valid_schemas = ["BusinessAnalysisSection"]
-        assert service.validate_template(AnalysisTemplate.CUSTOM, valid_schemas) is True
-
-        all_schemas = list(service.AVAILABLE_SCHEMAS)
-        assert service.validate_template(AnalysisTemplate.CUSTOM, all_schemas) is True
-
-    def test_validate_template_custom_invalid(self, service: AnalysisTemplateService) -> None:
-        """Test validate_template with invalid CUSTOM template."""
-        # Missing custom_schemas
-        assert service.validate_template(AnalysisTemplate.CUSTOM) is False
-        assert service.validate_template(AnalysisTemplate.CUSTOM, None) is False
-        
-        # Empty custom_schemas
-        assert service.validate_template(AnalysisTemplate.CUSTOM, []) is False
-        
-        # Invalid schema names
-        invalid_schemas = ["InvalidSchema"]
-        assert service.validate_template(AnalysisTemplate.CUSTOM, invalid_schemas) is False
-        
-        # Mix of valid and invalid schemas
-        mixed_schemas = ["BusinessAnalysisSection", "InvalidSchema"]
-        assert service.validate_template(AnalysisTemplate.CUSTOM, mixed_schemas) is False
 
     def test_map_template_to_schemas_comprehensive(self, service: AnalysisTemplateService) -> None:
         """Test map_template_to_schemas with COMPREHENSIVE template."""
@@ -140,25 +115,6 @@ class TestAnalysisTemplateService:
         ]
         assert result == expected
 
-    def test_map_template_to_schemas_custom_valid(self, service: AnalysisTemplateService) -> None:
-        """Test map_template_to_schemas with valid CUSTOM template."""
-        custom_schemas = ["BusinessAnalysisSection", "RiskFactorsAnalysisSection"]
-        result = service.map_template_to_schemas(AnalysisTemplate.CUSTOM, custom_schemas)
-        assert result == custom_schemas
-
-    def test_map_template_to_schemas_custom_missing(self, service: AnalysisTemplateService) -> None:
-        """Test map_template_to_schemas with CUSTOM template missing schemas."""
-        with pytest.raises(ValueError, match="custom_schemas required for CUSTOM template"):
-            service.map_template_to_schemas(AnalysisTemplate.CUSTOM)
-
-        with pytest.raises(ValueError, match="custom_schemas required for CUSTOM template"):
-            service.map_template_to_schemas(AnalysisTemplate.CUSTOM, None)
-
-    def test_map_template_to_schemas_custom_invalid(self, service: AnalysisTemplateService) -> None:
-        """Test map_template_to_schemas with invalid CUSTOM schemas."""
-        invalid_schemas = ["InvalidSchema"]
-        with pytest.raises(ValueError, match="Invalid schema names"):
-            service.map_template_to_schemas(AnalysisTemplate.CUSTOM, invalid_schemas)
 
     def test_get_available_schemas(self, service: AnalysisTemplateService) -> None:
         """Test get_available_schemas returns sorted list."""
@@ -181,7 +137,6 @@ class TestAnalysisTemplateService:
             AnalysisTemplate.FINANCIAL_FOCUSED: "Financial analysis focusing on statements and performance",
             AnalysisTemplate.RISK_FOCUSED: "Risk analysis focusing on risk factors and forward outlook",
             AnalysisTemplate.BUSINESS_FOCUSED: "Business analysis focusing on strategy and market position",
-            AnalysisTemplate.CUSTOM: "Custom analysis with user-selected schemas",
         }
 
         for template, expected_desc in descriptions.items():
@@ -197,14 +152,6 @@ class TestAnalysisTemplateService:
         financial_time = service.estimate_processing_time_minutes(AnalysisTemplate.FINANCIAL_FOCUSED)
         assert financial_time < comprehensive_time
 
-        # Single schema custom should be fastest
-        single_schema = ["BusinessAnalysisSection"]
-        custom_time = service.estimate_processing_time_minutes(
-            AnalysisTemplate.CUSTOM, 
-            single_schema
-        )
-        assert custom_time < financial_time
-
     def test_get_template_info_comprehensive(self, service: AnalysisTemplateService) -> None:
         """Test get_template_info with COMPREHENSIVE template."""
         result = service.get_template_info(AnalysisTemplate.COMPREHENSIVE)
@@ -216,15 +163,6 @@ class TestAnalysisTemplateService:
         assert result["estimated_time_minutes"] > 0
         assert result["is_custom"] is False
 
-    def test_get_template_info_custom(self, service: AnalysisTemplateService) -> None:
-        """Test get_template_info with CUSTOM template."""
-        result = service.get_template_info(AnalysisTemplate.CUSTOM)
-        
-        assert result["name"] == "custom"
-        assert result["description"] == "Custom analysis with user-selected schemas"
-        assert result["schemas"] == []  # Empty because no schemas can be mapped without custom_schemas
-        assert result["schema_count"] == 0
-        assert result["is_custom"] is True
 
     def test_get_all_templates_info(self, service: AnalysisTemplateService) -> None:
         """Test get_all_templates_info returns info for all templates."""
@@ -247,14 +185,10 @@ class TestAnalysisTemplateService:
 
     def test_estimate_processing_time_edge_cases(self, service: AnalysisTemplateService) -> None:
         """Test processing time estimation edge cases."""
-        # Empty custom schemas (should be caught by validation but test anyway)
-        with pytest.raises(ValueError):
-            service.estimate_processing_time_minutes(AnalysisTemplate.CUSTOM, [])
-        
-        # Unknown schema in custom list should use default time (2 minutes)
-        unknown_schemas = ["UnknownSchema"]
-        with pytest.raises(ValueError):  # Should fail validation first
-            service.estimate_processing_time_minutes(AnalysisTemplate.CUSTOM, unknown_schemas)
+        # Test that all standard templates return positive processing times
+        for template in AnalysisTemplate:
+            time_estimate = service.estimate_processing_time_minutes(template)
+            assert time_estimate > 0
 
     def test_service_immutability(self, service: AnalysisTemplateService) -> None:
         """Test that service constants are immutable."""

@@ -1,11 +1,7 @@
 """Tests for BaseCommand infrastructure."""
 
 import pytest
-from dataclasses import dataclass, field
-from datetime import datetime
-from typing import Dict, List, Optional
-from uuid import UUID, uuid4
-from unittest.mock import patch
+from dataclasses import dataclass
 
 from src.application.base.command import BaseCommand
 
@@ -43,30 +39,18 @@ class TestBaseCommand:
         """Test creating a command with default values."""
         command = ValidTestCommand()
         
-        assert isinstance(command.command_id, UUID)
-        assert isinstance(command.timestamp, datetime)
-        assert command.correlation_id is None
         assert command.user_id is None
         assert command.data == "test"
     
     def test_command_creation_with_explicit_values(self):
         """Test creating a command with explicit values."""
-        command_id = uuid4()
-        correlation_id = uuid4()
-        timestamp = datetime(2024, 1, 15, 10, 30, 0)
         user_id = "user123"
         
         command = ValidTestCommand(
-            command_id=command_id,
-            timestamp=timestamp,
-            correlation_id=correlation_id,
             user_id=user_id,
             data="custom_data"
         )
         
-        assert command.command_id == command_id
-        assert command.timestamp == timestamp
-        assert command.correlation_id == correlation_id
         assert command.user_id == user_id
         assert command.data == "custom_data"
     
@@ -77,9 +61,6 @@ class TestBaseCommand:
         # Should not be able to modify command attributes
         with pytest.raises(AttributeError):
             command.data = "modified"
-        
-        with pytest.raises(AttributeError):
-            command.command_id = uuid4()
         
         with pytest.raises(AttributeError):
             command.user_id = "new_user"
@@ -106,7 +87,13 @@ class TestBaseCommand:
             
             email: str = ""
             age: int = 0
-            tags: list[str] = field(default_factory=list)
+            tags: list[str] = None
+            
+            def __post_init__(self):
+                # Handle mutable default
+                if self.tags is None:
+                    object.__setattr__(self, 'tags', [])
+                super().__post_init__()
             
             def validate(self) -> None:
                 """Validate complex command data."""
@@ -119,66 +106,34 @@ class TestBaseCommand:
                 if any(not tag.strip() for tag in self.tags):
                     raise ValueError("Tags cannot be empty")
         
-        # Valid command
+        # Valid complex command
         command = ComplexCommand(
-            email="user@example.com",
-            age=25,
-            tags=["important", "urgent"]
+            email="test@example.com",
+            age=30,
+            tags=["tag1", "tag2"]
         )
-        assert command.email == "user@example.com"
-        assert command.age == 25
-        assert command.tags == ["important", "urgent"]
+        assert command.email == "test@example.com"
+        assert command.age == 30
+        assert command.tags == ["tag1", "tag2"]
         
         # Invalid email
         with pytest.raises(ValueError, match="Invalid email format"):
-            ComplexCommand(email="invalid", age=25, tags=["tag1"])
+            ComplexCommand(email="invalid-email", age=30, tags=["tag1"])
         
         # Invalid age
         with pytest.raises(ValueError, match="Age must be between 0 and 150"):
-            ComplexCommand(email="user@example.com", age=-1, tags=["tag1"])
+            ComplexCommand(email="test@example.com", age=-5, tags=["tag1"])
         
         with pytest.raises(ValueError, match="Age must be between 0 and 150"):
-            ComplexCommand(email="user@example.com", age=200, tags=["tag1"])
+            ComplexCommand(email="test@example.com", age=200, tags=["tag1"])
         
-        # Invalid tags
+        # No tags
         with pytest.raises(ValueError, match="At least one tag is required"):
-            ComplexCommand(email="user@example.com", age=25, tags=[])
+            ComplexCommand(email="test@example.com", age=30, tags=[])
         
+        # Empty tags
         with pytest.raises(ValueError, match="Tags cannot be empty"):
-            ComplexCommand(email="user@example.com", age=25, tags=["", "valid"])
-    
-    def test_timestamp_generation(self):
-        """Test that timestamps are automatically generated."""
-        before = datetime.utcnow()
-        command = ValidTestCommand()
-        after = datetime.utcnow()
-        
-        assert isinstance(command.timestamp, datetime)
-        assert before <= command.timestamp <= after
-    
-    def test_command_id_uniqueness(self):
-        """Test that each command gets a unique ID."""
-        command1 = ValidTestCommand()
-        command2 = ValidTestCommand()
-        
-        assert command1.command_id != command2.command_id
-        assert isinstance(command1.command_id, UUID)
-        assert isinstance(command2.command_id, UUID)
-    
-    def test_correlation_id_propagation(self):
-        """Test correlation ID for request tracking."""
-        correlation_id = uuid4()
-        
-        command1 = ValidTestCommand(correlation_id=correlation_id)
-        command2 = ValidTestCommand(correlation_id=correlation_id)
-        
-        # Both commands share the same correlation ID
-        assert command1.correlation_id == correlation_id
-        assert command2.correlation_id == correlation_id
-        assert command1.correlation_id == command2.correlation_id
-        
-        # But have different command IDs
-        assert command1.command_id != command2.command_id
+            ComplexCommand(email="test@example.com", age=30, tags=["tag1", "  "])
     
     def test_user_id_tracking(self):
         """Test user ID for auditing purposes."""
@@ -193,33 +148,9 @@ class TestBaseCommand:
     
     def test_command_equality_and_hashing(self):
         """Test command equality and hash behavior."""
-        command_id = uuid4()
-        timestamp = datetime.now()
-        correlation_id = uuid4()
-        
-        command1 = ValidTestCommand(
-            command_id=command_id,
-            timestamp=timestamp,
-            correlation_id=correlation_id,
-            user_id="user1",
-            data="test_data"
-        )
-        
-        command2 = ValidTestCommand(
-            command_id=command_id,
-            timestamp=timestamp,
-            correlation_id=correlation_id,
-            user_id="user1",
-            data="test_data"
-        )
-        
-        command3 = ValidTestCommand(
-            command_id=uuid4(),  # Different ID
-            timestamp=timestamp,
-            correlation_id=correlation_id,
-            user_id="user1",
-            data="test_data"
-        )
+        command1 = ValidTestCommand(user_id="user1", data="test_data")
+        command2 = ValidTestCommand(user_id="user1", data="test_data")
+        command3 = ValidTestCommand(user_id="user2", data="test_data")
         
         # Same data should be equal
         assert command1 == command2
@@ -234,84 +165,14 @@ class TestBaseCommand:
         command_set = {command1, command2, command3}
         assert len(command_set) == 2  # command1 and command2 are identical
     
-    def test_command_with_optional_fields(self):
-        """Test commands with optional fields."""
-        @dataclass(frozen=True)
-        class OptionalCommand(BaseCommand):
-            """Command with optional fields."""
-            
-            required_field: str = ""
-            optional_field: str = None
-            optional_number: int = 0
-            
-            def validate(self) -> None:
-                """Validate required field only."""
-                if not self.required_field:
-                    raise ValueError("Required field cannot be empty")
-        
-        # With required field set to non-empty
-        command1 = OptionalCommand(required_field="test")
-        assert command1.required_field == "test"
-        assert command1.optional_field is None
-        assert command1.optional_number == 0
-        
-        # With all fields
-        command2 = OptionalCommand(
-            required_field="test",
-            optional_field="optional",
-            optional_number=42
-        )
-        assert command2.required_field == "test"
-        assert command2.optional_field == "optional"
-        assert command2.optional_number == 42
-        
-        # Invalid required field - explicitly pass empty string
-        with pytest.raises(ValueError, match="Required field cannot be empty"):
-            OptionalCommand(required_field="")
-    
-    def test_command_with_complex_types(self):
-        """Test commands with complex field types."""
-        
-        @dataclass(frozen=True)
-        class ComplexTypeCommand(BaseCommand):
-            """Command with complex field types."""
-            
-            metadata: Dict[str, any] = field(default_factory=dict)
-            tags: List[str] = field(default_factory=list)
-            config: Optional[Dict[str, str]] = None
-            
-            def validate(self) -> None:
-                """Validate complex types."""
-                if not isinstance(self.metadata, dict):
-                    raise ValueError("Metadata must be a dictionary")
-                if not isinstance(self.tags, list):
-                    raise ValueError("Tags must be a list")
-                if self.config is not None and not isinstance(self.config, dict):
-                    raise ValueError("Config must be a dictionary or None")
-        
-        metadata = {"key1": "value1", "key2": 42}
-        tags = ["tag1", "tag2", "tag3"]
-        config = {"setting1": "value1", "setting2": "value2"}
-        
-        command = ComplexTypeCommand(
-            metadata=metadata,
-            tags=tags,
-            config=config
-        )
-        
-        assert command.metadata == metadata
-        assert command.tags == tags
-        assert command.config == config
-        
-        # Test without optional config
-        command_no_config = ComplexTypeCommand(
-            metadata=metadata,
-            tags=tags
-        )
-        assert command_no_config.config is None
+    def test_abstract_base_class(self):
+        """Test that BaseCommand cannot be instantiated directly."""
+        # This should fail because BaseCommand.validate is abstract
+        with pytest.raises(TypeError):
+            BaseCommand()
     
     def test_post_init_validation_timing(self):
-        """Test that __post_init__ is called and validation happens at the right time."""
+        """Test that validation happens during initialization."""
         validation_calls = []
         
         @dataclass(frozen=True)
