@@ -226,13 +226,10 @@ class TestAnalysisRepositoryAdvancedQueries:
     async def test_find_by_filing_id_integration(
         self,
         analysis_repository: AnalysisRepository,
-        request,
+        test_analyses: list[Analysis],
+        test_filings: list[Filing],
     ) -> None:
         """Test find_by_filing_id method integration."""
-        # Await the async fixtures manually
-        test_analyses = await request.getfixturevalue("test_analyses")
-        test_filings = await request.getfixturevalue("test_filings")
-        
         # Get first filing's analyses
         first_filing = test_filings[0]
         analyses_for_filing = await analysis_repository.find_by_filing_id(
