@@ -79,9 +79,13 @@ class GetCompanyQueryHandler(QueryHandler[GetCompanyQuery, CompanyResponse]):
             # Step 2: Get enriched data from EdgarService
             try:
                 if lookup_type == "cik":
-                    edgar_data = self.edgar_service.get_company_by_cik(CIK(lookup_value))
+                    edgar_data = self.edgar_service.get_company_by_cik(
+                        CIK(lookup_value)
+                    )
                 elif lookup_type == "ticker":
-                    edgar_data = self.edgar_service.get_company_by_ticker(Ticker(lookup_value))
+                    edgar_data = self.edgar_service.get_company_by_ticker(
+                        Ticker(lookup_value)
+                    )
                 else:
                     raise ValueError(f"Unsupported lookup type: {lookup_type}")
             except Exception as e:
