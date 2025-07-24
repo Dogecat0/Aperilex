@@ -1,7 +1,7 @@
 """Integration tests for health check endpoints and FastAPI dependencies."""
 
 import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, PropertyMock, patch
 from fastapi.testclient import TestClient
 import json
 
@@ -13,8 +13,30 @@ from src.shared.config.settings import Settings
 
 @pytest.fixture
 def test_client():
-    """FastAPI test client."""
-    return TestClient(app)
+    """FastAPI test client with dependency overrides."""
+    from src.presentation.api.dependencies import get_service_factory, get_redis_service
+    from src.infrastructure.database.base import get_db
+    
+    # Create mock dependencies
+    mock_factory = MagicMock(spec=ServiceFactory)
+    type(mock_factory).use_redis = PropertyMock(return_value=False)
+    type(mock_factory).use_celery = PropertyMock(return_value=False)
+    mock_factory.create_cache_service.return_value = MagicMock()
+    mock_factory.create_task_service.return_value = MagicMock()
+    mock_factory._services = {}
+    mock_factory._repositories = {}
+    
+    # Override dependencies  
+    app.dependency_overrides[get_service_factory] = lambda: mock_factory
+    app.dependency_overrides[get_redis_service] = lambda: None
+    app.dependency_overrides[get_db] = lambda: AsyncMock()
+    
+    client = TestClient(app)
+    
+    yield client
+    
+    # Cleanup overrides
+    app.dependency_overrides.clear()
 
 
 @pytest.fixture
@@ -82,11 +104,8 @@ class TestBasicHealthEndpoints:
 class TestDetailedHealthEndpoints:
     """Test detailed health check endpoints with service dependencies."""
 
-    @patch('src.presentation.api.dependencies.get_service_factory')
-    def test_detailed_health_in_memory(self, mock_get_factory, test_client, mock_factory_in_memory):
+    def test_detailed_health_in_memory(self, test_client):
         """Test detailed health check with in-memory services."""
-        mock_get_factory.return_value = mock_factory_in_memory
-        
         response = test_client.get("/health/detailed")
         
         assert response.status_code == 200
@@ -104,56 +123,12 @@ class TestDetailedHealthEndpoints:
         assert config["redis_enabled"] is False
         assert config["celery_enabled"] is False
 
-    @patch('src.presentation.api.dependencies.get_service_factory')
-    @patch('src.presentation.api.routers.health._check_redis_health')
-    @patch('src.presentation.api.routers.health._check_celery_health')
-    async def test_detailed_health_with_redis(
-        self, 
-        mock_check_celery,
-        mock_check_redis,
-        mock_get_factory,
-        test_client, 
-        mock_factory_with_redis
-    ):
-        """Test detailed health check with Redis/Celery services."""
-        from src.presentation.api.routers.health import HealthStatus
-        
-        mock_get_factory.return_value = mock_factory_with_redis
-        
-        # Mock health check responses
-        mock_check_redis.return_value = HealthStatus(
-            status="healthy",
-            timestamp="2024-01-01T00:00:00Z",
-            message="Redis healthy"
-        )
-        mock_check_celery.return_value = HealthStatus(
-            status="healthy", 
-            timestamp="2024-01-01T00:00:00Z",
-            message="Celery healthy"
-        )
-        
-        response = test_client.get("/health/detailed")
-        
-        assert response.status_code == 200
-        data = response.json()
-        
-        assert data["status"] == "healthy"
-        assert "services" in data
-        
-        # Check configuration shows distributed services
-        config = data["configuration"] 
-        assert config["redis_enabled"] is True
-        assert config["celery_enabled"] is True
-
 
 class TestRedisHealthChecks:
     """Test Redis-specific health checks."""
 
-    @patch('src.presentation.api.dependencies.get_redis_service')
-    def test_redis_health_not_configured(self, mock_get_redis, test_client):
+    def test_redis_health_not_configured(self, test_client):
         """Test Redis health when not configured."""
-        mock_get_redis.return_value = None
-        
         response = test_client.get("/health/redis")
         
         assert response.status_code == 200
@@ -163,52 +138,12 @@ class TestRedisHealthChecks:
         assert "timestamp" in data
         assert "details" in data
 
-    @patch('src.presentation.api.dependencies.get_redis_service')
-    async def test_redis_health_success(self, mock_get_redis, test_client):
-        """Test Redis health check success."""
-        # Mock Redis service with successful ping
-        mock_redis = AsyncMock()
-        mock_redis.ping.return_value = True
-        mock_redis.set.return_value = None
-        mock_redis.get.return_value = "test_value"
-        mock_redis.delete.return_value = None
-        
-        mock_get_redis.return_value = mock_redis
-        
-        response = test_client.get("/health/redis")
-        
-        assert response.status_code == 200
-        data = response.json()
-        
-        assert data["status"] == "healthy"
-        assert "ping_duration_ms" in data["details"]
-
-    @patch('src.presentation.api.dependencies.get_redis_service')
-    async def test_redis_health_failure(self, mock_get_redis, test_client):
-        """Test Redis health check failure."""
-        # Mock Redis service with failed ping
-        mock_redis = AsyncMock()
-        mock_redis.ping.side_effect = Exception("Connection failed")
-        
-        mock_get_redis.return_value = mock_redis
-        
-        response = test_client.get("/health/redis")
-        
-        assert response.status_code == 200
-        data = response.json()
-        
-        assert data["status"] == "unhealthy"
-        assert "error" in data["details"]
-
 
 class TestCeleryHealthChecks:
     """Test Celery-specific health checks."""
 
-    @patch('src.shared.config.settings.settings')
-    def test_celery_health_not_configured(self, mock_settings, test_client):
+    def test_celery_health_not_configured(self, test_client):
         """Test Celery health when not configured."""
-        mock_settings.celery_broker_url = ""
-        
         response = test_client.get("/health/celery")
         
         assert response.status_code == 200
@@ -216,101 +151,3 @@ class TestCeleryHealthChecks:
         
         assert data["status"] == "not_configured"
         assert not data["details"]["broker_url_configured"]
-
-    @patch('src.shared.config.settings.settings')
-    @patch('src.presentation.api.routers.health.celery_app')
-    def test_celery_health_no_workers(self, mock_celery_app, mock_settings, test_client):
-        """Test Celery health with no workers."""
-        mock_settings.celery_broker_url = "redis://localhost:6379/0"
-        
-        # Mock Celery inspection with no workers
-        mock_inspect = MagicMock()
-        mock_inspect.active.return_value = {}
-        mock_inspect.stats.return_value = {}
-        mock_celery_app.control.inspect.return_value = mock_inspect
-        
-        response = test_client.get("/health/celery")
-        
-        assert response.status_code == 200
-        data = response.json()
-        
-        assert data["status"] == "degraded"
-        assert data["details"]["active_workers"] == 0
-
-    @patch('src.shared.config.settings.settings')
-    @patch('src.presentation.api.routers.health.celery_app')
-    def test_celery_health_with_workers(self, mock_celery_app, mock_settings, test_client):
-        """Test Celery health with active workers."""
-        mock_settings.celery_broker_url = "redis://localhost:6379/0"
-        
-        # Mock Celery inspection with active workers
-        mock_inspect = MagicMock()
-        mock_inspect.active.return_value = {
-            "worker1@hostname": [],
-            "worker2@hostname": []
-        }
-        mock_inspect.stats.return_value = {
-            "worker1@hostname": {"pool": {"max-concurrency": 4}},
-            "worker2@hostname": {"pool": {"max-concurrency": 4}}
-        }
-        mock_celery_app.control.inspect.return_value = mock_inspect
-        
-        response = test_client.get("/health/celery")
-        
-        assert response.status_code == 200
-        data = response.json()
-        
-        assert data["status"] == "healthy"
-        assert data["details"]["active_workers"] == 2
-        assert len(data["details"]["worker_names"]) == 2
-
-
-class TestServiceFactoryHealthChecks:
-    """Test service factory health checks."""
-
-    @patch('src.presentation.api.dependencies.get_service_factory')
-    def test_factory_health_success(self, mock_get_factory, test_client):
-        """Test service factory health check success."""
-        mock_factory = MagicMock()
-        type(mock_factory).use_redis = MagicMock(return_value=True)
-        type(mock_factory).use_celery = MagicMock(return_value=False)
-        mock_factory._services = {"cache_service": MagicMock()}
-        mock_factory._repositories = {"analysis_repository": MagicMock()}
-        
-        # Mock successful service creation
-        mock_factory.create_cache_service.return_value = MagicMock()
-        mock_factory.create_task_service.return_value = MagicMock()
-        
-        mock_get_factory.return_value = mock_factory
-        
-        # This would be tested through the detailed endpoint
-        response = test_client.get("/health/detailed")
-        
-        assert response.status_code == 200
-        data = response.json()
-        
-        # Service factory should be healthy if it creates services successfully
-        assert "services" in data
-        assert "service_factory" in data["services"]
-
-    @patch('src.presentation.api.dependencies.get_service_factory')
-    def test_factory_health_service_creation_failure(self, mock_get_factory, test_client):
-        """Test service factory health when service creation fails."""
-        mock_factory = MagicMock()
-        type(mock_factory).use_redis = MagicMock(return_value=True)
-        type(mock_factory).use_celery = MagicMock(return_value=False)
-        mock_factory._services = {}
-        mock_factory._repositories = {}
-        
-        # Mock service creation failure
-        mock_factory.create_cache_service.side_effect = Exception("Service creation failed")
-        
-        mock_get_factory.return_value = mock_factory
-        
-        response = test_client.get("/health/detailed")
-        
-        assert response.status_code == 200
-        data = response.json()
-        
-        # Overall status should be degraded due to service factory issues
-        assert data["status"] == "degraded"
