@@ -8,7 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from src.presentation.api.dependencies import service_lifecycle
-from src.presentation.api.routers import analyses, companies, filings, health
+from src.presentation.api.routers import analyses, companies, filings, health, tasks
 from src.shared.config.settings import settings
 
 logger = logging.getLogger(__name__)
@@ -124,6 +124,7 @@ app.include_router(health.router)
 app.include_router(filings.router, prefix="/api")
 app.include_router(analyses.router, prefix="/api")
 app.include_router(companies.router, prefix="/api")
+app.include_router(tasks.router, prefix="/api")
 
 
 @app.get("/")

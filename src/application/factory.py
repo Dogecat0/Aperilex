@@ -122,7 +122,9 @@ class ServiceFactory:
 
         return cast(TaskService, self._services["task_service"])
 
-    def create_background_task_coordinator(self, session: AsyncSession | None = None) -> BackgroundTaskCoordinator:
+    def create_background_task_coordinator(
+        self, session: AsyncSession | None = None
+    ) -> BackgroundTaskCoordinator:
         """Create background task coordinator with appropriate backend.
 
         Args:
@@ -236,7 +238,7 @@ class ServiceFactory:
         # Cache orchestrator per session to ensure consistency
         session_id = id(session)
         cache_key = f"analysis_orchestrator_{session_id}"
-        
+
         if cache_key not in self._services:
             logger.debug(
                 "Creating AnalysisOrchestrator with session-dependent repositories"

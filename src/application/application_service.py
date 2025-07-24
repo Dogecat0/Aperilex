@@ -8,7 +8,9 @@ from src.application.base.dispatcher import Dispatcher
 from src.application.base.query import BaseQuery
 from src.application.services.analysis_orchestrator import AnalysisOrchestrator
 from src.application.services.analysis_template_service import AnalysisTemplateService
-from src.application.services.background_task_coordinator import BackgroundTaskCoordinator
+from src.application.services.background_task_coordinator import (
+    BackgroundTaskCoordinator,
+)
 from src.infrastructure.edgar.service import EdgarService
 from src.infrastructure.repositories.analysis_repository import AnalysisRepository
 from src.infrastructure.repositories.company_repository import CompanyRepository

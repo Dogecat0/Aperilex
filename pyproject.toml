@@ -163,6 +163,7 @@ disable_error_code = ["union-attr", "no-any-return", "misc"]
 minversion = "6.0"
 addopts = "-ra -q --strict-markers --strict-config"
 testpaths = ["tests"]
+asyncio_mode = "auto"
 filterwarnings = [
     "error",
     "ignore::UserWarning",
