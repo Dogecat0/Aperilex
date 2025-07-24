@@ -4,11 +4,12 @@ The dispatcher routes commands and queries to their appropriate handlers
 with basic logging support.
 """
 
+import inspect
 import logging
 from typing import Any
 
 from .command import BaseCommand
-from .exceptions import HandlerNotFoundError, DependencyError
+from .exceptions import HandlerNotFoundError
 from .handlers import CommandHandler, QueryHandler
 from .query import BaseQuery
 
@@ -39,6 +40,47 @@ class Dispatcher:
         ] = {}
         self._query_handlers: dict[type[BaseQuery], type[QueryHandler[Any, Any]]] = {}
         self._handler_instances: dict[str, Any] = {}
+
+    def _filter_dependencies(
+        self, handler_class: type, dependencies: dict[str, Any]
+    ) -> dict[str, Any]:
+        """Filter dependencies to only include those required by the handler constructor.
+        
+        Args:
+            handler_class: The handler class to instantiate
+            dependencies: Available dependencies
+            
+        Returns:
+            Dictionary containing only the dependencies required by the handler
+        """
+        try:
+            # Get the constructor signature
+            init_signature = inspect.signature(handler_class.__init__)
+            
+            # Extract parameter names (excluding 'self')
+            required_params = [
+                param_name for param_name in init_signature.parameters.keys()
+                if param_name != 'self'
+            ]
+            
+            # Filter dependencies to only include required ones
+            filtered_deps = {
+                param: dependencies[param]
+                for param in required_params
+                if param in dependencies
+            }
+            
+            logger.debug(
+                f"Filtered dependencies for {handler_class.__name__}: {list(filtered_deps.keys())}"
+            )
+            
+            return filtered_deps
+            
+        except Exception as e:
+            logger.warning(
+                f"Failed to filter dependencies for {handler_class.__name__}: {e}. Using all dependencies."
+            )
+            return dependencies
 
     def register_command_handler(
         self, handler_class: type[CommandHandler[Any, Any]]
@@ -87,7 +129,8 @@ class Dispatcher:
         if not handler_class:
             raise HandlerNotFoundError(type(command).__name__)
 
-        handler = handler_class(**dependencies)
+        filtered_deps = self._filter_dependencies(handler_class, dependencies)
+        handler = handler_class(**filtered_deps)
 
         logger.info(
             f"Dispatching command: {type(command).__name__}",
@@ -128,7 +171,8 @@ class Dispatcher:
         if not handler_class:
             raise HandlerNotFoundError(type(query).__name__)
 
-        handler = handler_class(**dependencies)
+        filtered_deps = self._filter_dependencies(handler_class, dependencies)
+        handler = handler_class(**filtered_deps)
 
         logger.debug(
             f"Dispatching query: {type(query).__name__}",
