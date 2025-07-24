@@ -83,7 +83,7 @@ async def analyze_filing(
 
         # Extract CIK from accession number (first 10 digits)
         cik_str = accession_number.split('-')[0]
-        # CIK expects string format, keep as string 
+        # CIK expects string format, keep as string
         company_cik = CIK(cik_str)
 
         # Create command
