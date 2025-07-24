@@ -18,3 +18,11 @@ class HandlerNotFoundError(ApplicationError):
         self.request_type = request_type
 
 
+class DependencyError(ApplicationError):
+    """Raised when dependency injection fails."""
+
+    def __init__(self, dependency_name: str, message: str | None = None) -> None:
+        if message is None:
+            message = f"Failed to resolve dependency: {dependency_name}"
+        super().__init__(message)
+        self.dependency_name = dependency_name

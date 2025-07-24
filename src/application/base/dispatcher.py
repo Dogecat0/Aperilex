@@ -8,7 +8,7 @@ import logging
 from typing import Any
 
 from .command import BaseCommand
-from .exceptions import HandlerNotFoundError
+from .exceptions import HandlerNotFoundError, DependencyError
 from .handlers import CommandHandler, QueryHandler
 from .query import BaseQuery
 
@@ -38,6 +38,7 @@ class Dispatcher:
             type[BaseCommand], type[CommandHandler[Any, Any]]
         ] = {}
         self._query_handlers: dict[type[BaseQuery], type[QueryHandler[Any, Any]]] = {}
+        self._handler_instances: dict[str, Any] = {}
 
     def register_command_handler(
         self, handler_class: type[CommandHandler[Any, Any]]
@@ -150,4 +151,3 @@ class Dispatcher:
                 exc_info=True,
             )
             raise
-

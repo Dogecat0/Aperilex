@@ -6,10 +6,7 @@ Segregation (CQRS) pattern in the application layer.
 
 from .command import BaseCommand
 from .dispatcher import Dispatcher
-from .exceptions import (
-    ApplicationError,
-    HandlerNotFoundError,
-)
+from .exceptions import ApplicationError, HandlerNotFoundError
 from .handlers import CommandHandler, QueryHandler
 from .query import BaseQuery
 
