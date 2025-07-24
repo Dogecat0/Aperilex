@@ -4,7 +4,7 @@ import logging
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Path
-from starlette.status import HTTP_404_NOT_FOUND
+from starlette.status import HTTP_404_NOT_FOUND, HTTP_500_INTERNAL_SERVER_ERROR
 
 from src.application.schemas.responses.task_response import TaskResponse
 from src.application.services.background_task_coordinator import (
@@ -40,20 +40,31 @@ async def get_task_status(
         TaskResponse with current task status
 
     Raises:
-        HTTPException: 404 if task not found
+        HTTPException: 404 if task not found, 500 if coordinator fails
     """
     logger.info(f"Getting status for task {task_id}")
 
-    task_status = await coordinator.get_task_status(task_id)
+    try:
+        task_status = await coordinator.get_task_status(task_id)
 
-    if task_status is None:
-        logger.warning(f"Task {task_id} not found")
+        if task_status is None:
+            logger.warning(f"Task {task_id} not found")
+            raise HTTPException(
+                status_code=HTTP_404_NOT_FOUND, detail=f"Task {task_id} not found"
+            )
+
+        logger.debug(f"Task {task_id} status: {task_status.status}")
+        return task_status
+
+    except HTTPException:
+        # Re-raise HTTP exceptions as-is
+        raise
+    except Exception as e:
+        logger.error(f"Failed to get task status for {task_id}: {e}", exc_info=True)
         raise HTTPException(
-            status_code=HTTP_404_NOT_FOUND, detail=f"Task {task_id} not found"
-        )
-
-    logger.debug(f"Task {task_id} status: {task_status.status}")
-    return task_status
+            status_code=HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to retrieve task status",
+        ) from e
 
 
 @router.post(
@@ -76,18 +87,30 @@ async def retry_failed_task(
         TaskResponse for the new retry task
 
     Raises:
-        HTTPException: 404 if task not found or not in failed state
+        HTTPException: 404 if task not found or not in failed state, 500 if coordinator fails
     """
     logger.info(f"Retrying failed task {task_id}")
 
-    retry_task = await coordinator.retry_failed_task(task_id)
+    try:
+        retry_task = await coordinator.retry_failed_task(task_id)
 
-    if retry_task is None:
-        logger.warning(f"Cannot retry task {task_id}: task not found or not failed")
-        raise HTTPException(
-            status_code=HTTP_404_NOT_FOUND,
-            detail=f"Task {task_id} not found or not in failed state",
+        if retry_task is None:
+            logger.warning(f"Cannot retry task {task_id}: task not found or not failed")
+            raise HTTPException(
+                status_code=HTTP_404_NOT_FOUND,
+                detail=f"Task {task_id} not found or not in failed state",
+            )
+
+        logger.info(
+            f"Created retry task {retry_task.task_id} for original task {task_id}"
         )
+        return retry_task
 
-    logger.info(f"Created retry task {retry_task.task_id} for original task {task_id}")
-    return retry_task
+    except HTTPException:
+        # Re-raise HTTP exceptions as-is
+        raise
+    except Exception as e:
+        logger.error(f"Failed to retry task {task_id}: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to retry task"
+        ) from e

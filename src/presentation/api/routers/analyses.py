@@ -175,67 +175,6 @@ async def list_analyses(
 
 
 @router.get(
-    "/{analysis_id}",
-    response_model=AnalysisResponse,
-    summary="Get analysis by ID",
-    description="""
-    Retrieve a specific analysis by its unique ID.
-
-    Returns complete analysis results including AI insights, key findings,
-    and metadata about the analysis process.
-    """,
-)
-async def get_analysis(
-    analysis_id: AnalysisIdPath,
-    session: SessionDep,
-    factory: ServiceFactoryDep,
-) -> AnalysisResponse:
-    """Get a specific analysis by ID.
-
-    Args:
-        analysis_id: Unique analysis identifier
-        session: Database session for repository operations
-        factory: Service factory for dependency injection
-
-    Returns:
-        AnalysisResponse with complete analysis information
-
-    Raises:
-        HTTPException: 404 if analysis not found
-        HTTPException: 500 if retrieval fails
-    """
-    logger.info("Retrieving analysis by ID", extra={"analysis_id": str(analysis_id)})
-
-    try:
-        # Create query
-        query = GetAnalysisQuery(analysis_id=analysis_id)
-
-        # Get dependencies and dispatcher
-        dispatcher = factory.create_dispatcher()
-        dependencies = factory.get_handler_dependencies(session)
-
-        # Dispatch query
-        result: AnalysisResponse = await dispatcher.dispatch_query(query, dependencies)
-
-        logger.info(
-            "Analysis retrieved successfully", extra={"analysis_id": str(analysis_id)}
-        )
-
-        return result
-
-    except Exception:
-        logger.error(
-            "Failed to retrieve analysis",
-            extra={"analysis_id": str(analysis_id)},
-            exc_info=True,
-        )
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to retrieve analysis",
-        ) from None
-
-
-@router.get(
     "/templates",
     response_model=TemplatesResponse,
     summary="Get analysis templates",
@@ -302,4 +241,65 @@ async def get_analysis_templates(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to retrieve analysis templates",
+        ) from None
+
+
+@router.get(
+    "/{analysis_id}",
+    response_model=AnalysisResponse,
+    summary="Get analysis by ID",
+    description="""
+    Retrieve a specific analysis by its unique ID.
+
+    Returns complete analysis results including AI insights, key findings,
+    and metadata about the analysis process.
+    """,
+)
+async def get_analysis(
+    analysis_id: AnalysisIdPath,
+    session: SessionDep,
+    factory: ServiceFactoryDep,
+) -> AnalysisResponse:
+    """Get a specific analysis by ID.
+
+    Args:
+        analysis_id: Unique analysis identifier
+        session: Database session for repository operations
+        factory: Service factory for dependency injection
+
+    Returns:
+        AnalysisResponse with complete analysis information
+
+    Raises:
+        HTTPException: 404 if analysis not found
+        HTTPException: 500 if retrieval fails
+    """
+    logger.info("Retrieving analysis by ID", extra={"analysis_id": str(analysis_id)})
+
+    try:
+        # Create query
+        query = GetAnalysisQuery(analysis_id=analysis_id)
+
+        # Get dependencies and dispatcher
+        dispatcher = factory.create_dispatcher()
+        dependencies = factory.get_handler_dependencies(session)
+
+        # Dispatch query
+        result: AnalysisResponse = await dispatcher.dispatch_query(query, dependencies)
+
+        logger.info(
+            "Analysis retrieved successfully", extra={"analysis_id": str(analysis_id)}
+        )
+
+        return result
+
+    except Exception:
+        logger.error(
+            "Failed to retrieve analysis",
+            extra={"analysis_id": str(analysis_id)},
+            exc_info=True,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to retrieve analysis",
         ) from None

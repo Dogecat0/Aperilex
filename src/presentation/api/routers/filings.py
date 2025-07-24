@@ -18,6 +18,7 @@ from src.application.schemas.responses.analysis_response import AnalysisResponse
 from src.application.schemas.responses.filing_response import FilingResponse
 from src.application.schemas.responses.task_response import TaskResponse
 from src.domain.value_objects.accession_number import AccessionNumber
+from src.domain.value_objects.cik import CIK
 from src.infrastructure.database.base import get_db
 from src.presentation.api.dependencies import get_service_factory
 
@@ -80,8 +81,15 @@ async def analyze_filing(
         # Validate accession number format
         accession_num = AccessionNumber(accession_number)
 
+        # Extract CIK from accession number (first 10 digits)
+        cik_str = accession_number.split('-')[0]
+        # CIK expects string format, keep as string 
+        company_cik = CIK(cik_str)
+
         # Create command
-        command = AnalyzeFilingCommand(accession_number=accession_num)
+        command = AnalyzeFilingCommand(
+            accession_number=accession_num, company_cik=company_cik
+        )
 
         # Get dependencies and dispatcher
         dispatcher = factory.create_dispatcher()
