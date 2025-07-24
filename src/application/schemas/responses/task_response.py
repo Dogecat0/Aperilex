@@ -34,11 +34,13 @@ class TaskResponse:
     error_message: str | None = None
     started_at: datetime | None = None
     completed_at: datetime | None = None
+    progress_percent: float | None = None
+    current_step: str | None = None
 
     @property
     def is_complete(self) -> bool:
         """Check if task is complete (success or failure).
-        
+
         Returns:
             True if task has finished processing
         """
@@ -47,7 +49,7 @@ class TaskResponse:
     @property
     def is_successful(self) -> bool:
         """Check if task completed successfully.
-        
+
         Returns:
             True if task completed without error
         """
@@ -56,8 +58,17 @@ class TaskResponse:
     @property
     def has_error(self) -> bool:
         """Check if task failed with error.
-        
+
         Returns:
             True if task failed
         """
         return self.status == TaskStatus.FAILURE.value
+
+    @property
+    def is_completed(self) -> bool:
+        """Alias for is_complete property (backward compatibility).
+
+        Returns:
+            True if task has finished processing
+        """
+        return self.is_complete

@@ -58,7 +58,6 @@ class AnalyzeFilingCommand(BaseCommand):
         if self.accession_number is None:
             raise ValueError("accession_number is required")
 
-
     @property
     def filing_identifier(self) -> str:
         """Get a human-readable identifier for the filing being analyzed.
@@ -67,7 +66,6 @@ class AnalyzeFilingCommand(BaseCommand):
             String identifier combining CIK and accession number
         """
         return f"{self.company_cik}/{self.accession_number}"
-
 
     def get_llm_schemas_to_use(self) -> list[str]:
         """Get the list of LLM schemas that should be used for this analysis.
@@ -102,4 +100,3 @@ class AnalyzeFilingCommand(BaseCommand):
         }
 
         return template_mapping[self.analysis_template]
-

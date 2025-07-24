@@ -37,6 +37,9 @@ class ListAnalysesQuery(BaseQuery):
         analysis_types: Filter by analysis types (optional)
         created_from: Filter analyses created from this date (inclusive, optional)
         created_to: Filter analyses created to this date (inclusive, optional)
+        min_confidence_score: Filter by minimum confidence score (optional)
+        offset: Number of results to skip for pagination (optional)
+        limit: Maximum number of results to return (optional)
         sort_by: Field to sort results by
         sort_direction: Sort direction (ascending or descending)
     """
@@ -45,6 +48,7 @@ class ListAnalysesQuery(BaseQuery):
     analysis_types: list[AnalysisType] | None = None
     created_from: datetime | None = None
     created_to: datetime | None = None
+    min_confidence_score: float | None = None
     sort_by: AnalysisSortField = AnalysisSortField.CREATED_AT
     sort_direction: SortDirection = SortDirection.DESC
 
@@ -61,7 +65,6 @@ class ListAnalysesQuery(BaseQuery):
         ):
             raise ValueError("created_from cannot be later than created_to")
 
-
         # Validate analysis types list
         if self.analysis_types is not None:
             if len(self.analysis_types) == 0:
@@ -71,6 +74,12 @@ class ListAnalysesQuery(BaseQuery):
             if len(set(self.analysis_types)) != len(self.analysis_types):
                 raise ValueError("analysis_types contains duplicates")
 
+        # Validate confidence score
+        if self.min_confidence_score is not None:
+            if not (0.0 <= self.min_confidence_score <= 1.0):
+                raise ValueError("min_confidence_score must be between 0.0 and 1.0")
+
+        # Additional pagination validation is inherited from BaseQuery
 
     @property
     def has_company_filter(self) -> bool:
@@ -81,7 +90,6 @@ class ListAnalysesQuery(BaseQuery):
         """
         return self.company_cik is not None
 
-
     @property
     def has_date_range_filter(self) -> bool:
         """Check if query filters by date range.
@@ -91,7 +99,6 @@ class ListAnalysesQuery(BaseQuery):
         """
         return self.created_from is not None or self.created_to is not None
 
-
     @property
     def has_type_filter(self) -> bool:
         """Check if query filters by analysis type.
@@ -100,5 +107,3 @@ class ListAnalysesQuery(BaseQuery):
             True if analysis_types filter is applied
         """
         return self.analysis_types is not None
-
-
