@@ -45,37 +45,38 @@ class Dispatcher:
         self, handler_class: type, dependencies: dict[str, Any]
     ) -> dict[str, Any]:
         """Filter dependencies to only include those required by the handler constructor.
-        
+
         Args:
             handler_class: The handler class to instantiate
             dependencies: Available dependencies
-            
+
         Returns:
             Dictionary containing only the dependencies required by the handler
         """
         try:
             # Get the constructor signature
-            init_signature = inspect.signature(handler_class.__init__)
-            
+            init_signature = inspect.signature(handler_class)
+
             # Extract parameter names (excluding 'self')
             required_params = [
-                param_name for param_name in init_signature.parameters.keys()
+                param_name
+                for param_name in init_signature.parameters.keys()
                 if param_name != 'self'
             ]
-            
+
             # Filter dependencies to only include required ones
             filtered_deps = {
                 param: dependencies[param]
                 for param in required_params
                 if param in dependencies
             }
-            
+
             logger.debug(
                 f"Filtered dependencies for {handler_class.__name__}: {list(filtered_deps.keys())}"
             )
-            
+
             return filtered_deps
-            
+
         except Exception as e:
             logger.warning(
                 f"Failed to filter dependencies for {handler_class.__name__}: {e}. Using all dependencies."
