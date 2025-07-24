@@ -16,16 +16,21 @@ logger = logging.getLogger(__name__)
 class RedisService:
     """Redis caching service with JSON serialization support."""
 
-    def __init__(self) -> None:
-        """Initialize Redis connection."""
+    def __init__(self, redis_url: str | None = None) -> None:
+        """Initialize Redis connection.
+        
+        Args:
+            redis_url: Redis connection URL. If not provided, uses settings.redis_url
+        """
         self._redis: Redis | None = None
         self._connected = False
+        self._redis_url = redis_url or settings.redis_url
 
     async def connect(self) -> None:
         """Establish connection to Redis."""
         try:
             self._redis = redis.from_url(
-                settings.redis_url,
+                self._redis_url,
                 encoding="utf-8",
                 decode_responses=True,
                 socket_connect_timeout=5,
