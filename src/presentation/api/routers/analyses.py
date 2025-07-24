@@ -1,6 +1,7 @@
 """API router for analysis-related endpoints."""
 
 import logging
+from datetime import datetime
 from typing import Annotated
 from uuid import UUID
 
@@ -12,6 +13,7 @@ from src.application.schemas.queries.get_analysis import GetAnalysisQuery
 from src.application.schemas.queries.get_templates import GetTemplatesQuery
 from src.application.schemas.queries.list_analyses import ListAnalysesQuery
 from src.application.schemas.responses.analysis_response import AnalysisResponse
+from src.application.schemas.responses.paginated_response import PaginatedResponse
 from src.application.schemas.responses.templates_response import TemplatesResponse
 from src.domain.entities.analysis import AnalysisType
 from src.domain.value_objects.cik import CIK
@@ -39,7 +41,7 @@ AnalysisIdPath = Annotated[UUID, Path(description="Analysis ID")]
 
 @router.get(
     "",
-    response_model=list[AnalysisResponse],
+    response_model=PaginatedResponse[AnalysisResponse],
     summary="List analyses",
     description="""
     List analyses with optional filtering and pagination.
@@ -58,16 +60,22 @@ async def list_analyses(
     analysis_type: Annotated[
         AnalysisType | None, Query(description="Filter by analysis type")
     ] = None,
-    min_confidence: Annotated[
+    min_confidence_score: Annotated[
         float | None,
         Query(ge=0.0, le=1.0, description="Minimum confidence score (0.0-1.0)"),
+    ] = None,
+    created_from: Annotated[
+        datetime | None, Query(description="Filter analyses created from this date")
+    ] = None,
+    created_to: Annotated[
+        datetime | None, Query(description="Filter analyses created to this date")
     ] = None,
     # Pagination parameters
     page: Annotated[int, Query(ge=1, description="Page number (1-based)")] = 1,
     page_size: Annotated[
         int, Query(ge=1, le=100, description="Number of analyses per page (max 100)")
     ] = 20,
-) -> list[AnalysisResponse]:
+) -> PaginatedResponse[AnalysisResponse]:
     """List analyses with filtering and pagination.
 
     Args:
@@ -91,7 +99,7 @@ async def list_analyses(
         extra={
             "company_cik": company_cik,
             "analysis_type": analysis_type.value if analysis_type else None,
-            "min_confidence": min_confidence,
+            "min_confidence_score": min_confidence_score,
             "page": page,
             "page_size": page_size,
         },
@@ -117,10 +125,14 @@ async def list_analyses(
         analysis_types = [analysis_type] if analysis_type else None
 
         query = ListAnalysesQuery(
+            user_id=None,  # TODO: Extract from auth context
             company_cik=cik_obj,
             analysis_types=analysis_types,
-            # Note: ListAnalysesQuery doesn't support min_confidence_score, offset, limit
-            # These parameters need to be handled differently or the schema needs updating
+            created_from=created_from,
+            created_to=created_to,
+            min_confidence_score=min_confidence_score,
+            page=page,
+            page_size=page_size,
         )
 
         # Get dependencies and dispatcher
@@ -128,16 +140,17 @@ async def list_analyses(
         dependencies = factory.get_handler_dependencies(session)
 
         # Dispatch query
-        results: list[AnalysisResponse] = await dispatcher.dispatch_query(
+        results: PaginatedResponse[AnalysisResponse] = await dispatcher.dispatch_query(
             query, dependencies
         )
 
         logger.info(
             "Listed analyses successfully",
             extra={
-                "results_count": len(results),
-                "page": page,
-                "page_size": page_size,
+                "results_count": len(results.items),
+                "page": results.pagination.page,
+                "page_size": results.pagination.page_size,
+                "total_items": results.pagination.total_items,
             },
         )
 
