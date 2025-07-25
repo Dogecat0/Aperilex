@@ -9,6 +9,8 @@ First, use parallel subagents to find and read files that may be useful for impl
 
 **SUBAGENT GUIDANCE: Within subagents, always read files directly rather than using search tools. Extract information by reading the full file content and filtering programmatically.**
 
+**READ TOOL: When using the Read tool, always read all lines of the file, do not read in sections.**
+
 Design specific tasks for each subagent based on what you need to understand. Give focused missions like:
 - "Extract authentication system interface and dependencies"
 - "Find repository patterns and method signatures" 
@@ -41,6 +43,8 @@ Make sure to run our autoformatting script when you're done, and fix linter warn
 # Test
 Use parallel subagents to run tests, and make sure they all pass.
 
+**TEST EXECUTION: When running tests, always run the entire test suite to ensure no regressions. Do not run partial test suites even when debugging a particular component - always run the full suite.**
+
 **BASH COMMANDS: When running any bash commands, do not limit or truncate the output using `head`, `tail`, `more`, `less`, piping to `head`/`tail`, or any other commands that limit output display. Always show full output for proper debugging and validation.**
 
 If your changes touch the UX in a major way, use the browser to make sure that everything works correctly. Make a list of what to test for, and use a subagent for this step.
@@ -51,5 +55,7 @@ Once you are satisfied with your code, run the tests and do the code quality che
 
 # Write up your work
 When you are happy with your work, write up a short report that could be used as the PR description. Include what you set out to do, the choices you made with their brief justification, and any commands you ran in the process that may be useful for future developers to know about.
+
+**GIT COMMITS: When committing changes, split them into logical groups of files and changes. Create separate commits for different aspects like domain changes, infrastructure updates, tests, configuration, etc. This makes the change history clearer and easier to review.**
 
 $ARGUMENTS
