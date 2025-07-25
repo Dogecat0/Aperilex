@@ -176,12 +176,11 @@ class GetCompanyQueryHandler(QueryHandler[GetCompanyQuery, CompanyResponse]):
         """
         try:
             # Get recent analyses from database
-            # Note: find_with_filters doesn't support limit, getting all and slicing
+            # Get the 5 most recent analyses with pagination
             all_analyses = await self.analysis_repository.find_with_filters(
-                company_cik=cik
+                company_cik=cik, page=1, page_size=5
             )
-            # Get the 5 most recent analyses
-            analyses = all_analyses[:5] if all_analyses else []
+            analyses = all_analyses
 
             return [
                 {
