@@ -5,6 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.domain.entities.company import Company
 from src.domain.value_objects.cik import CIK
+from src.domain.value_objects.ticker import Ticker
 from src.infrastructure.database.models import Company as CompanyModel
 from src.infrastructure.repositories.base import BaseRepository
 
@@ -62,6 +63,23 @@ class CompanyRepository(BaseRepository[CompanyModel, Company]):
             Company if found, None otherwise
         """
         stmt = select(CompanyModel).where(CompanyModel.cik == str(cik))
+        result = await self.session.execute(stmt)
+        model = result.scalar_one_or_none()
+        return self.to_entity(model) if model else None
+
+    async def get_by_ticker(self, ticker: Ticker) -> Company | None:
+        """Get company by ticker symbol.
+
+        Args:
+            ticker: Company ticker symbol
+
+        Returns:
+            Company if found, None otherwise
+        """
+        # Search for ticker in the meta_data JSON field
+        stmt = select(CompanyModel).where(
+            CompanyModel.meta_data["ticker"].as_string() == str(ticker)
+        )
         result = await self.session.execute(stmt)
         model = result.scalar_one_or_none()
         return self.to_entity(model) if model else None

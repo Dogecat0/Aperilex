@@ -10,6 +10,9 @@ class AnalysisType(str, Enum):
     """Types of analysis that can be performed."""
 
     FILING_ANALYSIS = "filing_analysis"  # Complete filing analysis from LLM
+    COMPREHENSIVE = (
+        "comprehensive"  # Comprehensive analysis (alias for filing_analysis)
+    )
     CUSTOM_QUERY = "custom_query"  # Custom analysis based on user query
     COMPARISON = "comparison"  # Multi-filing or peer comparison
     HISTORICAL_TREND = "historical_trend"  # Time-series analysis across filings
@@ -116,9 +119,12 @@ class Analysis:
         """Check if this is a comprehensive filing analysis.
 
         Returns:
-            True if analysis type is FILING_ANALYSIS
+            True if analysis type is FILING_ANALYSIS or COMPREHENSIVE
         """
-        return self._analysis_type == AnalysisType.FILING_ANALYSIS
+        return self._analysis_type in (
+            AnalysisType.FILING_ANALYSIS,
+            AnalysisType.COMPREHENSIVE,
+        )
 
     def is_high_confidence(self) -> bool:
         """Check if analysis has high confidence.

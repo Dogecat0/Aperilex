@@ -182,7 +182,8 @@ class OverallAnalysisResponse(BaseModel):
     executive_summary: str = Field(..., description="2-3 paragraph executive summary")
     key_insights: list[str] = Field(..., description="7-10 most important insights")
     financial_highlights: list[str] = Field(
-        ..., description="Key financial metrics and changes"
+        ...,
+        description="Key financial metrics with actual numbers/percentages from filing (e.g., 'Revenue grew 15% to $45.3B'). Use descriptive statements if specific numbers unavailable, never placeholder variables.",
     )
     risk_factors: list[str] = Field(..., description="Main risk factors identified")
     opportunities: list[str] = Field(..., description="Growth opportunities mentioned")
@@ -201,7 +202,8 @@ class ComprehensiveAnalysisResponse(BaseModel):
     executive_summary: str = Field(..., description="2-3 paragraph executive summary")
     key_insights: list[str] = Field(..., description="7-10 most important insights")
     financial_highlights: list[str] = Field(
-        ..., description="Key financial metrics and changes"
+        ...,
+        description="Key financial metrics with actual numbers/percentages from filing (e.g., 'Revenue grew 15% to $45.3B'). Use descriptive statements if specific numbers unavailable, never placeholder variables.",
     )
     risk_factors: list[str] = Field(..., description="Main risk factors identified")
     opportunities: list[str] = Field(..., description="Growth opportunities mentioned")

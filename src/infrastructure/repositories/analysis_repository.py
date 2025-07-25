@@ -1,6 +1,7 @@
 """Repository for Analysis entities."""
 
 from datetime import datetime
+from typing import Any
 from uuid import UUID
 
 from sqlalchemy import and_, select
@@ -216,3 +217,163 @@ class AnalysisRepository(BaseRepository[AnalysisModel, Analysis]):
         rows = result.all()
 
         return {str(row[0]): int(row[1]) for row in rows}
+
+    async def find_by_filing_id(self, filing_id: UUID) -> list[Analysis]:
+        """Find all analyses for a specific filing ID.
+
+        Args:
+            filing_id: UUID of the filing
+
+        Returns:
+            List of Analysis entities for the filing
+        """
+        return await self.get_by_filing_id(filing_id)
+
+    async def count_with_filters(
+        self,
+        company_cik: Any = None,
+        analysis_types: list[AnalysisType] | None = None,
+        created_from: datetime | None = None,
+        created_to: datetime | None = None,
+        min_confidence_score: float | None = None,
+    ) -> int:
+        """Count analyses with optional filters.
+
+        Args:
+            company_cik: Filter by company CIK
+            analysis_types: Filter by analysis types
+            created_from: Filter by creation date (from)
+            created_to: Filter by creation date (to)
+            min_confidence_score: Filter by minimum confidence score
+
+        Returns:
+            Count of analyses matching filters
+        """
+        from sqlalchemy import func
+
+        conditions = []
+
+        if company_cik:
+            # Join with Filing and Company tables to filter by company CIK
+            from src.infrastructure.database.models import Company as CompanyModel
+            from src.infrastructure.database.models import Filing as FilingModel
+
+            stmt = (
+                select(func.count(AnalysisModel.id))
+                .join(FilingModel, AnalysisModel.filing_id == FilingModel.id)
+                .join(CompanyModel, FilingModel.company_id == CompanyModel.id)
+            )
+            conditions.append(CompanyModel.cik == str(company_cik))
+        else:
+            stmt = select(func.count(AnalysisModel.id))
+
+        if analysis_types:
+            type_values = [at.value for at in analysis_types]
+            conditions.append(AnalysisModel.analysis_type.in_(type_values))
+
+        if created_from:
+            conditions.append(AnalysisModel.created_at >= created_from)
+
+        if created_to:
+            conditions.append(AnalysisModel.created_at <= created_to)
+
+        if min_confidence_score is not None:
+            conditions.append(AnalysisModel.confidence_score >= min_confidence_score)
+
+        if conditions:
+            stmt = stmt.where(and_(*conditions))
+
+        result = await self.session.execute(stmt)
+        return result.scalar() or 0
+
+    async def find_with_filters(
+        self,
+        company_cik: Any = None,
+        analysis_types: list[AnalysisType] | None = None,
+        created_from: datetime | None = None,
+        created_to: datetime | None = None,
+        min_confidence_score: float | None = None,
+        sort_by: Any = None,
+        sort_direction: Any = None,
+        page: int = 1,
+        page_size: int = 20,
+    ) -> list[Analysis]:
+        """Find analyses with optional filters, sorting, and pagination.
+
+        Args:
+            company_cik: Filter by company CIK
+            analysis_types: Filter by analysis types
+            created_from: Filter by creation date (from)
+            created_to: Filter by creation date (to)
+            min_confidence_score: Filter by minimum confidence score
+            sort_by: Field to sort by
+            sort_direction: Sort direction
+            page: Page number (1-based)
+            page_size: Items per page
+
+        Returns:
+            List of Analysis entities matching filters
+        """
+        from src.application.schemas.queries.list_analyses import (
+            AnalysisSortField,
+            SortDirection,
+        )
+
+        conditions = []
+
+        if company_cik:
+            # Join with Filing and Company tables to filter by company CIK
+            from src.infrastructure.database.models import Company as CompanyModel
+            from src.infrastructure.database.models import Filing as FilingModel
+
+            stmt = (
+                select(AnalysisModel)
+                .join(FilingModel, AnalysisModel.filing_id == FilingModel.id)
+                .join(CompanyModel, FilingModel.company_id == CompanyModel.id)
+            )
+            conditions.append(CompanyModel.cik == str(company_cik))
+        else:
+            stmt = select(AnalysisModel)
+
+        if analysis_types:
+            type_values = [at.value for at in analysis_types]
+            conditions.append(AnalysisModel.analysis_type.in_(type_values))
+
+        if created_from:
+            conditions.append(AnalysisModel.created_at >= created_from)
+
+        if created_to:
+            conditions.append(AnalysisModel.created_at <= created_to)
+
+        if min_confidence_score is not None:
+            conditions.append(AnalysisModel.confidence_score >= min_confidence_score)
+
+        if conditions:
+            stmt = stmt.where(and_(*conditions))
+
+        # Apply sorting
+        if sort_by and sort_direction:
+            sort_field: Any = None
+            if sort_by == AnalysisSortField.CREATED_AT:
+                sort_field = AnalysisModel.created_at
+            elif sort_by == AnalysisSortField.CONFIDENCE_SCORE:
+                sort_field = AnalysisModel.confidence_score
+            elif sort_by == AnalysisSortField.ANALYSIS_TYPE:
+                sort_field = AnalysisModel.analysis_type
+
+            if sort_field is not None:
+                if sort_direction == SortDirection.DESC:
+                    stmt = stmt.order_by(sort_field.desc())
+                else:
+                    stmt = stmt.order_by(sort_field.asc())
+        else:
+            # Default sort by created_at desc
+            stmt = stmt.order_by(AnalysisModel.created_at.desc())
+
+        # Apply pagination
+        page_offset = (page - 1) * page_size
+        stmt = stmt.offset(page_offset).limit(page_size)
+
+        result = await self.session.execute(stmt)
+        models = result.scalars().all()
+        return [self.to_entity(model) for model in models]

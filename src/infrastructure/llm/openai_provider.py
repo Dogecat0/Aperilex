@@ -608,7 +608,17 @@ Use the structured schema to guide your analysis and ensure comprehensive covera
         Section Summaries:
         {sections_summary}
 
-        Provide an executive-level analysis that synthesizes insights from all sections."""
+        Provide an executive-level analysis that synthesizes insights from all sections.
+
+        IMPORTANT for financial_highlights:
+        - Extract actual financial numbers, percentages, and dollar amounts from the filing content
+        - If specific numbers are mentioned in the sections, use those exact values
+        - If precise numbers aren't available, provide descriptive statements without placeholder variables (X, Y, Z)
+        - Examples of good financial highlights:
+          * "Revenue increased 15% year-over-year to $45.3 billion"
+          * "Operating margins improved significantly compared to prior year"
+          * "Strong cash position with substantial liquidity reserves"
+        - Never use placeholder letters like X%, Y%, Z billion, or A%"""
 
         response: ParsedChatCompletion[OverallAnalysisResponse] = (
             await self.client.chat.completions.parse(
@@ -616,7 +626,7 @@ Use the structured schema to guide your analysis and ensure comprehensive covera
                 messages=[
                     {
                         "role": "system",
-                        "content": "You are a senior financial analyst. Provide executive-level analysis of the complete filing.",
+                        "content": "You are a senior financial analyst. Provide executive-level analysis of the complete filing. Always use actual financial data when available and avoid placeholder variables. If specific numbers aren't available, provide descriptive qualitative statements instead.",
                     },
                     {"role": "user", "content": prompt},
                 ],
