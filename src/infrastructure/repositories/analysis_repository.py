@@ -254,11 +254,16 @@ class AnalysisRepository(BaseRepository[AnalysisModel, Analysis]):
         conditions = []
 
         if company_cik:
-            # Join with Filing table to filter by company
+            # Join with Filing and Company tables to filter by company CIK
+            from src.infrastructure.database.models import Company as CompanyModel
             from src.infrastructure.database.models import Filing as FilingModel
 
-            stmt = select(func.count(AnalysisModel.id)).join(FilingModel)
-            conditions.append(FilingModel.company_id == company_cik.value)
+            stmt = (
+                select(func.count(AnalysisModel.id))
+                .join(FilingModel, AnalysisModel.filing_id == FilingModel.id)
+                .join(CompanyModel, FilingModel.company_id == CompanyModel.id)
+            )
+            conditions.append(CompanyModel.cik == str(company_cik))
         else:
             stmt = select(func.count(AnalysisModel.id))
 
@@ -317,11 +322,16 @@ class AnalysisRepository(BaseRepository[AnalysisModel, Analysis]):
         conditions = []
 
         if company_cik:
-            # Join with Filing table to filter by company
+            # Join with Filing and Company tables to filter by company CIK
+            from src.infrastructure.database.models import Company as CompanyModel
             from src.infrastructure.database.models import Filing as FilingModel
 
-            stmt = select(AnalysisModel).join(FilingModel)
-            conditions.append(FilingModel.company_id == company_cik.value)
+            stmt = (
+                select(AnalysisModel)
+                .join(FilingModel, AnalysisModel.filing_id == FilingModel.id)
+                .join(CompanyModel, FilingModel.company_id == CompanyModel.id)
+            )
+            conditions.append(CompanyModel.cik == str(company_cik))
         else:
             stmt = select(AnalysisModel)
 
