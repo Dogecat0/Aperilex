@@ -75,36 +75,11 @@ class TestAnalysisRepositoryAdvancedQueries:
     async def test_filings(
         self,
         filing_repository: FilingRepository,
-        company_repository: CompanyRepository,
+        test_companies: list[Company],
     ) -> list[Filing]:
         """Create test filings for multiple companies."""
-        # Create test companies inline to avoid async fixture dependency issues
-        # Use unique CIKs to avoid database conflicts  
-        base_cik = 7000000000  # Different base for test_filings fixture
-        companies = [
-            Company(
-                id=uuid4(),
-                cik=CIK(str(base_cik + 1).zfill(10)),  # Test Apple Inc.
-                name="Test Apple Inc.",
-                metadata={"ticker": "AAPL", "sector": "Technology"},
-            ),
-            Company(
-                id=uuid4(),
-                cik=CIK(str(base_cik + 2).zfill(10)),  # Test Microsoft Corp
-                name="Test Microsoft Corporation",
-                metadata={"ticker": "MSFT", "sector": "Technology"},
-            ),
-            Company(
-                id=uuid4(),
-                cik=CIK(str(base_cik + 3).zfill(10)),  # Test Alphabet Inc.
-                name="Test Alphabet Inc.",
-                metadata={"ticker": "GOOGL", "sector": "Technology"},
-            ),
-        ]
-
-        for company in companies:
-            await company_repository.create(company)
-        await company_repository.commit()
+        # Use the shared test_companies instead of creating new ones
+        companies = test_companies
 
         filings = []
 
@@ -133,59 +108,11 @@ class TestAnalysisRepositoryAdvancedQueries:
     async def test_analyses(
         self,
         analysis_repository: AnalysisRepository,
-        filing_repository: FilingRepository,
-        company_repository: CompanyRepository,
+        test_filings: list[Filing],
     ) -> list[Analysis]:
         """Create test analyses with various attributes for filtering tests."""
-        # Create companies and filings inline to avoid async fixture dependency issues
-        # Use unique CIKs to avoid database conflicts
-        base_cik = 9000000000  # High number to avoid conflicts
-        companies = [
-            Company(
-                id=uuid4(),
-                cik=CIK(str(base_cik + 1).zfill(10)),  # Test Apple Inc.
-                name="Test Apple Inc.",
-                metadata={"ticker": "AAPL", "sector": "Technology"},
-            ),
-            Company(
-                id=uuid4(),
-                cik=CIK(str(base_cik + 2).zfill(10)),  # Test Microsoft Corp
-                name="Test Microsoft Corporation",
-                metadata={"ticker": "MSFT", "sector": "Technology"},
-            ),
-            Company(
-                id=uuid4(),
-                cik=CIK(str(base_cik + 3).zfill(10)),  # Test Alphabet Inc.
-                name="Test Alphabet Inc.",
-                metadata={"ticker": "GOOGL", "sector": "Technology"},
-            ),
-        ]
-
-        for company in companies:
-            await company_repository.create(company)
-        await company_repository.commit()
-
-        # Create filings
-        filings = []
-        for i, company in enumerate(companies):
-            # Create 2 filings per company
-            for j in range(2):
-                filing = Filing(
-                    id=uuid4(),
-                    company_id=company.id,
-                    accession_number=AccessionNumber(
-                        f"{company.cik.value}-23-{str(j).zfill(6)}"
-                    ),
-                    filing_type=FilingType.FORM_10K,
-                    processing_status=ProcessingStatus.COMPLETED,
-                    filing_date=(
-                        datetime.now(UTC) - timedelta(days=30 * (i * 2 + j))
-                    ).date(),
-                )
-                filings.append(filing)
-                await filing_repository.create(filing)
-
-        await filing_repository.commit()
+        # Use the shared test_filings instead of creating new ones
+        filings = test_filings
 
         # Create analyses
         analyses = []
@@ -204,6 +131,7 @@ class TestAnalysisRepositoryAdvancedQueries:
                     filing_id=filing.id,
                     analysis_type=analysis_types[i % len(analysis_types)],
                     created_by=f"analyst_{(i + j) % 3 + 1}",  # analyst_1, analyst_2, analyst_3
+                    results={"summary": f"Test analysis {i}-{j}", "key_metrics": {"metric1": i * 10}},
                     llm_provider="openai",
                     llm_model=f"gpt-{4 if i % 2 == 0 else 3.5}-turbo",
                     confidence_score=confidence_scores[i % len(confidence_scores)],
@@ -600,6 +528,7 @@ class TestAnalysisRepositoryAdvancedQueries:
             metadata={"ticker": "ITC", "sector": "Testing"},
         )
         await company_repository.create(company)
+        await company_repository.commit()
 
         filing = Filing(
             id=uuid4(),
@@ -610,12 +539,14 @@ class TestAnalysisRepositoryAdvancedQueries:
             processing_status=ProcessingStatus.COMPLETED,
         )
         await filing_repository.create(filing)
+        await filing_repository.commit()
 
         analysis1 = Analysis(
             id=uuid4(),
             filing_id=filing.id,
             analysis_type=AnalysisType.FILING_ANALYSIS,
             created_by="integration_test",
+            results={"summary": "Integration test analysis 1", "score": 90},
             llm_provider="openai",
             llm_model="gpt-4",
             confidence_score=0.90,
@@ -626,6 +557,7 @@ class TestAnalysisRepositoryAdvancedQueries:
             filing_id=filing.id,
             analysis_type=AnalysisType.FILING_ANALYSIS,
             created_by="integration_test",
+            results={"summary": "Integration test analysis 2", "score": 87},
             llm_provider="openai",
             llm_model="gpt-4",
             confidence_score=0.87,

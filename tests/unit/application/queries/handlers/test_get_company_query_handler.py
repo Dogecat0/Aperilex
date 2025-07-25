@@ -10,6 +10,7 @@ from src.application.schemas.responses.company_response import CompanyResponse
 from src.domain.entities.analysis import Analysis, AnalysisType
 from src.domain.entities.company import Company
 from src.domain.value_objects.cik import CIK
+from src.domain.value_objects.ticker import Ticker
 from src.infrastructure.edgar.service import EdgarService
 from src.infrastructure.repositories.analysis_repository import AnalysisRepository
 from src.infrastructure.repositories.company_repository import CompanyRepository
@@ -198,7 +199,7 @@ class TestGetCompanyQueryHandler:
         assert result is expected_response
         
         # Verify service calls
-        mock_edgar_service.get_company_by_ticker.assert_called_once_with(sample_query_ticker.ticker)
+        mock_edgar_service.get_company_by_ticker.assert_called_once_with(Ticker(sample_query_ticker.ticker))
         
         # Verify response creation
         mock_from_edgar.assert_called_once_with(
@@ -253,7 +254,9 @@ class TestGetCompanyQueryHandler:
         
         # Verify recent analyses were fetched
         mock_analysis_repository.find_with_filters.assert_called_once_with(
-            company_cik=query.cik
+            company_cik=query.cik,
+            page=1,
+            page_size=5
         )
         
         # Verify response creation with recent analyses

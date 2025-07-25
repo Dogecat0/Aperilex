@@ -8,6 +8,7 @@ from src.application.queries.handlers.get_templates_handler import (
     GetTemplatesQueryHandler,
     GetTemplatesQuery,
 )
+from src.application.schemas.responses.templates_response import TemplatesResponse
 from src.application.services.analysis_template_service import AnalysisTemplateService
 
 
@@ -135,7 +136,9 @@ class TestGetTemplatesQueryHandler:
         result = await handler.handle(sample_query)
 
         # Verify result
-        assert result == mock_templates
+        assert isinstance(result, TemplatesResponse)
+        assert result.templates == mock_templates
+        assert result.total_count == len(mock_templates)
         
         # Verify service was called
         mock_template_service.get_all_templates.assert_called_once()
@@ -155,8 +158,10 @@ class TestGetTemplatesQueryHandler:
         result = await handler.handle(sample_query)
 
         # Verify result
-        assert result == empty_templates
-        assert len(result) == 0
+        assert isinstance(result, TemplatesResponse)
+        assert result.templates == empty_templates
+        assert result.total_count == 0
+        assert len(result.templates) == 0
         
         # Verify service was called
         mock_template_service.get_all_templates.assert_called_once()
@@ -197,7 +202,9 @@ class TestGetTemplatesQueryHandler:
             
             result = await handler.handle(query)
 
-            assert result == mock_templates
+            assert isinstance(result, TemplatesResponse)
+            assert result.templates == mock_templates
+            assert result.total_count == len(mock_templates)
             mock_template_service.get_all_templates.assert_called()
 
             # Reset mock for next iteration
@@ -218,7 +225,9 @@ class TestGetTemplatesQueryHandler:
         with patch('src.application.queries.handlers.get_templates_handler.logger') as mock_logger:
             result = await handler.handle(sample_query)
 
-        assert result == mock_templates
+        assert isinstance(result, TemplatesResponse)
+        assert result.templates == mock_templates
+        assert result.total_count == len(mock_templates)
 
         # Verify logging was called twice (info at start and success)
         assert mock_logger.info.call_count == 2
@@ -335,7 +344,9 @@ class TestGetTemplatesQueryHandler:
             result = await handler.handle(sample_query)
 
             # Verify result matches template data exactly
-            assert result == template_data
+            assert isinstance(result, TemplatesResponse)
+            assert result.templates == template_data
+            assert result.total_count == len(template_data)
             mock_template_service.get_all_templates.assert_called()
 
             # Reset mock for next iteration
@@ -374,7 +385,9 @@ class TestGetTemplatesQueryHandler:
         result = await handler.handle(sample_query)
 
         # Verify service contract adherence
-        assert result == realistic_templates
+        assert isinstance(result, TemplatesResponse)
+        assert result.templates == realistic_templates
+        assert result.total_count == len(realistic_templates)
         
         # Verify service method was called without parameters
         mock_template_service.get_all_templates.assert_called_once_with()
@@ -398,7 +411,9 @@ class TestGetTemplatesQueryHandler:
         result = await handler.handle(query)
 
         # Verify result is returned correctly
-        assert result == mock_templates
+        assert isinstance(result, TemplatesResponse)
+        assert result.templates == mock_templates
+        assert result.total_count == len(mock_templates)
         
         # Verify service was called (user_id is not required for template retrieval)
         mock_template_service.get_all_templates.assert_called_once()
@@ -422,7 +437,9 @@ class TestGetTemplatesQueryHandler:
 
         for query in queries:
             result = await handler.handle(query)
-            assert result == mock_templates
+            assert isinstance(result, TemplatesResponse)
+            assert result.templates == mock_templates
+            assert result.total_count == len(mock_templates)
 
         # Verify service was called for each query
         assert mock_template_service.get_all_templates.call_count == len(queries)
@@ -498,21 +515,23 @@ class TestGetTemplatesQueryHandler:
         result = await handler.handle(realistic_query)
 
         # Verify complete response passthrough
-        assert result == realistic_service_response
-        assert len(result) == 2
-        assert "COMPREHENSIVE" in result
-        assert "FINANCIAL_FOCUSED" in result
+        assert isinstance(result, TemplatesResponse)
+        assert result.templates == realistic_service_response
+        assert result.total_count == len(realistic_service_response)
+        assert len(result.templates) == 2
+        assert "COMPREHENSIVE" in result.templates
+        assert "FINANCIAL_FOCUSED" in result.templates
         
         # Verify service interaction
         mock_template_service.get_all_templates.assert_called_once_with()
         
         # Verify data structure integrity
-        comprehensive = result["COMPREHENSIVE"]
+        comprehensive = result.templates["COMPREHENSIVE"]
         assert comprehensive["schema_count"] == 6
         assert len(comprehensive["schemas"]) == 6
         assert "use_cases" in comprehensive
         
-        financial = result["FINANCIAL_FOCUSED"]
+        financial = result.templates["FINANCIAL_FOCUSED"]
         assert financial["schema_count"] == 3
         assert len(financial["schemas"]) == 3
         assert financial["complexity"] == "medium"
