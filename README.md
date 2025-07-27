@@ -111,7 +111,7 @@ aperilex/
 - **Background Processing**: Dedicated queues for filing retrieval and analysis
 
 ### Development & Quality
-- **Testing**: pytest with 242/242 tests passing (67.5% coverage)
+- **Testing**: pytest with 829/829 tests passing (79.63% coverage)
 - **Type Safety**: Strict MyPy configuration with comprehensive type annotations
 - **Code Quality**: Ruff linting, Black formatting, isort import sorting
 - **Infrastructure**: Docker & Docker Compose with production-ready services
