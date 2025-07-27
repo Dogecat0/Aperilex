@@ -127,55 +127,65 @@ analysis = llm_provider.analyze_filing(
 6. **Performance Monitoring**: Metrics for API usage, edgartools performance, and user experience
 7. **Background Processing**: Celery for large-scale analysis operations
 
-## Development Commands
+## Development Workflow
 
-### Setup
-```bash
-# Install dependencies
-poetry install
+For complex development tasks, use specialized sub-agents that understand Aperilex's architecture and requirements:
 
-# Start services
-docker-compose up -d
-
-# Run migrations
-alembic upgrade head
-```
-
-### Testing
-```bash
-# Run all tests
-pytest
-
-# Run with coverage
-pytest --cov=src
-
-# Run specific test file
-pytest tests/unit/test_domain_models.py
-```
+### Environment Setup
+Use **aperilex-environment-setup** agent for:
+- Complete development environment initialization
+- Docker service management and health checks
+- Environment variable configuration
+- Troubleshooting setup issues
 
 ### Code Quality
+Use **aperilex-code-quality** agent for:
+- Comprehensive quality checks (MyPy, Ruff, Black, isort)
+- Automated fix recommendations and implementation
+- Architecture compliance validation
+- Security scanning with Bandit and Safety
+
+### Testing Strategy  
+Use **aperilex-test-strategy** agent for:
+- Intelligent test execution based on changes
+- Cost optimization for external API tests
+- Coverage analysis and improvement suggestions
+- Test data management and fixture generation
+
+### Backend Development
+Use **aperilex-backend-architect** agent for:
+- Clean architecture design and implementation
+- Domain modeling and CQRS patterns
+- Infrastructure integrations (Edgar, LLM, Database)
+- API endpoint design and validation schemas
+
+### Frontend Development
+Use **aperilex-frontend-developer** agent for:
+- React TypeScript component implementation
+- Financial data visualization and charts
+- User interface design for complex financial data
+- API integration and state management
+
+### Financial Analysis
+Use **aperilex-financial-analysis** agent for:
+- Edgar → LLM → Analysis pipeline orchestration
+- SEC filing processing and optimization
+- LLM prompt engineering and schema management
+- Analysis quality validation and performance monitoring
+
+### Quick Command Reference
 ```bash
-# Type checking
-poetry run mypy src/
+# Environment setup
+poetry install && docker-compose up -d && alembic upgrade head
 
-# Linting
-poetry run ruff check src/
+# Fast quality check
+poetry run mypy src/ && poetry run ruff check src/
 
-# Format code
-poetry run black src/
-poetry run isort src/
+# Development test cycle
+pytest tests/unit/ -m "not external_api" --cov=src
 
-# Run all quality checks
+# Full quality suite (use code-quality agent for detailed analysis)
 poetry run ruff check src/ && poetry run mypy src/ && poetry run black --check src/ && poetry run isort --check-only src/
-```
-
-### Security
-```bash
-# Security scan
-bandit -r src/
-
-# Dependency vulnerabilities
-safety check
 ```
 
 ## Architecture Notes
@@ -183,9 +193,11 @@ safety check
 Aperilex uses clean architecture principles to enable both powerful user features and robust technical capabilities:
 
 - **Domain Layer**: Core business entities and logic (Filing, Company, Analysis) that represent real-world financial concepts
-- **Application Layer**: Use cases and commands (AnalyzeFilingCommand, SearchFilingsQuery) that orchestrate user workflows
+- **Application Layer**: Use cases and commands (AnalyzeFilingCommand, SearchFilingsQuery) that orchestrate user workflows  
 - **Infrastructure Layer**: External integrations (SEC API, LLM providers, Database) that power data access and AI insights
 - **Presentation Layer**: Both REST API endpoints for developers AND web UI for end users
+
+**For architectural guidance**: Use the **aperilex-backend-architect** agent for domain modeling, clean architecture patterns, and infrastructure design decisions.
 
 ## Git Integration
 Before any code changes or implementation, ensure we are in the correct Git branch that follows the best git practice and the development plan in `docs/phases/PHASE_*_DETAILED_PLAN.md`:
@@ -220,19 +232,19 @@ git checkout feature/existing-feature
 - **SQLAlchemy**: Use `async_sessionmaker` for async database sessions
 
 ### Development Workflow
-**IMPORTANT**: Always run type checking and linting before implementing features:
+**IMPORTANT**: Use specialized sub-agents for complex development tasks. For quick checks:
 ```bash
-# Before starting development
+# Before starting development (or use aperilex-code-quality agent)
 poetry run mypy src/ && poetry run ruff check src/
 
-# After making changes
+# After making changes (or use aperilex-code-quality agent for comprehensive analysis)
 poetry run black src/ && poetry run isort src/ && poetry run mypy src/
 
-# Use poetry to run any tests when needed
+# Use aperilex-test-strategy agent for intelligent test execution
 poetry run pytest
 ```
 
-### MyPy Configuration
+#### MyPy Configuration
 The following overrides are configured in `pyproject.toml`:
 - `src.shared.config.settings`: Disabled `call-arg` errors for Settings instantiation
 - `src.infrastructure.database.base`: Disabled `misc` errors for DeclarativeBase overrides
@@ -266,31 +278,28 @@ Aperilex currently uses OpenAI as the sole LLM provider (`infrastructure.llm.ope
 
 When implementing ANY feature that involves understanding, summarizing, or extracting insights from filings:
 
-1. **Check Existing LLM Capabilities**: Review `infrastructure/llm/` for current analysis methods
-2. **Use Existing Methods When Possible**: The OpenAIProvider has extensive analysis capabilities
-3. **Extend LLM Functions If Needed**: If current methods don't support your use case:
-   - Add new analysis methods to the LLM provider
-   - Create new Pydantic schemas for structured output
-   - Never bypass the LLM layer with hardcoded logic
+**Use the aperilex-financial-analysis agent** for:
+- Edgar filing processing workflows
+- LLM integration and prompt optimization
+- Analysis quality validation
+- Pipeline orchestration and debugging
 
-4. **Examples of Required LLM Usage**:
-   - Extracting key metrics from filings → Use LLM analysis
-   - Summarizing risk factors → Use LLM analysis  
-   - Comparing year-over-year changes → Use LLM analysis
-   - Identifying business trends → Use LLM analysis
-   - ANY interpretation of filing content → Use LLM analysis
+**Key Principles**:
+1. **Always Use LLM for Insights**: Never implement hardcoded analysis logic
+2. **Follow Existing Patterns**: Check `infrastructure/llm/` for current capabilities
+3. **Extend Properly**: Add new analysis methods and Pydantic schemas when needed
 
-5. **Architecture Pattern**:
-   ```python
-   # CORRECT: Using LLM for insights
-   llm_provider = get_llm_provider()
-   analysis = llm_provider.analyze_filing(filing_data, template="FINANCIAL_FOCUSED")
-   
-   # INCORRECT: Hardcoded analysis
-   def extract_revenue_growth(filing_text):
-       # Never do this - use LLM instead
-       return "Revenue grew 10%"  # ❌ WRONG
-   ```
+**Architecture Pattern**:
+```python
+# CORRECT: Using LLM for insights
+llm_provider = get_llm_provider()
+analysis = llm_provider.analyze_filing(filing_data, template="FINANCIAL_FOCUSED")
+
+# INCORRECT: Hardcoded analysis
+def extract_revenue_growth(filing_text):
+    # Never do this - use LLM instead
+    return "Revenue grew 10%"  # ❌ WRONG
+```
 
 ### Future LLM Enhancements
 

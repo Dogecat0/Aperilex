@@ -1,4 +1,4 @@
-At the end of this message, I will ask you to do something. Please follow the "Explore, Plan, Code, Test" workflow when you start.
+At the end of this message, I will ask you to do something. Please follow the "Explore, Plan, Code, Test" workflow when you start and use relevant agents to perform the tasks.
 
 # Explore
 First, use parallel subagents to find and read files that may be useful for implementing the task/ticket. 
