@@ -17,8 +17,8 @@ Phase 5 focuses on building a **user-friendly web interface** that transforms co
 - **Responsive Design**: Mobile-first approach with desktop optimization
 
 ### Technology Stack
-- **Framework**: Next.js 14+ with React 18
-- **Styling**: Tailwind CSS for utility-first design
+- **Framework**: React 19 with TypeScript
+- **Styling**: Tailwind CSS 4 for utility-first design
 - **State Management**: Zustand for lightweight state management
 - **Data Fetching**: TanStack Query (React Query) for server state
 - **Charts**: Recharts for financial data visualization
@@ -33,7 +33,7 @@ Phase 5 focuses on building a **user-friendly web interface** that transforms co
 **Purpose**: Initialize frontend project with modern tooling
 
 **Components**:
-- Next.js 14 application with App Router
+- React application
 - TypeScript configuration with strict mode
 - Tailwind CSS with custom design system
 - ESLint and Prettier for code quality
@@ -292,10 +292,9 @@ Phase 5 focuses on building a **user-friendly web interface** that transforms co
 ## Dependencies
 
 ### Technical Dependencies
-- Next.js 14+
-- React 18+
+- React 19+
 - TypeScript 5+
-- Tailwind CSS 3+
+- Tailwind CSS 4+
 - Node.js 20+
 
 ### Backend Requirements
