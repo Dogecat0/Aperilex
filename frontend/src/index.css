@@ -1,0 +1,75 @@
+@import "tailwindcss";
+
+@theme {
+  --color-background: hsl(0 0% 100%);
+  --color-foreground: hsl(222.2 84% 4.9%);
+  --color-card: hsl(0 0% 100%);
+  --color-card-foreground: hsl(222.2 84% 4.9%);
+  --color-popover: hsl(0 0% 100%);
+  --color-popover-foreground: hsl(222.2 84% 4.9%);
+  --color-primary: hsl(217 91% 60%);
+  --color-primary-foreground: hsl(0 0% 100%);
+  --color-secondary: hsl(214.3 31.8% 91.4%);
+  --color-secondary-foreground: hsl(222.2 47.4% 11.2%);
+  --color-muted: hsl(214.3 31.8% 91.4%);
+  --color-muted-foreground: hsl(215.4 16.3% 46.9%);
+  --color-accent: hsl(214.3 31.8% 91.4%);
+  --color-accent-foreground: hsl(222.2 47.4% 11.2%);
+  --color-destructive: hsl(0 84.2% 60.2%);
+  --color-destructive-foreground: hsl(0 0% 100%);
+  --color-border: hsl(214.3 31.8% 91.4%);
+  --color-input: hsl(214.3 31.8% 91.4%);
+  --color-ring: hsl(217 91% 60%);
+  
+  /* Dark mode variants */
+  --color-background-dark: hsl(222.2 84% 4.9%);
+  --color-foreground-dark: hsl(0 0% 100%);
+  --color-card-dark: hsl(222.2 84% 4.9%);
+  --color-card-foreground-dark: hsl(0 0% 100%);
+  --color-popover-dark: hsl(222.2 84% 4.9%);
+  --color-popover-foreground-dark: hsl(0 0% 100%);
+  --color-primary-dark: hsl(217 91% 60%);
+  --color-primary-foreground-dark: hsl(222.2 47.4% 11.2%);
+  --color-secondary-dark: hsl(217.2 32.6% 17.5%);
+  --color-secondary-foreground-dark: hsl(0 0% 100%);
+  --color-muted-dark: hsl(217.2 32.6% 17.5%);
+  --color-muted-foreground-dark: hsl(215 20.2% 65.1%);
+  --color-accent-dark: hsl(217.2 32.6% 17.5%);
+  --color-accent-foreground-dark: hsl(0 0% 100%);
+  --color-destructive-dark: hsl(0 62.8% 30.6%);
+  --color-destructive-foreground-dark: hsl(0 0% 100%);
+  --color-border-dark: hsl(217.2 32.6% 17.5%);
+  --color-input-dark: hsl(217.2 32.6% 17.5%);
+  --color-ring-dark: hsl(217 91% 60%);
+}
+
+@layer base {
+  * {
+    border-color: hsl(var(--color-border));
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-family: 'Inter', system-ui, sans-serif;
+  }
+}
+
+/* Custom scrollbar */
+@layer utilities {
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-track {
+    @apply bg-secondary/20;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    @apply bg-secondary/50 rounded-md;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    @apply bg-secondary/70;
+  }
+}
