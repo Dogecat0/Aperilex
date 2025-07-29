@@ -48,9 +48,9 @@ export const useAnalyzeFiling = () => {
         },
       })
 
-      if (completedTask.status === 'success' && completedTask.result?.analysis_id) {
+      if (completedTask.status === 'success' && completedTask.result?.analysis?.analysis_id) {
         // Add to recent analyses
-        addRecentAnalysis(completedTask.result.analysis_id)
+        addRecentAnalysis(completedTask.result.analysis.analysis_id)
 
         // Invalidate relevant queries
         queryClient.invalidateQueries({ queryKey: ['analyses'] })

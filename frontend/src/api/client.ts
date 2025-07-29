@@ -108,11 +108,14 @@ function generateRequestId(): string {
 
 // Export typed request methods
 export const api = {
-  get: <T>(url: string, config?: any) => apiClient.get<T>(url, config),
-  post: <T>(url: string, data?: any, config?: any) => apiClient.post<T>(url, data, config),
-  put: <T>(url: string, data?: any, config?: any) => apiClient.put<T>(url, data, config),
-  patch: <T>(url: string, data?: any, config?: any) => apiClient.patch<T>(url, data, config),
-  delete: <T>(url: string, config?: any) => apiClient.delete<T>(url, config),
+  get: <T>(url: string, config?: InternalAxiosRequestConfig) => apiClient.get<T>(url, config),
+  post: <T>(url: string, data?: unknown, config?: InternalAxiosRequestConfig) =>
+    apiClient.post<T>(url, data, config),
+  put: <T>(url: string, data?: unknown, config?: InternalAxiosRequestConfig) =>
+    apiClient.put<T>(url, data, config),
+  patch: <T>(url: string, data?: unknown, config?: InternalAxiosRequestConfig) =>
+    apiClient.patch<T>(url, data, config),
+  delete: <T>(url: string, config?: InternalAxiosRequestConfig) => apiClient.delete<T>(url, config),
 }
 
 // Cancel token support for aborting requests

@@ -1,4 +1,5 @@
 import { api } from './client'
+import type { InternalAxiosRequestConfig } from 'axios'
 import type {
   AnalysisResponse,
   PaginatedResponse,
@@ -13,7 +14,10 @@ export const analysesApi = {
   listAnalyses: async (
     params?: ListAnalysesParams
   ): Promise<PaginatedResponse<AnalysisResponse>> => {
-    const { data } = await api.get<PaginatedResponse<AnalysisResponse>>('/api/analyses', { params })
+    const { data } = await api.get<PaginatedResponse<AnalysisResponse>>(
+      '/api/analyses',
+      params ? ({ params } as InternalAxiosRequestConfig) : undefined
+    )
     return data
   },
 

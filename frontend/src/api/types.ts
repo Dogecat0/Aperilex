@@ -39,7 +39,12 @@ export interface CompanyResponse {
   sic_description: string | null
   fiscal_year_end: string | null
   business_address: CompanyAddress | null
-  recent_analyses?: Record<string, any>[]
+  recent_analyses?: Array<{
+    analysis_id: string
+    analysis_type: AnalysisType
+    created_at: string
+    confidence_score?: number
+  }>
 }
 
 // Filing Types
@@ -53,7 +58,7 @@ export interface FilingResponse {
   filing_date: string
   processing_status: ProcessingStatus
   processing_error: string | null
-  metadata: Record<string, any>
+  metadata: Record<string, string | number | boolean | null>
   analyses_count?: number
   latest_analysis_date?: string
 }
@@ -64,6 +69,21 @@ export type AnalysisType =
   | 'FINANCIAL_FOCUSED'
   | 'RISK_FOCUSED'
   | 'BUSINESS_FOCUSED'
+
+// Analysis Result Types
+export interface AnalysisSectionResult {
+  section_name: string
+  summary?: string
+  key_points?: string[]
+  sentiment?: 'positive' | 'negative' | 'neutral' | 'mixed'
+  confidence?: number
+}
+
+export interface AnalysisFullResults {
+  sections?: AnalysisSectionResult[]
+  overall_sentiment?: 'positive' | 'negative' | 'neutral' | 'mixed'
+  metadata?: Record<string, string | number | boolean | null>
+}
 
 export interface AnalysisResponse {
   analysis_id: string
@@ -86,16 +106,23 @@ export interface AnalysisResponse {
   sections_analyzed?: number
 
   // Full results (optional)
-  full_results?: Record<string, any>
+  full_results?: AnalysisFullResults
 }
 
 // Task Types
 export type TaskStatus = 'pending' | 'started' | 'success' | 'failure'
 
+export interface TaskResult {
+  analysis?: AnalysisResponse
+  filing?: FilingResponse
+  error?: string
+  metadata?: Record<string, string | number | boolean | null>
+}
+
 export interface TaskResponse {
   task_id: string
   status: TaskStatus
-  result: Record<string, any> | null
+  result: TaskResult | null
   error_message: string | null
   started_at: string | null
   completed_at: string | null
@@ -128,6 +155,45 @@ export interface ListAnalysesParams {
   analysis_type?: AnalysisType
   start_date?: string
   end_date?: string
+}
+
+// Health Types
+export interface HealthStatusDetails {
+  version?: string
+  uptime?: number
+  memory_usage?: number
+  cpu_usage?: number
+  [key: string]: string | number | boolean | undefined
+}
+
+export interface HealthStatus {
+  status: string
+  message?: string
+  timestamp: string
+  details?: HealthStatusDetails
+}
+
+export interface HealthResponse {
+  status: string
+  message?: string
+  version?: string
+  environment?: string
+  timestamp: string
+}
+
+export interface DetailedHealthResponse {
+  status: string
+  timestamp: string
+  version: string
+  environment: string
+  services: Record<string, HealthStatus>
+  configuration: {
+    redis_enabled: boolean
+    celery_enabled: boolean
+    debug: boolean
+    redis_url_configured: boolean
+    celery_broker_configured: boolean
+  }
 }
 
 // Error Types
