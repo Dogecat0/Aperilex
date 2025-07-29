@@ -1,4 +1,4 @@
-At the end of this message, I will ask you to do something. Please follow the "Explore, Plan, Code, Test" workflow when you start and use relevant subagents to perform the tasks (Using defined or default agents depends on your choice after a thorough and hard think).
+At the end of this message, I will ask you to do something. Please follow the "Explore, Plan, Code, Test" workflow when you are in each phase and use relevant subagents to perform the tasks (Using defined or default agents depends on your choice after a thorough and hard think).
 
 # Explore
 First, use parallel subagents to find and read files that may be useful for implementing the task/ticket. 
@@ -35,6 +35,8 @@ If there are things you still do not understand or questions you have for the us
 
 # Code
 When you have a thorough implementation plan, you are ready to start writing code. Follow the style of the existing codebase (e.g. we prefer clearly named variables and methods to extensive comments). 
+
+**IMPORTANT: When writing code, always use subagents to edit files. Do not edit files directly in the main thread.**
 
 **NOTE: When modifying files in the main thread during implementation, read them directly. The subagent requirement from the Explore phase only applies to exploration, not to files you're actively editing.**
 
