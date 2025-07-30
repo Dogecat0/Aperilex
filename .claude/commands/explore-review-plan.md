@@ -90,7 +90,7 @@ Next, think ultrahard and write up a detailed implementation plan. Consider all 
 - Error handling and logging enhancements
 - Performance considerations and monitoring
 
-If there are things you are not sure about, use parallel subagents to do some web research. They should only return useful information, no noise.
+If there are things you are not sure about, use parallel subagents to do some very necessary web research. They should only return useful information, no noise.
 
 If there are things you still do not understand or questions you have for the user, pause here to ask them before continuing.
 

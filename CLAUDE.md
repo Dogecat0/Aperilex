@@ -129,7 +129,7 @@ analysis = llm_provider.analyze_filing(
 
 ## Development Workflow
 
-For complex development tasks, you must try to use specialized sub-agents that understand Aperilex's architecture and requirements, and each sub-agent has a specific focus area and each sub-agent should use `explore-review-code-test.md` working pattern. Also use `Context7` accordingly based on tech stack to search for latest doc if you have any questions or encountering any issues you are not sure about. Here are the key sub-agents and their responsibilities:
+For complex development tasks, you must try to use specialized sub-agents that understand Aperilex's architecture and requirements, and each sub-agent has a specific focus area and each sub-agent should use `explore-review-code-test.md` working pattern. Also use `Context7` accordingly based on tech stack to search for latest doc if you have any questions or encountering any issues you are not sure about, not other ways like direct url/web search. Here are the key sub-agents and their responsibilities:
 
 ### Environment Setup
 Use **aperilex-environment-setup** subagent for:

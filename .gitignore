@@ -223,3 +223,30 @@ coverage.xml
 
 # Mermaid
 mermaid/
+
+# Frontend/Node.js specific
+node_modules/
+.pnp
+.pnp.js
+
+# Vite
+.vite/
+
+# Test output files (frontend specific)
+test-results.json
+test-results.txt
+test-summary.txt
+test-output-detailed.txt
+test-output.txt
+full-test-output.log
+
+# Coverage reports (all locations)
+coverage/
+frontend/coverage/
+
+# Package manager files
+.yarn/cache
+.yarn/unplugged
+.yarn/build-state.yml
+.yarn/install-state.gz
+.pnp.*
