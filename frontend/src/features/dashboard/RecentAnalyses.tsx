@@ -2,7 +2,8 @@ import { useAnalysisStore } from '@/lib/store'
 import { Skeleton } from '@/components/ui/Skeleton'
 
 export function RecentAnalyses() {
-  const { recentAnalyses } = useAnalysisStore()
+  const store = useAnalysisStore()
+  const recentAnalyses = store?.recentAnalyses
 
   return (
     <div className="rounded-lg border bg-card p-6">
@@ -11,7 +12,7 @@ export function RecentAnalyses() {
         <button className="text-sm text-primary hover:text-primary/80">View all</button>
       </div>
 
-      {recentAnalyses.length === 0 ? (
+      {!recentAnalyses || recentAnalyses.length === 0 ? (
         <div className="space-y-4">
           <div className="text-center py-8">
             <svg

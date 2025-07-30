@@ -12,7 +12,14 @@ export function Breadcrumb() {
         {breadcrumbs.map((crumb, index) => (
           <li key={index} className="flex items-center">
             {index > 0 && (
-              <svg className="mx-2 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <svg
+                className="mx-2 h-4 w-4"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                role="img"
+                aria-hidden="true"
+              >
                 <path
                   strokeLinecap="round"
                   strokeLinejoin="round"

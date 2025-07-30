@@ -66,17 +66,24 @@ export function SystemHealth() {
 
           {/* Service Status */}
           {health?.services &&
-            Object.entries(health.services).map(([service, status]) => (
-              <div key={service} className="flex items-center justify-between">
-                <span className="text-sm capitalize">{service.replace('_', ' ')}</span>
-                <div className="flex items-center space-x-2">
-                  <div className={`w-2 h-2 rounded-full ${getStatusDot(status.status)}`} />
-                  <span className={`text-xs ${getStatusColor(status.status)}`}>
-                    {status.status}
-                  </span>
+            Object.entries(health.services).map(([service, status]) => {
+              // Skip if status is null or invalid
+              if (!status || typeof status !== 'object' || !status.status) {
+                return null
+              }
+
+              return (
+                <div key={service} className="flex items-center justify-between">
+                  <span className="text-sm capitalize">{service.replace(/_/g, ' ')}</span>
+                  <div className="flex items-center space-x-2">
+                    <div className={`w-2 h-2 rounded-full ${getStatusDot(status.status)}`} />
+                    <span className={`text-xs ${getStatusColor(status.status)}`}>
+                      {status.status}
+                    </span>
+                  </div>
                 </div>
-              </div>
-            ))}
+              )
+            })}
 
           <hr />
 

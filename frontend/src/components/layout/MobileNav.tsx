@@ -15,7 +15,6 @@ export function MobileNav() {
         onClick={toggleMobileNav}
       />
 
-      {/* Sidebar */}
       <div className="fixed inset-y-0 left-0 z-50 w-64 bg-background border-r lg:hidden">
         <div className="flex h-16 items-center justify-between px-4 border-b">
           <div className="flex items-center space-x-2">

@@ -4,7 +4,7 @@ import { QuickSearch } from '@/components/navigation/QuickSearch'
 import { UserPreferences } from '@/components/navigation/UserPreferences'
 
 export function Header() {
-  const { toggleSidebar, toggleMobileNav, toggleQuickSearch } = useAppStore()
+  const { toggleMobileNav, toggleQuickSearch } = useAppStore()
 
   return (
     <header className="sticky top-0 z-50 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -14,23 +14,6 @@ export function Header() {
           {/* Mobile Menu Toggle */}
           <Button variant="ghost" size="sm" className="lg:hidden" onClick={toggleMobileNav}>
             <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M4 6h16M4 12h16M4 18h16"
-              />
-            </svg>
-          </Button>
-
-          {/* Desktop Sidebar Toggle */}
-          <Button
-            variant="ghost"
-            size="sm"
-            className="hidden lg:inline-flex"
-            onClick={toggleSidebar}
-          >
-            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path
                 strokeLinecap="round"
                 strokeLinejoin="round"
