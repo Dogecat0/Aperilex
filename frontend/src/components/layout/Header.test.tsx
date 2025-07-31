@@ -1,5 +1,7 @@
+import React from 'react'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
+import { BrowserRouter } from 'react-router-dom'
 import { useAppStore } from '@/lib/store'
 import { Header } from './Header'
 
@@ -38,6 +40,11 @@ vi.mock('@/components/navigation/UserPreferences', () => ({
   UserPreferences: () => <div data-testid="user-preferences">UserPreferences Component</div>,
 }))
 
+// Test wrapper to provide router context
+const TestWrapper = ({ children }: { children: React.ReactNode }) => (
+  <BrowserRouter>{children}</BrowserRouter>
+)
+
 describe('Header Component', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -50,12 +57,12 @@ describe('Header Component', () => {
   describe('Initial Rendering', () => {
     it('renders without crashing', () => {
       expect(() => {
-        render(<Header />)
+        render(<Header />, { wrapper: TestWrapper })
       }).not.toThrow()
     })
 
     it('renders the correct component structure', () => {
-      render(<Header />)
+      render(<Header />, { wrapper: TestWrapper })
 
       const header = screen.getByRole('banner')
       expect(header).toBeInTheDocument()
@@ -63,7 +70,7 @@ describe('Header Component', () => {
     })
 
     it('applies correct styling classes to header', () => {
-      render(<Header />)
+      render(<Header />, { wrapper: TestWrapper })
 
       const header = screen.getByRole('banner')
       expect(header).toHaveClass(
@@ -77,7 +84,7 @@ describe('Header Component', () => {
     })
 
     it('renders the main container with correct layout classes', () => {
-      render(<Header />)
+      render(<Header />, { wrapper: TestWrapper })
 
       const container = screen.getByRole('banner').firstChild
       expect(container).toHaveClass(
@@ -94,7 +101,7 @@ describe('Header Component', () => {
 
   describe('Logo and Branding', () => {
     it('renders the logo section correctly', () => {
-      render(<Header />)
+      render(<Header />, { wrapper: TestWrapper })
 
       // Check for the logo icon container
       const logoIcon = screen.getByText('A')
@@ -115,7 +122,7 @@ describe('Header Component', () => {
     })
 
     it('renders the Aperilex brand name', () => {
-      render(<Header />)
+      render(<Header />, { wrapper: TestWrapper })
 
       const brandName = screen.getByRole('heading', { level: 1 })
       expect(brandName).toHaveTextContent('Aperilex')
@@ -123,7 +130,7 @@ describe('Header Component', () => {
     })
 
     it('renders the tagline with correct responsive behavior', () => {
-      render(<Header />)
+      render(<Header />, { wrapper: TestWrapper })
 
       const tagline = screen.getByText('Financial Analysis Made Simple')
       expect(tagline).toBeInTheDocument()
@@ -131,7 +138,7 @@ describe('Header Component', () => {
     })
 
     it('maintains correct logo section layout', () => {
-      render(<Header />)
+      render(<Header />, { wrapper: TestWrapper })
 
       // Find the logo section by looking for the container with the brand elements
       const logoSection = screen.getByText('A').closest('[class*="space-x-2"]')
@@ -141,7 +148,7 @@ describe('Header Component', () => {
 
   describe('Navigation Buttons', () => {
     it('renders mobile menu toggle button with correct properties', () => {
-      render(<Header />)
+      render(<Header />, { wrapper: TestWrapper })
 
       const buttons = screen.getAllByTestId('mock-button')
       const mobileMenuButton = buttons.find((button) => button.className.includes('lg:hidden'))
@@ -153,7 +160,7 @@ describe('Header Component', () => {
     })
 
     it('renders desktop search button with correct content', () => {
-      render(<Header />)
+      render(<Header />, { wrapper: TestWrapper })
 
       const searchButton = screen.getByText('Search companies, filings...')
       expect(searchButton).toBeInTheDocument()
@@ -162,7 +169,7 @@ describe('Header Component', () => {
     })
 
     it('renders mobile search button with correct responsive classes', () => {
-      render(<Header />)
+      render(<Header />, { wrapper: TestWrapper })
 
       const buttons = screen.getAllByTestId('mock-button')
       const mobileSearchButton = buttons.find((button) => button.className.includes('md:hidden'))
@@ -176,7 +183,7 @@ describe('Header Component', () => {
 
   describe('Responsive Layout', () => {
     it('shows correct elements on mobile viewports', () => {
-      render(<Header />)
+      render(<Header />, { wrapper: TestWrapper })
 
       // Mobile menu button should be shown on mobile (lg:hidden)
       const mobileMenuButton = screen
@@ -192,7 +199,7 @@ describe('Header Component', () => {
     })
 
     it('shows correct elements on desktop viewports', () => {
-      render(<Header />)
+      render(<Header />, { wrapper: TestWrapper })
 
       // Desktop search section should be hidden on mobile/tablet (hidden md:flex)
       const desktopSearchSection = screen
@@ -202,14 +209,14 @@ describe('Header Component', () => {
     })
 
     it('renders tagline with responsive visibility', () => {
-      render(<Header />)
+      render(<Header />, { wrapper: TestWrapper })
 
       const tagline = screen.getByText('Financial Analysis Made Simple')
       expect(tagline).toHaveClass('hidden', 'sm:block')
     })
 
     it('maintains proper layout spacing across breakpoints', () => {
-      render(<Header />)
+      render(<Header />, { wrapper: TestWrapper })
 
       // Left section spacing
       const leftSection = screen.getByText('A').closest('[class*="space-x-4"]')
@@ -223,7 +230,7 @@ describe('Header Component', () => {
 
   describe('Store Integration', () => {
     it('calls toggleMobileNav when mobile menu button is clicked', () => {
-      render(<Header />)
+      render(<Header />, { wrapper: TestWrapper })
 
       const buttons = screen.getAllByTestId('mock-button')
       const mobileMenuButton = buttons.find((button) => button.className.includes('lg:hidden'))
@@ -235,7 +242,7 @@ describe('Header Component', () => {
     })
 
     it('calls toggleQuickSearch when desktop search button is clicked', () => {
-      render(<Header />)
+      render(<Header />, { wrapper: TestWrapper })
 
       const searchButton = screen.getByText('Search companies, filings...')
       fireEvent.click(searchButton)
@@ -245,7 +252,7 @@ describe('Header Component', () => {
     })
 
     it('calls toggleQuickSearch when mobile search button is clicked', () => {
-      render(<Header />)
+      render(<Header />, { wrapper: TestWrapper })
 
       const buttons = screen.getAllByTestId('mock-button')
       const mobileSearchButton = buttons.find((button) => button.className.includes('md:hidden'))
@@ -257,13 +264,13 @@ describe('Header Component', () => {
     })
 
     it('accesses store functions correctly on component mount', () => {
-      render(<Header />)
+      render(<Header />, { wrapper: TestWrapper })
 
       expect(useAppStore).toHaveBeenCalled()
     })
 
     it('handles multiple rapid button clicks correctly', () => {
-      render(<Header />)
+      render(<Header />, { wrapper: TestWrapper })
 
       const searchButton = screen.getByText('Search companies, filings...')
 
@@ -278,7 +285,7 @@ describe('Header Component', () => {
 
   describe('Component Integration', () => {
     it('renders QuickSearch component', () => {
-      render(<Header />)
+      render(<Header />, { wrapper: TestWrapper })
 
       const quickSearch = screen.getByTestId('quick-search')
       expect(quickSearch).toBeInTheDocument()
@@ -286,7 +293,7 @@ describe('Header Component', () => {
     })
 
     it('renders UserPreferences component', () => {
-      render(<Header />)
+      render(<Header />, { wrapper: TestWrapper })
 
       const userPreferences = screen.getByTestId('user-preferences')
       expect(userPreferences).toBeInTheDocument()
@@ -294,7 +301,7 @@ describe('Header Component', () => {
     })
 
     it('maintains correct integration positioning', () => {
-      render(<Header />)
+      render(<Header />, { wrapper: TestWrapper })
 
       const header = screen.getByRole('banner')
       const quickSearch = screen.getByTestId('quick-search')
@@ -311,7 +318,7 @@ describe('Header Component', () => {
 
   describe('Keyboard Shortcut Display', () => {
     it('displays keyboard shortcut hint correctly', () => {
-      render(<Header />)
+      render(<Header />, { wrapper: TestWrapper })
 
       // Find the search button which contains the keyboard shortcut
       const searchButton = screen.getByText('Search companies, filings...')
@@ -326,7 +333,7 @@ describe('Header Component', () => {
     })
 
     it('applies correct styling to keyboard shortcut', () => {
-      render(<Header />)
+      render(<Header />, { wrapper: TestWrapper })
 
       const searchButton = screen.getByText('Search companies, filings...')
       const kbd = searchButton.querySelector('kbd')
@@ -352,7 +359,7 @@ describe('Header Component', () => {
     })
 
     it('displays command key correctly', () => {
-      render(<Header />)
+      render(<Header />, { wrapper: TestWrapper })
 
       const searchButton = screen.getByText('Search companies, filings...')
       const kbd = searchButton.querySelector('kbd')
@@ -365,7 +372,7 @@ describe('Header Component', () => {
 
   describe('SVG Icons', () => {
     it('renders hamburger menu icons correctly', () => {
-      render(<Header />)
+      render(<Header />, { wrapper: TestWrapper })
 
       // Should have multiple hamburger menu SVGs (mobile and desktop)
       const menuSvgs = screen.getAllByTestId('mock-button').filter((button) => {
@@ -377,7 +384,7 @@ describe('Header Component', () => {
     })
 
     it('renders search icons correctly', () => {
-      render(<Header />)
+      render(<Header />, { wrapper: TestWrapper })
 
       const buttons = screen.getAllByTestId('mock-button')
       const searchButtons = buttons.filter((button) => {
@@ -391,7 +398,7 @@ describe('Header Component', () => {
     })
 
     it('applies correct classes to SVG icons', () => {
-      render(<Header />)
+      render(<Header />, { wrapper: TestWrapper })
 
       const buttons = screen.getAllByTestId('mock-button')
 
@@ -404,7 +411,7 @@ describe('Header Component', () => {
 
   describe('Accessibility', () => {
     it('uses proper semantic HTML elements', () => {
-      render(<Header />)
+      render(<Header />, { wrapper: TestWrapper })
 
       const header = screen.getByRole('banner')
       expect(header.tagName).toBe('HEADER')
@@ -414,7 +421,7 @@ describe('Header Component', () => {
     })
 
     it('provides accessible button elements', () => {
-      render(<Header />)
+      render(<Header />, { wrapper: TestWrapper })
 
       const buttons = screen.getAllByTestId('mock-button')
       buttons.forEach((button) => {
@@ -423,7 +430,7 @@ describe('Header Component', () => {
     })
 
     it('maintains proper focus order', () => {
-      render(<Header />)
+      render(<Header />, { wrapper: TestWrapper })
 
       const buttons = screen.getAllByTestId('mock-button')
       buttons.forEach((button) => {
@@ -432,7 +439,7 @@ describe('Header Component', () => {
     })
 
     it('provides appropriate ARIA attributes for interactive elements', () => {
-      render(<Header />)
+      render(<Header />, { wrapper: TestWrapper })
 
       // Buttons should be properly focusable
       const searchButton = screen.getByText('Search companies, filings...')
@@ -453,7 +460,7 @@ describe('Header Component', () => {
 
   describe('Event Handling', () => {
     it('handles click events without errors', () => {
-      render(<Header />)
+      render(<Header />, { wrapper: TestWrapper })
 
       const buttons = screen.getAllByTestId('mock-button')
 
@@ -465,7 +472,7 @@ describe('Header Component', () => {
     })
 
     it('prevents event bubbling for button clicks', () => {
-      render(<Header />)
+      render(<Header />, { wrapper: TestWrapper })
 
       const searchButton = screen.getByText('Search companies, filings...')
       const clickEvent = new MouseEvent('click', { bubbles: true })
@@ -476,7 +483,7 @@ describe('Header Component', () => {
     })
 
     it('handles disabled state correctly', () => {
-      render(<Header />)
+      render(<Header />, { wrapper: TestWrapper })
 
       // All buttons should be enabled by default
       const buttons = screen.getAllByTestId('mock-button')
@@ -488,24 +495,24 @@ describe('Header Component', () => {
 
   describe('Performance and Optimization', () => {
     it('renders consistently across multiple renders', () => {
-      const { rerender } = render(<Header />)
+      const { rerender } = render(<Header />, { wrapper: TestWrapper })
 
       const initialButtons = screen.getAllByTestId('mock-button')
       expect(initialButtons).toHaveLength(3) // Mobile menu, desktop search, mobile search
 
-      rerender(<Header />)
+      rerender(<Header />, { wrapper: TestWrapper })
 
       const rerenderedButtons = screen.getAllByTestId('mock-button')
       expect(rerenderedButtons).toHaveLength(3)
     })
 
     it('maintains component structure after re-renders', () => {
-      const { rerender } = render(<Header />)
+      const { rerender } = render(<Header />, { wrapper: TestWrapper })
 
       const _initialHeader = screen.getByRole('banner')
       const _initialBrandName = screen.getByText('Aperilex')
 
-      rerender(<Header />)
+      rerender(<Header />, { wrapper: TestWrapper })
 
       const rerenderedHeader = screen.getByRole('banner')
       const rerenderedBrandName = screen.getByText('Aperilex')
@@ -515,7 +522,7 @@ describe('Header Component', () => {
     })
 
     it('does not create memory leaks during unmount', () => {
-      const { unmount } = render(<Header />)
+      const { unmount } = render(<Header />, { wrapper: TestWrapper })
 
       expect(() => {
         unmount()
@@ -532,7 +539,7 @@ describe('Header Component', () => {
       })
 
       expect(() => {
-        render(<Header />)
+        render(<Header />, { wrapper: TestWrapper })
       }).toThrow('Store error')
 
       // Restore normal mock
@@ -554,7 +561,7 @@ describe('Header Component', () => {
       )
 
       expect(() => {
-        render(<Header />)
+        render(<Header />, { wrapper: TestWrapper })
       }).not.toThrow()
 
       // Restore normal mock

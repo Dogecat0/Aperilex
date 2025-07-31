@@ -1,5 +1,7 @@
+import React from 'react'
 import { render, screen } from '@testing-library/react'
 import { describe, it, expect, vi } from 'vitest'
+import { BrowserRouter } from 'react-router-dom'
 import { QuickActions } from './QuickActions'
 
 // Mock the Button component to focus on QuickActions logic
@@ -11,15 +13,20 @@ vi.mock('@/components/ui/Button', () => ({
   ),
 }))
 
+// Test wrapper to provide router context
+const TestWrapper = ({ children }: { children: React.ReactNode }) => (
+  <BrowserRouter>{children}</BrowserRouter>
+)
+
 describe('QuickActions', () => {
   describe('Basic Rendering', () => {
     it('renders without errors', () => {
-      render(<QuickActions />)
+      render(<QuickActions />, { wrapper: TestWrapper })
       expect(screen.getByText('Quick Actions')).toBeInTheDocument()
     })
 
     it('renders the card container with correct structure', () => {
-      const { container: _container } = render(<QuickActions />)
+      const { container: _container } = render(<QuickActions />, { wrapper: TestWrapper })
       const cardContainer = _container.firstChild as HTMLElement
 
       expect(cardContainer).toHaveClass('rounded-lg', 'border', 'bg-card', 'p-6')
@@ -28,7 +35,7 @@ describe('QuickActions', () => {
 
   describe('Title', () => {
     it('renders the "Quick Actions" header correctly', () => {
-      render(<QuickActions />)
+      render(<QuickActions />, { wrapper: TestWrapper })
       const header = screen.getByRole('heading', { level: 2 })
 
       expect(header).toBeInTheDocument()
@@ -39,7 +46,7 @@ describe('QuickActions', () => {
 
   describe('Grid Layout', () => {
     it('has responsive grid classes', () => {
-      const { container: _container } = render(<QuickActions />)
+      const { container: _container } = render(<QuickActions />, { wrapper: TestWrapper })
       const gridContainer = _container.querySelector('.grid')
 
       expect(gridContainer).toHaveClass(
@@ -52,7 +59,7 @@ describe('QuickActions', () => {
     })
 
     it('contains exactly 4 buttons in the grid', () => {
-      render(<QuickActions />)
+      render(<QuickActions />, { wrapper: TestWrapper })
       const buttons = screen.getAllByTestId('mock-button')
 
       expect(buttons).toHaveLength(4)
@@ -61,7 +68,7 @@ describe('QuickActions', () => {
 
   describe('Button Structure', () => {
     it('renders all 4 buttons with correct text content', () => {
-      render(<QuickActions />)
+      render(<QuickActions />, { wrapper: TestWrapper })
 
       expect(screen.getByText('New Analysis')).toBeInTheDocument()
       expect(screen.getByText('Search Companies')).toBeInTheDocument()
@@ -70,7 +77,7 @@ describe('QuickActions', () => {
     })
 
     it('renders buttons with correct variants', () => {
-      render(<QuickActions />)
+      render(<QuickActions />, { wrapper: TestWrapper })
       const buttons = screen.getAllByTestId('mock-button')
 
       // First button should be primary (no variant specified)
@@ -85,7 +92,7 @@ describe('QuickActions', () => {
 
   describe('Button Styling', () => {
     it('applies correct styling classes to all buttons', () => {
-      render(<QuickActions />)
+      render(<QuickActions />, { wrapper: TestWrapper })
       const buttons = screen.getAllByTestId('mock-button')
 
       buttons.forEach((button) => {
@@ -96,7 +103,7 @@ describe('QuickActions', () => {
 
   describe('Icons', () => {
     it('renders SVG icons for each button with correct classes', () => {
-      const { container: _container } = render(<QuickActions />)
+      const { container: _container } = render(<QuickActions />, { wrapper: TestWrapper })
       const svgIcons = _container.querySelectorAll('svg')
 
       expect(svgIcons).toHaveLength(4)
@@ -110,7 +117,7 @@ describe('QuickActions', () => {
     })
 
     it('renders chart-bar icon for New Analysis button', () => {
-      const { container: _container } = render(<QuickActions />)
+      const { container: _container } = render(<QuickActions />, { wrapper: TestWrapper })
       const newAnalysisButton = screen.getByText('New Analysis').closest('button')
       const chartIcon = newAnalysisButton?.querySelector('svg path')
 
@@ -121,7 +128,7 @@ describe('QuickActions', () => {
     })
 
     it('renders magnifying glass icon for Search Companies button', () => {
-      const { container: _container } = render(<QuickActions />)
+      const { container: _container } = render(<QuickActions />, { wrapper: TestWrapper })
       const searchButton = screen.getByText('Search Companies').closest('button')
       const searchIcon = searchButton?.querySelector('svg path')
 
@@ -129,7 +136,7 @@ describe('QuickActions', () => {
     })
 
     it('renders document icon for Import Filing button', () => {
-      const { container: _container } = render(<QuickActions />)
+      const { container: _container } = render(<QuickActions />, { wrapper: TestWrapper })
       const importButton = screen.getByText('Import Filing').closest('button')
       const documentIcon = importButton?.querySelector('svg path')
 
@@ -140,7 +147,7 @@ describe('QuickActions', () => {
     })
 
     it('renders building icon for Browse Companies button', () => {
-      const { container: _container } = render(<QuickActions />)
+      const { container: _container } = render(<QuickActions />, { wrapper: TestWrapper })
       const browseButton = screen.getByText('Browse Companies').closest('button')
       const buildingIcon = browseButton?.querySelector('svg path')
 
@@ -151,7 +158,7 @@ describe('QuickActions', () => {
     })
 
     it('applies correct stroke properties to all SVG paths', () => {
-      const { container: _container } = render(<QuickActions />)
+      const { container: _container } = render(<QuickActions />, { wrapper: TestWrapper })
       const svgPaths = _container.querySelectorAll('svg path')
 
       svgPaths.forEach((path) => {
@@ -164,7 +171,7 @@ describe('QuickActions', () => {
 
   describe('Text Labels', () => {
     it('renders text spans with correct styling for each button', () => {
-      const { container: _container } = render(<QuickActions />)
+      const { container: _container } = render(<QuickActions />, { wrapper: TestWrapper })
       const textSpans = _container.querySelectorAll('span')
 
       expect(textSpans).toHaveLength(4)
@@ -175,7 +182,7 @@ describe('QuickActions', () => {
     })
 
     it('has correct text content for each span', () => {
-      const { container: _container } = render(<QuickActions />)
+      const { container: _container } = render(<QuickActions />, { wrapper: TestWrapper })
       const textSpans = _container.querySelectorAll('span')
 
       expect(textSpans[0]).toHaveTextContent('New Analysis')
@@ -187,7 +194,7 @@ describe('QuickActions', () => {
 
   describe('Accessibility', () => {
     it('uses proper button semantics', () => {
-      render(<QuickActions />)
+      render(<QuickActions />, { wrapper: TestWrapper })
       const buttons = screen.getAllByRole('button')
 
       expect(buttons).toHaveLength(4)
@@ -198,7 +205,7 @@ describe('QuickActions', () => {
     })
 
     it('provides accessible text for each button', () => {
-      render(<QuickActions />)
+      render(<QuickActions />, { wrapper: TestWrapper })
 
       expect(screen.getByRole('button', { name: /new analysis/i })).toBeInTheDocument()
       expect(screen.getByRole('button', { name: /search companies/i })).toBeInTheDocument()
@@ -207,7 +214,7 @@ describe('QuickActions', () => {
     })
 
     it('uses currentColor for icon stroke to support theme changes', () => {
-      const { container: _container } = render(<QuickActions />)
+      const { container: _container } = render(<QuickActions />, { wrapper: TestWrapper })
       const svgIcons = _container.querySelectorAll('svg')
 
       svgIcons.forEach((svg) => {
@@ -218,12 +225,12 @@ describe('QuickActions', () => {
 
   describe('Static Content Verification', () => {
     it('renders consistent content on multiple renders', () => {
-      const { rerender } = render(<QuickActions />)
+      const { rerender } = render(<QuickActions />, { wrapper: TestWrapper })
 
       const firstRenderButtons = screen.getAllByTestId('mock-button')
       expect(firstRenderButtons).toHaveLength(4)
 
-      rerender(<QuickActions />)
+      rerender(<QuickActions />, { wrapper: TestWrapper })
 
       const secondRenderButtons = screen.getAllByTestId('mock-button')
       expect(secondRenderButtons).toHaveLength(4)
@@ -236,21 +243,21 @@ describe('QuickActions', () => {
     })
 
     it('has no props, state, or dynamic behavior', () => {
-      const { container: _container } = render(<QuickActions />)
+      const { container: _container } = render(<QuickActions />, { wrapper: TestWrapper })
 
       // Component should render identically regardless of external state
       // This test ensures the component is truly static
       const initialHTML = _container.innerHTML
 
       // Re-render and verify identical output
-      const { container: secondContainer } = render(<QuickActions />)
+      const { container: secondContainer } = render(<QuickActions />, { wrapper: TestWrapper })
       expect(secondContainer.innerHTML).toBe(initialHTML)
     })
   })
 
   describe('Component Structure Integration', () => {
     it('maintains proper parent-child relationships', () => {
-      const { container: _container } = render(<QuickActions />)
+      const { container: _container } = render(<QuickActions />, { wrapper: TestWrapper })
 
       // Card container -> Header + Grid
       const cardContainer = _container.firstChild as HTMLElement
@@ -269,7 +276,7 @@ describe('QuickActions', () => {
     })
 
     it('preserves correct hierarchical structure', () => {
-      const { container: _container } = render(<QuickActions />)
+      const { container: _container } = render(<QuickActions />, { wrapper: TestWrapper })
 
       // Verify complete structure path for first button
       const cardContainer = _container.firstChild as HTMLElement

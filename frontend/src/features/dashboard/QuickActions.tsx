@@ -1,12 +1,30 @@
 import { Button } from '@/components/ui/Button'
+import { useNavigate } from 'react-router-dom'
 
 export function QuickActions() {
+  const navigate = useNavigate()
+
+  const handleNewAnalysis = () => {
+    navigate('/analyses')
+  }
+
+  const handleSearchCompanies = () => {
+    navigate('/companies')
+  }
+
+  const handleImportFiling = () => {
+    navigate('/filings')
+  }
+
+  const handleBrowseCompanies = () => {
+    navigate('/companies')
+  }
   return (
     <div className="rounded-lg border bg-card p-6">
       <h2 className="text-lg font-semibold mb-4">Quick Actions</h2>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Button className="h-auto p-4 flex-col space-y-2">
+        <Button className="h-auto p-4 flex-col space-y-2" onClick={handleNewAnalysis}>
           <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path
               strokeLinecap="round"
@@ -18,7 +36,11 @@ export function QuickActions() {
           <span className="text-sm font-medium">New Analysis</span>
         </Button>
 
-        <Button variant="outline" className="h-auto p-4 flex-col space-y-2">
+        <Button
+          variant="outline"
+          className="h-auto p-4 flex-col space-y-2"
+          onClick={handleSearchCompanies}
+        >
           <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path
               strokeLinecap="round"
@@ -30,7 +52,11 @@ export function QuickActions() {
           <span className="text-sm font-medium">Search Companies</span>
         </Button>
 
-        <Button variant="outline" className="h-auto p-4 flex-col space-y-2">
+        <Button
+          variant="outline"
+          className="h-auto p-4 flex-col space-y-2"
+          onClick={handleImportFiling}
+        >
           <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path
               strokeLinecap="round"
@@ -42,7 +68,11 @@ export function QuickActions() {
           <span className="text-sm font-medium">Import Filing</span>
         </Button>
 
-        <Button variant="outline" className="h-auto p-4 flex-col space-y-2">
+        <Button
+          variant="outline"
+          className="h-auto p-4 flex-col space-y-2"
+          onClick={handleBrowseCompanies}
+        >
           <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path
               strokeLinecap="round"

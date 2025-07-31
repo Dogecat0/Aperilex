@@ -117,8 +117,21 @@ describe('Router Configuration', () => {
       const rootRoute = router.routes[0]
       expect(rootRoute.path).toBe('/')
       expect(rootRoute.children).toBeDefined()
-      expect(rootRoute.children).toHaveLength(1)
-      expect(rootRoute.children![0].index).toBe(true)
+      expect(rootRoute.children).toHaveLength(8) // Home + Company + Filing + Analysis routes
+
+      // Check the home route (index route)
+      const homeRoute = rootRoute.children!.find((route) => route.index === true)
+      expect(homeRoute).toBeDefined()
+      expect(homeRoute!.index).toBe(true)
+
+      // Check that we have the expected routes
+      const routePaths = rootRoute.children!.map((route) => route.path).filter(Boolean)
+      expect(routePaths).toContain('companies')
+      expect(routePaths).toContain('companies/:ticker')
+      expect(routePaths).toContain('filings')
+      expect(routePaths).toContain('filings/:accessionNumber')
+      expect(routePaths).toContain('analyses')
+      expect(routePaths).toContain('analyses/:analysisId')
     })
 
     it('configures error element for root route', () => {

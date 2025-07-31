@@ -2,9 +2,15 @@ import { useAppStore } from '@/lib/store'
 import { Button } from '@/components/ui/Button'
 import { QuickSearch } from '@/components/navigation/QuickSearch'
 import { UserPreferences } from '@/components/navigation/UserPreferences'
+import { useNavigate } from 'react-router-dom'
 
 export function Header() {
   const { toggleMobileNav, toggleQuickSearch } = useAppStore()
+  const navigate = useNavigate()
+
+  const handleLogoClick = () => {
+    navigate('/')
+  }
 
   return (
     <header className="sticky top-0 z-50 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -23,8 +29,11 @@ export function Header() {
             </svg>
           </Button>
 
-          {/* Logo */}
-          <div className="flex items-center space-x-2">
+          {/* Logo - Clickable Home Button */}
+          <button
+            onClick={handleLogoClick}
+            className="flex items-center space-x-2 hover:opacity-80 transition-opacity"
+          >
             <div className="h-8 w-8 rounded-md bg-primary flex items-center justify-center">
               <span className="text-primary-foreground font-bold text-sm">A</span>
             </div>
@@ -34,7 +43,7 @@ export function Header() {
                 Financial Analysis Made Simple
               </p>
             </div>
-          </div>
+          </button>
         </div>
 
         {/* Center Section: Quick Search */}
