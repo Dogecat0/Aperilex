@@ -70,6 +70,36 @@ class FilingResponse:
             latest_analysis_date=latest_analysis_date,
         )
 
+    @classmethod
+    def from_model(
+        cls,
+        model: Any,  # FilingModel type
+        analyses_count: int | None = None,
+        latest_analysis_date: date | None = None,
+    ) -> "FilingResponse":
+        """Create FilingResponse from database model.
+
+        Args:
+            model: Database Filing model
+            analyses_count: Optional count of analyses for this filing
+            latest_analysis_date: Optional date of latest analysis
+
+        Returns:
+            FilingResponse with data from database model
+        """
+        return cls(
+            filing_id=model.id,
+            company_id=model.company_id,
+            accession_number=model.accession_number,
+            filing_type=model.filing_type,
+            filing_date=model.filing_date,
+            processing_status=model.processing_status,
+            processing_error=model.processing_error,
+            metadata=model.meta_data or {},
+            analyses_count=analyses_count,
+            latest_analysis_date=latest_analysis_date,
+        )
+
     @property
     def is_processed(self) -> bool:
         """Check if filing has been successfully processed.

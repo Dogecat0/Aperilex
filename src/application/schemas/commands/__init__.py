@@ -6,6 +6,7 @@ and include all necessary data and validation for the operation.
 
 Commands available:
 - AnalyzeFilingCommand: Trigger comprehensive analysis on SEC filings
+- SyncCompanyFilingsCommand: Sync company filings from Edgar
 - GenerateInsightsCommand: Derive insights from multiple analyses
 - BatchAnalyzeCommand: Analyze multiple filings in batch operations
 """
