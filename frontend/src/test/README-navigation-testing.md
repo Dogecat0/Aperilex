@@ -1,22 +1,27 @@
 # Navigation Testing Solution for JSDOM Limitations
 
 ## Problem
+
 JSDOM, the JavaScript DOM implementation used in Vitest testing, doesn't fully implement the Navigation API. This causes "Not implemented: navigation (except hash changes)" warnings when testing React Router components, even though the tests pass.
 
 ## Solution Overview
+
 We implemented a comprehensive solution with three main components:
 
 ### 1. Navigation API Mocking (`jsdom-navigation-mock.ts`)
+
 - Provides complete mocks for `window.navigation`, `window.history`, and location methods
 - Prevents JSDOM from attempting to use unimplemented navigation APIs
 - Exports mocks for test verification and interaction tracking
 
 ### 2. Console Suppression (`setup.ts`)
+
 - Filters out JSDOM navigation warnings from console.error and process.stderr
 - Preserves all other error messages for debugging
 - Automatically restores original console methods after tests
 
 ### 3. Enhanced React Router Testing (`NavMenu.test.tsx`)
+
 - Mocks React Router's `useNavigate` and `useLocation` hooks
 - Uses `MemoryRouter` for isolated navigation testing
 - Replaces `Link` components with test-friendly alternatives
@@ -25,16 +30,19 @@ We implemented a comprehensive solution with three main components:
 ## Key Benefits
 
 ### ✅ Clean Test Output
+
 - Eliminates "Not implemented: navigation" warnings
 - Preserves important error messages
 - Improves test readability and CI output
 
 ### ✅ Comprehensive Navigation Testing
+
 - Tests React Router integration without browser navigation
 - Verifies navigation calls and state changes
 - Maintains full test coverage for navigation functionality
 
 ### ✅ JSDOM Compatibility
+
 - Works within JSDOM's limitations
 - Provides fallbacks for unimplemented APIs
 - Maintains test performance and reliability
@@ -68,6 +76,7 @@ expect(navigationMocks.navigation.navigate).toHaveBeenCalledWith('/path')
 4. **Mocking Only React Router** - Incomplete, still produces JSDOM warnings
 
 ## Test Results
+
 - ✅ All 71 NavMenu tests pass
 - ✅ No JSDOM navigation warnings
 - ✅ Full navigation functionality coverage
