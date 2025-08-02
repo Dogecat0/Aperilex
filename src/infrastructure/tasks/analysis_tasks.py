@@ -127,6 +127,7 @@ async def analyze_filing_task(
         # Parse filing_id to determine if it's UUID or accession number
         accession_number = None
         company_cik = None
+        filing = None
 
         # Try to parse as UUID first
         try:
@@ -147,15 +148,40 @@ async def analyze_filing_task(
             # Not a UUID, try as accession number
             try:
                 accession_number = AccessionNumber(filing_id)
+                # Try to find existing filing by accession number
+                filing = await filing_repo.get_by_accession_number(accession_number)
+                if filing:
+                    from src.infrastructure.repositories.company_repository import (
+                        CompanyRepository,
+                    )
+                    company_repo = CompanyRepository(session)
+                    company = await company_repo.get_by_id(filing.company_id)
+                    if company:
+                        company_cik = company.cik
             except ValueError as e:
                 raise ValueError(
                     f"Invalid filing identifier: {filing_id}. Must be accession number or valid UUID"
                 ) from e
 
-        # Validate accession number format
+        # If we don't have company_cik yet, we need to get it from Edgar
+        if not company_cik and accession_number:
+            try:
+                # Get filing data from Edgar to extract CIK
+                filing_data = edgar_service.get_filing_by_accession(accession_number)
+                company_cik = CIK(filing_data.cik)
+                logger.info(f"Retrieved company CIK {company_cik} from Edgar for filing {accession_number}")
+            except Exception as e:
+                logger.error(f"Failed to get company CIK from Edgar for filing {filing_id}: {str(e)}")
+                raise ValueError(f"Could not determine company CIK for filing {filing_id}") from e
+
+        # Validate we have all required information
         if not accession_number:
             raise ValueError(
                 f"Could not determine accession number from filing_id: {filing_id}"
+            )
+        if not company_cik:
+            raise ValueError(
+                f"Could not determine company CIK for filing_id: {filing_id}"
             )
 
         # Convert analysis_template string to enum
