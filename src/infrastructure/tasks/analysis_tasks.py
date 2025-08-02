@@ -23,12 +23,26 @@ class AsyncTask(Task):
     def __call__(self, *args: Any, **kwargs: Any) -> Any:
         """Run the task with async support."""
         if asyncio.iscoroutinefunction(self.run):
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
+            # Get or create event loop for async operations
+            try:
+                loop = asyncio.get_event_loop()
+            except RuntimeError:
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+
             try:
                 return loop.run_until_complete(self.run(*args, **kwargs))
             finally:
-                loop.close()
+                # Don't close the loop in case it's being reused
+                if loop.is_running():
+                    pass  # Loop is still running, don't close
+                else:
+                    # Only close if we created a new loop
+                    try:
+                        if not loop.is_closed():
+                            loop.close()
+                    except Exception:
+                        pass  # Ignore cleanup errors
         else:
             return self.run(*args, **kwargs)
 
@@ -39,6 +53,7 @@ async def analyze_filing_task(
     filing_id: str,
     analysis_type: str,
     created_by: str,
+    force_reprocess: bool = False,
     llm_provider: str = "openai",
     llm_model: str = "gpt-4",
 ) -> dict[str, Any]:
@@ -46,9 +61,10 @@ async def analyze_filing_task(
     Analyze a filing using the specified LLM provider.
 
     Args:
-        filing_id: UUID of the filing to analyze
+        filing_id: Accession number or UUID of the filing to analyze
         analysis_type: Type of analysis to perform
         created_by: Identifier of user/system creating the analysis
+        force_reprocess: Whether to reprocess even if analysis exists
         llm_provider: LLM provider to use (default: openai)
         llm_model: Specific model to use
 
@@ -56,90 +72,118 @@ async def analyze_filing_task(
         Task result with analysis information
     """
     task_id = self.request.id
-    filing_uuid = UUID(filing_id)
     logger.info(
         f"Starting analysis task {task_id} for filing {filing_id}, "
-        f"type: {analysis_type}, provider: {llm_provider}"
+        f"type: {analysis_type}, provider: {llm_provider}, "
+        f"force_reprocess: {force_reprocess}"
     )
 
+    # Create a fresh database session for this task
+    session = None
     try:
-        async with async_session_maker() as session:
-            filing_repo = FilingRepository(session)
-            analysis_repo = AnalysisRepository(session)
+        # Create session using the factory directly to avoid context manager issues
+        session = async_session_maker()
 
-            # Get filing
+        filing_repo = FilingRepository(session)
+        analysis_repo = AnalysisRepository(session)
+
+        # Get filing - try by accession number first, then by UUID
+        filing = None
+        filing_uuid = None
+
+        # Try to parse as UUID first
+        try:
+            filing_uuid = UUID(filing_id)
             filing = await filing_repo.get_by_id(filing_uuid)
-            if not filing:
-                raise ValueError(f"Filing {filing_id} not found")
+        except ValueError:
+            # Not a UUID, try as accession number
+            from src.domain.value_objects.accession_number import AccessionNumber
+            try:
+                accession_number = AccessionNumber(filing_id)
+                filing = await filing_repo.get_by_accession_number(accession_number)
+                if filing:
+                    filing_uuid = filing.id
+            except ValueError:
+                pass
 
-            # Check if analysis already exists
-            existing_analysis = await analysis_repo.get_latest_analysis_for_filing(
-                filing_uuid, AnalysisType(analysis_type)
+        if not filing or not filing_uuid:
+            raise ValueError(f"Filing {filing_id} not found")
+
+        # Check if analysis already exists (unless force_reprocess is True)
+        existing_analysis = await analysis_repo.get_latest_analysis_for_filing(
+            filing_uuid, AnalysisType(analysis_type)
+        )
+        if existing_analysis and not force_reprocess:
+            logger.info(
+                f"Analysis already exists for filing {filing_id}, "
+                f"type {analysis_type}"
             )
-            if existing_analysis:
-                logger.info(
-                    f"Analysis already exists for filing {filing_id}, "
-                    f"type {analysis_type}"
-                )
-                return {
-                    "task_id": task_id,
-                    "filing_id": filing_id,
-                    "analysis_id": str(existing_analysis.id),
-                    "status": "already_exists",
-                    "confidence_score": existing_analysis.confidence_score,
-                }
-
-            # Initialize LLM provider
-            if llm_provider == "openai":
-                provider = OpenAIProvider()
-            else:
-                raise ValueError(f"Unsupported LLM provider: {llm_provider}")
-
-            # Get filing content from metadata
-            filing_text = filing.metadata.get("text", "")
-            if not filing_text:
-                raise ValueError(f"No text content found for filing {filing_id}")
-
-            # Perform analysis based on type
-            analysis_results = await _perform_analysis(
-                provider, analysis_type, filing_text, llm_model
-            )
-
-            # Create analysis entity
-            analysis = Analysis.create(
-                filing_id=filing_uuid,
-                analysis_type=AnalysisType(analysis_type),
-                created_by=created_by,
-                results=analysis_results["results"],
-                llm_provider=llm_provider,
-                llm_model=llm_model,
-                confidence_score=analysis_results.get("confidence_score"),
-                metadata=analysis_results.get("metadata", {}),
-            )
-
-            # Save analysis
-            await analysis_repo.create(analysis)
-            await analysis_repo.commit()
-
-            result = {
+            return {
                 "task_id": task_id,
                 "filing_id": filing_id,
-                "analysis_id": str(analysis.id),
-                "analysis_type": analysis_type,
-                "llm_provider": llm_provider,
-                "llm_model": llm_model,
-                "confidence_score": analysis.confidence_score,
-                "status": "completed",
+                "analysis_id": str(existing_analysis.id),
+                "status": "already_exists",
+                "confidence_score": existing_analysis.confidence_score,
             }
 
-            logger.info(
-                f"Completed analysis for filing {filing.accession_number}, "
-                f"type: {analysis_type}, confidence: {analysis.confidence_score}"
-            )
+        # Initialize LLM provider
+        if llm_provider == "openai":
+            provider = OpenAIProvider()
+        else:
+            raise ValueError(f"Unsupported LLM provider: {llm_provider}")
 
-            return result
+        # Get filing content from metadata
+        filing_text = filing.metadata.get("text", "")
+        if not filing_text:
+            raise ValueError(f"No text content found for filing {filing_id}")
+
+        # Perform analysis based on type
+        analysis_results = await _perform_analysis(
+            provider, analysis_type, filing_text, llm_model
+        )
+
+        # Create analysis entity
+        analysis = Analysis.create(
+            filing_id=filing_uuid,
+            analysis_type=AnalysisType(analysis_type),
+            created_by=created_by,
+            results=analysis_results["results"],
+            llm_provider=llm_provider,
+            llm_model=llm_model,
+            confidence_score=analysis_results.get("confidence_score"),
+            metadata=analysis_results.get("metadata", {}),
+        )
+
+        # Save analysis with proper session management
+        await analysis_repo.create(analysis)
+        await session.commit()  # Use session directly for more control
+
+        result = {
+            "task_id": task_id,
+            "filing_id": filing_id,
+            "analysis_id": str(analysis.id),
+            "analysis_type": analysis_type,
+            "llm_provider": llm_provider,
+            "llm_model": llm_model,
+            "confidence_score": analysis.confidence_score,
+            "status": "completed",
+        }
+
+        logger.info(
+            f"Completed analysis for filing {filing.accession_number}, "
+            f"type: {analysis_type}, confidence: {analysis.confidence_score}"
+        )
+
+        return result
 
     except Exception as e:
+        # Rollback on error if session exists
+        if session is not None:
+            try:
+                await session.rollback()
+            except Exception as rollback_error:
+                logger.warning(f"Error rolling back session: {rollback_error}")
+
         logger.error(f"Analysis task {task_id} failed: {str(e)}", exc_info=True)
         return {
             "task_id": task_id,
@@ -148,6 +192,14 @@ async def analyze_filing_task(
             "error": str(e),
             "status": "failed",
         }
+
+    finally:
+        # Ensure session is properly closed
+        if session is not None:
+            try:
+                await session.close()
+            except Exception as e:
+                logger.warning(f"Error closing database session: {e}")
 
 
 @celery_app.task(bind=True, base=AsyncTask, name="analyze_filing_comprehensive")
@@ -162,7 +214,7 @@ async def analyze_filing_comprehensive_task(
     Perform comprehensive analysis on a filing using multiple analysis types.
 
     Args:
-        filing_id: UUID of the filing to analyze
+        filing_id: Accession number or UUID of the filing to analyze
         created_by: Identifier of user/system creating the analysis
         llm_provider: LLM provider to use
         llm_model: Specific model to use
@@ -191,6 +243,7 @@ async def analyze_filing_comprehensive_task(
                 filing_id=filing_id,
                 analysis_type=analysis_type,
                 created_by=created_by,
+                force_reprocess=False,
                 llm_provider=llm_provider,
                 llm_model=llm_model,
             )
@@ -250,55 +303,60 @@ async def batch_analyze_filings_task(
         f"type: {analysis_type}, limit: {limit}"
     )
 
+    # Create a fresh database session for this task
+    session = None
     try:
-        async with async_session_maker() as session:
-            filing_repo = FilingRepository(session)
+        # Create session using the factory directly to avoid context manager issues
+        session = async_session_maker()
 
-            # Get recent filings for the company
-            filings = await filing_repo.get_by_company_id(
-                company_id=None, limit=limit  # We'll need to look up by CIK
-            )
+        filing_repo = FilingRepository(session)
 
-            if not filings:
-                return {
-                    "task_id": task_id,
-                    "company_cik": company_cik,
-                    "status": "completed",
-                    "message": "No filings found for company",
-                    "analyzed_count": 0,
-                }
+        # Get recent filings for the company
+        filings = await filing_repo.get_by_company_id(
+            company_id=None, limit=limit  # We'll need to look up by CIK
+        )
 
-            # Queue analysis tasks
-            analysis_tasks = []
-            for filing in filings:
-                task = analyze_filing_task.delay(
-                    filing_id=str(filing.id),
-                    analysis_type=analysis_type,
-                    created_by=created_by,
-                    llm_provider=llm_provider,
-                )
-                analysis_tasks.append(
-                    {
-                        "filing_id": str(filing.id),
-                        "accession_number": str(filing.accession_number),
-                        "task_id": task.id,
-                    }
-                )
-
-            result = {
+        if not filings:
+            return {
                 "task_id": task_id,
                 "company_cik": company_cik,
-                "analysis_type": analysis_type,
-                "status": "queued",
-                "filings_found": len(filings),
-                "analysis_tasks": analysis_tasks,
+                "status": "completed",
+                "message": "No filings found for company",
+                "analyzed_count": 0,
             }
 
-            logger.info(
-                f"Queued {len(analysis_tasks)} analysis tasks for company {company_cik}"
+        # Queue analysis tasks
+        analysis_tasks = []
+        for filing in filings:
+            task = analyze_filing_task.delay(
+                filing_id=str(filing.id),
+                analysis_type=analysis_type,
+                created_by=created_by,
+                force_reprocess=False,
+                llm_provider=llm_provider,
+            )
+            analysis_tasks.append(
+                {
+                    "filing_id": str(filing.id),
+                    "accession_number": str(filing.accession_number),
+                    "task_id": task.id,
+                }
             )
 
-            return result
+        result = {
+            "task_id": task_id,
+            "company_cik": company_cik,
+            "analysis_type": analysis_type,
+            "status": "queued",
+            "filings_found": len(filings),
+            "analysis_tasks": analysis_tasks,
+        }
+
+        logger.info(
+            f"Queued {len(analysis_tasks)} analysis tasks for company {company_cik}"
+        )
+
+        return result
 
     except Exception as e:
         logger.error(f"Batch analysis task {task_id} failed: {str(e)}", exc_info=True)
@@ -308,6 +366,14 @@ async def batch_analyze_filings_task(
             "error": str(e),
             "status": "failed",
         }
+
+    finally:
+        # Ensure session is properly closed
+        if session is not None:
+            try:
+                await session.close()
+            except Exception as e:
+                logger.warning(f"Error closing database session: {e}")
 
 
 async def _perform_analysis(

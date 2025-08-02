@@ -1,3 +1,3 @@
 """Commands for write operations."""
 
-__all__ = []
+__all__: list[str] = []

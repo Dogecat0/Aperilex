@@ -30,8 +30,14 @@ def create_celery_app() -> Celery:
         worker_concurrency=settings.celery_worker_concurrency,
         # Task routing
         task_routes={
-            "src.infrastructure.tasks.filing_tasks.*": {"queue": "filing_queue"},
-            "src.infrastructure.tasks.analysis_tasks.*": {"queue": "analysis_queue"},
+            # Analysis tasks
+            "analyze_filing": {"queue": "analysis_queue"},
+            "analyze_filing_comprehensive": {"queue": "analysis_queue"},
+            "batch_analyze_filings": {"queue": "analysis_queue"},
+            # Filing tasks
+            "fetch_company_filings": {"queue": "filing_queue"},
+            "process_filing": {"queue": "filing_queue"},
+            "process_pending_filings": {"queue": "filing_queue"},
         },
         # Task result expiration
         result_expires=3600,  # 1 hour

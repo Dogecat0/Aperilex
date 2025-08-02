@@ -118,7 +118,6 @@ class BackgroundTaskCoordinator:
                 filing_id=str(command.accession_number),
                 analysis_type=command.analysis_template.value,
                 created_by=command.user_id,
-                task_id=task_id,  # Pass our task ID for tracking
                 force_reprocess=command.force_reprocess,
             )
 
