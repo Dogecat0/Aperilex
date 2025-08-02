@@ -18,7 +18,7 @@ When invoked:
 
 ## Test Execution Strategies
 
-### Backend Testing (Python with pytest):
+### Backend Testing (Python with pytest and poetry):
 ```bash
 # Fast backend development cycle
 pytest tests/unit/ -m "not external_api" --cov=src
