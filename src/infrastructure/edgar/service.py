@@ -1,5 +1,6 @@
 """Edgar Tools integration service for SEC data access."""
 
+import asyncio
 import logging
 from typing import Any
 
@@ -508,6 +509,75 @@ class EdgarService:
 
         except Exception as e:
             raise ValueError(f"Failed to extract filing sections: {str(e)}") from e
+
+    async def get_filing_by_accession_async(
+        self, accession_number: AccessionNumber
+    ) -> FilingData:
+        """Async version of get_filing_by_accession.
+
+        Args:
+            accession_number: SEC accession number
+
+        Returns:
+            Filing data
+
+        Raises:
+            ValueError: If filing not found
+        """
+        return await asyncio.to_thread(self.get_filing_by_accession, accession_number)
+
+    async def get_company_by_cik_async(self, cik: CIK) -> CompanyData:
+        """Async version of get_company_by_cik.
+
+        Args:
+            cik: Central Index Key
+
+        Returns:
+            Company data from SEC
+
+        Raises:
+            ValueError: If company not found
+        """
+        return await asyncio.to_thread(self.get_company_by_cik, cik)
+
+    async def extract_filing_sections_async(
+        self,
+        ticker: Ticker,
+        filing_type: FilingType,
+        *,
+        latest: bool = True,
+        year: int | list[int] | range | None = None,
+        quarter: int | list[int] | None = None,
+        filing_date: str | None = None,
+        limit: int | None = None,
+        amendments: bool = True,
+    ) -> dict[str, str]:
+        """Async version of extract_filing_sections.
+
+        Args:
+            ticker: Company ticker symbol
+            filing_type: Type of filing
+            latest: Whether to get the latest filing
+            year: Year(s) to filter by. Can be int, list of ints, or range
+            quarter: Quarter(s) to filter by (1-4). Can be int or list of ints
+            filing_date: Date or date range filter. Format: 'YYYY-MM-DD' or 'YYYY-MM-DD:YYYY-MM-DD'
+            limit: Maximum number of filings to return
+            amendments: Whether to include amended filings
+
+        Returns:
+            Dictionary of section_name -> section_text
+        """
+        return await asyncio.to_thread(
+            self.extract_filing_sections,
+            ticker,
+            filing_type,
+            latest=latest,
+            year=year,
+            quarter=quarter,
+            filing_date=filing_date,
+            limit=limit,
+            amendments=amendments,
+        )
 
     def _extract_company_data(self, company: Company) -> CompanyData:
         """Extract company data from edgartools Company object."""

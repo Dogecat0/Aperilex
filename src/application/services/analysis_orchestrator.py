@@ -10,7 +10,10 @@ from uuid import UUID, uuid4
 from src.application.schemas.commands.analyze_filing import AnalyzeFilingCommand
 from src.application.services.analysis_template_service import AnalysisTemplateService
 from src.domain.entities.analysis import Analysis, AnalysisType
+from src.domain.entities.filing import Filing
 from src.domain.value_objects.accession_number import AccessionNumber
+from src.domain.value_objects.filing_type import FilingType
+from src.domain.value_objects.processing_status import ProcessingStatus
 from src.infrastructure.edgar.schemas.filing_data import FilingData
 from src.infrastructure.edgar.service import EdgarService
 from src.infrastructure.llm.base import BaseLLMProvider
@@ -263,7 +266,7 @@ class AnalysisOrchestrator:
             FilingAccessError: If filing cannot be accessed or is invalid
         """
         try:
-            # Attempt to retrieve filing data via EdgarService
+            # Attempt to retrieve filing data via EdgarService (now synchronous)
             filing_data = self.edgar_service.get_filing_by_accession(accession_number)
 
             # Basic validation checks
@@ -421,29 +424,149 @@ class AnalysisOrchestrator:
         Returns:
             Existing Analysis if found, None otherwise
         """
-        # This would need to be implemented based on repository search capabilities
-        # For now, return None to always create new analysis
-        return None
+        try:
+            # Search for existing analyses for this filing
+            existing_analyses = await self.analysis_repository.get_by_filing_id(
+                filing_id, AnalysisType.FILING_ANALYSIS
+            )
+
+            # Filter analyses that match the same template
+            template_value = command.analysis_template.value
+
+            for analysis in existing_analyses:
+                # Check if metadata contains the same template
+                analysis_metadata = analysis.metadata
+                if analysis_metadata.get("template_used") == template_value:
+                    logger.info(
+                        f"Found existing analysis {analysis.id} for filing {filing_id} "
+                        f"with template {template_value}"
+                    )
+                    return analysis
+
+            logger.debug(
+                f"No existing analysis found for filing {filing_id} "
+                f"with template {template_value}"
+            )
+            return None
+
+        except Exception as e:
+            logger.warning(
+                f"Error searching for existing analysis: {str(e)}",
+                extra={
+                    "filing_id": str(filing_id),
+                    "template": command.analysis_template.value,
+                },
+            )
+            # Return None to proceed with new analysis rather than failing
+            return None
 
     async def _create_filing_from_edgar_data(
-        self, filing_data: Any, company_cik: Any
-    ) -> Any:
+        self, filing_data: FilingData, company_cik: Any
+    ) -> Filing:
         """Create filing entity from edgar service data.
 
         Args:
             filing_data: Filing data from EdgarService
-            company_cik: Company CIK from command
+            company_cik: Company CIK from command (could be CIK object or None)
 
         Returns:
             Created Filing entity
+
+        Raises:
+            AnalysisOrchestrationError: If filing creation fails
         """
-        # This would need to create a Filing entity and persist it
-        # Implementation depends on Filing entity structure
-        # For now, raise NotImplementedError as placeholder
-        raise NotImplementedError("Filing creation from edgar data not yet implemented")
+        try:
+            # Import required types
+            from datetime import date
+            from uuid import uuid4
+
+            from src.domain.entities.company import Company
+            from src.domain.entities.filing import Filing
+            from src.domain.value_objects.cik import CIK
+            from src.infrastructure.repositories.company_repository import (
+                CompanyRepository,
+            )
+
+            # Use CIK from filing data if command CIK is not provided
+            if company_cik:
+                # Convert CIK object to string if needed
+                cik_value = (
+                    str(company_cik)
+                    if hasattr(company_cik, 'value')
+                    else str(company_cik)
+                )
+            else:
+                cik_value = filing_data.cik
+            cik = CIK(cik_value)
+
+            # Get or create company entity
+            company_repo = CompanyRepository(self.filing_repository.session)
+            company = await company_repo.get_by_cik(cik)
+
+            if not company:
+                # Create new company entity
+                company_id = uuid4()
+                company_metadata = {}
+
+                # Add ticker to metadata if available
+                if filing_data.ticker:
+                    company_metadata["ticker"] = filing_data.ticker
+
+                company = Company(
+                    id=company_id,
+                    cik=cik,
+                    name=filing_data.company_name,
+                    metadata=company_metadata,
+                )
+                company = await company_repo.create(company)
+                logger.info(f"Created new company: {company.name} [CIK: {cik}]")
+
+            # Parse filing date
+            filing_date_obj = date.fromisoformat(filing_data.filing_date.split('T')[0])
+
+            # Create filing entity
+            filing = Filing(
+                id=uuid4(),
+                company_id=company.id,
+                accession_number=AccessionNumber(filing_data.accession_number),
+                filing_type=FilingType(filing_data.filing_type),
+                filing_date=filing_date_obj,
+                processing_status=ProcessingStatus.PENDING,
+                metadata={
+                    "source": "edgar_service",
+                    "content_length": len(filing_data.content_text),
+                    "has_html": filing_data.raw_html is not None,
+                    "sections_count": len(filing_data.sections),
+                    "created_via": "analysis_orchestrator",
+                },
+            )
+
+            # Persist the filing
+            filing = await self.filing_repository.create(filing)
+
+            logger.info(
+                f"Created filing {filing.id} for {filing.filing_type} "
+                f"[{filing.accession_number}] - Company: {company.name}"
+            )
+
+            return filing
+
+        except Exception as e:
+            logger.error(
+                f"Failed to create filing from Edgar data: {str(e)}",
+                extra={
+                    "accession_number": filing_data.accession_number,
+                    "company_name": filing_data.company_name,
+                    "filing_type": filing_data.filing_type,
+                },
+                exc_info=True,
+            )
+            raise AnalysisOrchestrationError(
+                f"Failed to create filing entity: {str(e)}"
+            ) from e
 
     async def _extract_relevant_filing_sections(
-        self, filing_data: Any, schemas_to_use: list[str]
+        self, filing_data: FilingData, schemas_to_use: list[str]
     ) -> dict[str, str]:
         """Extract only the filing sections needed for the specified schemas.
 
@@ -465,21 +588,52 @@ class AnalysisOrchestrator:
         }
 
         # Determine which sections we need
-        sections_needed: set[Any] = set()
+        sections_needed: set[str] = set()
         for schema in schemas_to_use:
             sections_needed.update(schema_section_mapping.get(schema, []))
 
-        # Extract sections using EdgarService
-        # For now, extract all sections and filter later
-        # This would need to be optimized based on EdgarService capabilities
+        # If filing data already has sections extracted, use them
+        if filing_data.sections:
+            logger.debug("Using pre-extracted sections from filing data")
+            # Filter to only needed sections
+            relevant_sections = {
+                section: content
+                for section, content in filing_data.sections.items()
+                if section in sections_needed
+            }
+
+            # If we found relevant sections, return them
+            if relevant_sections:
+                logger.info(
+                    f"Found {len(relevant_sections)} relevant sections from pre-extracted data"
+                )
+                return relevant_sections
+
+        # If no sections in filing data or no relevant sections found,
+        # extract sections using EdgarService
         try:
             # Import required types for EdgarService call
             from src.domain.value_objects.filing_type import FilingType
             from src.domain.value_objects.ticker import Ticker
 
-            ticker = Ticker(filing_data.ticker)
+            # Use ticker from filing data if available, otherwise extract from company
+            if filing_data.ticker:
+                ticker = Ticker(filing_data.ticker)
+            else:
+                logger.warning(
+                    "No ticker in filing data, using CIK for section extraction"
+                )
+                # For now, we'll use the sections from filing data or content text
+                # as a fallback since we can't extract without a ticker
+                if filing_data.sections:
+                    return filing_data.sections
+                else:
+                    # Return content as a single section
+                    return {"Filing Content": filing_data.content_text}
+
             filing_type = FilingType(filing_data.filing_type)
 
+            # Extract sections using EdgarService (synchronous call)
             all_sections = self.edgar_service.extract_filing_sections(
                 ticker, filing_type
             )
@@ -491,11 +645,23 @@ class AnalysisOrchestrator:
                 if section in sections_needed
             }
 
-            return relevant_sections
+            if relevant_sections:
+                logger.info(f"Extracted {len(relevant_sections)} relevant sections")
+                return relevant_sections
+            else:
+                logger.warning(
+                    "No relevant sections found, returning all extracted sections"
+                )
+                return all_sections
 
         except Exception as e:
             logger.warning(
-                f"Failed to extract specific sections, using all sections: {str(e)}"
+                f"Failed to extract specific sections: {str(e)}. "
+                f"Using fallback approach"
             )
-            # Fallback to returning all available sections
-            return getattr(filing_data, "sections", {})
+            # Fallback to returning available sections or content
+            if filing_data.sections:
+                return filing_data.sections
+            else:
+                # Return content as a single section for analysis
+                return {"Filing Content": filing_data.content_text}
