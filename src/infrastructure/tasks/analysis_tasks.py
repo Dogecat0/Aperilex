@@ -8,14 +8,21 @@ from uuid import UUID, uuid4
 
 from celery import Task
 
-from src.domain.entities.analysis import Analysis, AnalysisType
+from src.application.schemas.commands.analyze_filing import (
+    AnalysisTemplate,
+    AnalyzeFilingCommand,
+)
+from src.application.services.analysis_orchestrator import AnalysisOrchestrator
+from src.application.services.analysis_template_service import AnalysisTemplateService
 from src.domain.entities.company import Company
 from src.domain.entities.filing import Filing
+from src.domain.value_objects.accession_number import AccessionNumber
 from src.domain.value_objects.cik import CIK
 from src.domain.value_objects.filing_type import FilingType
 from src.domain.value_objects.processing_status import ProcessingStatus
 from src.infrastructure.database.base import async_session_maker
 from src.infrastructure.edgar.service import EdgarService
+from src.infrastructure.llm.base import BaseLLMProvider
 from src.infrastructure.llm.openai_provider import OpenAIProvider
 from src.infrastructure.repositories.analysis_repository import AnalysisRepository
 from src.infrastructure.repositories.company_repository import CompanyRepository
@@ -23,6 +30,24 @@ from src.infrastructure.repositories.filing_repository import FilingRepository
 from src.infrastructure.tasks.celery_app import celery_app
 
 logger = logging.getLogger(__name__)
+
+
+def get_llm_provider(llm_provider: str = "openai") -> BaseLLMProvider:
+    """Get LLM provider instance.
+
+    Args:
+        llm_provider: Provider name (default: openai)
+
+    Returns:
+        LLM provider instance
+
+    Raises:
+        ValueError: If provider is not supported
+    """
+    if llm_provider == "openai":
+        return OpenAIProvider()
+    else:
+        raise ValueError(f"Unsupported LLM provider: {llm_provider}")
 
 
 class AsyncTask(Task):
@@ -59,7 +84,7 @@ class AsyncTask(Task):
 async def analyze_filing_task(
     self: AsyncTask,
     filing_id: str,
-    analysis_type: str,
+    analysis_template: str,
     created_by: str,
     force_reprocess: bool = False,
     llm_provider: str = "openai",
@@ -70,7 +95,7 @@ async def analyze_filing_task(
 
     Args:
         filing_id: Accession number or UUID of the filing to analyze
-        analysis_type: Type of analysis to perform
+        analysis_template: Analysis template to use (e.g., 'comprehensive', 'financial_focused')
         created_by: Identifier of user/system creating the analysis
         force_reprocess: Whether to reprocess even if analysis exists
         llm_provider: LLM provider to use (default: openai)
@@ -82,7 +107,7 @@ async def analyze_filing_task(
     task_id = self.request.id
     logger.info(
         f"Starting analysis task {task_id} for filing {filing_id}, "
-        f"type: {analysis_type}, provider: {llm_provider}, "
+        f"template: {analysis_template}, provider: {llm_provider}, "
         f"force_reprocess: {force_reprocess}"
     )
 
@@ -92,111 +117,82 @@ async def analyze_filing_task(
         # Create session using the factory directly to avoid context manager issues
         session = async_session_maker()
 
+        # Initialize repositories and services
         filing_repo = FilingRepository(session)
         analysis_repo = AnalysisRepository(session)
+        edgar_service = EdgarService()
+        llm_provider_instance = get_llm_provider(llm_provider)
+        template_service = AnalysisTemplateService()
 
-        # Get filing - try by accession number first, then by UUID
-        filing = None
-        filing_uuid = None
+        # Parse filing_id to determine if it's UUID or accession number
+        accession_number = None
+        company_cik = None
 
         # Try to parse as UUID first
         try:
             filing_uuid = UUID(filing_id)
             filing = await filing_repo.get_by_id(filing_uuid)
+            if filing:
+                accession_number = filing.accession_number
+                # Get company CIK from filing
+                from src.infrastructure.repositories.company_repository import (
+                    CompanyRepository,
+                )
+
+                company_repo = CompanyRepository(session)
+                company = await company_repo.get_by_id(filing.company_id)
+                if company:
+                    company_cik = company.cik
         except ValueError:
             # Not a UUID, try as accession number
-            from src.domain.value_objects.accession_number import AccessionNumber
-
             try:
                 accession_number = AccessionNumber(filing_id)
-                filing = await filing_repo.get_by_accession_number(accession_number)
-                if filing:
-                    filing_uuid = filing.id
-            except ValueError:
-                pass
+            except ValueError as e:
+                raise ValueError(
+                    f"Invalid filing identifier: {filing_id}. Must be accession number or valid UUID"
+                ) from e
 
-        if not filing or not filing_uuid:
-            # Filing not found in database - try to load from Edgar
-            logger.info(f"Filing {filing_id} not found in database, attempting to load from Edgar")
-
-            try:
-                # Initialize Edgar service
-                edgar_service = EdgarService()
-
-                # Try to parse filing_id as accession number
-                if not filing_id.replace('-', '').isdigit() or len(filing_id.replace('-', '')) != 18:
-                    raise ValueError(f"Invalid filing identifier: {filing_id}. Must be accession number or valid UUID")
-
-                from src.domain.value_objects.accession_number import AccessionNumber
-                accession_number = AccessionNumber(filing_id)
-
-                # Get filing data from Edgar
-                filing_data = edgar_service.get_filing_by_accession(accession_number)
-
-                # Create filing and company entities
-                filing = await _create_filing_from_edgar_data(session, filing_data)
-                filing_uuid = filing.id
-
-                logger.info(f"Successfully created filing {filing_uuid} from Edgar data")
-
-            except Exception as e:
-                logger.error(f"Failed to load filing {filing_id} from Edgar: {str(e)}")
-                raise ValueError(f"Filing {filing_id} not found in database and could not be loaded from Edgar: {str(e)}") from e
-
-        # Check if analysis already exists (unless force_reprocess is True)
-        existing_analysis = await analysis_repo.get_latest_analysis_for_filing(
-            filing_uuid, AnalysisType(analysis_type)
-        )
-        if existing_analysis and not force_reprocess:
-            logger.info(
-                f"Analysis already exists for filing {filing_id}, "
-                f"type {analysis_type}"
+        # Validate accession number format
+        if not accession_number:
+            raise ValueError(
+                f"Could not determine accession number from filing_id: {filing_id}"
             )
-            return {
-                "task_id": task_id,
-                "filing_id": filing_id,
-                "analysis_id": str(existing_analysis.id),
-                "status": "already_exists",
-                "confidence_score": existing_analysis.confidence_score,
-            }
 
-        # Initialize LLM provider
-        if llm_provider == "openai":
-            provider = OpenAIProvider()
-        else:
-            raise ValueError(f"Unsupported LLM provider: {llm_provider}")
+        # Convert analysis_template string to enum
+        try:
+            template_enum = AnalysisTemplate(analysis_template)
+        except ValueError as e:
+            raise ValueError(f"Invalid analysis template: {analysis_template}") from e
 
-        # Get filing content from metadata
-        filing_text = filing.metadata.get("text", "")
-        if not filing_text:
-            raise ValueError(f"No text content found for filing {filing_id}")
-
-        # Perform analysis based on type
-        analysis_results = await _perform_analysis(
-            provider, analysis_type, filing_text, llm_model
+        # Create command
+        command = AnalyzeFilingCommand(
+            company_cik=company_cik,
+            accession_number=accession_number,
+            analysis_template=template_enum,
+            force_reprocess=force_reprocess,
+            user_id=created_by,
         )
 
-        # Create analysis entity
-        analysis = Analysis.create(
-            filing_id=filing_uuid,
-            analysis_type=AnalysisType(analysis_type),
-            created_by=created_by,
-            results=analysis_results["results"],
-            llm_provider=llm_provider,
-            llm_model=llm_model,
-            confidence_score=analysis_results.get("confidence_score"),
-            metadata=analysis_results.get("metadata", {}),
+        # Create orchestrator
+        orchestrator = AnalysisOrchestrator(
+            analysis_repository=analysis_repo,
+            filing_repository=filing_repo,
+            edgar_service=edgar_service,
+            llm_provider=llm_provider_instance,
+            template_service=template_service,
         )
 
-        # Save analysis with proper session management
-        await analysis_repo.create(analysis)
-        await session.commit()  # Use session directly for more control
+        # Execute analysis using orchestrator
+        analysis = await orchestrator.orchestrate_filing_analysis(command)
+
+        # Commit the session
+        await session.commit()
 
         result = {
             "task_id": task_id,
             "filing_id": filing_id,
             "analysis_id": str(analysis.id),
-            "analysis_type": analysis_type,
+            "analysis_template": analysis_template,
             "llm_provider": llm_provider,
             "llm_model": llm_model,
             "confidence_score": analysis.confidence_score,
@@ -204,8 +200,8 @@ async def analyze_filing_task(
         }
 
         logger.info(
-            f"Completed analysis for filing {filing.accession_number}, "
-            f"type: {analysis_type}, confidence: {analysis.confidence_score}"
+            f"Completed analysis for filing {accession_number}, "
+            f"template: {analysis_template}, confidence: {analysis.confidence_score}"
         )
 
         return result
@@ -222,7 +218,7 @@ async def analyze_filing_task(
         return {
             "task_id": task_id,
             "filing_id": filing_id,
-            "analysis_type": analysis_type,
+            "analysis_template": analysis_template,
             "error": str(e),
             "status": "failed",
         }
@@ -262,37 +258,33 @@ async def analyze_filing_comprehensive_task(
     )
 
     try:
-        # Define analysis types to perform
-        analysis_types = [
-            "risk_factors",
-            "business_overview",
-            "financial_highlights",
-            "mda_analysis",
-        ]
+        # Use comprehensive template directly
+        task = analyze_filing_task.delay(
+            filing_id=filing_id,
+            analysis_template=AnalysisTemplate.COMPREHENSIVE.value,
+            created_by=created_by,
+            force_reprocess=False,
+            llm_provider=llm_provider,
+            llm_model=llm_model,
+        )
 
-        # Queue individual analysis tasks
-        analysis_tasks = []
-        for analysis_type in analysis_types:
-            task = analyze_filing_task.delay(
-                filing_id=filing_id,
-                analysis_type=analysis_type,
-                created_by=created_by,
-                force_reprocess=False,
-                llm_provider=llm_provider,
-                llm_model=llm_model,
-            )
-            analysis_tasks.append({"analysis_type": analysis_type, "task_id": task.id})
+        analysis_tasks = [
+            {
+                "analysis_template": AnalysisTemplate.COMPREHENSIVE.value,
+                "task_id": task.id,
+            }
+        ]
 
         result = {
             "task_id": task_id,
             "filing_id": filing_id,
             "status": "queued",
             "analysis_tasks": analysis_tasks,
-            "total_analyses": len(analysis_types),
+            "total_analyses": len(analysis_tasks),
         }
 
         logger.info(
-            f"Queued {len(analysis_types)} analysis tasks for filing {filing_id}"
+            f"Queued {len(analysis_tasks)} analysis task for filing {filing_id}"
         )
 
         return result
@@ -313,7 +305,7 @@ async def analyze_filing_comprehensive_task(
 async def batch_analyze_filings_task(
     self: AsyncTask,
     company_cik: str,
-    analysis_type: str,
+    analysis_template: str,
     created_by: str,
     limit: int = 10,
     llm_provider: str = "openai",
@@ -323,7 +315,7 @@ async def batch_analyze_filings_task(
 
     Args:
         company_cik: Company CIK to analyze filings for
-        analysis_type: Type of analysis to perform
+        analysis_template: Analysis template to use
         created_by: Identifier of user/system creating the analysis
         limit: Maximum number of filings to analyze
         llm_provider: LLM provider to use
@@ -334,7 +326,7 @@ async def batch_analyze_filings_task(
     task_id = self.request.id
     logger.info(
         f"Starting batch analysis task {task_id} for company {company_cik}, "
-        f"type: {analysis_type}, limit: {limit}"
+        f"template: {analysis_template}, limit: {limit}"
     )
 
     # Create a fresh database session for this task
@@ -364,7 +356,7 @@ async def batch_analyze_filings_task(
         for filing in filings:
             task = analyze_filing_task.delay(
                 filing_id=str(filing.id),
-                analysis_type=analysis_type,
+                analysis_template=analysis_template,
                 created_by=created_by,
                 force_reprocess=False,
                 llm_provider=llm_provider,
@@ -380,7 +372,7 @@ async def batch_analyze_filings_task(
         result = {
             "task_id": task_id,
             "company_cik": company_cik,
-            "analysis_type": analysis_type,
+            "analysis_template": analysis_template,
             "status": "queued",
             "filings_found": len(filings),
             "analysis_tasks": analysis_tasks,
@@ -494,30 +486,3 @@ async def _create_filing_from_edgar_data(session: Any, filing_data: Any) -> Fili
             exc_info=True,
         )
         raise
-
-
-async def _perform_analysis(
-    provider: OpenAIProvider, analysis_type: str, text: str, model: str
-) -> dict[str, Any]:
-    """
-    Perform the actual analysis using the LLM provider.
-
-    Args:
-        provider: LLM provider instance
-        analysis_type: Type of analysis to perform
-        text: Filing text content
-        model: Model to use for analysis
-
-    Returns:
-        Analysis results including confidence score
-    """
-    if analysis_type == "risk_factors":
-        return await provider.analyze_risk_factors(text, model)
-    elif analysis_type == "business_overview":
-        return await provider.analyze_business_overview(text, model)
-    elif analysis_type == "financial_highlights":
-        return await provider.analyze_financial_highlights(text, model)
-    elif analysis_type == "mda_analysis":
-        return await provider.analyze_mda(text, model)
-    else:
-        raise ValueError(f"Unsupported analysis type: {analysis_type}")

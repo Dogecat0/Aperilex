@@ -116,7 +116,7 @@ class BackgroundTaskCoordinator:
             # Queue the Celery task
             celery_task = analyze_filing_task.delay(
                 filing_id=str(command.accession_number),
-                analysis_type=command.analysis_template.value,
+                analysis_template=command.analysis_template.value,
                 created_by=command.user_id,
                 force_reprocess=command.force_reprocess,
             )
