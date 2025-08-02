@@ -41,7 +41,9 @@ class ListCompanyFilingsQuery(BaseQuery):
     """
 
     # All fields with defaults to resolve dataclass inheritance issue
-    ticker: str | None = None  # Ticker as string for API compatibility (validated in __post_init__)
+    ticker: str | None = (
+        None  # Ticker as string for API compatibility (validated in __post_init__)
+    )
     filing_type: FilingType | None = None
     start_date: date | None = None
     end_date: date | None = None
@@ -62,7 +64,9 @@ class ListCompanyFilingsQuery(BaseQuery):
 
         # Validate ticker format (alphanumeric and hyphens only)
         if not self.ticker.replace("-", "").isalnum():
-            raise ValueError("ticker must contain only alphanumeric characters and hyphens")
+            raise ValueError(
+                "ticker must contain only alphanumeric characters and hyphens"
+            )
 
         # Validate date range
         if (
@@ -78,7 +82,7 @@ class ListCompanyFilingsQuery(BaseQuery):
 
         Returns:
             Ticker value object
-            
+
         Raises:
             ValueError: If ticker is None (should not happen after validation)
         """

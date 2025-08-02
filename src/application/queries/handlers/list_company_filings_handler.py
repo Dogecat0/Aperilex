@@ -54,7 +54,9 @@ class ListCompanyFilingsQueryHandler(
                 "user_id": query.user_id,
                 "ticker": query.ticker,
                 "filing_type": query.filing_type.value if query.filing_type else None,
-                "start_date": query.start_date.isoformat() if query.start_date else None,
+                "start_date": (
+                    query.start_date.isoformat() if query.start_date else None
+                ),
                 "end_date": query.end_date.isoformat() if query.end_date else None,
                 "sort_by": query.sort_by.value,
                 "sort_direction": query.sort_direction.value,
@@ -74,9 +76,7 @@ class ListCompanyFilingsQueryHandler(
 
             if query.has_date_range_filter:
                 if query.start_date and query.end_date:
-                    filter_parts.append(
-                        f"date: {query.start_date} to {query.end_date}"
-                    )
+                    filter_parts.append(f"date: {query.start_date} to {query.end_date}")
                 elif query.start_date:
                     filter_parts.append(f"date: from {query.start_date}")
                 elif query.end_date:

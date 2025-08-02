@@ -27,13 +27,17 @@ class Ticker:
         """Validate ticker format.
 
         Raises:
-            ValueError: If ticker is not 1-5 uppercase letters
+            ValueError: If ticker format is invalid
         """
         if not self._value:
             raise ValueError("Ticker cannot be empty")
 
-        if not re.match(r'^[A-Z]{1,5}$', self._value):
-            raise ValueError("Ticker must be 1-5 uppercase letters")
+        # Allow letters, numbers, dots, and hyphens (common in ticker symbols)
+        # Max length of 10 to accommodate longer tickers like "BRK.A" or composite symbols
+        if not re.match(r'^[A-Z0-9.\-]{1,10}$', self._value):
+            raise ValueError(
+                "Ticker must be 1-10 characters and contain only uppercase letters, numbers, dots, and hyphens"
+            )
 
     def __str__(self) -> str:
         """Return ticker as string."""

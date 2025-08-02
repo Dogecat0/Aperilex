@@ -16,7 +16,6 @@ from src.application.schemas.responses.filing_response import FilingResponse
 from src.application.schemas.responses.paginated_response import PaginatedResponse
 from src.domain.entities.analysis import AnalysisType
 from src.domain.value_objects.filing_type import FilingType
-from src.domain.value_objects.ticker import Ticker
 from src.infrastructure.database.base import get_db
 from src.presentation.api.dependencies import get_service_factory
 
@@ -319,7 +318,8 @@ async def list_company_filings(
     factory: ServiceFactoryDep,
     # Filtering parameters
     filing_type: Annotated[
-        str | None, Query(description="Filter by filing type (e.g., '10-K', '10-Q', '8-K')")
+        str | None,
+        Query(description="Filter by filing type (e.g., '10-K', '10-Q', '8-K')"),
     ] = None,
     start_date: Annotated[
         str | None, Query(description="Filter filings from this date (YYYY-MM-DD)")
@@ -328,9 +328,12 @@ async def list_company_filings(
         str | None, Query(description="Filter filings to this date (YYYY-MM-DD)")
     ] = None,
     # Pagination parameters
-    page: Annotated[int | None, Query(ge=1, description="Page number (1-based)")] = None,
+    page: Annotated[
+        int | None, Query(ge=1, description="Page number (1-based)")
+    ] = None,
     page_size: Annotated[
-        int | None, Query(ge=1, le=100, description="Number of filings per page (max 100)")
+        int | None,
+        Query(ge=1, le=100, description="Number of filings per page (max 100)"),
     ] = None,
 ) -> PaginatedResponse[FilingResponse] | list[FilingResponse]:
     """List all filings for a specific company.
@@ -391,10 +394,11 @@ async def list_company_filings(
         # Validate and convert dates if provided
         start_date_obj = None
         end_date_obj = None
-        
+
         if start_date:
             try:
                 from datetime import datetime
+
                 start_date_obj = datetime.strptime(start_date, "%Y-%m-%d").date()
             except ValueError:
                 raise HTTPException(
@@ -405,6 +409,7 @@ async def list_company_filings(
         if end_date:
             try:
                 from datetime import datetime
+
                 end_date_obj = datetime.strptime(end_date, "%Y-%m-%d").date()
             except ValueError:
                 raise HTTPException(
@@ -433,7 +438,9 @@ async def list_company_filings(
         dependencies = factory.get_handler_dependencies(session)
 
         # Dispatch query
-        result: PaginatedResponse[FilingResponse] = await dispatcher.dispatch_query(query, dependencies)
+        result: PaginatedResponse[FilingResponse] = await dispatcher.dispatch_query(
+            query, dependencies
+        )
 
         # If pagination was requested, return paginated response
         if page is not None or page_size is not None:
@@ -480,5 +487,3 @@ async def list_company_filings(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to list company filings",
         ) from None
-
-
