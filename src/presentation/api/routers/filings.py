@@ -56,19 +56,19 @@ AccessionNumberPath = Annotated[str, Path(description="SEC filing accession numb
     summary="Search SEC filings",
     description="""
     Search for SEC filings using various criteria.
-    
+
     This endpoint queries the SEC Edgar database directly to find filings
-    matching the specified criteria. Results include filing metadata 
+    matching the specified criteria. Results include filing metadata
     suitable for display in search interfaces.
-    
+
     Required parameter:
     - ticker: Company ticker symbol (e.g., "AAPL", "MSFT")
-    
+
     Optional filters:
-    - form_type: Specific filing type (e.g., "10-K", "10-Q", "8-K")  
+    - form_type: Specific filing type (e.g., "10-K", "10-Q", "8-K")
     - date_from: Start date for filing date range (YYYY-MM-DD)
     - date_to: End date for filing date range (YYYY-MM-DD)
-    
+
     Pagination and sorting:
     - page: Page number (default: 1)
     - page_size: Items per page (default: 20, max: 100)
@@ -133,28 +133,28 @@ async def search_filings(
         if form_type:
             try:
                 filing_type_enum = FilingType(form_type.upper())
-            except ValueError:
+            except ValueError as e:
                 raise HTTPException(
                     status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                     detail=f"Invalid form_type: {form_type}. Must be one of: {', '.join([ft.value for ft in FilingType])}",
-                )
+                ) from e
 
         # Parse sort parameters
         try:
             sort_by_enum = FilingSortField(sort_by)
-        except ValueError:
+        except ValueError as e:
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                 detail=f"Invalid sort_by: {sort_by}. Must be one of: {', '.join([sf.value for sf in FilingSortField])}",
-            )
+            ) from e
 
         try:
             sort_direction_enum = SortDirection(sort_direction)
-        except ValueError:
+        except ValueError as e:
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                 detail=f"Invalid sort_direction: {sort_direction}. Must be one of: {', '.join([sd.value for sd in SortDirection])}",
-            )
+            ) from e
 
         # Create search query
         query = SearchFilingsQuery(

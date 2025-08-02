@@ -98,6 +98,7 @@ async def analyze_filing_task(
         except ValueError:
             # Not a UUID, try as accession number
             from src.domain.value_objects.accession_number import AccessionNumber
+
             try:
                 accession_number = AccessionNumber(filing_id)
                 filing = await filing_repo.get_by_accession_number(accession_number)

@@ -307,7 +307,7 @@ async def list_company_analyses(
 
     Returns filings ordered by filing date (newest first) with optional
     filtering by filing type, date range, and pagination support.
-    
+
     If pagination parameters (page, page_size) are provided, returns a PaginatedResponse.
     Otherwise, returns a simple list of FilingResponse objects.
     """,
