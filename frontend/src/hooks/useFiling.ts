@@ -1,9 +1,39 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { filingService } from '@/api/services/FilingService'
-import type { AnalyzeFilingRequest } from '@/api/types'
+import type { AnalyzeFilingRequest, EdgarSearchParams } from '@/api/types'
+import type { FilingSearchParams } from '@/api/filings'
 
 export interface UseFilingOptions {
   enabled?: boolean
+}
+
+/**
+ * Hook to search filings by ticker with optional filters (database search)
+ */
+export const useFilingSearch = (params: FilingSearchParams, options: UseFilingOptions = {}) => {
+  const { enabled = true } = options
+
+  return useQuery({
+    queryKey: ['filings', 'search', params],
+    queryFn: () => filingService.searchFilings(params),
+    enabled: enabled && !!params.ticker,
+    placeholderData: (previousData) => previousData, // Keep previous results while loading new ones
+  })
+}
+
+/**
+ * Hook to search Edgar filings directly from SEC API
+ */
+export const useEdgarSearch = (params: EdgarSearchParams, options: UseFilingOptions = {}) => {
+  const { enabled = true } = options
+
+  return useQuery({
+    queryKey: ['filings', 'edgar-search', params],
+    queryFn: () => filingService.searchEdgarFilings(params),
+    enabled: enabled && !!params.ticker,
+    placeholderData: (previousData) => previousData, // Keep previous results while loading new ones
+    staleTime: 5 * 60 * 1000, // Edgar results are relatively stable for 5 minutes
+  })
 }
 
 /**

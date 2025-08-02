@@ -211,6 +211,29 @@ export interface ValidationError {
   }>
 }
 
+// Filing Search Types (for Edgar search endpoint)
+export interface FilingSearchResult {
+  accession_number: string
+  filing_type: string
+  filing_date: string // ISO date string
+  company_name: string
+  cik: string
+  ticker: string | null
+  has_content: boolean
+  sections_count: number
+}
+
+export interface EdgarSearchParams {
+  ticker: string
+  form_type?: string
+  date_from?: string
+  date_to?: string
+  page?: number
+  page_size?: number
+  sort_by?: 'filing_date' | 'filing_type' | 'company_name'
+  sort_direction?: 'asc' | 'desc'
+}
+
 // ===== COMPREHENSIVE ANALYSIS TYPES =====
 
 // Type-safe constants for business segment values

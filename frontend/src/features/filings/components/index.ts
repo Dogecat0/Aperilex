@@ -1,3 +1,5 @@
 export { FilingCard } from './FilingCard'
 export { FilingMetadata } from './FilingMetadata'
 export { FilingAnalysisSection } from './FilingAnalysisSection'
+export { FilingSearchForm } from './FilingSearchForm'
+export { FilingSearchResults } from './FilingSearchResults'
