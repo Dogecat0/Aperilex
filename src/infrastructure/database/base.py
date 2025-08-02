@@ -33,18 +33,32 @@ class Base(DeclarativeBase):
     )
 
 
-# Create async engine
+# Create async engine with better connection handling for Celery context
 engine = create_async_engine(
     settings.database_url,
     echo=settings.debug,
     future=True,
+    # Connection pool settings for better async task handling
+    pool_pre_ping=True,  # Validate connections before use
+    pool_recycle=3600,   # Recycle connections after 1 hour
+    max_overflow=20,     # Allow more connections during high load
+    pool_size=10,        # Base connection pool size
+    # Important: handle disconnects gracefully in async context
+    connect_args={
+        "server_settings": {
+            "application_name": "aperilex_celery",
+        }
+    } if "postgresql" in settings.database_url else {},
 )
 
-# Create async session factory
+# Create async session factory with Celery-friendly settings
 async_session_maker = async_sessionmaker(
     engine,
     class_=AsyncSession,
     expire_on_commit=False,
+    # Important for async tasks: prevent stale connections
+    autoflush=True,
+    autocommit=False,
 )
 
 

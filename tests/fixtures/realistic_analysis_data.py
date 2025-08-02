@@ -12,15 +12,13 @@ from typing import Any
 
 def get_realistic_filing_analysis_response() -> dict[str, Any]:
     """Get comprehensive filing analysis response matching real API output.
-    
+
     This fixture matches the structure of actual OpenAI API responses
     with 28+ sub-sections across 6 major filing sections.
     """
     return {
         "filing_summary": "Microsoft Corp's 10-K filing reveals strong financial performance driven by significant growth in cloud services and software sales, supported by a robust operational framework and strategic initiatives. The company's diversified portfolio and competitive advantages position it well for future growth, despite facing various industry-specific risks and regulatory challenges. Overall, Microsoft demonstrates a healthy balance sheet and strong cash flow, underscoring its financial stability and commitment to innovation.",
-        
         "executive_summary": "Microsoft Corp continues to showcase its leadership in the technology sector through its comprehensive 10-K filing, which highlights solid operational performance and strategic positioning for future growth. The company has successfully capitalized on the increasing demand for cloud computing and digital solutions, with key products such as Microsoft 365 and Azure driving substantial revenue growth. The Management Discussion & Analysis section emphasizes effective cost management and operational efficiencies, contributing to improved profitability and a healthy liquidity position.\n\nHowever, the filing also acknowledges various risk factors that could impact Microsoft's operations, including regulatory challenges and industry-specific uncertainties. The company's proactive approach to risk management is evident in its strategic initiatives focused on innovation, sustainability, and market expansion. Overall, Microsoft's strong financial metrics, coupled with its commitment to technological advancement and strategic growth initiatives, position it favorably in a competitive landscape, ensuring continued success and shareholder value creation.",
-        
         "key_insights": [
             "Strong revenue growth driven by cloud services and software sales.",
             "Robust demand for Microsoft 365 and Azure contributes significantly to profitability.",
@@ -31,35 +29,30 @@ def get_realistic_filing_analysis_response() -> dict[str, Any]:
             "Proactive risk management strategies address regulatory and operational challenges.",
             "Positive cash flow from operations indicates strong core business performance.",
             "Market conditions favor technology adoption across various industries.",
-            "Sustainability initiatives align with global trends and customer expectations."
+            "Sustainability initiatives align with global trends and customer expectations.",
         ],
-        
         "financial_highlights": [
             "Revenue growth of 16% year-over-year, primarily from cloud services.",
             "Operating income increased by 23%, reflecting improved margins.",
             "Cash and cash equivalents of $29.5 billion, indicating strong liquidity.",
             "Debt-to-equity ratio remains low at 0.47, showcasing financial stability.",
-            "Net income margin improved to 36.7%, driven by effective cost control."
+            "Net income margin improved to 36.7%, driven by effective cost control.",
         ],
-        
         "risk_factors": [
             "Regulatory changes impacting technology operations and data privacy.",
             "Intense competition in the cloud computing market from AWS and Google.",
             "Cybersecurity threats and data privacy concerns affecting customer trust.",
             "Economic downturns affecting enterprise customer spending on software.",
-            "Operational challenges related to global supply chain disruptions."
+            "Operational challenges related to global supply chain disruptions.",
         ],
-        
         "opportunities": [
             "Expansion of cloud services in emerging markets and new verticals.",
             "Increased adoption of AI and machine learning solutions across enterprises.",
             "Strategic partnerships to enhance product offerings and market reach.",
             "Growth potential in enterprise software solutions and digital transformation.",
-            "Investment in sustainability and green technology initiatives for competitive advantage."
+            "Investment in sustainability and green technology initiatives for competitive advantage.",
         ],
-        
         "confidence_score": 0.95,
-        
         "section_analyses": [
             {
                 "section_name": "Business",
@@ -70,7 +63,7 @@ def get_realistic_filing_analysis_response() -> dict[str, Any]:
                     "The company leverages strong brand and technology capabilities as competitive advantages.",
                     "Strategic initiatives are centered around cloud services, AI, and sustainability.",
                     "Microsoft's business segments show diversification, reducing dependency on single revenue streams.",
-                    "Geographic performance indicates strength in North America with emerging opportunities globally."
+                    "Geographic performance indicates strength in North America with emerging opportunities globally.",
                 ],
                 "overall_sentiment": 0.85,
                 "sub_sections": [
@@ -81,12 +74,27 @@ def get_realistic_filing_analysis_response() -> dict[str, Any]:
                         "analysis": {
                             "description": "Microsoft operates as a global technology leader providing software, services, devices, and solutions that help people and businesses realize their full potential.",
                             "industry_classification": "Technology Software and Services",
-                            "primary_markets": ["Enterprise Software", "Cloud Computing", "Gaming", "Productivity Software"],
-                            "target_customers": ["Enterprise businesses", "Small and medium businesses", "Individual consumers", "Government organizations"],
+                            "primary_markets": [
+                                "Enterprise Software",
+                                "Cloud Computing",
+                                "Gaming",
+                                "Productivity Software",
+                            ],
+                            "target_customers": [
+                                "Enterprise businesses",
+                                "Small and medium businesses",
+                                "Individual consumers",
+                                "Government organizations",
+                            ],
                             "business_model": "Subscription-based software-as-a-service with device sales and gaming services",
                             "operational_scale": "Global operations in over 190 countries with 221,000+ employees",
-                            "key_infrastructure": ["Azure cloud platform", "Global data centers", "AI and machine learning capabilities", "Microsoft 365 ecosystem"]
-                        }
+                            "key_infrastructure": [
+                                "Azure cloud platform",
+                                "Global data centers",
+                                "AI and machine learning capabilities",
+                                "Microsoft 365 ecosystem",
+                            ],
+                        },
                     },
                     {
                         "sub_section_name": "Key Product: Microsoft 365",
@@ -98,28 +106,38 @@ def get_realistic_filing_analysis_response() -> dict[str, Any]:
                             "market_position": "Market leader in enterprise productivity software",
                             "revenue_contribution": "Significant contributor to Productivity and Business Processes segment",
                             "strategic_importance": "Core platform for digital transformation and hybrid work solutions",
-                            "competitive_advantages": ["Integrated ecosystem", "Enterprise security", "AI-powered features", "Global scale"],
-                            "growth_outlook": "Strong growth driven by digital transformation and remote work trends"
-                        }
+                            "competitive_advantages": [
+                                "Integrated ecosystem",
+                                "Enterprise security",
+                                "AI-powered features",
+                                "Global scale",
+                            ],
+                            "growth_outlook": "Strong growth driven by digital transformation and remote work trends",
+                        },
                     },
                     {
                         "sub_section_name": "Competitive Advantage Analysis",
-                        "schema_type": "CompetitiveAdvantage", 
+                        "schema_type": "CompetitiveAdvantage",
                         "processing_time_ms": 1156,
                         "analysis": {
-                            "core_advantages": ["Comprehensive product ecosystem", "Strong brand recognition", "Global scale and reach", "Innovation capabilities"],
+                            "core_advantages": [
+                                "Comprehensive product ecosystem",
+                                "Strong brand recognition",
+                                "Global scale and reach",
+                                "Innovation capabilities",
+                            ],
                             "key_differentiators": "Integrated platform approach combining productivity, cloud, and AI capabilities",
                             "market_position": "Dominant position in enterprise software with growing cloud market share",
                             "competitor_analysis": {
                                 "AWS": "Strong in infrastructure but Microsoft leads in integrated enterprise solutions",
                                 "Google": "Competitive in AI and productivity but Microsoft has stronger enterprise presence",
-                                "Oracle": "Strong in database but Microsoft has broader platform capabilities"
+                                "Oracle": "Strong in database but Microsoft has broader platform capabilities",
                             },
                             "sustainability_assessment": "Strong competitive moat through platform network effects and switching costs",
-                            "innovation_pipeline": "Significant investments in AI, quantum computing, and mixed reality technologies"
-                        }
-                    }
-                ]
+                            "innovation_pipeline": "Significant investments in AI, quantum computing, and mixed reality technologies",
+                        },
+                    },
+                ],
             },
             {
                 "section_name": "Risk Factors",
@@ -129,7 +147,7 @@ def get_realistic_filing_analysis_response() -> dict[str, Any]:
                     "Intense competition in cloud computing market pressures pricing and margins.",
                     "Cybersecurity threats require continuous investment in defensive capabilities.",
                     "Economic downturns could reduce enterprise technology spending.",
-                    "Global supply chain disruptions may affect hardware business operations."
+                    "Global supply chain disruptions may affect hardware business operations.",
                 ],
                 "overall_sentiment": -0.2,
                 "sub_sections": [
@@ -139,15 +157,24 @@ def get_realistic_filing_analysis_response() -> dict[str, Any]:
                         "processing_time_ms": 1034,
                         "analysis": {
                             "risk_description": "Increased regulatory scrutiny and compliance requirements across global markets",
-                            "regulatory_domains": ["Data privacy (GDPR, CCPA)", "Antitrust regulations", "Digital services taxes", "AI governance"],
+                            "regulatory_domains": [
+                                "Data privacy (GDPR, CCPA)",
+                                "Antitrust regulations",
+                                "Digital services taxes",
+                                "AI governance",
+                            ],
                             "compliance_requirements": "Extensive compliance programs for data protection, competition law, and emerging AI regulations",
                             "potential_penalties": "Significant fines and operational restrictions possible for non-compliance",
                             "geographic_scope": "Global regulatory exposure with particular focus on EU, US, and Asia-Pacific markets",
                             "enforcement_risk": "High enforcement activity from regulators in key markets",
                             "regulatory_changes": "Evolving AI governance frameworks and digital platform regulations",
-                            "mitigation_strategies": ["Dedicated compliance teams", "Regulatory monitoring systems", "Proactive engagement with regulators"],
-                            "impact_timeline": "Ongoing with increasing intensity over next 2-3 years"
-                        }
+                            "mitigation_strategies": [
+                                "Dedicated compliance teams",
+                                "Regulatory monitoring systems",
+                                "Proactive engagement with regulators",
+                            ],
+                            "impact_timeline": "Ongoing with increasing intensity over next 2-3 years",
+                        },
                     },
                     {
                         "sub_section_name": "Market Competition Risk",
@@ -156,21 +183,24 @@ def get_realistic_filing_analysis_response() -> dict[str, Any]:
                         "analysis": {
                             "risk_description": "Intense competition in cloud computing and enterprise software markets",
                             "market_volatility": "Rapid technology changes and evolving customer preferences",
-                            "competitive_pressures": "Pricing pressure from AWS, Google Cloud, and emerging AI-first competitors", 
-                            "disruption_threats": ["AI-native startups", "Open source alternatives", "Platform consolidation"],
+                            "competitive_pressures": "Pricing pressure from AWS, Google Cloud, and emerging AI-first competitors",
+                            "disruption_threats": [
+                                "AI-native startups",
+                                "Open source alternatives",
+                                "Platform consolidation",
+                            ],
                             "market_saturation": "Maturing enterprise software market with slowing growth rates",
                             "innovation_risks": "Need for continuous R&D investment to maintain competitive position",
-                            "customer_concentration": "Dependence on large enterprise customers for significant revenue"
-                        }
-                    }
-                ]
-            }
+                            "customer_concentration": "Dependence on large enterprise customers for significant revenue",
+                        },
+                    },
+                ],
+            },
         ],
-        
         "total_processing_time_ms": 46021,
         "total_sections_analyzed": 6,
         "total_sub_sections_analyzed": 28,
-        "analysis_timestamp": "2025-07-19T10:13:41.186250+00:00"
+        "analysis_timestamp": "2025-07-19T10:13:41.186250+00:00",
     }
 
 
@@ -181,15 +211,15 @@ def get_realistic_section_analysis_response() -> dict[str, Any]:
         "section_summary": "Comprehensive analysis of Microsoft's business operations, competitive position, and strategic initiatives across global markets.",
         "consolidated_insights": [
             "Microsoft maintains strong competitive advantages through integrated product ecosystem",
-            "Cloud services represent the primary growth driver for future revenue expansion", 
+            "Cloud services represent the primary growth driver for future revenue expansion",
             "AI integration across product portfolio creates sustainable differentiation",
-            "Global operational scale provides resilience and market reach advantages"
+            "Global operational scale provides resilience and market reach advantages",
         ],
         "overall_sentiment": 0.9,
         "critical_findings": [
             "Azure revenue growth of 30% demonstrates market leadership in cloud computing",
             "Microsoft 365 adoption accelerated by remote work trends",
-            "Strategic acquisitions enhance AI and gaming capabilities"
+            "Strategic acquisitions enhance AI and gaming capabilities",
         ],
         "sub_sections": [
             {
@@ -199,13 +229,23 @@ def get_realistic_section_analysis_response() -> dict[str, Any]:
                 "analysis": {
                     "description": "Microsoft operates as a global technology leader in software, services, devices, and solutions",
                     "industry_classification": "Technology Software and Services",
-                    "primary_markets": ["Enterprise Software", "Cloud Computing", "Gaming", "Productivity Software"],
-                    "target_customers": ["Enterprise businesses", "SMBs", "Individual consumers", "Government"],
+                    "primary_markets": [
+                        "Enterprise Software",
+                        "Cloud Computing",
+                        "Gaming",
+                        "Productivity Software",
+                    ],
+                    "target_customers": [
+                        "Enterprise businesses",
+                        "SMBs",
+                        "Individual consumers",
+                        "Government",
+                    ],
                     "business_model": "Subscription-based SaaS with device sales and gaming services",
-                    "operational_scale": "Global operations in 190+ countries with 221,000+ employees"
-                }
+                    "operational_scale": "Global operations in 190+ countries with 221,000+ employees",
+                },
             }
-        ]
+        ],
     }
 
 
@@ -228,7 +268,6 @@ Productivity and Business Processes: Our Productivity and Business Processes seg
 • Office Consumer services, including Office 365 subscriptions for individual consumers
 • Microsoft Teams, our collaboration and communication platform
 • Exchange, SharePoint, OneDrive, Skype for Business, and Microsoft Viva""",
-
         "Item 1A - Risk Factors": """Our business faces a wide variety of risks, many of which are inherent in our business. The risks described below may materially and adversely affect our business, financial condition, results of operations, cash flows, and the trading price of our common stock.
 
 COMPETITIVE FACTORS
@@ -249,7 +288,6 @@ Security of our products and services is important to our customers. Threats to 
 • Product and service security vulnerabilities could lead to reduced revenue, increased costs, liability claims, or harm to our reputation or competitive position
 • Our enterprise services handle large amounts of sensitive data that could be compromised
 • Cyberattacks on our infrastructure could disrupt business operations""",
-
         "Item 7 - Management Discussion & Analysis": """FISCAL YEAR 2024 COMPARED WITH FISCAL YEAR 2023
 
 Revenue increased $21.5 billion or 16% driven by growth across all our segments. Productivity and Business Processes revenue increased driven by Office 365 Commercial and Microsoft Teams growth. Intelligent Cloud revenue increased driven by Azure and other cloud services growth of 30%. More Personal Computing revenue increased driven by growth in Windows Commercial, Devices, Xbox content and services, and Search and news advertising.
@@ -270,7 +308,7 @@ SQL Server revenue growth was driven by continued hybrid demand and Premium tier
 
 MORE PERSONAL COMPUTING  
 
-Revenue increased $3.6 billion or 17% driven by growth across Windows, Devices, Xbox, and Search advertising. Windows Commercial revenue grew driven by the commercial PC market and increased adoption of Windows 11."""
+Revenue increased $3.6 billion or 17% driven by growth across Windows, Devices, Xbox, and Search advertising. Windows Commercial revenue grew driven by the commercial PC market and increased adoption of Windows 11.""",
     }
 
 
@@ -278,7 +316,7 @@ def get_realistic_company_data() -> dict[str, Any]:
     """Get realistic company data matching Edgar API responses."""
     return {
         "cik": 789019,
-        "name": "Microsoft Corporation", 
+        "name": "Microsoft Corporation",
         "ticker": "MSFT",
         "sic_code": "7372",
         "sic_description": "Services-Prepackaged Software",
@@ -286,17 +324,17 @@ def get_realistic_company_data() -> dict[str, Any]:
         "sector": "Information Technology",
         "address": {
             "street1": "One Microsoft Way",
-            "city": "Redmond", 
+            "city": "Redmond",
             "state": "WA",
             "zip": "98052-6399",
-            "country": "United States"
+            "country": "United States",
         },
         "phone": "425-882-8080",
         "website": "https://www.microsoft.com",
         "fiscal_year_end": "June 30",
         "exchange": "NASDAQ",
         "market_cap": 2800000000000,  # $2.8T
-        "shares_outstanding": 7400000000
+        "shares_outstanding": 7400000000,
     }
 
 
@@ -306,7 +344,7 @@ def get_realistic_filing_metadata() -> dict[str, Any]:
         "accession_number": "0001564590-24-000029",
         "filing_date": "2024-07-30",
         "acceptance_datetime": "2024-07-30T16:03:04.000Z",
-        "period_of_report": "2024-06-30", 
+        "period_of_report": "2024-06-30",
         "form_type": "10-K",
         "file_number": "001-37845",
         "film_number": "241092907",
@@ -314,7 +352,7 @@ def get_realistic_filing_metadata() -> dict[str, Any]:
         "document_count": 143,
         "size": 15847392,
         "fiscal_year": 2024,
-        "fiscal_period": "FY"
+        "fiscal_period": "FY",
     }
 
 
@@ -328,5 +366,5 @@ def get_processing_metadata() -> dict[str, Any]:
         "llm_provider": "OpenAI",
         "llm_model": "gpt-4o-mini",
         "confidence_score": 0.95,
-        "analysis_version": "1.0.0"
+        "analysis_version": "1.0.0",
     }
