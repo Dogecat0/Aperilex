@@ -1,9 +1,10 @@
 """Tests for GetFilingQueryHandler."""
 
-import pytest
-from datetime import UTC, datetime, date
+from datetime import UTC, date, datetime
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
+
+import pytest
 
 from src.application.queries.handlers.get_filing_handler import GetFilingQueryHandler
 from src.application.schemas.queries.get_filing import GetFilingQuery
@@ -128,7 +129,7 @@ class TestGetFilingQueryHandler:
     def test_query_type_class_method(self) -> None:
         """Test query_type class method returns correct type."""
         query_type = GetFilingQueryHandler.query_type()
-        
+
         assert query_type == GetFilingQuery
 
     @pytest.mark.asyncio
@@ -150,19 +151,21 @@ class TestGetFilingQueryHandler:
 
         # Setup mocks
         mock_filing_repository.get_by_id.return_value = mock_filing
-        
-        with patch.object(FilingResponse, 'from_domain', return_value=mock_filing_response) as mock_from_domain:
+
+        with patch.object(
+            FilingResponse, 'from_domain', return_value=mock_filing_response
+        ) as mock_from_domain:
             result = await handler.handle(query)
 
         # Verify result
         assert result == mock_filing_response
-        
+
         # Verify repository was called correctly
         mock_filing_repository.get_by_id.assert_called_once_with(query.filing_id)
-        
+
         # Analysis repository should not be called
         mock_analysis_repository.find_by_filing_id.assert_not_called()
-        
+
         # Verify response conversion with no analysis data
         mock_from_domain.assert_called_once_with(
             mock_filing,
@@ -185,17 +188,21 @@ class TestGetFilingQueryHandler:
         # Setup mocks
         mock_filing_repository.get_by_id.return_value = mock_filing
         mock_analysis_repository.find_by_filing_id.return_value = mock_analyses
-        
-        with patch.object(FilingResponse, 'from_domain', return_value=mock_filing_response) as mock_from_domain:
+
+        with patch.object(
+            FilingResponse, 'from_domain', return_value=mock_filing_response
+        ) as mock_from_domain:
             result = await handler.handle(sample_query)
 
         # Verify result
         assert result == mock_filing_response
-        
+
         # Verify repositories were called correctly
         mock_filing_repository.get_by_id.assert_called_once_with(sample_query.filing_id)
-        mock_analysis_repository.find_by_filing_id.assert_called_once_with(sample_query.filing_id)
-        
+        mock_analysis_repository.find_by_filing_id.assert_called_once_with(
+            sample_query.filing_id
+        )
+
         # Verify response conversion with analysis data
         # Latest analysis should be the one from 2024-03-17 14:30
         expected_latest_date = date(2024, 3, 17)
@@ -219,13 +226,15 @@ class TestGetFilingQueryHandler:
         # Setup mocks
         mock_filing_repository.get_by_id.return_value = mock_filing
         mock_analysis_repository.find_by_filing_id.return_value = []  # Empty list
-        
-        with patch.object(FilingResponse, 'from_domain', return_value=mock_filing_response) as mock_from_domain:
+
+        with patch.object(
+            FilingResponse, 'from_domain', return_value=mock_filing_response
+        ) as mock_from_domain:
             result = await handler.handle(sample_query)
 
         # Verify result
         assert result == mock_filing_response
-        
+
         # Verify response conversion with zero analyses
         mock_from_domain.assert_called_once_with(
             mock_filing,
@@ -247,13 +256,15 @@ class TestGetFilingQueryHandler:
         # Setup mocks
         mock_filing_repository.get_by_id.return_value = mock_filing
         mock_analysis_repository.find_by_filing_id.return_value = None
-        
-        with patch.object(FilingResponse, 'from_domain', return_value=mock_filing_response) as mock_from_domain:
+
+        with patch.object(
+            FilingResponse, 'from_domain', return_value=mock_filing_response
+        ) as mock_from_domain:
             result = await handler.handle(sample_query)
 
         # Verify result
         assert result == mock_filing_response
-        
+
         # Verify response conversion with zero analyses
         mock_from_domain.assert_called_once_with(
             mock_filing,
@@ -272,7 +283,9 @@ class TestGetFilingQueryHandler:
         # Setup mock to return None (not found)
         mock_filing_repository.get_by_id.return_value = None
 
-        with pytest.raises(ValueError, match=f"Filing with ID {sample_query.filing_id} not found"):
+        with pytest.raises(
+            ValueError, match=f"Filing with ID {sample_query.filing_id} not found"
+        ):
             await handler.handle(sample_query)
 
         # Verify repository was called
@@ -316,7 +329,9 @@ class TestGetFilingQueryHandler:
 
         # Verify both repositories were called
         mock_filing_repository.get_by_id.assert_called_once_with(sample_query.filing_id)
-        mock_analysis_repository.find_by_filing_id.assert_called_once_with(sample_query.filing_id)
+        mock_analysis_repository.find_by_filing_id.assert_called_once_with(
+            sample_query.filing_id
+        )
 
     @pytest.mark.asyncio
     async def test_latest_analysis_date_calculation(
@@ -363,8 +378,10 @@ class TestGetFilingQueryHandler:
         # Setup mocks
         mock_filing_repository.get_by_id.return_value = mock_filing
         mock_analysis_repository.find_by_filing_id.return_value = analyses
-        
-        with patch.object(FilingResponse, 'from_domain', return_value=mock_filing_response) as mock_from_domain:
+
+        with patch.object(
+            FilingResponse, 'from_domain', return_value=mock_filing_response
+        ) as mock_from_domain:
             result = await handler.handle(sample_query)
 
         # Verify latest analysis date is correct (2024-03-25)
@@ -405,7 +422,9 @@ class TestGetFilingQueryHandler:
             mock_filing_repository.get_by_id.return_value = mock_filing
             mock_analysis_repository.find_by_filing_id.return_value = []
 
-            with patch.object(FilingResponse, 'from_domain', return_value=mock_filing_response):
+            with patch.object(
+                FilingResponse, 'from_domain', return_value=mock_filing_response
+            ):
                 result = await handler.handle(query)
 
             assert result == mock_filing_response
@@ -435,22 +454,28 @@ class TestGetFilingQueryHandler:
         # Setup mocks
         mock_filing_repository.get_by_id.return_value = mock_filing
         mock_analysis_repository.find_by_filing_id.return_value = mock_analyses
-        
-        with patch.object(FilingResponse, 'from_domain', return_value=mock_filing_response), \
-             patch('src.application.queries.handlers.get_filing_handler.logger') as mock_logger:
-            
+
+        with (
+            patch.object(
+                FilingResponse, 'from_domain', return_value=mock_filing_response
+            ),
+            patch(
+                'src.application.queries.handlers.get_filing_handler.logger'
+            ) as mock_logger,
+        ):
+
             result = await handler.handle(sample_query)
 
         assert result == mock_filing_response
 
         # Verify logging was called twice (info at start and success)
         assert mock_logger.info.call_count == 2
-        
+
         # Check initial log message
         initial_log_call = mock_logger.info.call_args_list[0]
         initial_message = initial_log_call[0][0]
         initial_extra = initial_log_call[1]["extra"]
-        
+
         assert "Processing get filing query" in initial_message
         assert str(sample_query.filing_id) in initial_message
         assert initial_extra["filing_id"] == str(sample_query.filing_id)
@@ -461,7 +486,7 @@ class TestGetFilingQueryHandler:
         success_log_call = mock_logger.info.call_args_list[1]
         success_message = success_log_call[0][0]
         success_extra = success_log_call[1]["extra"]
-        
+
         assert "Successfully retrieved filing" in success_message
         assert success_extra["filing_id"] == str(sample_query.filing_id)
         assert success_extra["analyses_count"] == 3
@@ -478,24 +503,26 @@ class TestGetFilingQueryHandler:
         repository_error = Exception("Database error")
         mock_filing_repository.get_by_id.side_effect = repository_error
 
-        with patch('src.application.queries.handlers.get_filing_handler.logger') as mock_logger:
+        with patch(
+            'src.application.queries.handlers.get_filing_handler.logger'
+        ) as mock_logger:
             with pytest.raises(Exception, match="Database error"):
                 await handler.handle(sample_query)
 
         # Verify initial info log was called
         mock_logger.info.assert_called_once()
-        
+
         # Verify error log was called
         mock_logger.error.assert_called_once()
-        
+
         error_log_call = mock_logger.error.call_args
         error_message = error_log_call[0][0]
         error_extra = error_log_call[1]["extra"]
-        
+
         assert "Failed to retrieve filing" in error_message
         assert error_extra["filing_id"] == str(sample_query.filing_id)
         assert error_extra["error"] == "Database error"
-        
+
         # Verify exc_info was set for stack trace
         assert error_log_call[1]["exc_info"] is True
 
@@ -507,11 +534,12 @@ class TestGetFilingQueryHandler:
         """Test handler type annotations and generic typing."""
         # Verify handler is properly typed
         assert hasattr(handler, 'handle')
-        
+
         # The handler should be a QueryHandler with proper generics
         from src.application.base.handlers import QueryHandler
+
         assert isinstance(handler, QueryHandler)
-        
+
         # Verify query type method
         assert handler.query_type() == GetFilingQuery
 
@@ -583,16 +611,18 @@ class TestGetFilingQueryHandler:
             analyses_count=2,
             latest_analysis_date=date(2023, 10, 30),
         )
-        
-        with patch.object(FilingResponse, 'from_domain', return_value=realistic_response) as mock_from_domain:
+
+        with patch.object(
+            FilingResponse, 'from_domain', return_value=realistic_response
+        ) as mock_from_domain:
             result = await handler.handle(realistic_query)
 
         assert result == realistic_response
-        
+
         # Verify repositories were called with correct parameters
         mock_filing_repository.get_by_id.assert_called_once_with(filing_id)
         mock_analysis_repository.find_by_filing_id.assert_called_once_with(filing_id)
-        
+
         # Verify response conversion with analysis data
         expected_latest_date = date(2023, 10, 30)
         mock_from_domain.assert_called_once_with(

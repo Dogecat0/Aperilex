@@ -1,10 +1,13 @@
 """Tests for GetCompanyQueryHandler."""
 
-import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
-from src.application.queries.handlers.get_company_query_handler import GetCompanyQueryHandler
+import pytest
+
+from src.application.queries.handlers.get_company_query_handler import (
+    GetCompanyQueryHandler,
+)
 from src.application.schemas.queries.get_company import GetCompanyQuery
 from src.application.schemas.responses.company_response import CompanyResponse
 from src.domain.entities.analysis import Analysis, AnalysisType
@@ -103,7 +106,7 @@ class TestGetCompanyQueryHandler:
     def test_query_type_class_method(self) -> None:
         """Test query_type class method returns correct type."""
         query_type = GetCompanyQueryHandler.query_type()
-        
+
         assert query_type == GetCompanyQuery
 
     @pytest.mark.asyncio
@@ -130,11 +133,13 @@ class TestGetCompanyQueryHandler:
 
         # Verify result
         assert result is expected_response
-        
+
         # Verify repository and service calls
         mock_company_repository.get_by_cik.assert_called_once_with(sample_query_cik.cik)
-        mock_edgar_service.get_company_by_cik.assert_called_once_with(sample_query_cik.cik)
-        
+        mock_edgar_service.get_company_by_cik.assert_called_once_with(
+            sample_query_cik.cik
+        )
+
         # Verify response creation
         mock_from_domain.assert_called_once_with(
             company=mock_company_entity,
@@ -164,11 +169,13 @@ class TestGetCompanyQueryHandler:
 
         # Verify result
         assert result is expected_response
-        
+
         # Verify repository and service calls
         mock_company_repository.get_by_cik.assert_called_once_with(sample_query_cik.cik)
-        mock_edgar_service.get_company_by_cik.assert_called_once_with(sample_query_cik.cik)
-        
+        mock_edgar_service.get_company_by_cik.assert_called_once_with(
+            sample_query_cik.cik
+        )
+
         # Verify response creation
         mock_from_edgar.assert_called_once_with(
             edgar_data=mock_edgar_data,
@@ -197,10 +204,12 @@ class TestGetCompanyQueryHandler:
 
         # Verify result
         assert result is expected_response
-        
+
         # Verify service calls
-        mock_edgar_service.get_company_by_ticker.assert_called_once_with(Ticker(sample_query_ticker.ticker))
-        
+        mock_edgar_service.get_company_by_ticker.assert_called_once_with(
+            Ticker(sample_query_ticker.ticker)
+        )
+
         # Verify response creation
         mock_from_edgar.assert_called_once_with(
             edgar_data=mock_edgar_data,
@@ -226,7 +235,7 @@ class TestGetCompanyQueryHandler:
         # Setup mocks
         mock_company_repository.get_by_cik.return_value = mock_company_entity
         mock_edgar_service.get_company_by_cik.return_value = mock_edgar_data
-        
+
         # Mock recent analyses
         mock_analyses = [
             Analysis(
@@ -251,14 +260,12 @@ class TestGetCompanyQueryHandler:
 
         # Verify result
         assert result is expected_response
-        
+
         # Verify recent analyses were fetched
         mock_analysis_repository.find_with_filters.assert_called_once_with(
-            company_cik=query.cik,
-            page=1,
-            page_size=5
+            company_cik=query.cik, page=1, page_size=5
         )
-        
+
         # Verify response creation with recent analyses
         mock_from_domain.assert_called_once()
         call_kwargs = mock_from_domain.call_args[1]
@@ -275,14 +282,20 @@ class TestGetCompanyQueryHandler:
         """Test handling query when EDGAR service fails."""
         # Setup mocks
         mock_company_repository.get_by_cik.return_value = None
-        mock_edgar_service.get_company_by_cik.side_effect = Exception("EDGAR service unavailable")
+        mock_edgar_service.get_company_by_cik.side_effect = Exception(
+            "EDGAR service unavailable"
+        )
 
         # Expect RuntimeError to be raised
-        with pytest.raises(RuntimeError, match="Unable to retrieve company information from SEC EDGAR"):
+        with pytest.raises(
+            RuntimeError, match="Unable to retrieve company information from SEC EDGAR"
+        ):
             await handler.handle(sample_query_cik)
 
         # Verify service was called
-        mock_edgar_service.get_company_by_cik.assert_called_once_with(sample_query_cik.cik)
+        mock_edgar_service.get_company_by_cik.assert_called_once_with(
+            sample_query_cik.cik
+        )
 
     @pytest.mark.asyncio
     async def test_get_recent_analyses_success(
@@ -292,7 +305,7 @@ class TestGetCompanyQueryHandler:
     ) -> None:
         """Test successful retrieval of recent analyses."""
         cik = CIK("0000320193")
-        
+
         # Mock recent analyses
         mock_analyses = [
             Analysis(
@@ -324,9 +337,11 @@ class TestGetCompanyQueryHandler:
     ) -> None:
         """Test handling repository error when fetching recent analyses."""
         cik = CIK("0000320193")
-        
+
         # Mock repository error
-        mock_analysis_repository.find_with_filters.side_effect = Exception("Database error")
+        mock_analysis_repository.find_with_filters.side_effect = Exception(
+            "Database error"
+        )
 
         result = await handler._get_recent_analyses(cik)
 
@@ -346,7 +361,9 @@ class TestGetCompanyQueryHandler:
             include_recent_analyses=False,
         )
 
-        enrichments = await handler._collect_enrichments(query, mock_edgar_data, mock_company_entity)
+        enrichments = await handler._collect_enrichments(
+            query, mock_edgar_data, mock_company_entity
+        )
 
         assert enrichments == {}
 

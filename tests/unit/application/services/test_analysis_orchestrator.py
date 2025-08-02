@@ -1,20 +1,21 @@
 """Tests for AnalysisOrchestrator."""
 
-import pytest
 from datetime import UTC, datetime
+from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import UUID, uuid4
-from typing import Any
+
+import pytest
 
 from src.application.schemas.commands.analyze_filing import (
-    AnalysisTemplate, 
-    AnalyzeFilingCommand
+    AnalysisTemplate,
+    AnalyzeFilingCommand,
 )
 from src.application.services.analysis_orchestrator import (
-    AnalysisOrchestrator,
     AnalysisOrchestrationError,
+    AnalysisOrchestrator,
+    AnalysisProcessingError,
     FilingAccessError,
-    AnalysisProcessingError
 )
 from src.application.services.analysis_template_service import AnalysisTemplateService
 from src.domain.entities.analysis import Analysis, AnalysisType
@@ -56,7 +57,7 @@ class TestAnalysisOrchestrator:
         service = MagicMock(spec=AnalysisTemplateService)
         service.get_schemas_for_template.return_value = [
             "BusinessAnalysisSection",
-            "RiskFactorsAnalysisSection"
+            "RiskFactorsAnalysisSection",
         ]
         return service
 
@@ -130,9 +131,11 @@ class TestAnalysisOrchestrator:
         mock_edgar_service.get_filing_by_accession.return_value = mock_filing_data
 
         result = await orchestrator.validate_filing_access(accession_number)
-        
+
         assert result is True
-        mock_edgar_service.get_filing_by_accession.assert_called_once_with(accession_number)
+        mock_edgar_service.get_filing_by_accession.assert_called_once_with(
+            accession_number
+        )
 
     @pytest.mark.asyncio
     async def test_validate_filing_access_missing_company_name(
@@ -146,7 +149,9 @@ class TestAnalysisOrchestrator:
         mock_filing_data.company_name = None
         mock_edgar_service.get_filing_by_accession.return_value = mock_filing_data
 
-        with pytest.raises(FilingAccessError, match="Filing missing required company name"):
+        with pytest.raises(
+            FilingAccessError, match="Filing missing required company name"
+        ):
             await orchestrator.validate_filing_access(accession_number)
 
     @pytest.mark.asyncio
@@ -161,7 +166,9 @@ class TestAnalysisOrchestrator:
         mock_filing_data.filing_type = None
         mock_edgar_service.get_filing_by_accession.return_value = mock_filing_data
 
-        with pytest.raises(FilingAccessError, match="Filing missing required filing type"):
+        with pytest.raises(
+            FilingAccessError, match="Filing missing required filing type"
+        ):
             await orchestrator.validate_filing_access(accession_number)
 
     @pytest.mark.asyncio
@@ -172,7 +179,9 @@ class TestAnalysisOrchestrator:
     ) -> None:
         """Test filing access validation with EdgarService error."""
         accession_number = AccessionNumber("1234567890-12-123456")
-        mock_edgar_service.get_filing_by_accession.side_effect = ValueError("Filing not found")
+        mock_edgar_service.get_filing_by_accession.side_effect = ValueError(
+            "Filing not found"
+        )
 
         with pytest.raises(FilingAccessError, match="Cannot access filing"):
             await orchestrator.validate_filing_access(accession_number)
@@ -279,7 +288,7 @@ class TestAnalysisOrchestrator:
 
         assert result == mock_analysis_entity
         mock_analysis_repository.create.assert_called_once()
-        
+
         # Check that create was called with correct analysis properties
         created_analysis = mock_analysis_repository.create.call_args[0][0]
         assert created_analysis.id == analysis_id
@@ -297,10 +306,10 @@ class TestAnalysisOrchestrator:
     ) -> None:
         """Test finding existing analysis (placeholder implementation)."""
         filing_id = uuid4()
-        
+
         # Current implementation always returns None
         result = await orchestrator._find_existing_analysis(filing_id, sample_command)
-        
+
         assert result is None
 
     @pytest.mark.asyncio
@@ -312,7 +321,7 @@ class TestAnalysisOrchestrator:
     ) -> None:
         """Test successful extraction of relevant filing sections."""
         schemas_to_use = ["BusinessAnalysisSection", "RiskFactorsAnalysisSection"]
-        
+
         # Mock the extract_filing_sections method
         mock_sections = {
             "Item 1 - Business": "Business section content",
@@ -322,8 +331,7 @@ class TestAnalysisOrchestrator:
         mock_edgar_service.extract_filing_sections.return_value = mock_sections
 
         result = await orchestrator._extract_relevant_filing_sections(
-            mock_filing_data, 
-            schemas_to_use
+            mock_filing_data, schemas_to_use
         )
 
         # Should only return relevant sections
@@ -332,12 +340,14 @@ class TestAnalysisOrchestrator:
             "Item 1A - Risk Factors": "Risk factors content",
         }
         assert result == expected
-        
+
         # Verify the method was called with Ticker and FilingType value objects
         mock_edgar_service.extract_filing_sections.assert_called_once()
         call_args = mock_edgar_service.extract_filing_sections.call_args[0]
         assert str(call_args[0]) == mock_filing_data.ticker  # Ticker value object
-        assert call_args[1].value == mock_filing_data.filing_type  # FilingType value object
+        assert (
+            call_args[1].value == mock_filing_data.filing_type
+        )  # FilingType value object
 
     @pytest.mark.asyncio
     async def test_extract_relevant_filing_sections_fallback(
@@ -348,14 +358,15 @@ class TestAnalysisOrchestrator:
     ) -> None:
         """Test fallback when section extraction fails."""
         schemas_to_use = ["BusinessAnalysisSection"]
-        
+
         # Mock extraction failure
-        mock_edgar_service.extract_filing_sections.side_effect = Exception("Extraction failed")
+        mock_edgar_service.extract_filing_sections.side_effect = Exception(
+            "Extraction failed"
+        )
         mock_filing_data.sections = {"fallback": "content"}
 
         result = await orchestrator._extract_relevant_filing_sections(
-            mock_filing_data, 
-            schemas_to_use
+            mock_filing_data, schemas_to_use
         )
 
         # Should fallback to filing_data.sections
@@ -394,19 +405,21 @@ class TestAnalysisOrchestrator:
             "Item 1 - Business": "Business content"
         }
 
-        with patch.object(orchestrator, 'validate_filing_access_and_get_data') as mock_validate:
+        with patch.object(
+            orchestrator, 'validate_filing_access_and_get_data'
+        ) as mock_validate:
             mock_validate.return_value = mock_filing_data
-            
+
             result = await orchestrator.orchestrate_filing_analysis(sample_command)
 
         assert result == mock_analysis_entity
-        
+
         # Verify key method calls
         mock_validate.assert_called_once_with(sample_command.accession_number)
         # Note: mock_edgar_service.get_filing_by_accession is not called because we patch validate_filing_access_and_get_data
         mock_template_service.get_schemas_for_template.assert_called_once()
         mock_llm_provider.analyze_filing.assert_called_once()
-        
+
         # Verify the orchestration completed successfully
         assert result == mock_analysis_entity
 
@@ -417,9 +430,11 @@ class TestAnalysisOrchestrator:
         sample_command: AnalyzeFilingCommand,
     ) -> None:
         """Test orchestration with filing access error."""
-        with patch.object(orchestrator, 'validate_filing_access_and_get_data') as mock_validate:
+        with patch.object(
+            orchestrator, 'validate_filing_access_and_get_data'
+        ) as mock_validate:
             mock_validate.side_effect = FilingAccessError("Cannot access filing")
-            
+
             with pytest.raises(FilingAccessError):
                 await orchestrator.orchestrate_filing_analysis(sample_command)
 
@@ -447,13 +462,17 @@ class TestAnalysisOrchestrator:
         # Mock LLM failure
         mock_llm_provider.analyze_filing.side_effect = Exception("LLM failed")
 
-        with patch.object(orchestrator, 'validate_filing_access') as mock_validate, \
-             patch.object(orchestrator, 'handle_analysis_failure') as mock_handle_failure:
+        with (
+            patch.object(orchestrator, 'validate_filing_access') as mock_validate,
+            patch.object(
+                orchestrator, 'handle_analysis_failure'
+            ) as mock_handle_failure,
+        ):
             mock_validate.return_value = True
-            
+
             with pytest.raises(AnalysisProcessingError, match="LLM analysis failed"):
                 await orchestrator.orchestrate_filing_analysis(sample_command)
-                
+
             # Should have called failure handler
             mock_handle_failure.assert_called_once()
 
@@ -493,11 +512,15 @@ class TestAnalysisOrchestrator:
 
         mock_edgar_service.extract_filing_sections.return_value = {}
 
-        with patch.object(orchestrator, 'validate_filing_access') as mock_validate, \
-             patch.object(orchestrator, '_find_existing_analysis') as mock_find_existing:
+        with (
+            patch.object(orchestrator, 'validate_filing_access') as mock_validate,
+            patch.object(orchestrator, '_find_existing_analysis') as mock_find_existing,
+        ):
             mock_validate.return_value = True
-            mock_find_existing.return_value = mock_analysis_entity  # Existing analysis found
-            
+            mock_find_existing.return_value = (
+                mock_analysis_entity  # Existing analysis found
+            )
+
             result = await orchestrator.orchestrate_filing_analysis(command)
 
         # Should not use existing analysis due to force_reprocess=True
@@ -514,12 +537,16 @@ class TestAnalysisOrchestrator:
     ) -> None:
         """Test orchestration with unexpected error."""
         # Mock an unexpected error early in the process
-        mock_edgar_service.get_filing_by_accession.side_effect = RuntimeError("Unexpected error")
+        mock_edgar_service.get_filing_by_accession.side_effect = RuntimeError(
+            "Unexpected error"
+        )
 
         with patch.object(orchestrator, 'validate_filing_access') as mock_validate:
             mock_validate.return_value = True
-            
-            with pytest.raises(AnalysisOrchestrationError, match="Analysis orchestration failed"):
+
+            with pytest.raises(
+                AnalysisOrchestrationError, match="Analysis orchestration failed"
+            ):
                 await orchestrator.orchestrate_filing_analysis(sample_command)
 
     def test_orchestrator_initialization(

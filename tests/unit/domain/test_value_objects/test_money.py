@@ -58,7 +58,9 @@ class TestMoney:
             Money(100, "")
 
         # None currency
-        with pytest.raises(AttributeError, match="'NoneType' object has no attribute 'strip'"):
+        with pytest.raises(
+            AttributeError, match="'NoneType' object has no attribute 'strip'"
+        ):
             Money(100, None)  # type: ignore
 
         # Whitespace currency
@@ -150,7 +152,9 @@ class TestMoney:
             _: Money = money1 + money3
 
         # Test with non-Money type should fail
-        with pytest.raises(AttributeError, match="'int' object has no attribute '_currency'"):
+        with pytest.raises(
+            AttributeError, match="'int' object has no attribute '_currency'"
+        ):
             money1 + 50  # type: ignore
 
     def test_subtraction(self):
@@ -168,7 +172,9 @@ class TestMoney:
             _ = money1 - money3
 
         # Test with non-Money type should fail
-        with pytest.raises(AttributeError, match="'int' object has no attribute '_currency'"):
+        with pytest.raises(
+            AttributeError, match="'int' object has no attribute '_currency'"
+        ):
             money1 - 50  # type: ignore
 
     def test_multiplication(self):
@@ -253,7 +259,9 @@ class TestMoney:
             assert money1 < money4
 
         # Test with non-Money type should fail
-        with pytest.raises(AttributeError, match="'int' object has no attribute '_currency'"):
+        with pytest.raises(
+            AttributeError, match="'int' object has no attribute '_currency'"
+        ):
             money1 < 100  # type: ignore
 
     def test_abs(self):

@@ -69,7 +69,7 @@ class TestAnalyzeFilingCommand:
         """Test that commands are immutable (frozen dataclass)."""
         company_cik = CIK("0000320193")
         accession_number = AccessionNumber("0000320193-23-000064")
-        
+
         command = AnalyzeFilingCommand(
             company_cik=company_cik,
             accession_number=accession_number,
@@ -78,7 +78,7 @@ class TestAnalyzeFilingCommand:
         # Should not be able to modify command attributes
         with pytest.raises(AttributeError):
             command.company_cik = CIK("0000789019")
-        
+
         with pytest.raises(AttributeError):
             command.force_reprocess = True
 
@@ -127,7 +127,7 @@ class TestAnalyzeFilingCommand:
 
         # Same field values should be equal
         assert command1 == command2
-        
+
         # Different field values should not be equal
         assert command1 != command3
 
@@ -135,7 +135,7 @@ class TestAnalyzeFilingCommand:
         """Test command string representation."""
         company_cik = CIK("0000320193")
         accession_number = AccessionNumber("0000320193-23-000064")
-        
+
         command = AnalyzeFilingCommand(
             company_cik=company_cik,
             accession_number=accession_number,
@@ -171,7 +171,7 @@ class TestAnalysisTemplate:
         """Test creating template from string value."""
         template = AnalysisTemplate("comprehensive")
         assert template == AnalysisTemplate.COMPREHENSIVE
-        
+
         template = AnalysisTemplate("financial_focused")
         assert template == AnalysisTemplate.FINANCIAL_FOCUSED
 

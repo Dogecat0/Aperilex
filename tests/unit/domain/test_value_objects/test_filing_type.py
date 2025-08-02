@@ -120,9 +120,21 @@ class TestFilingType:
     def test_all_filing_types_exist(self):
         """Test that all expected filing types exist."""
         expected_forms = [
-            "10-K", "10-Q", "8-K", "13F", "3", "4", "5", 
-            "S-1", "S-3", "S-4", "DEF 14A", "DEFA14A",
-            "10-K/A", "10-Q/A", "8-K/A"
+            "10-K",
+            "10-Q",
+            "8-K",
+            "13F",
+            "3",
+            "4",
+            "5",
+            "S-1",
+            "S-3",
+            "S-4",
+            "DEF 14A",
+            "DEFA14A",
+            "10-K/A",
+            "10-Q/A",
+            "8-K/A",
         ]
 
         for form_value in expected_forms:
@@ -135,7 +147,7 @@ class TestFilingType:
         # Test that enum values cannot be changed
         original_value = FilingType.FORM_10K.value
         assert original_value == "10-K"
-        
+
         # FilingType should be immutable (it's an enum)
         assert FilingType.FORM_10K.value == "10-K"
 
@@ -143,10 +155,10 @@ class TestFilingType:
         """Test that FilingType values hash consistently."""
         form1 = FilingType.FORM_10K
         form2 = FilingType("10-K")
-        
+
         assert form1 == form2
         assert hash(form1) == hash(form2)
-        
+
         # Test that different forms have different hashes
         form3 = FilingType.FORM_10Q
         assert hash(form1) != hash(form3)
@@ -158,7 +170,7 @@ class TestFilingType:
             FilingType.FORM_10Q,
             FilingType.FORM_10K,  # Duplicate
         }
-        
+
         assert len(filing_set) == 2
         assert FilingType.FORM_10K in filing_set
         assert FilingType.FORM_10Q in filing_set
@@ -169,7 +181,7 @@ class TestFilingType:
         # Test that we can iterate over all filing types
         all_forms = list(FilingType)
         assert len(all_forms) == 15  # Total number of filing types
-        
+
         # Test that all forms have valid values
         for form in all_forms:
             assert isinstance(form.value, str)

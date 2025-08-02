@@ -170,9 +170,9 @@ class TestOpenAIProvider:
         """Test successful extraction of subsection text."""
         mock_response = Mock()
         mock_response.choices = [Mock()]
-        mock_response.choices[
-            0
-        ].message.content = "Extracted relevant text for operational overview."
+        mock_response.choices[0].message.content = (
+            "Extracted relevant text for operational overview."
+        )
 
         provider.client.chat.completions.create = AsyncMock(return_value=mock_response)
 

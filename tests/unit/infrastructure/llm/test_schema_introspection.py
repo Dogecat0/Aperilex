@@ -3,9 +3,10 @@
 
 # Import the current schemas to test
 from typing import Any
+
+from src.infrastructure.llm.base import SubSectionAnalysisResponse  # The Union type
 from src.infrastructure.llm.base import (
     SectionAnalysisResponse,
-    SubSectionAnalysisResponse,  # The Union type
     SubsectionAnalysisResponse,
 )
 from src.infrastructure.llm.schemas.mda import MDAAnalysisSection

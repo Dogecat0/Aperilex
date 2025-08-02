@@ -3,19 +3,20 @@
 These tests simulate various Redis failure scenarios to ensure robust error handling.
 """
 
-import pytest
-from unittest.mock import patch, Mock, AsyncMock
-import redis.exceptions
 import json
-from datetime import datetime, UTC
+from datetime import UTC, datetime
+from unittest.mock import AsyncMock, Mock, patch
 from uuid import uuid4
 
-from src.infrastructure.cache.redis_service import RedisService
-from src.infrastructure.cache.cache_manager import CacheManager
+import pytest
+import redis.exceptions
+
+from src.domain.entities.analysis import Analysis, AnalysisType
 from src.domain.entities.company import Company
 from src.domain.entities.filing import Filing
-from src.domain.entities.analysis import Analysis, AnalysisType
 from src.domain.value_objects import CIK, AccessionNumber, FilingType, ProcessingStatus
+from src.infrastructure.cache.cache_manager import CacheManager
+from src.infrastructure.cache.redis_service import RedisService
 
 
 class TestRedisErrorScenarios:
@@ -35,11 +36,12 @@ class TestRedisErrorScenarios:
     def sample_company(self):
         """Create sample company for testing."""
         from uuid import uuid4
+
         return Company(
             id=uuid4(),
             cik=CIK("0000320193"),
             name="Apple Inc.",
-            metadata={"ticker": "AAPL", "sector": "Technology"}
+            metadata={"ticker": "AAPL", "sector": "Technology"},
         )
 
     @pytest.fixture
@@ -52,7 +54,7 @@ class TestRedisErrorScenarios:
             filing_type=FilingType("10-K"),
             processing_status=ProcessingStatus.COMPLETED,
             filing_date=datetime.now(UTC).date(),
-            metadata={"url": "https://sec.gov/example"}
+            metadata={"url": "https://sec.gov/example"},
         )
 
     @pytest.mark.asyncio
@@ -60,12 +62,12 @@ class TestRedisErrorScenarios:
         """Test handling of Redis connection failures."""
         # Set up the service as connected first
         redis_service._connected = True
-        
+
         with patch.object(redis_service, '_redis') as mock_client:
             mock_client.ping.side_effect = redis.exceptions.ConnectionError(
                 "Connection refused"
             )
-            
+
             # Should handle connection failure gracefully by returning False
             result = await redis_service.health_check()
             assert result is False
@@ -75,10 +77,12 @@ class TestRedisErrorScenarios:
         """Test handling of Redis timeout errors."""
         # Set up the service as connected to bypass auto-connection
         redis_service._connected = True
-        
+
         with patch.object(redis_service, '_redis') as mock_client:
-            mock_client.get.side_effect = redis.exceptions.TimeoutError("Request timeout")
-            
+            mock_client.get.side_effect = redis.exceptions.TimeoutError(
+                "Request timeout"
+            )
+
             # Should handle timeout gracefully and return None
             result = await redis_service.get("test_key")
             assert result is None
@@ -88,12 +92,12 @@ class TestRedisErrorScenarios:
         """Test handling of Redis out-of-memory errors."""
         # Set up the service as connected to bypass auto-connection
         redis_service._connected = True
-        
+
         with patch.object(redis_service, '_redis') as mock_client:
             mock_client.set.side_effect = redis.exceptions.ResponseError(
                 "OOM command not allowed when used memory > 'maxmemory'"
             )
-            
+
             # Should handle memory errors gracefully by returning False
             result = await redis_service.set("test_key", "test_value")
             assert result is False
@@ -103,27 +107,27 @@ class TestRedisErrorScenarios:
         """Test handling of Redis cluster failures."""
         # Set up the service as connected to bypass auto-connection
         redis_service._connected = True
-        
+
         with patch.object(redis_service, '_redis') as mock_client:
             mock_client.get.side_effect = redis.exceptions.ClusterDownError(
                 "Cluster is down"
             )
-            
+
             # Should handle cluster errors gracefully by returning None
             result = await redis_service.get("test_key")
             assert result is None
 
     @pytest.mark.asyncio
     async def test_redis_authentication_failure(self, redis_service):
-        """Test handling of Redis authentication failures.""" 
+        """Test handling of Redis authentication failures."""
         # Set up the service as connected to bypass auto-connection
         redis_service._connected = True
-        
+
         with patch.object(redis_service, '_redis') as mock_client:
             mock_client.ping.side_effect = redis.exceptions.AuthenticationError(
                 "Invalid password"
             )
-            
+
             # Should handle authentication errors gracefully by returning False
             result = await redis_service.health_check()
             assert result is False
@@ -131,14 +135,15 @@ class TestRedisErrorScenarios:
     @pytest.mark.asyncio
     async def test_cache_serialization_error(self, cache_manager, sample_company):
         """Test handling of serialization errors in cache operations."""
+
         # Create an object that can't be serialized
         class UnserializableObject:
             def __init__(self):
                 self.func = lambda x: x  # Functions can't be JSON serialized
-        
+
         unserializable_company = sample_company
         unserializable_company.add_metadata("func", UnserializableObject())
-        
+
         # Test that serialization error is handled gracefully (cache_manager should not crash)
         try:
             await cache_manager.cache_company(unserializable_company)
@@ -146,18 +151,22 @@ class TestRedisErrorScenarios:
             # which is acceptable for this test
         except Exception as e:
             # If an error is raised, it should be related to serialization
-            assert "serializ" in str(e).lower() or "json" in str(e).lower() or "pickle" in str(e).lower()
+            assert (
+                "serializ" in str(e).lower()
+                or "json" in str(e).lower()
+                or "pickle" in str(e).lower()
+            )
 
     @pytest.mark.asyncio
     async def test_cache_deserialization_error(self, cache_manager, sample_company):
         """Test handling of deserialization errors."""
         # Set up the redis service as connected to bypass auto-connection
         cache_manager.redis._connected = True
-        
+
         # Mock the underlying Redis client to return invalid JSON
         with patch.object(cache_manager.redis, '_redis') as mock_client:
             mock_client.get = AsyncMock(return_value="invalid json string")
-            
+
             # Should handle deserialization errors gracefully by returning None
             result = await cache_manager.get_company_by_cik(str(sample_company.cik))
             assert result is None
@@ -167,20 +176,22 @@ class TestRedisErrorScenarios:
         """Test handling of cache key collisions."""
         # Cache the company first
         await cache_manager.cache_company(sample_company)
-        
+
         # Try to cache a different object with same key structure
         different_company = Company(
             id=uuid4(),
             cik=sample_company.cik,  # Same CIK
             name="Different Company",
-            metadata={"different": "data"}
+            metadata={"different": "data"},
         )
-        
+
         # Should handle key collision by overwriting
         await cache_manager.cache_company(different_company)
-        
+
         # Verify the new data is cached (should overwrite)
-        cached_company_data = await cache_manager.get_company_by_cik(str(sample_company.cik))
+        cached_company_data = await cache_manager.get_company_by_cik(
+            str(sample_company.cik)
+        )
         assert cached_company_data is not None
         assert cached_company_data["name"] == "Different Company"
 
@@ -190,7 +201,7 @@ class TestRedisErrorScenarios:
         with patch.object(cache_manager.redis, 'get') as mock_get:
             # Simulate expired key (returns None)
             mock_get.return_value = None
-            
+
             # Should handle gracefully
             result = await cache_manager.get_company_by_cik(str(sample_company.cik))
             assert result is None
@@ -203,54 +214,66 @@ class TestRedisErrorScenarios:
             id=uuid4(),
             cik=sample_company.cik,
             name=sample_company.name,
-            metadata={"large_data": "x" * 1000000}  # 1MB of data
+            metadata={"large_data": "x" * 1000000},  # 1MB of data
         )
-        
+
         # Should handle large objects
         await cache_manager.cache_company(large_company)
-        cached_company_data = await cache_manager.get_company_by_cik(str(large_company.cik))
+        cached_company_data = await cache_manager.get_company_by_cik(
+            str(large_company.cik)
+        )
         assert cached_company_data is not None
         assert cached_company_data["name"] == large_company.name
 
     @pytest.mark.asyncio
-    async def test_cache_concurrent_access_handling(self, cache_manager, sample_company):
+    async def test_cache_concurrent_access_handling(
+        self, cache_manager, sample_company
+    ):
         """Test handling of concurrent cache access scenarios."""
         import threading
         import time
-        
+
         errors = []
-        
+
         import asyncio
-        
+
         async def cache_operation():
             try:
                 for i in range(10):
                     # Simulate concurrent read/write operations
                     await cache_manager.cache_company(sample_company)
-                    cached = await cache_manager.get_company_by_cik(str(sample_company.cik))
-                    await asyncio.sleep(0.01)  # Small delay to increase chance of race conditions
+                    cached = await cache_manager.get_company_by_cik(
+                        str(sample_company.cik)
+                    )
+                    await asyncio.sleep(
+                        0.01
+                    )  # Small delay to increase chance of race conditions
             except Exception as e:
                 errors.append(e)
-        
+
         # Start multiple concurrent tasks
         tasks = [cache_operation() for _ in range(3)]
         await asyncio.gather(*tasks)
-        
+
         # Should handle concurrent access without errors
         assert len(errors) == 0
 
     @pytest.mark.asyncio
-    async def test_cache_invalidation_cascade_error(self, cache_manager, sample_company, sample_filing):
+    async def test_cache_invalidation_cascade_error(
+        self, cache_manager, sample_company, sample_filing
+    ):
         """Test handling of errors during cache invalidation cascades."""
         # Cache company and related filing
         await cache_manager.cache_company(sample_company)
         await cache_manager.cache_filing(sample_filing)
-        
+
         # Mock clear_pattern to return 0 (simulating error handling)
         mock_clear = AsyncMock(return_value=0)
         with patch.object(cache_manager.redis, 'clear_pattern', mock_clear):
             # Should handle invalidation errors gracefully and return False (no items deleted)
-            result = await cache_manager.invalidate_company(sample_company.id, str(sample_company.cik))
+            result = await cache_manager.invalidate_company(
+                sample_company.id, str(sample_company.cik)
+            )
             assert result is False  # Should return False when no items are deleted
 
     @pytest.mark.asyncio
@@ -258,13 +281,13 @@ class TestRedisErrorScenarios:
         """Test handling of Redis pipeline failures."""
         # Set up the service as connected to bypass auto-connection
         redis_service._connected = True
-        
+
         with patch.object(redis_service, '_redis') as mock_client:
             # Test multiple set operations that would fail
             mock_client.set.side_effect = redis.exceptions.ResponseError(
                 "Set operation failed"
             )
-            
+
             # Should handle set operation failures
             result = await redis_service.set("key1", "value1")
             assert result is False
@@ -274,12 +297,12 @@ class TestRedisErrorScenarios:
         """Test handling of Redis increment operation errors."""
         # Set up the service as connected to bypass auto-connection
         redis_service._connected = True
-        
+
         with patch.object(redis_service, '_redis') as mock_client:
             mock_client.incrby.side_effect = redis.exceptions.ResponseError(
                 "Increment operation failed"
             )
-            
+
             # Should handle increment operation errors gracefully
             result = await redis_service.increment("counter_key")
             # Redis service may return a default value or None on error
@@ -290,11 +313,13 @@ class TestRedisErrorScenarios:
         """Test handling of errors during cache key pattern operations."""
         # Set up the redis service as connected to bypass auto-connection
         cache_manager.redis._connected = True
-        
+
         # Mock the underlying Redis client to cause an error in clear_pattern
         with patch.object(cache_manager.redis, '_redis') as mock_client:
-            mock_client.keys = AsyncMock(side_effect=Exception("Pattern clearing failed"))
-            
+            mock_client.keys = AsyncMock(
+                side_effect=Exception("Pattern clearing failed")
+            )
+
             # Should handle pattern clearing errors gracefully by returning 0
             result = await cache_manager.redis.clear_pattern("company:*")
             assert result == 0  # Should return 0 on error
@@ -304,18 +329,18 @@ class TestRedisErrorScenarios:
         """Test recovery from network partition scenarios."""
         # Set up the service as connected to bypass auto-connection
         redis_service._connected = True
-        
+
         with patch.object(redis_service, '_redis') as mock_client:
             mock_ping = AsyncMock()
             mock_client.ping = mock_ping
-            
+
             # Simulate network partition followed by recovery
             mock_ping.side_effect = [
                 redis.exceptions.ConnectionError("Network partition"),
                 redis.exceptions.ConnectionError("Still partitioned"),
-                None  # Recovered (ping returns None on success for async redis)
+                None,  # Recovered (ping returns None on success for async redis)
             ]
-            
+
             # Should eventually recover
             attempt = 0
             max_attempts = 3
@@ -335,13 +360,13 @@ class TestRedisErrorScenarios:
         """Test handling of failures during cache warming operations."""
         with patch.object(cache_manager, 'cache_company') as mock_cache:
             mock_cache.side_effect = Exception("Cache warming failed")
-            
+
             # Should handle cache warming failures gracefully
             companies = [
                 Company(id=uuid4(), cik=CIK(f"000032019{i}"), name=f"Company {i}")
                 for i in range(5)
             ]
-            
+
             # Test individual cache_company failures
             for company in companies:
                 try:
@@ -357,18 +382,18 @@ class TestRedisErrorScenarios:
         """Test handling of Redis failover scenarios."""
         # Set up the service as connected to bypass auto-connection
         redis_service._connected = True
-        
+
         with patch.object(redis_service, '_redis') as mock_client:
             mock_get = AsyncMock()
             mock_client.get = mock_get
-            
+
             # Simulate master failure and failover
             mock_get.side_effect = [
                 redis.exceptions.ConnectionError("Master connection failed"),
                 redis.exceptions.ConnectionError("Slave connection failed"),
-                '"recovered_value"'  # After failover - JSON string format
+                '"recovered_value"',  # After failover - JSON string format
             ]
-            
+
             # Should handle failover scenario
             attempts = 0
             max_attempts = 3

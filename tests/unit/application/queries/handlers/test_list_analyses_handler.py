@@ -1,14 +1,17 @@
 """Tests for ListAnalysesQueryHandler."""
 
-import pytest
 from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import UUID, uuid4
 
-from src.application.queries.handlers.list_analyses_handler import ListAnalysesQueryHandler
+import pytest
+
+from src.application.queries.handlers.list_analyses_handler import (
+    ListAnalysesQueryHandler,
+)
 from src.application.schemas.queries.list_analyses import (
-    ListAnalysesQuery,
     AnalysisSortField,
+    ListAnalysesQuery,
     SortDirection,
 )
 from src.application.schemas.responses.analysis_response import AnalysisResponse
@@ -104,7 +107,7 @@ class TestListAnalysesQueryHandler:
     def test_query_type_class_method(self) -> None:
         """Test query_type class method returns correct type."""
         query_type = ListAnalysesQueryHandler.query_type()
-        
+
         assert query_type == ListAnalysesQuery
 
     @pytest.mark.asyncio
@@ -123,14 +126,22 @@ class TestListAnalysesQueryHandler:
 
         mock_paginated_response = MagicMock(spec=PaginatedResponse)
 
-        with patch.object(AnalysisResponse, 'summary_from_domain', side_effect=mock_analysis_responses), \
-             patch.object(PaginatedResponse, 'create', return_value=mock_paginated_response) as mock_create:
-            
+        with (
+            patch.object(
+                AnalysisResponse,
+                'summary_from_domain',
+                side_effect=mock_analysis_responses,
+            ),
+            patch.object(
+                PaginatedResponse, 'create', return_value=mock_paginated_response
+            ) as mock_create,
+        ):
+
             result = await handler.handle(basic_query)
 
         # Verify result
         assert result == mock_paginated_response
-        
+
         # Verify repository was called with correct parameters
         mock_analysis_repository.count_with_filters.assert_called_once_with(
             company_cik=None,
@@ -139,7 +150,7 @@ class TestListAnalysesQueryHandler:
             created_to=None,
             min_confidence_score=None,
         )
-        
+
         mock_analysis_repository.find_with_filters.assert_called_once_with(
             company_cik=None,
             analysis_types=None,
@@ -151,7 +162,7 @@ class TestListAnalysesQueryHandler:
             page=1,
             page_size=10,
         )
-        
+
         # Verify response creation
         mock_create.assert_called_once()
         call_kwargs = mock_create.call_args[1]
@@ -178,14 +189,22 @@ class TestListAnalysesQueryHandler:
 
         mock_paginated_response = MagicMock(spec=PaginatedResponse)
 
-        with patch.object(AnalysisResponse, 'summary_from_domain', side_effect=mock_analysis_responses), \
-             patch.object(PaginatedResponse, 'create', return_value=mock_paginated_response) as mock_create:
-            
+        with (
+            patch.object(
+                AnalysisResponse,
+                'summary_from_domain',
+                side_effect=mock_analysis_responses,
+            ),
+            patch.object(
+                PaginatedResponse, 'create', return_value=mock_paginated_response
+            ) as mock_create,
+        ):
+
             result = await handler.handle(filtered_query)
 
         # Verify result
         assert result == mock_paginated_response
-        
+
         # Verify repository was called with filter parameters
         mock_analysis_repository.count_with_filters.assert_called_once_with(
             company_cik=CIK("1234567890"),
@@ -194,7 +213,7 @@ class TestListAnalysesQueryHandler:
             created_to=datetime(2024, 3, 31, tzinfo=UTC),
             min_confidence_score=None,
         )
-        
+
         mock_analysis_repository.find_with_filters.assert_called_once_with(
             company_cik=CIK("1234567890"),
             analysis_types=[AnalysisType.FILING_ANALYSIS],
@@ -206,7 +225,7 @@ class TestListAnalysesQueryHandler:
             page=1,
             page_size=20,
         )
-        
+
         # Verify filter summary includes all applied filters
         call_kwargs = mock_create.call_args[1]
         filters_applied = call_kwargs["filters_applied"]
@@ -226,19 +245,21 @@ class TestListAnalysesQueryHandler:
         mock_analysis_repository.count_with_filters.return_value = 0
 
         mock_empty_response = MagicMock(spec=PaginatedResponse)
-        
-        with patch.object(PaginatedResponse, 'empty', return_value=mock_empty_response) as mock_empty:
+
+        with patch.object(
+            PaginatedResponse, 'empty', return_value=mock_empty_response
+        ) as mock_empty:
             result = await handler.handle(basic_query)
 
         # Verify result
         assert result == mock_empty_response
-        
+
         # Verify count was checked
         mock_analysis_repository.count_with_filters.assert_called_once()
-        
+
         # Find should not be called for empty results
         mock_analysis_repository.find_with_filters.assert_not_called()
-        
+
         # Verify empty response creation
         mock_empty.assert_called_once()
         call_kwargs = mock_empty.call_args[1]
@@ -296,37 +317,45 @@ class TestListAnalysesQueryHandler:
             # (query_params, expected_filter_parts)
             ({}, "none"),
             ({"company_cik": CIK("123456")}, "company: 123456"),
-            ({"analysis_types": [AnalysisType.FILING_ANALYSIS]}, "types: filing_analysis"),
-            ({"created_from": datetime(2024, 1, 1, tzinfo=UTC)}, "date: from 2024-01-01"),
-            ({"created_to": datetime(2024, 3, 31, tzinfo=UTC)}, "date: until 2024-03-31"),
+            (
+                {"analysis_types": [AnalysisType.FILING_ANALYSIS]},
+                "types: filing_analysis",
+            ),
+            (
+                {"created_from": datetime(2024, 1, 1, tzinfo=UTC)},
+                "date: from 2024-01-01",
+            ),
+            (
+                {"created_to": datetime(2024, 3, 31, tzinfo=UTC)},
+                "date: until 2024-03-31",
+            ),
             (
                 {
                     "company_cik": CIK("123456"),
                     "analysis_types": [AnalysisType.FILING_ANALYSIS],
                 },
-                ["company: 123456", "types: filing_analysis"]
+                ["company: 123456", "types: filing_analysis"],
             ),
         ]
 
         for query_params, expected_filters in test_cases:
             query = ListAnalysesQuery(
-                user_id="test_user",
-                page=1,
-                page_size=10,
-                **query_params
+                user_id="test_user", page=1, page_size=10, **query_params
             )
 
             # Setup mocks for empty result to focus on filter testing
             mock_analysis_repository.count_with_filters.return_value = 0
             mock_empty_response = MagicMock(spec=PaginatedResponse)
-            
-            with patch.object(PaginatedResponse, 'empty', return_value=mock_empty_response) as mock_empty:
+
+            with patch.object(
+                PaginatedResponse, 'empty', return_value=mock_empty_response
+            ) as mock_empty:
                 await handler.handle(query)
 
             # Verify filter summary
             call_kwargs = mock_empty.call_args[1]
             filters_applied = call_kwargs["filters_applied"]
-            
+
             if isinstance(expected_filters, list):
                 for expected_part in expected_filters:
                     assert expected_part in filters_applied
@@ -368,14 +397,22 @@ class TestListAnalysesQueryHandler:
             mock_analysis_repository.find_with_filters.return_value = mock_analyses
 
             mock_paginated_response = MagicMock(spec=PaginatedResponse)
-            
-            with patch.object(AnalysisResponse, 'summary_from_domain', side_effect=mock_analysis_responses), \
-                 patch.object(PaginatedResponse, 'create', return_value=mock_paginated_response):
-                
+
+            with (
+                patch.object(
+                    AnalysisResponse,
+                    'summary_from_domain',
+                    side_effect=mock_analysis_responses,
+                ),
+                patch.object(
+                    PaginatedResponse, 'create', return_value=mock_paginated_response
+                ),
+            ):
+
                 result = await handler.handle(query)
 
             assert result == mock_paginated_response
-            
+
             # Verify sorting parameters were passed correctly
             find_call = mock_analysis_repository.find_with_filters.call_args[1]
             assert find_call["sort_by"] == sort_by
@@ -396,8 +433,8 @@ class TestListAnalysesQueryHandler:
         pagination_configs = [
             (1, 10),  # First page, small size
             (3, 25),  # Middle page, medium size
-            (1, 100), # First page, large size
-            (5, 5),   # High page, tiny size
+            (1, 100),  # First page, large size
+            (5, 5),  # High page, tiny size
         ]
 
         for page, page_size in pagination_configs:
@@ -413,19 +450,27 @@ class TestListAnalysesQueryHandler:
             mock_analysis_repository.find_with_filters.return_value = mock_analyses
 
             mock_paginated_response = MagicMock(spec=PaginatedResponse)
-            
-            with patch.object(AnalysisResponse, 'summary_from_domain', side_effect=mock_analysis_responses), \
-                 patch.object(PaginatedResponse, 'create', return_value=mock_paginated_response) as mock_create:
-                
+
+            with (
+                patch.object(
+                    AnalysisResponse,
+                    'summary_from_domain',
+                    side_effect=mock_analysis_responses,
+                ),
+                patch.object(
+                    PaginatedResponse, 'create', return_value=mock_paginated_response
+                ) as mock_create,
+            ):
+
                 result = await handler.handle(query)
 
             assert result == mock_paginated_response
-            
+
             # Verify pagination parameters
             find_call = mock_analysis_repository.find_with_filters.call_args[1]
             assert find_call["page"] == page
             assert find_call["page_size"] == page_size
-            
+
             create_call = mock_create.call_args[1]
             assert create_call["page"] == page
             assert create_call["page_size"] == page_size
@@ -445,7 +490,10 @@ class TestListAnalysesQueryHandler:
         """Test filtering with multiple analysis types."""
         query = ListAnalysesQuery(
             user_id="test_user",
-            analysis_types=[AnalysisType.FILING_ANALYSIS, AnalysisType.CUSTOM_QUERY],  # Multiple types
+            analysis_types=[
+                AnalysisType.FILING_ANALYSIS,
+                AnalysisType.CUSTOM_QUERY,
+            ],  # Multiple types
             page=1,
             page_size=10,
         )
@@ -455,20 +503,28 @@ class TestListAnalysesQueryHandler:
         mock_analysis_repository.find_with_filters.return_value = mock_analyses
 
         mock_paginated_response = MagicMock(spec=PaginatedResponse)
-        
-        with patch.object(AnalysisResponse, 'summary_from_domain', side_effect=mock_analysis_responses), \
-             patch.object(PaginatedResponse, 'create', return_value=mock_paginated_response) as mock_create:
-            
+
+        with (
+            patch.object(
+                AnalysisResponse,
+                'summary_from_domain',
+                side_effect=mock_analysis_responses,
+            ),
+            patch.object(
+                PaginatedResponse, 'create', return_value=mock_paginated_response
+            ) as mock_create,
+        ):
+
             result = await handler.handle(query)
 
         # Verify analysis types were passed correctly
         count_call = mock_analysis_repository.count_with_filters.call_args[1]
         find_call = mock_analysis_repository.find_with_filters.call_args[1]
-        
+
         expected_types = [AnalysisType.FILING_ANALYSIS, AnalysisType.CUSTOM_QUERY]
         assert count_call["analysis_types"] == expected_types
         assert find_call["analysis_types"] == expected_types
-        
+
         # Verify filter summary includes types
         create_call = mock_create.call_args[1]
         filters_applied = create_call["filters_applied"]
@@ -484,7 +540,11 @@ class TestListAnalysesQueryHandler:
         """Test different date range filter variations."""
         date_range_configs = [
             # (created_from, created_to, expected_filter_part)
-            (datetime(2024, 1, 1, tzinfo=UTC), datetime(2024, 3, 31, tzinfo=UTC), "date: 2024-01-01 to 2024-03-31"),
+            (
+                datetime(2024, 1, 1, tzinfo=UTC),
+                datetime(2024, 3, 31, tzinfo=UTC),
+                "date: 2024-01-01 to 2024-03-31",
+            ),
             (datetime(2024, 1, 1, tzinfo=UTC), None, "date: from 2024-01-01"),
             (None, datetime(2024, 3, 31, tzinfo=UTC), "date: until 2024-03-31"),
         ]
@@ -501,8 +561,10 @@ class TestListAnalysesQueryHandler:
             # Setup mocks for empty result to focus on filter testing
             mock_analysis_repository.count_with_filters.return_value = 0
             mock_empty_response = MagicMock(spec=PaginatedResponse)
-            
-            with patch.object(PaginatedResponse, 'empty', return_value=mock_empty_response) as mock_empty:
+
+            with patch.object(
+                PaginatedResponse, 'empty', return_value=mock_empty_response
+            ) as mock_empty:
                 await handler.handle(query)
 
             # Verify filter summary
@@ -529,22 +591,32 @@ class TestListAnalysesQueryHandler:
 
         mock_paginated_response = MagicMock(spec=PaginatedResponse)
 
-        with patch.object(AnalysisResponse, 'summary_from_domain', side_effect=mock_analysis_responses), \
-             patch.object(PaginatedResponse, 'create', return_value=mock_paginated_response), \
-             patch('src.application.queries.handlers.list_analyses_handler.logger') as mock_logger:
-            
+        with (
+            patch.object(
+                AnalysisResponse,
+                'summary_from_domain',
+                side_effect=mock_analysis_responses,
+            ),
+            patch.object(
+                PaginatedResponse, 'create', return_value=mock_paginated_response
+            ),
+            patch(
+                'src.application.queries.handlers.list_analyses_handler.logger'
+            ) as mock_logger,
+        ):
+
             result = await handler.handle(basic_query)
 
         assert result == mock_paginated_response
 
         # Verify logging was called twice (info at start and success)
         assert mock_logger.info.call_count == 2
-        
+
         # Check initial log message
         initial_log_call = mock_logger.info.call_args_list[0]
         initial_message = initial_log_call[0][0]
         initial_extra = initial_log_call[1]["extra"]
-        
+
         assert "Processing list analyses query" in initial_message
         assert initial_extra["user_id"] == "test_user"
         assert initial_extra["page"] == 1
@@ -555,7 +627,7 @@ class TestListAnalysesQueryHandler:
         success_log_call = mock_logger.info.call_args_list[1]
         success_message = success_log_call[0][0]
         success_extra = success_log_call[1]["extra"]
-        
+
         assert "Successfully listed analyses" in success_message
         assert success_extra["total_count"] == 2
         assert success_extra["returned_count"] == 2
@@ -573,25 +645,27 @@ class TestListAnalysesQueryHandler:
         repository_error = Exception("Database error")
         mock_analysis_repository.count_with_filters.side_effect = repository_error
 
-        with patch('src.application.queries.handlers.list_analyses_handler.logger') as mock_logger:
+        with patch(
+            'src.application.queries.handlers.list_analyses_handler.logger'
+        ) as mock_logger:
             with pytest.raises(Exception, match="Database error"):
                 await handler.handle(basic_query)
 
         # Verify initial info log was called
         mock_logger.info.assert_called_once()
-        
+
         # Verify error log was called
         mock_logger.error.assert_called_once()
-        
+
         error_log_call = mock_logger.error.call_args
         error_message = error_log_call[0][0]
         error_extra = error_log_call[1]["extra"]
-        
+
         assert "Failed to list analyses" in error_message
         assert error_extra["error"] == "Database error"
         assert error_extra["user_id"] == "test_user"
         assert error_extra["page"] == 1
-        
+
         # Verify exc_info was set for stack trace
         assert error_log_call[1]["exc_info"] is True
 
@@ -603,11 +677,12 @@ class TestListAnalysesQueryHandler:
         """Test handler type annotations and generic typing."""
         # Verify handler is properly typed
         assert hasattr(handler, 'handle')
-        
+
         # The handler should be a QueryHandler with proper generics
         from src.application.base.handlers import QueryHandler
+
         assert isinstance(handler, QueryHandler)
-        
+
         # Verify query type method
         assert handler.query_type() == ListAnalysesQuery
 
@@ -624,17 +699,27 @@ class TestListAnalysesQueryHandler:
         mock_analysis_repository.count_with_filters.return_value = len(mock_analyses)
         mock_analysis_repository.find_with_filters.return_value = mock_analyses
 
-        mock_analysis_responses = [MagicMock(spec=AnalysisResponse) for _ in mock_analyses]
+        mock_analysis_responses = [
+            MagicMock(spec=AnalysisResponse) for _ in mock_analyses
+        ]
         mock_paginated_response = MagicMock(spec=PaginatedResponse)
 
-        with patch.object(AnalysisResponse, 'summary_from_domain', side_effect=mock_analysis_responses) as mock_summary, \
-             patch.object(PaginatedResponse, 'create', return_value=mock_paginated_response):
-            
+        with (
+            patch.object(
+                AnalysisResponse,
+                'summary_from_domain',
+                side_effect=mock_analysis_responses,
+            ) as mock_summary,
+            patch.object(
+                PaginatedResponse, 'create', return_value=mock_paginated_response
+            ),
+        ):
+
             result = await handler.handle(basic_query)
 
         # Verify summary_from_domain was called for each analysis
         assert mock_summary.call_count == len(mock_analyses)
-        
+
         for i, analysis in enumerate(mock_analyses):
             assert mock_summary.call_args_list[i][0][0] == analysis
 
@@ -683,19 +768,31 @@ class TestListAnalysesQueryHandler:
         ]
 
         # Setup repository mocks
-        mock_analysis_repository.count_with_filters.return_value = 67  # Total across all pages
+        mock_analysis_repository.count_with_filters.return_value = (
+            67  # Total across all pages
+        )
         mock_analysis_repository.find_with_filters.return_value = realistic_analyses
 
-        mock_analysis_responses = [MagicMock(spec=AnalysisResponse) for _ in realistic_analyses]
+        mock_analysis_responses = [
+            MagicMock(spec=AnalysisResponse) for _ in realistic_analyses
+        ]
         mock_paginated_response = MagicMock(spec=PaginatedResponse)
 
-        with patch.object(AnalysisResponse, 'summary_from_domain', side_effect=mock_analysis_responses), \
-             patch.object(PaginatedResponse, 'create', return_value=mock_paginated_response) as mock_create:
-            
+        with (
+            patch.object(
+                AnalysisResponse,
+                'summary_from_domain',
+                side_effect=mock_analysis_responses,
+            ),
+            patch.object(
+                PaginatedResponse, 'create', return_value=mock_paginated_response
+            ) as mock_create,
+        ):
+
             result = await handler.handle(realistic_query)
 
         assert result == mock_paginated_response
-        
+
         # Verify repository calls with realistic parameters
         mock_analysis_repository.count_with_filters.assert_called_once_with(
             company_cik=CIK("320193"),
@@ -704,7 +801,7 @@ class TestListAnalysesQueryHandler:
             created_to=datetime(2024, 6, 30, tzinfo=UTC),
             min_confidence_score=None,
         )
-        
+
         mock_analysis_repository.find_with_filters.assert_called_once_with(
             company_cik=CIK("320193"),
             analysis_types=[AnalysisType.FILING_ANALYSIS],
@@ -716,13 +813,13 @@ class TestListAnalysesQueryHandler:
             page=2,
             page_size=25,
         )
-        
+
         # Verify response creation with realistic data
         call_kwargs = mock_create.call_args[1]
         assert call_kwargs["page"] == 2
         assert call_kwargs["page_size"] == 25
         assert call_kwargs["total_items"] == 67
-        
+
         # Verify comprehensive filter summary
         filters_applied = call_kwargs["filters_applied"]
         assert "company: 320193" in filters_applied

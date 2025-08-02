@@ -1,15 +1,16 @@
 """Integration tests for AnalysisOrchestrator progress callback functionality."""
 
-import pytest
-from datetime import UTC, datetime, date
+from datetime import UTC, date, datetime
 from unittest.mock import AsyncMock, MagicMock
 from uuid import uuid4
 
-from src.application.services.analysis_orchestrator import AnalysisOrchestrator
+import pytest
+
 from src.application.schemas.commands.analyze_filing import (
-    AnalyzeFilingCommand,
     AnalysisTemplate,
+    AnalyzeFilingCommand,
 )
+from src.application.services.analysis_orchestrator import AnalysisOrchestrator
 from src.domain.entities.analysis import Analysis, AnalysisType
 from src.domain.entities.filing import Filing
 from src.domain.value_objects.accession_number import AccessionNumber
@@ -47,7 +48,7 @@ class TestAnalysisOrchestratorProgressCallbacks:
         service = MagicMock()
         service.map_template_to_schemas.return_value = [
             "BusinessAnalysisSection",
-            "RiskFactorsAnalysisSection"
+            "RiskFactorsAnalysisSection",
         ]
         return service
 
@@ -123,7 +124,7 @@ class TestAnalysisOrchestratorProgressCallbacks:
             company_name="Test Company",
             filing_type="10-K",
             accession_number="1234567890-12-123456",
-            ticker="TEST"
+            ticker="TEST",
         )
         mock_filing_repository.get_by_accession_number.return_value = mock_filing
         mock_analysis_repository.create.return_value = mock_analysis
@@ -149,8 +150,7 @@ class TestAnalysisOrchestratorProgressCallbacks:
 
         # Execute orchestration with progress callback
         result = await orchestrator.orchestrate_filing_analysis(
-            sample_command,
-            progress_callback=progress_callback
+            sample_command, progress_callback=progress_callback
         )
 
         # Verify result
@@ -161,22 +161,31 @@ class TestAnalysisOrchestratorProgressCallbacks:
 
         # Verify progress sequence (should be increasing)
         progress_values = [call[0] for call in progress_calls]
-        assert progress_values == sorted(progress_values)  # Should be monotonically increasing
+        assert progress_values == sorted(
+            progress_values
+        )  # Should be monotonically increasing
 
         # Verify specific progress stages
         expected_progress_stages = [0.1, 0.2, 0.4, 0.8, 1.0]
         actual_progress_values = [call[0] for call in progress_calls]
-        
+
         for expected_stage in expected_progress_stages:
-            assert any(abs(actual - expected_stage) < 0.01 for actual in actual_progress_values), \
-                f"Expected progress stage {expected_stage} not found in {actual_progress_values}"
+            assert any(
+                abs(actual - expected_stage) < 0.01 for actual in actual_progress_values
+            ), f"Expected progress stage {expected_stage} not found in {actual_progress_values}"
 
         # Verify progress messages are meaningful
         progress_messages = [call[1] for call in progress_calls]
         assert any("started" in msg.lower() for msg in progress_messages)
         assert any("template" in msg.lower() for msg in progress_messages)
-        assert any("section" in msg.lower() or "extract" in msg.lower() for msg in progress_messages)
-        assert any("completed" in msg.lower() or "analysis" in msg.lower() for msg in progress_messages)
+        assert any(
+            "section" in msg.lower() or "extract" in msg.lower()
+            for msg in progress_messages
+        )
+        assert any(
+            "completed" in msg.lower() or "analysis" in msg.lower()
+            for msg in progress_messages
+        )
 
     @pytest.mark.asyncio
     async def test_orchestrate_filing_analysis_without_progress_callback(
@@ -196,7 +205,7 @@ class TestAnalysisOrchestratorProgressCallbacks:
             company_name="Test Company",
             filing_type="10-K",
             accession_number="1234567890-12-123456",
-            ticker="TEST"
+            ticker="TEST",
         )
         mock_filing_repository.get_by_accession_number.return_value = mock_filing
         mock_analysis_repository.create.return_value = mock_analysis
@@ -244,7 +253,7 @@ class TestAnalysisOrchestratorProgressCallbacks:
             company_name="Test Company",
             filing_type="10-K",
             accession_number="1234567890-12-123456",
-            ticker="TEST"
+            ticker="TEST",
         )
         mock_filing_repository.get_by_accession_number.return_value = mock_filing
         mock_analysis_repository.create.return_value = mock_analysis
@@ -269,8 +278,7 @@ class TestAnalysisOrchestratorProgressCallbacks:
 
         # Execute orchestration - should complete despite callback error
         result = await orchestrator.orchestrate_filing_analysis(
-            sample_command,
-            progress_callback=failing_progress_callback
+            sample_command, progress_callback=failing_progress_callback
         )
 
         # Verify orchestration completed successfully despite callback error
@@ -302,7 +310,7 @@ class TestAnalysisOrchestratorProgressCallbacks:
                 company_name="Test Company",
                 filing_type="10-K",
                 accession_number="1234567890-12-123456",
-                ticker="TEST"
+                ticker="TEST",
             )
             mock_filing_repository.get_by_accession_number.return_value = mock_filing
             mock_analysis_repository.create.return_value = mock_analysis
@@ -336,8 +344,7 @@ class TestAnalysisOrchestratorProgressCallbacks:
 
             # Execute orchestration
             result = await orchestrator.orchestrate_filing_analysis(
-                command,
-                progress_callback=template_progress_callback
+                command, progress_callback=template_progress_callback
             )
 
             # Verify result
@@ -370,14 +377,16 @@ class TestAnalysisOrchestratorProgressCallbacks:
             company_name="Test Company",
             filing_type="10-K",
             accession_number="1234567890-12-123456",
-            ticker="TEST"
+            ticker="TEST",
         )
         mock_filing_repository.get_by_accession_number.return_value = mock_filing
         mock_analysis_repository.create.return_value = mock_analysis
         mock_analysis_repository.get_by_id.return_value = mock_analysis
 
         # Mock LLM to fail
-        mock_llm_provider.analyze_filing.side_effect = Exception("LLM processing failed")
+        mock_llm_provider.analyze_filing.side_effect = Exception(
+            "LLM processing failed"
+        )
 
         # Mock section extraction
         mock_edgar_service.extract_filing_sections.return_value = {
@@ -393,8 +402,7 @@ class TestAnalysisOrchestratorProgressCallbacks:
         # Execute orchestration - should fail but still call progress callback
         with pytest.raises(Exception, match="LLM processing failed"):
             await orchestrator.orchestrate_filing_analysis(
-                sample_command,
-                progress_callback=progress_callback
+                sample_command, progress_callback=progress_callback
             )
 
         # Verify progress callback was called for the stages that completed
@@ -430,7 +438,7 @@ class TestAnalysisOrchestratorProgressCallbacks:
             company_name="Apple Inc.",
             filing_type="10-K",
             accession_number="0000320193-23-000064",
-            ticker="AAPL"
+            ticker="AAPL",
         )
         mock_filing_repository.get_by_accession_number.return_value = mock_filing
         mock_analysis_repository.create.return_value = mock_analysis
@@ -444,7 +452,7 @@ class TestAnalysisOrchestratorProgressCallbacks:
             "FinancialAnalysisSection",
             "MarketAnalysisSection",
             "CompetitiveAnalysisSection",
-            "ESGAnalysisSection"
+            "ESGAnalysisSection",
         ]
 
         # Mock realistic LLM response
@@ -452,16 +460,16 @@ class TestAnalysisOrchestratorProgressCallbacks:
         mock_llm_response.model_dump.return_value = {
             "business_analysis": {
                 "revenue_trends": "Strong growth in services segment",
-                "competitive_position": "Market leader with sustainable moat"
+                "competitive_position": "Market leader with sustainable moat",
             },
             "risk_analysis": {
                 "primary_risks": ["Regulatory changes", "Supply chain disruption"],
-                "risk_assessment": "Moderate overall risk profile"
+                "risk_assessment": "Moderate overall risk profile",
             },
             "financial_analysis": {
                 "profitability": "High margins maintained",
-                "liquidity": "Strong balance sheet"
-            }
+                "liquidity": "Strong balance sheet",
+            },
         }
         mock_llm_response.confidence_score = 0.94
         mock_llm_provider.analyze_filing.return_value = mock_llm_response
@@ -471,19 +479,21 @@ class TestAnalysisOrchestratorProgressCallbacks:
             "Item 1 - Business": "Apple designs, manufactures and markets...",
             "Item 1A - Risk Factors": "Investment in Apple involves risks...",
             "Item 7 - Management's Discussion": "Fiscal 2023 highlights...",
-            "Item 8 - Financial Statements": "Consolidated statements..."
+            "Item 8 - Financial Statements": "Consolidated statements...",
         }
 
         # Create comprehensive progress tracking
         detailed_progress_log = []
 
         def detailed_progress_callback(progress: float, message: str) -> None:
-            detailed_progress_log.append({
-                "timestamp": datetime.now(UTC),
-                "progress": progress,
-                "message": message,
-                "stage": _determine_stage_from_progress(progress)
-            })
+            detailed_progress_log.append(
+                {
+                    "timestamp": datetime.now(UTC),
+                    "progress": progress,
+                    "message": message,
+                    "stage": _determine_stage_from_progress(progress),
+                }
+            )
 
         def _determine_stage_from_progress(progress: float) -> str:
             if progress <= 0.1:
@@ -499,8 +509,7 @@ class TestAnalysisOrchestratorProgressCallbacks:
 
         # Execute comprehensive analysis with detailed progress tracking
         result = await orchestrator.orchestrate_filing_analysis(
-            realistic_command,
-            progress_callback=detailed_progress_callback
+            realistic_command, progress_callback=detailed_progress_callback
         )
 
         # Verify successful completion
@@ -511,7 +520,13 @@ class TestAnalysisOrchestratorProgressCallbacks:
 
         # Verify all stages were covered
         stages_covered = {entry["stage"] for entry in detailed_progress_log}
-        expected_stages = {"validation", "template_resolution", "section_extraction", "llm_processing", "completion"}
+        expected_stages = {
+            "validation",
+            "template_resolution",
+            "section_extraction",
+            "llm_processing",
+            "completion",
+        }
         assert expected_stages.issubset(stages_covered)
 
         # Verify progress is monotonically increasing
@@ -523,8 +538,18 @@ class TestAnalysisOrchestratorProgressCallbacks:
 
         # Verify meaningful progress messages
         messages = [entry["message"] for entry in detailed_progress_log]
-        assert any("started" in msg.lower() or "validat" in msg.lower() for msg in messages)
-        assert any("template" in msg.lower() or "resolv" in msg.lower() for msg in messages)
-        assert any("extract" in msg.lower() or "section" in msg.lower() for msg in messages)
-        assert any("analys" in msg.lower() or "process" in msg.lower() for msg in messages)
-        assert any("complet" in msg.lower() or "finish" in msg.lower() for msg in messages)
+        assert any(
+            "started" in msg.lower() or "validat" in msg.lower() for msg in messages
+        )
+        assert any(
+            "template" in msg.lower() or "resolv" in msg.lower() for msg in messages
+        )
+        assert any(
+            "extract" in msg.lower() or "section" in msg.lower() for msg in messages
+        )
+        assert any(
+            "analys" in msg.lower() or "process" in msg.lower() for msg in messages
+        )
+        assert any(
+            "complet" in msg.lower() or "finish" in msg.lower() for msg in messages
+        )

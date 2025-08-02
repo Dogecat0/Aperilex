@@ -1,12 +1,13 @@
 """Tests for GetTemplatesQueryHandler."""
 
-import pytest
 from typing import Any
 from unittest.mock import MagicMock, patch
 
+import pytest
+
 from src.application.queries.handlers.get_templates_handler import (
-    GetTemplatesQueryHandler,
     GetTemplatesQuery,
+    GetTemplatesQueryHandler,
 )
 from src.application.schemas.responses.templates_response import TemplatesResponse
 from src.application.services.analysis_template_service import AnalysisTemplateService
@@ -18,13 +19,13 @@ class TestGetTemplatesQuery:
     def test_get_templates_query_initialization(self) -> None:
         """Test GetTemplatesQuery initialization."""
         query = GetTemplatesQuery(user_id="test_user")
-        
+
         assert query.user_id == "test_user"
 
     def test_get_templates_query_no_parameters(self) -> None:
         """Test that GetTemplatesQuery has no additional parameters."""
         query = GetTemplatesQuery()
-        
+
         # Should only have base query fields
         assert hasattr(query, 'user_id')
         assert query.user_id is None
@@ -118,7 +119,7 @@ class TestGetTemplatesQueryHandler:
     def test_query_type_class_method(self) -> None:
         """Test query_type class method returns correct type."""
         query_type = GetTemplatesQueryHandler.query_type()
-        
+
         assert query_type == GetTemplatesQuery
 
     @pytest.mark.asyncio
@@ -132,14 +133,14 @@ class TestGetTemplatesQueryHandler:
         """Test successful query handling."""
         # Setup mock
         mock_template_service.get_all_templates.return_value = mock_templates
-        
+
         result = await handler.handle(sample_query)
 
         # Verify result
         assert isinstance(result, TemplatesResponse)
         assert result.templates == mock_templates
         assert result.total_count == len(mock_templates)
-        
+
         # Verify service was called
         mock_template_service.get_all_templates.assert_called_once()
 
@@ -154,7 +155,7 @@ class TestGetTemplatesQueryHandler:
         # Setup mock to return empty dict
         empty_templates = {}
         mock_template_service.get_all_templates.return_value = empty_templates
-        
+
         result = await handler.handle(sample_query)
 
         # Verify result
@@ -162,7 +163,7 @@ class TestGetTemplatesQueryHandler:
         assert result.templates == empty_templates
         assert result.total_count == 0
         assert len(result.templates) == 0
-        
+
         # Verify service was called
         mock_template_service.get_all_templates.assert_called_once()
 
@@ -196,10 +197,10 @@ class TestGetTemplatesQueryHandler:
 
         for user_id in user_ids:
             query = GetTemplatesQuery(user_id=user_id)
-            
+
             # Setup mock for each iteration
             mock_template_service.get_all_templates.return_value = mock_templates
-            
+
             result = await handler.handle(query)
 
             assert isinstance(result, TemplatesResponse)
@@ -221,8 +222,10 @@ class TestGetTemplatesQueryHandler:
         """Test proper logging on successful query handling."""
         # Setup mock
         mock_template_service.get_all_templates.return_value = mock_templates
-        
-        with patch('src.application.queries.handlers.get_templates_handler.logger') as mock_logger:
+
+        with patch(
+            'src.application.queries.handlers.get_templates_handler.logger'
+        ) as mock_logger:
             result = await handler.handle(sample_query)
 
         assert isinstance(result, TemplatesResponse)
@@ -231,12 +234,12 @@ class TestGetTemplatesQueryHandler:
 
         # Verify logging was called twice (info at start and success)
         assert mock_logger.info.call_count == 2
-        
+
         # Check initial log message
         initial_log_call = mock_logger.info.call_args_list[0]
         initial_message = initial_log_call[0][0]
         initial_extra = initial_log_call[1]["extra"]
-        
+
         assert "Processing get templates query" in initial_message
         assert initial_extra["user_id"] == "test_user"
 
@@ -244,10 +247,15 @@ class TestGetTemplatesQueryHandler:
         success_log_call = mock_logger.info.call_args_list[1]
         success_message = success_log_call[0][0]
         success_extra = success_log_call[1]["extra"]
-        
+
         assert "Successfully retrieved 4 templates" in success_message
         assert success_extra["template_count"] == 4
-        assert success_extra["template_names"] == ["COMPREHENSIVE", "FINANCIAL_FOCUSED", "RISK_FOCUSED", "BUSINESS_FOCUSED"]
+        assert success_extra["template_names"] == [
+            "COMPREHENSIVE",
+            "FINANCIAL_FOCUSED",
+            "RISK_FOCUSED",
+            "BUSINESS_FOCUSED",
+        ]
 
     @pytest.mark.asyncio
     async def test_handle_query_logging_error(
@@ -261,23 +269,25 @@ class TestGetTemplatesQueryHandler:
         service_error = Exception("Template service error")
         mock_template_service.get_all_templates.side_effect = service_error
 
-        with patch('src.application.queries.handlers.get_templates_handler.logger') as mock_logger:
+        with patch(
+            'src.application.queries.handlers.get_templates_handler.logger'
+        ) as mock_logger:
             with pytest.raises(Exception, match="Template service error"):
                 await handler.handle(sample_query)
 
         # Verify initial info log was called
         mock_logger.info.assert_called_once()
-        
+
         # Verify error log was called
         mock_logger.error.assert_called_once()
-        
+
         error_log_call = mock_logger.error.call_args
         error_message = error_log_call[0][0]
         error_extra = error_log_call[1]["extra"]
-        
+
         assert "Failed to retrieve templates" in error_message
         assert error_extra["error"] == "Template service error"
-        
+
         # Verify exc_info was set for stack trace
         assert error_log_call[1]["exc_info"] is True
 
@@ -289,11 +299,12 @@ class TestGetTemplatesQueryHandler:
         """Test handler type annotations and generic typing."""
         # Verify handler is properly typed
         assert hasattr(handler, 'handle')
-        
+
         # The handler should be a QueryHandler with proper generics
         from src.application.base.handlers import QueryHandler
+
         assert isinstance(handler, QueryHandler)
-        
+
         # Verify query type method
         assert handler.query_type() == GetTemplatesQuery
 
@@ -323,7 +334,10 @@ class TestGetTemplatesQueryHandler:
                 "COMPLEX": {
                     "name": "Complex Template",
                     "description": "Advanced analysis with extra metadata",
-                    "schemas": ["BusinessAnalysisSection", "RiskFactorsAnalysisSection"],
+                    "schemas": [
+                        "BusinessAnalysisSection",
+                        "RiskFactorsAnalysisSection",
+                    ],
                     "schema_count": 2,
                     "estimated_processing_time": "3-5 minutes",
                     "recommended_for": "Comprehensive analysis",
@@ -332,7 +346,7 @@ class TestGetTemplatesQueryHandler:
                     "custom_metadata": {
                         "version": "2.0",
                         "last_updated": "2024-01-15",
-                    }
+                    },
                 }
             },
         ]
@@ -340,7 +354,7 @@ class TestGetTemplatesQueryHandler:
         for template_data in template_variations:
             # Setup mock for each variation
             mock_template_service.get_all_templates.return_value = template_data
-            
+
             result = await handler.handle(sample_query)
 
             # Verify result matches template data exactly
@@ -367,31 +381,31 @@ class TestGetTemplatesQueryHandler:
                 "description": "Complete SEC filing analysis with all available schemas",
                 "schemas": [
                     "BusinessAnalysisSection",
-                    "RiskFactorsAnalysisSection", 
+                    "RiskFactorsAnalysisSection",
                     "FinancialAnalysisSection",
                     "MarketAnalysisSection",
                     "CompetitiveAnalysisSection",
-                    "ESGAnalysisSection"
+                    "ESGAnalysisSection",
                 ],
                 "schema_count": 6,
                 "estimated_processing_time": "5-8 minutes",
                 "recommended_for": "Complete company analysis and due diligence",
-                "complexity": "high"
+                "complexity": "high",
             }
         }
-        
+
         mock_template_service.get_all_templates.return_value = realistic_templates
-        
+
         result = await handler.handle(sample_query)
 
         # Verify service contract adherence
         assert isinstance(result, TemplatesResponse)
         assert result.templates == realistic_templates
         assert result.total_count == len(realistic_templates)
-        
+
         # Verify service method was called without parameters
         mock_template_service.get_all_templates.assert_called_once_with()
-        
+
         # Verify no additional service methods were called
         assert len(mock_template_service.method_calls) == 1
 
@@ -404,17 +418,17 @@ class TestGetTemplatesQueryHandler:
     ) -> None:
         """Test handling query without user_id."""
         query = GetTemplatesQuery()  # No user_id provided
-        
+
         # Setup mock
         mock_template_service.get_all_templates.return_value = mock_templates
-        
+
         result = await handler.handle(query)
 
         # Verify result is returned correctly
         assert isinstance(result, TemplatesResponse)
         assert result.templates == mock_templates
         assert result.total_count == len(mock_templates)
-        
+
         # Verify service was called (user_id is not required for template retrieval)
         mock_template_service.get_all_templates.assert_called_once()
 
@@ -456,7 +470,9 @@ class TestGetTemplatesQueryHandler:
         specific_error = ValueError("Invalid template configuration in service")
         mock_template_service.get_all_templates.side_effect = specific_error
 
-        with pytest.raises(ValueError, match="Invalid template configuration in service"):
+        with pytest.raises(
+            ValueError, match="Invalid template configuration in service"
+        ):
             await handler.handle(sample_query)
 
         # Verify the original exception type and message are preserved
@@ -480,17 +496,22 @@ class TestGetTemplatesQueryHandler:
                 "schemas": [
                     "BusinessAnalysisSection",
                     "RiskFactorsAnalysisSection",
-                    "FinancialAnalysisSection", 
+                    "FinancialAnalysisSection",
                     "MarketAnalysisSection",
                     "CompetitiveAnalysisSection",
-                    "ESGAnalysisSection"
+                    "ESGAnalysisSection",
                 ],
                 "schema_count": 6,
                 "estimated_processing_time": "5-8 minutes",
                 "recommended_for": "Complete due diligence, investment analysis, comprehensive company research",
                 "complexity": "high",
                 "token_estimate": "15000-25000",
-                "use_cases": ["M&A due diligence", "Investment research", "Risk assessment", "ESG reporting"]
+                "use_cases": [
+                    "M&A due diligence",
+                    "Investment research",
+                    "Risk assessment",
+                    "ESG reporting",
+                ],
             },
             "FINANCIAL_FOCUSED": {
                 "name": "Financial Analysis",
@@ -498,19 +519,25 @@ class TestGetTemplatesQueryHandler:
                 "schemas": [
                     "FinancialAnalysisSection",
                     "BusinessAnalysisSection",
-                    "RiskFactorsAnalysisSection"
+                    "RiskFactorsAnalysisSection",
                 ],
                 "schema_count": 3,
                 "estimated_processing_time": "2-4 minutes",
                 "recommended_for": "Financial due diligence, earnings analysis, performance evaluation",
                 "complexity": "medium",
                 "token_estimate": "8000-12000",
-                "use_cases": ["Earnings analysis", "Financial health check", "Credit analysis"]
-            }
+                "use_cases": [
+                    "Earnings analysis",
+                    "Financial health check",
+                    "Credit analysis",
+                ],
+            },
         }
 
         # Setup service mock
-        mock_template_service.get_all_templates.return_value = realistic_service_response
+        mock_template_service.get_all_templates.return_value = (
+            realistic_service_response
+        )
 
         result = await handler.handle(realistic_query)
 
@@ -521,16 +548,16 @@ class TestGetTemplatesQueryHandler:
         assert len(result.templates) == 2
         assert "COMPREHENSIVE" in result.templates
         assert "FINANCIAL_FOCUSED" in result.templates
-        
+
         # Verify service interaction
         mock_template_service.get_all_templates.assert_called_once_with()
-        
+
         # Verify data structure integrity
         comprehensive = result.templates["COMPREHENSIVE"]
         assert comprehensive["schema_count"] == 6
         assert len(comprehensive["schemas"]) == 6
         assert "use_cases" in comprehensive
-        
+
         financial = result.templates["FINANCIAL_FOCUSED"]
         assert financial["schema_count"] == 3
         assert len(financial["schemas"]) == 3
