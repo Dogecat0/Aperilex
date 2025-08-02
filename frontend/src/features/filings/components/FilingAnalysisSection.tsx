@@ -12,8 +12,11 @@ import {
   XCircle,
   RefreshCw,
   Eye,
+  Loader2,
+  Database,
+  Cpu,
 } from 'lucide-react'
-import type { AnalysisResponse } from '@/api/types'
+import type { AnalysisResponse, AnalysisProgress } from '@/api/types'
 
 interface FilingAnalysisSectionProps {
   analysis: AnalysisResponse | null
@@ -22,6 +25,29 @@ interface FilingAnalysisSectionProps {
   onAnalyze?: () => void
   onViewFullAnalysis?: () => void
   isAnalyzing?: boolean
+  analysisProgress?: AnalysisProgress
+}
+
+/**
+ * Get appropriate icon for analysis progress state
+ */
+const getProgressIcon = (state: string) => {
+  switch (state) {
+    case 'initiating':
+      return <RefreshCw className="w-4 h-4 animate-spin" />
+    case 'loading_filing':
+      return <Database className="w-4 h-4 animate-pulse" />
+    case 'analyzing_content':
+      return <Cpu className="w-4 h-4 animate-pulse" />
+    case 'completing':
+      return <CheckCircle className="w-4 h-4 animate-pulse" />
+    case 'completed':
+      return <CheckCircle className="w-4 h-4 text-green-600" />
+    case 'error':
+      return <XCircle className="w-4 h-4 text-red-600" />
+    default:
+      return <Loader2 className="w-4 h-4 animate-spin" />
+  }
 }
 
 export const FilingAnalysisSection: React.FC<FilingAnalysisSectionProps> = ({
@@ -31,7 +57,56 @@ export const FilingAnalysisSection: React.FC<FilingAnalysisSectionProps> = ({
   onAnalyze,
   onViewFullAnalysis,
   isAnalyzing = false,
+  analysisProgress,
 }) => {
+  // Show progressive loading if we have analysis progress
+  if (analysisProgress && (isAnalyzing || analysisProgress.state !== 'idle')) {
+    return (
+      <div className="rounded-lg border bg-card p-6">
+        <h3 className="text-lg font-semibold mb-4 flex items-center space-x-2">
+          <BarChart3 className="w-5 h-5" />
+          <span>Analysis Results</span>
+        </h3>
+        <div className="space-y-4">
+          <div className="flex items-center space-x-3">
+            {getProgressIcon(analysisProgress.state)}
+            <div className="flex-1">
+              <p className="text-sm font-medium text-foreground">{analysisProgress.message}</p>
+              {analysisProgress.progress_percent !== undefined && (
+                <div className="mt-2 w-full bg-gray-200 rounded-full h-2">
+                  <div
+                    className="bg-blue-600 h-2 rounded-full transition-all duration-300 ease-out"
+                    style={{ width: `${analysisProgress.progress_percent}%` }}
+                  />
+                </div>
+              )}
+              {analysisProgress.current_step &&
+                analysisProgress.current_step !== analysisProgress.message && (
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {analysisProgress.current_step}
+                  </p>
+                )}
+            </div>
+          </div>
+
+          {/* Progress animation skeleton */}
+          <div className="space-y-3 opacity-50">
+            <div className="animate-pulse">
+              <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
+              <div className="h-4 bg-gray-200 rounded w-1/2 mb-4"></div>
+              <div className="h-16 bg-gray-200 rounded mb-4"></div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="h-12 bg-gray-200 rounded"></div>
+                <div className="h-12 bg-gray-200 rounded"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // Fallback to simple loading for backwards compatibility
   if (isLoading) {
     return (
       <div className="rounded-lg border bg-card p-6">
@@ -68,11 +143,22 @@ export const FilingAnalysisSection: React.FC<FilingAnalysisSectionProps> = ({
             There was an error loading the analysis for this filing.
           </p>
           {onAnalyze && (
-            <Button onClick={onAnalyze} disabled={isAnalyzing}>
-              {isAnalyzing ? (
+            <Button
+              onClick={onAnalyze}
+              disabled={
+                isAnalyzing ||
+                (analysisProgress &&
+                  analysisProgress.state !== 'idle' &&
+                  analysisProgress.state !== 'error')
+              }
+            >
+              {isAnalyzing ||
+              (analysisProgress &&
+                analysisProgress.state !== 'idle' &&
+                analysisProgress.state !== 'error') ? (
                 <>
                   <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
-                  Analyzing...
+                  {analysisProgress?.message || 'Analyzing...'}
                 </>
               ) : (
                 <>
@@ -102,11 +188,22 @@ export const FilingAnalysisSection: React.FC<FilingAnalysisSectionProps> = ({
             insights.
           </p>
           {onAnalyze && (
-            <Button onClick={onAnalyze} disabled={isAnalyzing}>
-              {isAnalyzing ? (
+            <Button
+              onClick={onAnalyze}
+              disabled={
+                isAnalyzing ||
+                (analysisProgress &&
+                  analysisProgress.state !== 'idle' &&
+                  analysisProgress.state !== 'error')
+              }
+            >
+              {isAnalyzing ||
+              (analysisProgress &&
+                analysisProgress.state !== 'idle' &&
+                analysisProgress.state !== 'error') ? (
                 <>
                   <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
-                  Analyzing...
+                  {analysisProgress?.message || 'Analyzing...'}
                 </>
               ) : (
                 <>

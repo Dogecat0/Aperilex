@@ -130,6 +130,24 @@ export interface TaskResponse {
   current_step: string | null
 }
 
+// Progressive Loading States
+export type AnalysisProgressState =
+  | 'idle'
+  | 'initiating'
+  | 'loading_filing'
+  | 'analyzing_content'
+  | 'completing'
+  | 'completed'
+  | 'error'
+
+export interface AnalysisProgress {
+  state: AnalysisProgressState
+  message: string
+  progress_percent?: number
+  current_step?: string
+  task_id?: string
+}
+
 // Template Types
 export interface AnalysisTemplate {
   name: AnalysisType
