@@ -2,15 +2,23 @@
 
 import asyncio
 import logging
+from datetime import date
 from typing import Any
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from celery import Task
 
 from src.domain.entities.analysis import Analysis, AnalysisType
+from src.domain.entities.company import Company
+from src.domain.entities.filing import Filing
+from src.domain.value_objects.cik import CIK
+from src.domain.value_objects.filing_type import FilingType
+from src.domain.value_objects.processing_status import ProcessingStatus
 from src.infrastructure.database.base import async_session_maker
+from src.infrastructure.edgar.service import EdgarService
 from src.infrastructure.llm.openai_provider import OpenAIProvider
 from src.infrastructure.repositories.analysis_repository import AnalysisRepository
+from src.infrastructure.repositories.company_repository import CompanyRepository
 from src.infrastructure.repositories.filing_repository import FilingRepository
 from src.infrastructure.tasks.celery_app import celery_app
 
@@ -108,7 +116,32 @@ async def analyze_filing_task(
                 pass
 
         if not filing or not filing_uuid:
-            raise ValueError(f"Filing {filing_id} not found")
+            # Filing not found in database - try to load from Edgar
+            logger.info(f"Filing {filing_id} not found in database, attempting to load from Edgar")
+
+            try:
+                # Initialize Edgar service
+                edgar_service = EdgarService()
+
+                # Try to parse filing_id as accession number
+                if not filing_id.replace('-', '').isdigit() or len(filing_id.replace('-', '')) != 18:
+                    raise ValueError(f"Invalid filing identifier: {filing_id}. Must be accession number or valid UUID")
+
+                from src.domain.value_objects.accession_number import AccessionNumber
+                accession_number = AccessionNumber(filing_id)
+
+                # Get filing data from Edgar
+                filing_data = edgar_service.get_filing_by_accession(accession_number)
+
+                # Create filing and company entities
+                filing = await _create_filing_from_edgar_data(session, filing_data)
+                filing_uuid = filing.id
+
+                logger.info(f"Successfully created filing {filing_uuid} from Edgar data")
+
+            except Exception as e:
+                logger.error(f"Failed to load filing {filing_id} from Edgar: {str(e)}")
+                raise ValueError(f"Filing {filing_id} not found in database and could not be loaded from Edgar: {str(e)}") from e
 
         # Check if analysis already exists (unless force_reprocess is True)
         existing_analysis = await analysis_repo.get_latest_analysis_for_filing(
@@ -375,6 +408,92 @@ async def batch_analyze_filings_task(
                 await session.close()
             except Exception as e:
                 logger.warning(f"Error closing database session: {e}")
+
+
+async def _create_filing_from_edgar_data(session: Any, filing_data: Any) -> Filing:
+    """Create filing entity from edgar service data.
+
+    Args:
+        session: Database session
+        filing_data: Filing data from EdgarService
+
+    Returns:
+        Created Filing entity
+
+    Raises:
+        Exception: If filing creation fails
+    """
+    try:
+        # Extract CIK from filing data
+        cik = CIK(filing_data.cik)
+
+        # Get or create company entity
+        company_repo = CompanyRepository(session)
+        company = await company_repo.get_by_cik(cik)
+
+        if not company:
+            # Create new company entity
+            company_id = uuid4()
+            company_metadata = {}
+
+            # Add ticker to metadata if available
+            if filing_data.ticker:
+                company_metadata["ticker"] = filing_data.ticker
+
+            company = Company(
+                id=company_id,
+                cik=cik,
+                name=filing_data.company_name,
+                metadata=company_metadata,
+            )
+            company = await company_repo.create(company)
+            logger.info(f"Created new company: {company.name} [CIK: {cik}]")
+
+        # Parse filing date
+        filing_date_obj = date.fromisoformat(filing_data.filing_date.split('T')[0])
+
+        # Create filing entity
+        from src.domain.value_objects.accession_number import AccessionNumber
+
+        filing = Filing(
+            id=uuid4(),
+            company_id=company.id,
+            accession_number=AccessionNumber(filing_data.accession_number),
+            filing_type=FilingType(filing_data.filing_type),
+            filing_date=filing_date_obj,
+            processing_status=ProcessingStatus.PENDING,
+            metadata={
+                "source": "edgar_service",
+                "content_length": len(filing_data.content_text),
+                "has_html": filing_data.raw_html is not None,
+                "sections_count": len(filing_data.sections),
+                "created_via": "celery_task",
+                "text": filing_data.content_text,  # Store text content for analysis
+            },
+        )
+
+        # Persist the filing
+        filing_repo = FilingRepository(session)
+        filing = await filing_repo.create(filing)
+
+        logger.info(
+            f"Created filing {filing.id} for {filing.filing_type} "
+            f"[{filing.accession_number}] - Company: {company.name}"
+        )
+
+        return filing
+
+    except Exception as e:
+        logger.error(
+            f"Failed to create filing from Edgar data: {str(e)}",
+            extra={
+                "accession_number": filing_data.accession_number,
+                "company_name": filing_data.company_name,
+                "filing_type": filing_data.filing_type,
+            },
+            exc_info=True,
+        )
+        raise
 
 
 async def _perform_analysis(
