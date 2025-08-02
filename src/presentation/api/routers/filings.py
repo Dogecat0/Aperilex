@@ -1,9 +1,10 @@
 """API router for filing-related endpoints."""
 
 import logging
+from datetime import date
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Path, status
+from fastapi import APIRouter, Depends, HTTPException, Path, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.application.factory import ServiceFactory
@@ -14,11 +15,19 @@ from src.application.schemas.queries.get_analysis_by_accession import (
 from src.application.schemas.queries.get_filing_by_accession import (
     GetFilingByAccessionQuery,
 )
+from src.application.schemas.queries.search_filings import (
+    FilingSortField,
+    SearchFilingsQuery,
+    SortDirection,
+)
 from src.application.schemas.responses.analysis_response import AnalysisResponse
 from src.application.schemas.responses.filing_response import FilingResponse
+from src.application.schemas.responses.filing_search_response import FilingSearchResult
+from src.application.schemas.responses.paginated_response import PaginatedResponse
 from src.application.schemas.responses.task_response import TaskResponse
 from src.domain.value_objects.accession_number import AccessionNumber
 from src.domain.value_objects.cik import CIK
+from src.domain.value_objects.filing_type import FilingType
 from src.infrastructure.database.base import get_db
 from src.presentation.api.dependencies import get_service_factory
 
@@ -39,6 +48,167 @@ router = APIRouter(
 SessionDep = Annotated[AsyncSession, Depends(get_db)]
 ServiceFactoryDep = Annotated[ServiceFactory, Depends(get_service_factory)]
 AccessionNumberPath = Annotated[str, Path(description="SEC filing accession number")]
+
+
+@router.get(
+    "/search",
+    response_model=PaginatedResponse[FilingSearchResult],
+    summary="Search SEC filings",
+    description="""
+    Search for SEC filings using various criteria.
+    
+    This endpoint queries the SEC Edgar database directly to find filings
+    matching the specified criteria. Results include filing metadata 
+    suitable for display in search interfaces.
+    
+    Required parameter:
+    - ticker: Company ticker symbol (e.g., "AAPL", "MSFT")
+    
+    Optional filters:
+    - form_type: Specific filing type (e.g., "10-K", "10-Q", "8-K")  
+    - date_from: Start date for filing date range (YYYY-MM-DD)
+    - date_to: End date for filing date range (YYYY-MM-DD)
+    
+    Pagination and sorting:
+    - page: Page number (default: 1)
+    - page_size: Items per page (default: 20, max: 100)
+    - sort_by: Sort field (filing_date, filing_type, company_name)
+    - sort_direction: Sort direction (asc, desc)
+    """,
+)
+async def search_filings(
+    ticker: Annotated[str, Query(description="Company ticker symbol (required)")],
+    session: SessionDep,
+    factory: ServiceFactoryDep,
+    form_type: Annotated[
+        str | None, Query(description="Filing type filter (e.g., 10-K, 10-Q)")
+    ] = None,
+    date_from: Annotated[
+        date | None, Query(description="Start date for filing range (YYYY-MM-DD)")
+    ] = None,
+    date_to: Annotated[
+        date | None, Query(description="End date for filing range (YYYY-MM-DD)")
+    ] = None,
+    page: Annotated[int, Query(description="Page number", ge=1)] = 1,
+    page_size: Annotated[int, Query(description="Items per page", ge=1, le=100)] = 20,
+    sort_by: Annotated[str, Query(description="Sort field")] = "filing_date",
+    sort_direction: Annotated[str, Query(description="Sort direction")] = "desc",
+) -> PaginatedResponse[FilingSearchResult]:
+    """Search for SEC filings using various criteria.
+
+    Args:
+        ticker: Company ticker symbol (required)
+        session: Database session for repository operations
+        factory: Service factory for dependency injection
+        form_type: Optional filing type filter
+        date_from: Optional start date for filing range
+        date_to: Optional end date for filing range
+        page: Page number for pagination
+        page_size: Number of items per page
+        sort_by: Field to sort results by
+        sort_direction: Sort direction (asc/desc)
+
+    Returns:
+        PaginatedResponse[FilingSearchResult]: Paginated search results
+
+    Raises:
+        HTTPException: 422 if parameters are invalid
+        HTTPException: 500 if search fails
+    """
+    logger.info(
+        "Processing filing search request",
+        extra={
+            "ticker": ticker,
+            "form_type": form_type,
+            "date_from": date_from.isoformat() if date_from else None,
+            "date_to": date_to.isoformat() if date_to else None,
+            "page": page,
+            "page_size": page_size,
+        },
+    )
+
+    try:
+        # Parse form_type if provided
+        filing_type_enum = None
+        if form_type:
+            try:
+                filing_type_enum = FilingType(form_type.upper())
+            except ValueError:
+                raise HTTPException(
+                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    detail=f"Invalid form_type: {form_type}. Must be one of: {', '.join([ft.value for ft in FilingType])}",
+                )
+
+        # Parse sort parameters
+        try:
+            sort_by_enum = FilingSortField(sort_by)
+        except ValueError:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=f"Invalid sort_by: {sort_by}. Must be one of: {', '.join([sf.value for sf in FilingSortField])}",
+            )
+
+        try:
+            sort_direction_enum = SortDirection(sort_direction)
+        except ValueError:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=f"Invalid sort_direction: {sort_direction}. Must be one of: {', '.join([sd.value for sd in SortDirection])}",
+            )
+
+        # Create search query
+        query = SearchFilingsQuery(
+            ticker=ticker,
+            form_type=filing_type_enum,
+            date_from=date_from,
+            date_to=date_to,
+            page=page,
+            page_size=page_size,
+            sort_by=sort_by_enum,
+            sort_direction=sort_direction_enum,
+        )
+
+        # Get dependencies and dispatcher
+        dispatcher = factory.create_dispatcher()
+        dependencies = factory.get_handler_dependencies(session)
+
+        # Dispatch query
+        result: PaginatedResponse[FilingSearchResult] = await dispatcher.dispatch_query(
+            query, dependencies
+        )
+
+        logger.info(
+            "Filing search completed successfully",
+            extra={
+                "ticker": ticker,
+                "total_items": result.pagination.total_items,
+                "page": result.pagination.page,
+                "returned_items": len(result.items),
+                "search_summary": query.search_summary,
+            },
+        )
+
+        return result
+
+    except ValueError as e:
+        logger.warning(
+            "Invalid search parameters",
+            extra={"ticker": ticker, "error": str(e)},
+        )
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"Invalid search parameters: {str(e)}",
+        ) from e
+    except Exception:
+        logger.error(
+            "Failed to search filings",
+            extra={"ticker": ticker, "form_type": form_type},
+            exc_info=True,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to search filings",
+        ) from None
 
 
 @router.post(
