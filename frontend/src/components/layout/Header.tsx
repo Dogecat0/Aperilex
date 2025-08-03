@@ -35,13 +35,10 @@ export function Header() {
             className="flex items-center space-x-2 hover:opacity-80 transition-opacity"
           >
             <div className="h-8 w-8 rounded-md bg-primary flex items-center justify-center">
-              <span className="text-primary-foreground font-bold text-sm">A</span>
+              <span className="text-primary-foreground font-bold text-lg">A</span>
             </div>
             <div>
-              <h1 className="text-xl font-bold text-primary">Aperilex</h1>
-              <p className="text-xs text-muted-foreground hidden sm:block">
-                Financial Analysis Made Simple
-              </p>
+              <h1 className="text-xl font-bold text-primary">perilex</h1>
             </div>
           </button>
         </div>
