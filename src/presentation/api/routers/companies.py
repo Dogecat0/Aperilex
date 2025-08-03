@@ -151,7 +151,7 @@ async def get_company(
 
 @router.get(
     "/{ticker}/analyses",
-    response_model=list[AnalysisResponse],
+    response_model=PaginatedResponse[AnalysisResponse],
     summary="List company analyses",
     description="""
     List all analyses for a specific company, filtered by ticker symbol.
@@ -177,7 +177,7 @@ async def list_company_analyses(
     page_size: Annotated[
         int, Query(ge=1, le=100, description="Number of analyses per page (max 100)")
     ] = 20,
-) -> list[AnalysisResponse]:
+) -> PaginatedResponse[AnalysisResponse]:
     """List all analyses for a specific company.
 
     Args:
@@ -190,7 +190,7 @@ async def list_company_analyses(
         page_size: Number of results per page
 
     Returns:
-        List of AnalysisResponse objects for the company
+        PaginatedResponse containing AnalysisResponse objects for the company
 
     Raises:
         HTTPException: 422 if ticker format is invalid
@@ -245,9 +245,6 @@ async def list_company_analyses(
 
         company_cik = CIK(company_cik_str)
 
-        # Calculate offset for pagination
-        (page - 1) * page_size
-
         # Create analyses list query filtered by company CIK
         # Convert single analysis_type to list for schema compatibility
         analysis_types = [analysis_type] if analysis_type else None
@@ -255,12 +252,13 @@ async def list_company_analyses(
         analyses_query = ListAnalysesQuery(
             company_cik=company_cik,
             analysis_types=analysis_types,
-            # Note: ListAnalysesQuery doesn't support min_confidence_score, offset, limit
-            # These parameters need to be handled differently or the schema needs updating
+            min_confidence_score=min_confidence,
+            page=page,
+            page_size=page_size,
         )
 
         # Dispatch analyses query
-        results: list[AnalysisResponse] = await dispatcher.dispatch_query(
+        results: PaginatedResponse[AnalysisResponse] = await dispatcher.dispatch_query(
             analyses_query, dependencies
         )
 
@@ -269,9 +267,10 @@ async def list_company_analyses(
             extra={
                 "ticker": ticker,
                 "company_cik": company_cik_str,
-                "results_count": len(results),
-                "page": page,
-                "page_size": page_size,
+                "results_count": results.pagination.total_items,
+                "page": results.pagination.page,
+                "page_size": results.pagination.page_size,
+                "returned_count": len(results.items),
             },
         )
 
