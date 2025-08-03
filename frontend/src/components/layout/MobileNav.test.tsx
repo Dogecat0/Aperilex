@@ -190,13 +190,13 @@ describe('MobileNav Component', () => {
         </TestWrapper>
       )
 
-      const newAnalysisButton = screen.getByText('New Analysis')
-      expect(newAnalysisButton).toBeInTheDocument()
-      expect(newAnalysisButton).toHaveClass('w-full', 'rounded-md', 'bg-primary', 'px-3', 'py-2')
+      const findAnalysisButton = screen.getByText('Find Analysis')
+      expect(findAnalysisButton).toBeInTheDocument()
+      expect(findAnalysisButton).toHaveClass('w-full', 'rounded-md', 'bg-primary', 'px-3', 'py-2')
 
-      const importFilingButton = screen.getByText('Import Filing')
-      expect(importFilingButton).toBeInTheDocument()
-      expect(importFilingButton).toHaveClass(
+      const viewFilingButton = screen.getByText('View Filings')
+      expect(viewFilingButton).toBeInTheDocument()
+      expect(viewFilingButton).toHaveClass(
         'w-full',
         'rounded-md',
         'border',

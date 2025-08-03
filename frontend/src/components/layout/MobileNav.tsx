@@ -63,10 +63,10 @@ export function MobileNav() {
               <li className="mt-auto">
                 <div className="space-y-2">
                   <button className="w-full rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90">
-                    New Analysis
+                    Find Analysis
                   </button>
                   <button className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground">
-                    Import Filing
+                    View Filings
                   </button>
                 </div>
               </li>
