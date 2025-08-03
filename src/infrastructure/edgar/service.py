@@ -4,7 +4,7 @@ import asyncio
 import logging
 from typing import Any
 
-from edgar import Company, Filing, set_identity  # type: ignore[import-untyped]
+from edgar import Company, Filing, set_identity
 
 from src.domain.value_objects import CIK, AccessionNumber, FilingType, Ticker
 from src.infrastructure.edgar.schemas.company_data import CompanyData
@@ -625,13 +625,13 @@ class EdgarService:
         try:
             # Get company object and extract ticker if available
             company = Company(filing.cik)
-            if hasattr(company, "ticker"):
-                ticker_attr = getattr(company, "ticker", None)
+            if hasattr(company, "get_ticker"):
+                ticker_attr = company.get_ticker()
                 if ticker_attr is not None:
                     ticker_value = str(ticker_attr)
         except Exception:
             # If we can't get company info, ticker remains None
-            pass
+            ticker_value = None
 
         return FilingData(
             accession_number=filing.accession_number,
@@ -732,7 +732,7 @@ class EdgarService:
             # Apply amendments filter
             if not amendments:
                 entity_filings = [
-                    f for f in entity_filings if not f.form.endswith('/A')
+                    f for f in entity_filings if not f.form.endswith("/A")
                 ]
 
             # Convert EntityFilings to FilingData objects
@@ -770,7 +770,7 @@ class EdgarService:
                     # Apply amendments filter
                     if not amendments:
                         filtered_filings = [
-                            f for f in filtered_filings if not f.form.endswith('/A')
+                            f for f in filtered_filings if not f.form.endswith("/A")
                         ]
 
                     # Apply limit
@@ -806,16 +806,16 @@ class EdgarService:
         """Apply date filtering to entity filings."""
         from datetime import datetime
 
-        if ':' in filing_date:
+        if ":" in filing_date:
             # Date range
-            start_date_str, end_date_str = filing_date.split(':')
+            start_date_str, end_date_str = filing_date.split(":")
             start_date = (
-                datetime.strptime(start_date_str, '%Y-%m-%d').date()
+                datetime.strptime(start_date_str, "%Y-%m-%d").date()
                 if start_date_str
                 else None
             )
             end_date = (
-                datetime.strptime(end_date_str, '%Y-%m-%d').date()
+                datetime.strptime(end_date_str, "%Y-%m-%d").date()
                 if end_date_str
                 else None
             )
@@ -828,7 +828,7 @@ class EdgarService:
                 return [f for f in filings if f.filing_date <= end_date]
         else:
             # Single date
-            target_date = datetime.strptime(filing_date, '%Y-%m-%d').date()
+            target_date = datetime.strptime(filing_date, "%Y-%m-%d").date()
             return [f for f in filings if f.filing_date == target_date]
 
         return filings
@@ -846,15 +846,15 @@ class EdgarService:
 
         # Convert filing_date to string if it's a date object
         filing_date_str = entity_filing.filing_date
-        if hasattr(filing_date_str, 'isoformat'):
+        if hasattr(filing_date_str, "isoformat"):
             filing_date_str = filing_date_str.isoformat()
         else:
             filing_date_str = str(filing_date_str)
 
         # Extract ticker from company if available
         ticker_value = None
-        if hasattr(entity_filing, 'company') and entity_filing.company:
-            if hasattr(entity_filing.company, 'ticker'):
+        if hasattr(entity_filing, "company") and entity_filing.company:
+            if hasattr(entity_filing.company, "ticker"):
                 ticker_value = (
                     str(entity_filing.company.ticker)
                     if entity_filing.company.ticker
@@ -867,7 +867,7 @@ class EdgarService:
             filing_date=filing_date_str,
             company_name=(
                 entity_filing.company.name
-                if hasattr(entity_filing, 'company') and entity_filing.company
+                if hasattr(entity_filing, "company") and entity_filing.company
                 else "Unknown"
             ),
             cik=str(entity_filing.cik),
