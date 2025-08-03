@@ -398,7 +398,7 @@ class AnalysisOrchestrator:
             command: Analysis command with configuration
 
         Returns:
-            New Analysis entity
+            Find Analysis entity
         """
         analysis = Analysis(
             id=uuid4(),
@@ -492,7 +492,7 @@ class AnalysisOrchestrator:
                 # Convert CIK object to string if needed
                 cik_value = (
                     str(company_cik)
-                    if hasattr(company_cik, 'value')
+                    if hasattr(company_cik, "value")
                     else str(company_cik)
                 )
             else:
@@ -522,7 +522,7 @@ class AnalysisOrchestrator:
                 logger.info(f"Created new company: {company.name} [CIK: {cik}]")
 
             # Parse filing date
-            filing_date_obj = date.fromisoformat(filing_data.filing_date.split('T')[0])
+            filing_date_obj = date.fromisoformat(filing_data.filing_date.split("T")[0])
 
             # Create filing entity
             filing = Filing(
