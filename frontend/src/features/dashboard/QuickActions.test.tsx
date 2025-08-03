@@ -53,27 +53,26 @@ describe('QuickActions', () => {
         'grid',
         'grid-cols-1',
         'sm:grid-cols-2',
-        'lg:grid-cols-4',
+        'lg:grid-cols-3',
         'gap-4'
       )
     })
 
-    it('contains exactly 4 buttons in the grid', () => {
+    it('contains exactly 3 buttons in the grid', () => {
       render(<QuickActions />, { wrapper: TestWrapper })
       const buttons = screen.getAllByTestId('mock-button')
 
-      expect(buttons).toHaveLength(4)
+      expect(buttons).toHaveLength(3)
     })
   })
 
   describe('Button Structure', () => {
-    it('renders all 4 buttons with correct text content', () => {
+    it('renders all 3 buttons with correct text content', () => {
       render(<QuickActions />, { wrapper: TestWrapper })
 
-      expect(screen.getByText('New Analysis')).toBeInTheDocument()
+      expect(screen.getByText('Find Analysis')).toBeInTheDocument()
       expect(screen.getByText('Search Companies')).toBeInTheDocument()
-      expect(screen.getByText('Import Filing')).toBeInTheDocument()
-      expect(screen.getByText('Browse Companies')).toBeInTheDocument()
+      expect(screen.getByText('View Filings')).toBeInTheDocument()
     })
 
     it('renders buttons with correct variants', () => {
@@ -83,10 +82,9 @@ describe('QuickActions', () => {
       // First button should be primary (no variant specified)
       expect(buttons[0]).not.toHaveAttribute('data-variant')
 
-      // Other three buttons should be outline variant
+      // Other two buttons should be outline variant
       expect(buttons[1]).toHaveAttribute('data-variant', 'outline')
       expect(buttons[2]).toHaveAttribute('data-variant', 'outline')
-      expect(buttons[3]).toHaveAttribute('data-variant', 'outline')
     })
   })
 
@@ -106,7 +104,7 @@ describe('QuickActions', () => {
       const { container: _container } = render(<QuickActions />, { wrapper: TestWrapper })
       const svgIcons = _container.querySelectorAll('svg')
 
-      expect(svgIcons).toHaveLength(4)
+      expect(svgIcons).toHaveLength(3)
 
       svgIcons.forEach((svg) => {
         expect(svg).toHaveClass('w-6', 'h-6')
@@ -116,10 +114,10 @@ describe('QuickActions', () => {
       })
     })
 
-    it('renders chart-bar icon for New Analysis button', () => {
+    it('renders chart-bar icon for Find Analysis button', () => {
       const { container: _container } = render(<QuickActions />, { wrapper: TestWrapper })
-      const newAnalysisButton = screen.getByText('New Analysis').closest('button')
-      const chartIcon = newAnalysisButton?.querySelector('svg path')
+      const findAnalysisButton = screen.getByText('Find Analysis').closest('button')
+      const chartIcon = findAnalysisButton?.querySelector('svg path')
 
       expect(chartIcon).toHaveAttribute(
         'd',
@@ -135,9 +133,9 @@ describe('QuickActions', () => {
       expect(searchIcon).toHaveAttribute('d', 'M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z')
     })
 
-    it('renders document icon for Import Filing button', () => {
+    it('renders document icon for View Filings button', () => {
       const { container: _container } = render(<QuickActions />, { wrapper: TestWrapper })
-      const importButton = screen.getByText('Import Filing').closest('button')
+      const importButton = screen.getByText('View Filings').closest('button')
       const documentIcon = importButton?.querySelector('svg path')
 
       expect(documentIcon).toHaveAttribute(
@@ -146,16 +144,6 @@ describe('QuickActions', () => {
       )
     })
 
-    it('renders building icon for Browse Companies button', () => {
-      const { container: _container } = render(<QuickActions />, { wrapper: TestWrapper })
-      const browseButton = screen.getByText('Browse Companies').closest('button')
-      const buildingIcon = browseButton?.querySelector('svg path')
-
-      expect(buildingIcon).toHaveAttribute(
-        'd',
-        'M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-4m-5 0H3m2 0h3M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4'
-      )
-    })
 
     it('applies correct stroke properties to all SVG paths', () => {
       const { container: _container } = render(<QuickActions />, { wrapper: TestWrapper })
@@ -174,7 +162,7 @@ describe('QuickActions', () => {
       const { container: _container } = render(<QuickActions />, { wrapper: TestWrapper })
       const textSpans = _container.querySelectorAll('span')
 
-      expect(textSpans).toHaveLength(4)
+      expect(textSpans).toHaveLength(3)
 
       textSpans.forEach((span) => {
         expect(span).toHaveClass('text-sm', 'font-medium')
@@ -185,10 +173,9 @@ describe('QuickActions', () => {
       const { container: _container } = render(<QuickActions />, { wrapper: TestWrapper })
       const textSpans = _container.querySelectorAll('span')
 
-      expect(textSpans[0]).toHaveTextContent('New Analysis')
+      expect(textSpans[0]).toHaveTextContent('Find Analysis')
       expect(textSpans[1]).toHaveTextContent('Search Companies')
-      expect(textSpans[2]).toHaveTextContent('Import Filing')
-      expect(textSpans[3]).toHaveTextContent('Browse Companies')
+      expect(textSpans[2]).toHaveTextContent('View Filings')
     })
   })
 
@@ -197,7 +184,7 @@ describe('QuickActions', () => {
       render(<QuickActions />, { wrapper: TestWrapper })
       const buttons = screen.getAllByRole('button')
 
-      expect(buttons).toHaveLength(4)
+      expect(buttons).toHaveLength(3)
 
       buttons.forEach((button) => {
         expect(button.tagName).toBe('BUTTON')
@@ -210,7 +197,6 @@ describe('QuickActions', () => {
       expect(screen.getByRole('button', { name: /new analysis/i })).toBeInTheDocument()
       expect(screen.getByRole('button', { name: /search companies/i })).toBeInTheDocument()
       expect(screen.getByRole('button', { name: /import filing/i })).toBeInTheDocument()
-      expect(screen.getByRole('button', { name: /browse companies/i })).toBeInTheDocument()
     })
 
     it('uses currentColor for icon stroke to support theme changes', () => {
@@ -228,18 +214,17 @@ describe('QuickActions', () => {
       const { rerender } = render(<QuickActions />, { wrapper: TestWrapper })
 
       const firstRenderButtons = screen.getAllByTestId('mock-button')
-      expect(firstRenderButtons).toHaveLength(4)
+      expect(firstRenderButtons).toHaveLength(3)
 
       rerender(<QuickActions />, { wrapper: TestWrapper })
 
       const secondRenderButtons = screen.getAllByTestId('mock-button')
-      expect(secondRenderButtons).toHaveLength(4)
+      expect(secondRenderButtons).toHaveLength(3)
 
       // Verify same text content
-      expect(screen.getByText('New Analysis')).toBeInTheDocument()
+      expect(screen.getByText('Find Analysis')).toBeInTheDocument()
       expect(screen.getByText('Search Companies')).toBeInTheDocument()
-      expect(screen.getByText('Import Filing')).toBeInTheDocument()
-      expect(screen.getByText('Browse Companies')).toBeInTheDocument()
+      expect(screen.getByText('View Filings')).toBeInTheDocument()
     })
 
     it('has no props, state, or dynamic behavior', () => {
@@ -263,9 +248,9 @@ describe('QuickActions', () => {
       const cardContainer = _container.firstChild as HTMLElement
       expect(cardContainer.children).toHaveLength(2)
 
-      // Grid container -> 4 Buttons
+      // Grid container -> 3 Buttons
       const gridContainer = cardContainer.children[1] as HTMLElement
-      expect(gridContainer.children).toHaveLength(4)
+      expect(gridContainer.children).toHaveLength(3)
 
       // Each button -> SVG + Span
       Array.from(gridContainer.children).forEach((button) => {
@@ -286,7 +271,7 @@ describe('QuickActions', () => {
       const firstButtonSpan = firstButton.children[1] as HTMLElement
 
       expect(firstButtonSvg).toHaveClass('w-6', 'h-6')
-      expect(firstButtonSpan).toHaveTextContent('New Analysis')
+      expect(firstButtonSpan).toHaveTextContent('Find Analysis')
       expect(firstButtonSpan).toHaveClass('text-sm', 'font-medium')
     })
   })

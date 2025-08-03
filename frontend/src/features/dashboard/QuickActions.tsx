@@ -16,14 +16,11 @@ export function QuickActions() {
     navigate('/filings')
   }
 
-  const handleBrowseCompanies = () => {
-    navigate('/companies')
-  }
   return (
     <div className="rounded-lg border bg-card p-6">
       <h2 className="text-lg font-semibold mb-4">Quick Actions</h2>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         <Button className="h-auto p-4 flex-col space-y-2" onClick={handleNewAnalysis}>
           <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path
@@ -33,7 +30,7 @@ export function QuickActions() {
               d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
             />
           </svg>
-          <span className="text-sm font-medium">New Analysis</span>
+          <span className="text-sm font-medium">Find Analysis</span>
         </Button>
 
         <Button
@@ -65,24 +62,9 @@ export function QuickActions() {
               d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
             />
           </svg>
-          <span className="text-sm font-medium">Import Filing</span>
+          <span className="text-sm font-medium">View Filings</span>
         </Button>
 
-        <Button
-          variant="outline"
-          className="h-auto p-4 flex-col space-y-2"
-          onClick={handleBrowseCompanies}
-        >
-          <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth="2"
-              d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-4m-5 0H3m2 0h3M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"
-            />
-          </svg>
-          <span className="text-sm font-medium">Browse Companies</span>
-        </Button>
       </div>
     </div>
   )
