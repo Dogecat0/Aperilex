@@ -59,7 +59,7 @@ export function AnalysesList() {
   }
 
   return (
-    <div className="max-w-7xl mx-auto p-6">
+    <div className="space-y-4">
       {/* Header */}
       <div className="mb-6">
         <div className="flex items-center justify-between mb-4">

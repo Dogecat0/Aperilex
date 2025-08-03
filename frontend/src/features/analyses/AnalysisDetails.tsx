@@ -57,7 +57,7 @@ export function AnalysisDetails() {
 
   if (isLoading) {
     return (
-      <div className="max-w-7xl mx-auto p-6">
+      <div className="space-y-4">
         {/* Header Skeleton */}
         <div className="animate-pulse mb-8">
           <div className="h-4 bg-gray-200 rounded w-32 mb-4"></div>
@@ -134,7 +134,7 @@ export function AnalysisDetails() {
   }
 
   return (
-    <div className="max-w-7xl mx-auto p-6">
+    <div className="space-y-4">
       {/* Breadcrumb */}
       <nav className="flex items-center space-x-2 text-sm text-gray-500 mb-6">
         <Link to="/analyses" className="hover:text-primary-600 flex items-center gap-1">
