@@ -210,12 +210,12 @@ describe('RecentAnalyses', () => {
       expect(descriptionText).toHaveClass('mt-1', 'text-sm', 'text-muted-foreground')
     })
 
-    it('renders "New Analysis" button with correct styling', () => {
+    it('renders "Find Analysis" button with correct styling', () => {
       render(<RecentAnalyses />)
 
-      const newAnalysisButton = screen.getByRole('button', { name: 'New Analysis' })
-      expect(newAnalysisButton).toBeInTheDocument()
-      expect(newAnalysisButton).toHaveClass(
+      const findAnalysisButton = screen.getByRole('button', { name: 'Find Analysis' })
+      expect(findAnalysisButton).toBeInTheDocument()
+      expect(findAnalysisButton).toHaveClass(
         'inline-flex',
         'items-center',
         'rounded-md',
@@ -230,11 +230,11 @@ describe('RecentAnalyses', () => {
       )
     })
 
-    it('renders plus icon in "New Analysis" button with correct properties', () => {
+    it('renders plus icon in "Find Analysis" button with correct properties', () => {
       render(<RecentAnalyses />)
 
-      const newAnalysisButton = screen.getByRole('button', { name: 'New Analysis' })
-      const plusIcon = newAnalysisButton.querySelector('svg')
+      const findAnalysisButton = screen.getByRole('button', { name: 'Find Analysis' })
+      const plusIcon = findAnalysisButton.querySelector('svg')
 
       expect(plusIcon).toBeInTheDocument()
       expect(plusIcon).toHaveClass('-ml-0.5', 'mr-1.5', 'h-5', 'w-5')
@@ -246,8 +246,8 @@ describe('RecentAnalyses', () => {
     it('renders plus icon SVG path with correct properties', () => {
       render(<RecentAnalyses />)
 
-      const newAnalysisButton = screen.getByRole('button', { name: 'New Analysis' })
-      const plusIconPath = newAnalysisButton.querySelector('svg path')
+      const findAnalysisButton = screen.getByRole('button', { name: 'Find Analysis' })
+      const plusIconPath = findAnalysisButton.querySelector('svg path')
 
       expect(plusIconPath).toBeInTheDocument()
       expect(plusIconPath).toHaveAttribute('stroke-linecap', 'round')
@@ -267,7 +267,7 @@ describe('RecentAnalyses', () => {
     it('renders button container with correct spacing', () => {
       render(<RecentAnalyses />)
 
-      const buttonContainer = screen.getByRole('button', { name: 'New Analysis' }).parentElement
+      const buttonContainer = screen.getByRole('button', { name: 'Find Analysis' }).parentElement
       expect(buttonContainer).toHaveClass('mt-6')
     })
   })
@@ -393,15 +393,15 @@ describe('RecentAnalyses', () => {
       expect(viewAllButton).toHaveClass('text-sm', 'text-primary', 'hover:text-primary/80')
     })
 
-    it('renders "New Analysis" button with correct classes', () => {
+    it('renders "Find Analysis" button with correct classes', () => {
       mockUseAnalysisStore.mockReturnValue({
         recentAnalyses: [],
       })
 
       render(<RecentAnalyses />)
 
-      const newAnalysisButton = screen.getByRole('button', { name: 'New Analysis' })
-      expect(newAnalysisButton).toHaveClass(
+      const findAnalysisButton = screen.getByRole('button', { name: 'Find Analysis' })
+      expect(findAnalysisButton).toHaveClass(
         'inline-flex',
         'items-center',
         'rounded-md',
@@ -424,11 +424,11 @@ describe('RecentAnalyses', () => {
       render(<RecentAnalyses />)
 
       const viewAllButton = screen.getByRole('button', { name: 'View all' })
-      const newAnalysisButton = screen.getByRole('button', { name: 'New Analysis' })
+      const findAnalysisButton = screen.getByRole('button', { name: 'Find Analysis' })
 
       // Both buttons should use text-sm
       expect(viewAllButton).toHaveClass('text-sm')
-      expect(newAnalysisButton).toHaveClass('text-sm')
+      expect(findAnalysisButton).toHaveClass('text-sm')
     })
   })
 
@@ -445,15 +445,15 @@ describe('RecentAnalyses', () => {
       expect(chartIcon).toHaveClass('mx-auto', 'h-12', 'w-12', 'text-muted-foreground')
     })
 
-    it('renders "New Analysis" plus icon correctly', () => {
+    it('renders "Find Analysis" plus icon correctly', () => {
       mockUseAnalysisStore.mockReturnValue({
         recentAnalyses: [],
       })
 
       render(<RecentAnalyses />)
 
-      const newAnalysisButton = screen.getByRole('button', { name: 'New Analysis' })
-      const plusIcon = newAnalysisButton.querySelector('svg')
+      const findAnalysisButton = screen.getByRole('button', { name: 'Find Analysis' })
+      const plusIcon = findAnalysisButton.querySelector('svg')
 
       expect(plusIcon).toBeInTheDocument()
       expect(plusIcon?.tagName).toBe('svg')
@@ -468,8 +468,8 @@ describe('RecentAnalyses', () => {
       render(<RecentAnalyses />)
 
       const chartIcon = document.querySelector('svg.mx-auto.h-12.w-12.text-muted-foreground')
-      const newAnalysisButton = screen.getByRole('button', { name: 'New Analysis' })
-      const plusIcon = newAnalysisButton.querySelector('svg')
+      const findAnalysisButton = screen.getByRole('button', { name: 'Find Analysis' })
+      const plusIcon = findAnalysisButton.querySelector('svg')
 
       // Chart icon properties
       expect(chartIcon).toHaveAttribute('fill', 'none')
@@ -660,10 +660,10 @@ describe('RecentAnalyses', () => {
       render(<RecentAnalyses />)
 
       const viewAllButton = screen.getByRole('button', { name: 'View all' })
-      const newAnalysisButton = screen.getByRole('button', { name: 'New Analysis' })
+      const findAnalysisButton = screen.getByRole('button', { name: 'Find Analysis' })
 
       expect(viewAllButton).toBeInTheDocument()
-      expect(newAnalysisButton).toBeInTheDocument()
+      expect(findAnalysisButton).toBeInTheDocument()
     })
 
     it('maintains semantic structure for empty state', () => {

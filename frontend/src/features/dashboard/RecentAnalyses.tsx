@@ -47,7 +47,7 @@ export function RecentAnalyses() {
                     d="M12 6v6m0 0v6m0-6h6m-6 0H6"
                   />
                 </svg>
-                New Analysis
+                Find Analysis
               </button>
             </div>
           </div>
