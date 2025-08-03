@@ -271,7 +271,7 @@ export const useResourceName = (id: string, options = {}) => {
 ## 🔮 Future Enhancement Readiness
 
 ### Extensibility Points
-- **New Analysis Types**: Framework ready for additional analysis schemas
+- **Find Analysis Types**: Framework ready for additional analysis schemas
 - **Advanced Filtering**: Infrastructure prepared for complex query parameters
 - **Export Functionality**: Component structure ready for PDF/CSV exports
 - **Real-time Updates**: WebSocket integration points identified
