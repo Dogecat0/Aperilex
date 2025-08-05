@@ -64,7 +64,6 @@ export function QuickActions() {
           </svg>
           <span className="text-sm font-medium">View Filings</span>
         </Button>
-
       </div>
     </div>
   )

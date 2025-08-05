@@ -16,10 +16,10 @@ export function MarketOverview() {
           </div>
         </div>
 
-        <hr />
+        {/* <hr /> */}
 
         {/* Recent Filings */}
-        <div>
+        {/* <div>
           <h3 className="text-sm font-semibold mb-2">Recent SEC Filings</h3>
           <div className="space-y-2">
             <div className="flex justify-between items-center text-sm">
@@ -37,10 +37,10 @@ export function MarketOverview() {
           </div>
         </div>
 
-        <hr />
+        <hr /> */}
 
         {/* Analysis Stats */}
-        <div>
+        {/* <div>
           <h3 className="text-sm font-semibold mb-2">Today's Activity</h3>
           <div className="space-y-2">
             <div className="flex justify-between items-center text-sm">
@@ -56,7 +56,7 @@ export function MarketOverview() {
               <span className="font-semibold">0</span>
             </div>
           </div>
-        </div>
+        </div> */}
       </div>
     </div>
   )
