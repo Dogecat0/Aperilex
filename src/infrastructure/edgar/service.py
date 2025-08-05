@@ -12,6 +12,9 @@ from src.infrastructure.edgar.schemas.filing_data import FilingData
 from src.infrastructure.edgar.schemas.filing_query import FilingQueryParams
 from src.shared.config import settings
 
+# Get logger for this method
+logger = logging.getLogger(__name__)
+
 
 class EdgarService:
     """Service for interacting with SEC EDGAR through edgartools."""
@@ -314,68 +317,40 @@ class EdgarService:
                         continue
 
             elif filing_type == FilingType.FORM_10Q:
-                # Comprehensive 10-Q sections mapping with variations
-                section_mapping = {
-                    (
-                        "financial_statements",
-                        "financials",
-                        "part1_item1",
-                    ): "Part I Item 1 - Financial Statements",
-                    (
-                        "mda",
-                        "management_discussion",
-                        "management_discussion_and_analysis",
-                        "part1_item2",
-                    ): "Part I Item 2 - Management Discussion & Analysis",
-                    (
-                        "quantitative_qualitative",
-                        "market_risk",
-                        "part1_item3",
-                    ): "Part I Item 3 - Quantitative and Qualitative Disclosures",
-                    (
-                        "controls_procedures",
-                        "controls",
-                        "part1_item4",
-                    ): "Part I Item 4 - Controls and Procedures",
-                    (
-                        "legal_proceedings",
-                        "legal",
-                        "part2_item1",
-                    ): "Part II Item 1 - Legal Proceedings",
-                    (
-                        "risk_factors",
-                        "risks",
-                        "part2_item1a",
-                    ): "Part II Item 1A - Risk Factors",
-                    (
-                        "unregistered_sales",
-                        "unregistered",
-                        "part2_item2",
-                    ): "Part II Item 2 - Unregistered Sales",
-                    ("defaults", "default", "part2_item3"): "Part II Item 3 - Defaults",
-                    ("mine_safety", "part2_item4"): "Part II Item 4 - Mine Safety",
-                    (
-                        "other_information",
-                        "other",
-                        "part2_item5",
-                    ): "Part II Item 5 - Other Information",
-                    (
-                        "exhibits",
-                        "exhibit_index",
-                        "part2_item6",
-                    ): "Part II Item 6 - Exhibits and Reports",
-                }
+                # Log available attributes for debugging
+                logger.debug(
+                    f"10-Q filing object attributes: {[attr for attr in dir(filing_obj) if not attr.startswith('_')]}"
+                )
 
-                # Try multiple attribute variations for each section
-                for attr_variations, section_name in section_mapping.items():
-                    found = False
-                    for attr_name in attr_variations:
-                        if hasattr(filing_obj, attr_name):
-                            section_text = getattr(filing_obj, attr_name)
-                            if section_text and str(section_text).strip():
-                                sections[section_name] = str(section_text).strip()
-                                found = True
-                                break
+                # Check if filing_obj has items list (newer edgartools pattern)
+                if hasattr(filing_obj, "items") and isinstance(filing_obj.items, list):
+                    logger.debug(f"Found items list: {filing_obj.items}")
+
+                    # Map simplified item names to full section names
+                    item_to_section_map = {
+                        "Item 1": "Part I Item 1 - Financial Statements",
+                        "Item 2": "Part I Item 2 - Management Discussion & Analysis",
+                        "Item 3": "Part I Item 3 - Quantitative and Qualitative Disclosures",
+                        "Item 4": "Part I Item 4 - Controls and Procedures",
+                        "Item 1A": "Part II Item 1A - Risk Factors",
+                        "Item 5": "Part II Item 5 - Other Information",
+                        "Item 6": "Part II Item 6 - Exhibits and Reports",
+                    }
+
+                    # Extract sections using dictionary access
+                    for item_key in filing_obj.items:
+                        if item_key in item_to_section_map:
+                            try:
+                                content = filing_obj[item_key]
+                                if content and str(content).strip():
+                                    sections[item_to_section_map[item_key]] = str(
+                                        content
+                                    ).strip()
+                                    logger.debug(
+                                        f"Extracted {item_key} -> {item_to_section_map[item_key]}"
+                                    )
+                            except Exception as e:
+                                logger.debug(f"Failed to extract {item_key}: {e}")
 
             elif filing_type == FilingType.FORM_8K:
                 # 8-K sections mapping with variations
