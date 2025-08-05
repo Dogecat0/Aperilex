@@ -143,7 +143,8 @@ class AnalysisOrchestrator:
 
             # Step 1: Validate filing access and retrieve filing data
             # After validation, accession_number is guaranteed to be non-None
-            assert command.accession_number is not None
+            if command.accession_number is None:
+                raise ValueError("Accession number is required but was None")
             filing_data = await self.validate_filing_access_and_get_data(
                 command.accession_number
             )
@@ -221,10 +222,38 @@ class AnalysisOrchestrator:
             analysis.update_results(llm_response.model_dump())
             analysis.update_confidence_score(llm_response.confidence_score)
 
+            # Determine which schemas were actually processed based on sections analyzed
+            actual_schemas_processed = []
+            sections_analyzed = [
+                sa.section_name for sa in llm_response.section_analyses
+            ]
+
+            # Map section names back to schemas that were actually used
+            section_to_schema_reverse = {
+                # 10-K sections
+                "Item 1 - Business": "BusinessAnalysisSection",
+                "Item 1A - Risk Factors": "RiskFactorsAnalysisSection",
+                "Item 7 - Management Discussion & Analysis": "MDAAnalysisSection",
+                # 10-Q sections
+                "Part I Item 2 - Management Discussion & Analysis": "MDAAnalysisSection",
+                "Part II Item 1A - Risk Factors": "RiskFactorsAnalysisSection",
+                # Financial statements
+                "Balance Sheet": "BalanceSheetAnalysisSection",
+                "Income Statement": "IncomeStatementAnalysisSection",
+                "Cash Flow Statement": "CashFlowAnalysisSection",
+            }
+
+            for section in sections_analyzed:
+                schema = section_to_schema_reverse.get(section)
+                if schema and schema not in actual_schemas_processed:
+                    actual_schemas_processed.append(schema)
+
             # Update metadata with processing details
             metadata = {
                 "template_used": command.analysis_template.value,
-                "schemas_processed": schemas_to_use,
+                "schemas_requested": schemas_to_use,
+                "schemas_processed": actual_schemas_processed,
+                "sections_analyzed": sections_analyzed,
                 "processing_time_minutes": 15,  # Default processing time
                 "edgar_accession": command.accession_number.value,
                 "force_reprocessed": command.force_reprocess,
@@ -577,11 +606,19 @@ class AnalysisOrchestrator:
         Returns:
             Dictionary mapping section names to section text
         """
-        # Map schemas to required filing sections
+        # Map schemas to required filing sections, both 10-K and 10-Q
         schema_section_mapping = {
-            "BusinessAnalysisSection": ["Item 1 - Business"],
-            "RiskFactorsAnalysisSection": ["Item 1A - Risk Factors"],
-            "MDAAnalysisSection": ["Item 7 - Management Discussion & Analysis"],
+            "BusinessAnalysisSection": [
+                "Item 1 - Business",  # 10-K
+            ],
+            "RiskFactorsAnalysisSection": [
+                "Item 1A - Risk Factors",  # 10-K
+                "Part II Item 1A - Risk Factors",  # 10-Q
+            ],
+            "MDAAnalysisSection": [
+                "Item 7 - Management Discussion & Analysis",  # 10-K
+                "Part I Item 2 - Management Discussion & Analysis",  # 10-Q
+            ],
             "BalanceSheetAnalysisSection": ["Balance Sheet"],
             "IncomeStatementAnalysisSection": ["Income Statement"],
             "CashFlowAnalysisSection": ["Cash Flow Statement"],
