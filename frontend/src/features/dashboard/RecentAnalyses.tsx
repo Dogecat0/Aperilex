@@ -1,18 +1,60 @@
-import { useAnalysisStore } from '@/lib/store'
+import { useNavigate } from 'react-router-dom'
+import { useAnalyses } from '@/hooks/useAnalysis'
+import { AnalysisCard } from '@/features/analyses/components/AnalysisCard'
 import { Skeleton } from '@/components/ui/Skeleton'
 
 export function RecentAnalyses() {
-  const store = useAnalysisStore()
-  const recentAnalyses = store?.recentAnalyses
+  const navigate = useNavigate()
+
+  // Fetch the 3 most recent analyses
+  const { data, isLoading, error } = useAnalyses({
+    page: 1,
+    page_size: 3,
+  })
+
+  const handleViewAll = () => {
+    navigate('/analyses')
+  }
+
+  const handleFindAnalysis = () => {
+    navigate('/companies')
+  }
+
+  if (error) {
+    return (
+      <div className="rounded-lg border bg-card p-6">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-semibold">Recent Analyses</h2>
+          <button onClick={handleViewAll} className="text-sm text-primary hover:text-primary/80">
+            View all
+          </button>
+        </div>
+        <div className="bg-error-50 border border-error-200 rounded-lg p-4">
+          <h3 className="text-error-800 font-medium text-sm">Error loading recent analyses</h3>
+          <p className="text-error-600 text-xs mt-1">
+            {error instanceof Error ? error.message : 'An unexpected error occurred'}
+          </p>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="rounded-lg border bg-card p-6">
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-lg font-semibold">Recent Analyses</h2>
-        <button className="text-sm text-primary hover:text-primary/80">View all</button>
+        <button onClick={handleViewAll} className="text-sm text-primary hover:text-primary/80">
+          View all
+        </button>
       </div>
 
-      {!recentAnalyses || recentAnalyses.length === 0 ? (
+      {isLoading ? (
+        <div className="space-y-3">
+          <Skeleton className="h-20 w-full" />
+          <Skeleton className="h-20 w-full" />
+          <Skeleton className="h-20 w-full" />
+        </div>
+      ) : !data || data.items.length === 0 ? (
         <div className="space-y-4">
           <div className="text-center py-8">
             <svg
@@ -33,7 +75,10 @@ export function RecentAnalyses() {
               Get started by analyzing your first SEC filing.
             </p>
             <div className="mt-6">
-              <button className="inline-flex items-center rounded-md bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground shadow-sm hover:bg-primary/90">
+              <button
+                onClick={handleFindAnalysis}
+                className="inline-flex items-center rounded-md bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground shadow-sm hover:bg-primary/90"
+              >
                 <svg
                   className="-ml-0.5 mr-1.5 h-5 w-5"
                   fill="none"
@@ -54,12 +99,9 @@ export function RecentAnalyses() {
         </div>
       ) : (
         <div className="space-y-3">
-          {/* Placeholder for when we have real data */}
-          <div className="space-y-3">
-            <Skeleton className="h-20 w-full" />
-            <Skeleton className="h-20 w-full" />
-            <Skeleton className="h-20 w-full" />
-          </div>
+          {data.items.map((analysis) => (
+            <AnalysisCard key={analysis.analysis_id} analysis={analysis} />
+          ))}
         </div>
       )}
     </div>
