@@ -24,7 +24,7 @@ import type { ComprehensiveAnalysisResponse } from '@/api/types'
 
 export function AnalysisDetails() {
   const { analysisId, accessionNumber } = useParams<{ analysisId?: string; accessionNumber?: string }>()
-  
+
   // Determine if we're using analysis ID or accession number
   const isAccessionNumberRoute = !!accessionNumber
   const identifier = accessionNumber || analysisId
@@ -32,7 +32,7 @@ export function AnalysisDetails() {
   // Use appropriate hook based on route type
   const analysisQuery = useAnalysis(analysisId!, !!analysisId)
   const filingAnalysisQuery = useFilingAnalysis(accessionNumber!, { enabled: !!accessionNumber })
-  
+
   // Select the appropriate query result
   const { data: analysis, isLoading, error } = isAccessionNumberRoute ? filingAnalysisQuery : analysisQuery
 
