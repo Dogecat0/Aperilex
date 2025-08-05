@@ -254,7 +254,10 @@ export const useProgressiveFilingAnalysis = () => {
           maxAttempts: 60,
           onProgress: (progressTask) => {
             const progressState = mapTaskToProgressState(progressTask)
-            const message = getProgressMessage(progressState, progressTask.current_step)
+            const message = getProgressMessage(
+              progressState,
+              progressTask.current_step ?? undefined
+            )
 
             setAnalysisProgress({
               state: progressState,
