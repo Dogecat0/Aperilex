@@ -70,10 +70,13 @@ class OpenAIProvider(BaseLLMProvider):
 
         # Section to schema mapping
         self.section_schemas = {
+            # 10-K sections
             "Item 1 - Business": schemas.BusinessAnalysisSection,
             "Item 1A - Risk Factors": schemas.RiskFactorsAnalysisSection,
             "Item 7 - Management Discussion & Analysis": schemas.MDAAnalysisSection,
+            # 10-Q sections - Part I
             "Part I Item 2 - Management Discussion & Analysis": schemas.MDAAnalysisSection,
+            # 10-Q sections - Part II
             "Part II Item 1A - Risk Factors": schemas.RiskFactorsAnalysisSection,
             # Financial statement schemas
             "Balance Sheet": schemas.BalanceSheetAnalysisSection,
