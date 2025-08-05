@@ -3,11 +3,13 @@
 import asyncio
 import logging
 from typing import Any
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from celery import Task
 
 from src.domain.entities.filing import Filing
+from src.domain.value_objects.accession_number import AccessionNumber
+from src.domain.value_objects.filing_type import FilingType
 from src.infrastructure.database.base import async_session_maker
 from src.infrastructure.edgar.service import EdgarService
 from src.infrastructure.repositories.company_repository import CompanyRepository
@@ -77,7 +79,7 @@ async def fetch_company_filings_task(
             for filing_data in filing_data_list:
                 # Check if filing already exists
                 existing_filing = await filing_repo.get_by_accession_number(
-                    filing_data.accession_number
+                    AccessionNumber(filing_data.accession_number)
                 )
 
                 if existing_filing:
@@ -88,10 +90,11 @@ async def fetch_company_filings_task(
                     continue
 
                 # Create new filing
-                filing = Filing.create(
+                filing = Filing(
+                    id=uuid4(),
                     company_id=company.id,
-                    accession_number=filing_data.accession_number,
-                    filing_type=filing_data.filing_type,
+                    accession_number=AccessionNumber(filing_data.accession_number),
+                    filing_type=FilingType(filing_data.filing_type),
                     filing_date=filing_data.filing_date,
                     metadata=filing_data.metadata or {},
                 )

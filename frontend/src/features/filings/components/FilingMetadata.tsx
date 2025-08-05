@@ -9,7 +9,6 @@ import {
   Clock,
   AlertCircle,
   Database,
-  Tag,
 } from 'lucide-react'
 import type { FilingResponse } from '@/api/types'
 
@@ -74,18 +73,18 @@ export const FilingMetadata: React.FC<FilingMetadataProps> = ({ filing }) => {
             </div>
 
             <div className="flex items-center space-x-3">
-              <Hash className="w-4 h-4 text-muted-foreground" />
-              <div>
-                <p className="text-sm text-muted-foreground">Accession Number</p>
-                <p className="font-medium font-mono text-sm">{filing.accession_number}</p>
-              </div>
-            </div>
-
-            <div className="flex items-center space-x-3">
               <Calendar className="w-4 h-4 text-muted-foreground" />
               <div>
                 <p className="text-sm text-muted-foreground">Filing Date</p>
                 <p className="font-medium">{new Date(filing.filing_date).toLocaleDateString()}</p>
+              </div>
+            </div>
+
+            <div className="flex items-center space-x-3">
+              <Hash className="w-4 h-4 text-muted-foreground" />
+              <div>
+                <p className="text-sm text-muted-foreground">Accession Number</p>
+                <p className="font-medium font-mono text-sm">{filing.accession_number}</p>
               </div>
             </div>
           </div>
@@ -103,22 +102,6 @@ export const FilingMetadata: React.FC<FilingMetadataProps> = ({ filing }) => {
                 </div>
               </div>
             )}
-
-            <div className="flex items-center space-x-3">
-              <Tag className="w-4 h-4 text-muted-foreground" />
-              <div>
-                <p className="text-sm text-muted-foreground">Filing ID</p>
-                <p className="font-medium font-mono text-xs">{filing.filing_id}</p>
-              </div>
-            </div>
-
-            <div className="flex items-center space-x-3">
-              <Building className="w-4 h-4 text-muted-foreground" />
-              <div>
-                <p className="text-sm text-muted-foreground">Company ID</p>
-                <p className="font-medium font-mono text-xs">{filing.company_id}</p>
-              </div>
-            </div>
           </div>
         </div>
 

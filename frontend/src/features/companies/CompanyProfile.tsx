@@ -303,25 +303,6 @@ export function CompanyProfile() {
               </div>
             </div>
           </div>
-
-          {/* Quick Actions */}
-          <div className="rounded-lg border bg-card p-6">
-            <h3 className="text-lg font-semibold mb-4">Quick Actions</h3>
-            <div className="space-y-2">
-              <Button className="w-full justify-start" onClick={handleAnalyzeFilings}>
-                <BarChart3 className="w-4 h-4 mr-2" />
-                Analyze New Filing
-              </Button>
-              <Button
-                variant="outline"
-                className="w-full justify-start"
-                onClick={handleViewAllAnalyses}
-              >
-                <TrendingUp className="w-4 h-4 mr-2" />
-                View All Analyses
-              </Button>
-            </div>
-          </div>
         </div>
       </div>
     </div>

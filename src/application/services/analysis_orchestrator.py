@@ -268,6 +268,12 @@ class AnalysisOrchestrator:
                 progress_callback, 1.0, "Analysis completed"
             )
 
+            # Step 9: Update filing status to completed after successful analysis
+            if filing.processing_status != ProcessingStatus.COMPLETED:
+                filing.mark_as_completed()
+                await self.filing_repository.update(filing)
+                logger.info(f"Updated filing {filing.id} status to completed after analysis")
+
             logger.info(f"Analysis orchestration completed: {analysis.id}")
             return analysis
 

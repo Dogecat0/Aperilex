@@ -26,6 +26,7 @@ interface FilingAnalysisSectionProps {
   onViewFullAnalysis?: () => void
   isAnalyzing?: boolean
   analysisProgress?: AnalysisProgress
+  filingStatus?: string // Add filing processing status for accurate display
 }
 
 /**
@@ -50,6 +51,48 @@ const getProgressIcon = (state: string) => {
   }
 }
 
+/**
+ * Get status display info based on filing processing status and analysis availability
+ */
+const getAnalysisStatusDisplay = (filingStatus?: string, hasAnalysis?: boolean) => {
+  if (!hasAnalysis) {
+    return {
+      text: 'Not Available',
+      icon: <XCircle className="w-3 h-3" />,
+      className: 'bg-gray-100 text-gray-800',
+    }
+  }
+
+  // If we have analysis, show the filing processing status
+  switch (filingStatus) {
+    case 'completed':
+      return {
+        text: 'Complete',
+        icon: <CheckCircle className="w-3 h-3" />,
+        className: 'bg-green-100 text-green-800',
+      }
+    case 'processing':
+      return {
+        text: 'Processing',
+        icon: <Clock className="w-3 h-3" />,
+        className: 'bg-blue-100 text-blue-800',
+      }
+    case 'failed':
+      return {
+        text: 'Failed',
+        icon: <XCircle className="w-3 h-3" />,
+        className: 'bg-red-100 text-red-800',
+      }
+    case 'pending':
+    default:
+      return {
+        text: 'Analysis Available',
+        icon: <CheckCircle className="w-3 h-3" />,
+        className: 'bg-blue-100 text-blue-800',
+      }
+  }
+}
+
 export const FilingAnalysisSection: React.FC<FilingAnalysisSectionProps> = ({
   analysis,
   isLoading,
@@ -58,6 +101,7 @@ export const FilingAnalysisSection: React.FC<FilingAnalysisSectionProps> = ({
   onViewFullAnalysis,
   isAnalyzing = false,
   analysisProgress,
+  filingStatus,
 }) => {
   // Show progressive loading if we have analysis progress
   if (analysisProgress && (isAnalyzing || analysisProgress.state !== 'idle')) {
@@ -226,9 +270,9 @@ export const FilingAnalysisSection: React.FC<FilingAnalysisSectionProps> = ({
           <span>Analysis Results</span>
         </h3>
         <div className="flex items-center space-x-2">
-          <span className="inline-flex items-center px-2 py-1 rounded-md bg-green-100 text-green-800 text-xs font-medium">
-            <CheckCircle className="w-3 h-3 mr-1" />
-            Complete
+          <span className={`inline-flex items-center px-2 py-1 rounded-md text-xs font-medium ${getAnalysisStatusDisplay(filingStatus, !!analysis).className}`}>
+            {getAnalysisStatusDisplay(filingStatus, !!analysis).icon}
+            <span className="ml-1">{getAnalysisStatusDisplay(filingStatus, !!analysis).text}</span>
           </span>
           {onViewFullAnalysis && (
             <Button variant="outline" size="sm" onClick={onViewFullAnalysis}>

@@ -20,10 +20,6 @@ const FILING_TYPES = [
   { value: '', label: 'All Filing Types' },
   { value: '10-K', label: '10-K (Annual Report)' },
   { value: '10-Q', label: '10-Q (Quarterly Report)' },
-  { value: '8-K', label: '8-K (Current Report)' },
-  { value: 'DEF 14A', label: 'DEF 14A (Proxy Statement)' },
-  { value: '10-K/A', label: '10-K/A (Annual Report Amendment)' },
-  { value: '10-Q/A', label: '10-Q/A (Quarterly Report Amendment)' },
 ]
 
 export function FilingSearchForm({

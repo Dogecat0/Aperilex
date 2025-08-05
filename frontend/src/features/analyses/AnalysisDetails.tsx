@@ -14,6 +14,7 @@ import {
   Share2,
 } from 'lucide-react'
 import { useAnalysis } from '@/hooks/useAnalysis'
+import { useFilingAnalysis } from '@/hooks/useFiling'
 import { Button } from '@/components/ui/Button'
 import { AnalysisViewer } from './components/AnalysisViewer'
 import { AnalysisMetrics } from './components/AnalysisMetrics'
@@ -22,15 +23,25 @@ import { SectionResults } from './components/SectionResults'
 import type { ComprehensiveAnalysisResponse } from '@/api/types'
 
 export function AnalysisDetails() {
-  const { analysisId } = useParams<{ analysisId: string }>()
-  const { data: analysis, isLoading, error } = useAnalysis(analysisId!)
+  const { analysisId, accessionNumber } = useParams<{ analysisId?: string; accessionNumber?: string }>()
+  
+  // Determine if we're using analysis ID or accession number
+  const isAccessionNumberRoute = !!accessionNumber
+  const identifier = accessionNumber || analysisId
 
-  if (!analysisId) {
+  // Use appropriate hook based on route type
+  const analysisQuery = useAnalysis(analysisId!, !!analysisId)
+  const filingAnalysisQuery = useFilingAnalysis(accessionNumber!, { enabled: !!accessionNumber })
+  
+  // Select the appropriate query result
+  const { data: analysis, isLoading, error } = isAccessionNumberRoute ? filingAnalysisQuery : analysisQuery
+
+  if (!identifier) {
     return (
       <div className="p-6">
         <div className="bg-error-50 border border-error-200 rounded-lg p-4">
           <h3 className="text-error-800 font-medium">Invalid Analysis ID</h3>
-          <p className="text-error-600 text-sm mt-1">The analysis ID is missing from the URL.</p>
+          <p className="text-error-600 text-sm mt-1">The analysis ID or accession number is missing from the URL.</p>
         </div>
       </div>
     )

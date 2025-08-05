@@ -14,12 +14,8 @@ import { Skeleton } from '@/components/ui/Skeleton'
 import {
   AlertCircle,
   ArrowLeft,
-  Brain,
-  Download,
   ExternalLink,
   RefreshCw,
-  Play,
-  Eye,
 } from 'lucide-react'
 import type { AnalyzeFilingRequest } from '@/api/types'
 
@@ -108,10 +104,6 @@ export function FilingDetails() {
     }
   }
 
-  const handleDownloadFiling = () => {
-    // TODO: Implement filing download
-    console.log('Download filing:', accessionNumber)
-  }
 
   const handleViewOnSEC = () => {
     if (filing) {
@@ -204,35 +196,10 @@ export function FilingDetails() {
             </p>
           </div>
           <div className="flex items-center space-x-2">
-            <Button variant="outline" size="sm" onClick={handleDownloadFiling}>
-              <Download className="w-4 h-4 mr-2" />
-              Download
-            </Button>
             <Button variant="outline" size="sm" onClick={handleViewOnSEC}>
               <ExternalLink className="w-4 h-4 mr-2" />
               View on SEC
             </Button>
-            {!analysis && (
-              <Button size="sm" onClick={() => handleAnalyze()} disabled={isAnalyzing}>
-                {isAnalyzing ? (
-                  <>
-                    <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
-                    Analyzing...
-                  </>
-                ) : (
-                  <>
-                    <Brain className="w-4 h-4 mr-2" />
-                    Analyze Filing
-                  </>
-                )}
-              </Button>
-            )}
-            {analysis && (
-              <Button variant="outline" size="sm" onClick={handleViewFullAnalysis}>
-                <Eye className="w-4 h-4 mr-2" />
-                Full Analysis
-              </Button>
-            )}
           </div>
         </div>
 
@@ -268,6 +235,7 @@ export function FilingDetails() {
             onAnalyze={() => handleAnalyze()}
             onViewFullAnalysis={handleViewFullAnalysis}
             isAnalyzing={isAnalyzing}
+            filingStatus={filing.processing_status}
           />
         </div>
 
@@ -276,87 +244,6 @@ export function FilingDetails() {
           {/* Filing Metadata */}
           <FilingMetadata filing={filing} />
 
-          {/* Quick Actions */}
-          <div className="rounded-lg border bg-card p-6">
-            <h3 className="text-lg font-semibold mb-4">Quick Actions</h3>
-            <div className="space-y-2">
-              {!analysis && (
-                <Button
-                  className="w-full justify-start"
-                  onClick={() => handleAnalyze({ analysis_type: 'COMPREHENSIVE' })}
-                  disabled={isAnalyzing}
-                >
-                  {isAnalyzing ? (
-                    <>
-                      <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
-                      Analyzing...
-                    </>
-                  ) : (
-                    <>
-                      <Brain className="w-4 h-4 mr-2" />
-                      Comprehensive Analysis
-                    </>
-                  )}
-                </Button>
-              )}
-
-              {!analysis && (
-                <Button
-                  variant="outline"
-                  className="w-full justify-start"
-                  onClick={() => handleAnalyze({ analysis_type: 'FINANCIAL_FOCUSED' })}
-                  disabled={isAnalyzing}
-                >
-                  {isAnalyzing ? (
-                    <>
-                      <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
-                      Analyzing...
-                    </>
-                  ) : (
-                    <>
-                      <Play className="w-4 h-4 mr-2" />
-                      Financial Analysis
-                    </>
-                  )}
-                </Button>
-              )}
-
-              {analysis && (
-                <Button
-                  variant="outline"
-                  className="w-full justify-start"
-                  onClick={() => handleAnalyze({ force_reanalysis: true })}
-                  disabled={isAnalyzing}
-                >
-                  {isAnalyzing ? (
-                    <>
-                      <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
-                      Re-analyzing...
-                    </>
-                  ) : (
-                    <>
-                      <RefreshCw className="w-4 h-4 mr-2" />
-                      Re-analyze Filing
-                    </>
-                  )}
-                </Button>
-              )}
-
-              <Button
-                variant="outline"
-                className="w-full justify-start"
-                onClick={handleDownloadFiling}
-              >
-                <Download className="w-4 h-4 mr-2" />
-                Download Filing
-              </Button>
-
-              <Button variant="outline" className="w-full justify-start" onClick={handleViewOnSEC}>
-                <ExternalLink className="w-4 h-4 mr-2" />
-                View on SEC EDGAR
-              </Button>
-            </div>
-          </div>
         </div>
       </div>
     </div>
