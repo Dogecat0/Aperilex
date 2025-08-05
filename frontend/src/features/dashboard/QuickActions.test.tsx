@@ -144,7 +144,6 @@ describe('QuickActions', () => {
       )
     })
 
-
     it('applies correct stroke properties to all SVG paths', () => {
       const { container: _container } = render(<QuickActions />, { wrapper: TestWrapper })
       const svgPaths = _container.querySelectorAll('svg path')
@@ -194,9 +193,9 @@ describe('QuickActions', () => {
     it('provides accessible text for each button', () => {
       render(<QuickActions />, { wrapper: TestWrapper })
 
-      expect(screen.getByRole('button', { name: /new analysis/i })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: /find analysis/i })).toBeInTheDocument()
       expect(screen.getByRole('button', { name: /search companies/i })).toBeInTheDocument()
-      expect(screen.getByRole('button', { name: /import filing/i })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: /view filings/i })).toBeInTheDocument()
     })
 
     it('uses currentColor for icon stroke to support theme changes', () => {
