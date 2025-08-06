@@ -138,11 +138,11 @@ class TestSearchFilingsEndpoint:
         response = test_client.get("/api/filings/search?ticker=AAPL&form_type=INVALID")
 
         assert (
-            response.status_code == 500
-        )  # HTTPException is handled by general exception handler
+            response.status_code == 422
+        )  # HTTPException now properly returns validation errors
         data = response.json()
         assert "error" in data
-        assert "Failed to search filings" in data["error"]["message"]
+        assert "Invalid form_type" in data["error"]["message"]
 
     def test_search_filings_invalid_sort_parameters(
         self, test_client, mock_service_factory
@@ -150,17 +150,17 @@ class TestSearchFilingsEndpoint:
         """Test filing search with invalid sort parameters."""
         factory, mock_dispatcher = mock_service_factory
 
-        # Invalid sort_by - HTTPException handled by general exception handler
+        # Invalid sort_by - HTTPException now properly returns validation errors
         response = test_client.get(
             "/api/filings/search?ticker=AAPL&sort_by=invalid_field"
         )
-        assert response.status_code == 500
+        assert response.status_code == 422
 
-        # Invalid sort_direction - HTTPException handled by general exception handler
+        # Invalid sort_direction - HTTPException now properly returns validation errors
         response = test_client.get(
             "/api/filings/search?ticker=AAPL&sort_direction=invalid"
         )
-        assert response.status_code == 500
+        assert response.status_code == 422
 
     def test_search_filings_dispatcher_exception(
         self, test_client, mock_service_factory
