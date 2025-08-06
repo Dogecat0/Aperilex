@@ -190,6 +190,9 @@ async def search_filings(
 
         return result
 
+    except HTTPException:
+        # Let HTTPException pass through to FastAPI
+        raise
     except ValueError as e:
         logger.warning(
             "Invalid search parameters",
