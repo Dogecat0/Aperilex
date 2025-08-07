@@ -4,7 +4,6 @@ import type {
   FilingResponse,
   AnalysisResponse,
   ComprehensiveAnalysisResponse,
-  SectionAnalysisResponse,
   HealthResponse,
   DetailedHealthResponse,
   APIError,
@@ -64,7 +63,8 @@ const mockComprehensiveAnalysis: ComprehensiveAnalysisResponse = {
   section_analyses: [
     {
       section_name: 'Business Operations',
-      section_summary: 'Analysis of the company\'s core business operations and strategic initiatives.',
+      section_summary:
+        "Analysis of the company's core business operations and strategic initiatives.",
       overall_sentiment: 0.8,
       sub_section_count: 3,
       consolidated_insights: [
@@ -72,9 +72,7 @@ const mockComprehensiveAnalysis: ComprehensiveAnalysisResponse = {
         'Successful expansion into emerging markets',
         'Effective cost management strategies implemented',
       ],
-      critical_findings: [
-        'Supply chain optimization needed in Southeast Asia',
-      ],
+      critical_findings: ['Supply chain optimization needed in Southeast Asia'],
       processing_time_ms: 5000,
       sub_sections: [
         {
@@ -117,7 +115,8 @@ const mockComprehensiveAnalysis: ComprehensiveAnalysisResponse = {
     },
     {
       section_name: 'Risk Factors',
-      section_summary: 'Comprehensive analysis of identified risk factors and their potential impact.',
+      section_summary:
+        'Comprehensive analysis of identified risk factors and their potential impact.',
       overall_sentiment: 0.4,
       sub_section_count: 2,
       consolidated_insights: [
@@ -137,7 +136,8 @@ const mockComprehensiveAnalysis: ComprehensiveAnalysisResponse = {
           processing_time_ms: 1500,
           parent_section: 'Risk Factors',
           analysis: {
-            executive_summary: 'Multiple high-severity risks identified that require immediate attention',
+            executive_summary:
+              'Multiple high-severity risks identified that require immediate attention',
             risk_factors: [
               {
                 risk_name: 'Regulatory Compliance',
@@ -188,7 +188,8 @@ const mockComprehensiveAnalysis: ComprehensiveAnalysisResponse = {
             },
             esg_risks: null,
             risk_management_framework: null,
-            overall_risk_assessment: 'Moderate risk profile with specific areas requiring attention',
+            overall_risk_assessment:
+              'Moderate risk profile with specific areas requiring attention',
           },
         },
       ],
@@ -385,11 +386,11 @@ export const handlers = [
   // Company filings endpoint (called by filingsApi.searchFilings)
   http.get('/api/companies/:ticker/filings', ({ params, request }) => {
     const url = new URL(request.url)
-    const ticker = params.ticker as string
-    const filingType = url.searchParams.get('filing_type')
+    const _ticker = params.ticker as string
+    const _filingType = url.searchParams.get('filing_type')
 
     const mockPaginatedResponse = {
-      data: mockFilings.map(filing => ({
+      data: mockFilings.map((filing) => ({
         ...filing,
         company_id: mockCompany.company_id,
       })),
@@ -398,18 +399,18 @@ export const handlers = [
         page_size: 10,
         total: mockFilings.length,
         total_pages: 1,
-      }
+      },
     }
 
     return HttpResponse.json(mockPaginatedResponse)
   }),
   http.get('http://localhost:8000/api/companies/:ticker/filings', ({ params, request }) => {
     const url = new URL(request.url)
-    const ticker = params.ticker as string
-    const filingType = url.searchParams.get('filing_type')
+    const _ticker2 = params.ticker as string
+    const _filingType2 = url.searchParams.get('filing_type')
 
     const mockPaginatedResponse = {
-      data: mockFilings.map(filing => ({
+      data: mockFilings.map((filing) => ({
         ...filing,
         company_id: mockCompany.company_id,
       })),
@@ -418,7 +419,7 @@ export const handlers = [
         page_size: 10,
         total: mockFilings.length,
         total_pages: 1,
-      }
+      },
     }
 
     return HttpResponse.json(mockPaginatedResponse)
@@ -457,7 +458,7 @@ export const handlers = [
         page_size: 10,
         total: mockFilingResults.length,
         total_pages: 1,
-      }
+      },
     }
 
     return HttpResponse.json(mockPaginatedResponse)
@@ -487,7 +488,7 @@ export const handlers = [
         page_size: 10,
         total: mockFilingResults.length,
         total_pages: 1,
-      }
+      },
     }
 
     return HttpResponse.json(mockPaginatedResponse)
@@ -548,7 +549,7 @@ export const handlers = [
   }),
 
   // Filing analyze endpoint (called by filingsApi.analyzeFiling)
-  http.post('/api/filings/:accessionNumber/analyze', ({ params }) => {
+  http.post('/api/filings/:accessionNumber/analyze', ({ params: _params }) => {
     const mockTask = {
       task_id: 'task-123',
       status: 'pending' as const,
@@ -561,19 +562,22 @@ export const handlers = [
     }
     return HttpResponse.json(mockTask)
   }),
-  http.post('http://localhost:8000/api/filings/:accessionNumber/analyze', ({ params }) => {
-    const mockTask = {
-      task_id: 'task-123',
-      status: 'pending' as const,
-      result: null,
-      error_message: null,
-      started_at: '2024-01-16T10:00:00Z',
-      completed_at: null,
-      progress_percent: 0,
-      current_step: 'Initiating analysis',
+  http.post(
+    'http://localhost:8000/api/filings/:accessionNumber/analyze',
+    ({ params: _params2 }) => {
+      const mockTask = {
+        task_id: 'task-123',
+        status: 'pending' as const,
+        result: null,
+        error_message: null,
+        started_at: '2024-01-16T10:00:00Z',
+        completed_at: null,
+        progress_percent: 0,
+        current_step: 'Initiating analysis',
+      }
+      return HttpResponse.json(mockTask)
     }
-    return HttpResponse.json(mockTask)
-  }),
+  ),
 
   // Legacy analysis endpoint pattern used by client.test.ts - return AnalysisResponse directly
   http.post('/api/filings/:ticker/:formType/analyze', ({ params }) => {
@@ -619,10 +623,10 @@ export const handlers = [
     // Apply filters
     if (ticker) {
       // For simplicity, just filter by filename containing ticker
-      filteredAnalyses = allAnalyses.filter(a => a.filing_id.includes(ticker.toLowerCase()))
+      filteredAnalyses = allAnalyses.filter((a) => a.filing_id.includes(ticker.toLowerCase()))
     }
     if (analysisType) {
-      filteredAnalyses = filteredAnalyses.filter(a => a.analysis_type === analysisType)
+      filteredAnalyses = filteredAnalyses.filter((a) => a.analysis_type === analysisType)
     }
 
     const paginatedResponse: PaginatedResponse<AnalysisResponse> = {
@@ -636,7 +640,7 @@ export const handlers = [
         has_previous: false,
         next_page: null,
         previous_page: null,
-      }
+      },
     }
 
     return HttpResponse.json(paginatedResponse)
@@ -655,10 +659,10 @@ export const handlers = [
     // Apply filters
     if (ticker) {
       // For simplicity, just filter by filename containing ticker
-      filteredAnalyses = allAnalyses.filter(a => a.filing_id.includes(ticker.toLowerCase()))
+      filteredAnalyses = allAnalyses.filter((a) => a.filing_id.includes(ticker.toLowerCase()))
     }
     if (analysisType) {
-      filteredAnalyses = filteredAnalyses.filter(a => a.analysis_type === analysisType)
+      filteredAnalyses = filteredAnalyses.filter((a) => a.analysis_type === analysisType)
     }
 
     const paginatedResponse: PaginatedResponse<AnalysisResponse> = {
@@ -672,7 +676,7 @@ export const handlers = [
         has_previous: false,
         next_page: null,
         previous_page: null,
-      }
+      },
     }
 
     return HttpResponse.json(paginatedResponse)
@@ -680,16 +684,20 @@ export const handlers = [
 
   // Company analyses endpoints
   http.get('/api/companies/:ticker/analyses', ({ params }) => {
-    return HttpResponse.json([{
-      ...mockAnalysis,
-      filing_id: `${params.ticker}-filing`,
-    }])
+    return HttpResponse.json([
+      {
+        ...mockAnalysis,
+        filing_id: `${params.ticker}-filing`,
+      },
+    ])
   }),
   http.get('http://localhost:8000/api/companies/:ticker/analyses', ({ params }) => {
-    return HttpResponse.json([{
-      ...mockAnalysis,
-      filing_id: `${params.ticker}-filing`,
-    }])
+    return HttpResponse.json([
+      {
+        ...mockAnalysis,
+        filing_id: `${params.ticker}-filing`,
+      },
+    ])
   }),
 
   // Error handlers for testing error scenarios - both relative and absolute URLs

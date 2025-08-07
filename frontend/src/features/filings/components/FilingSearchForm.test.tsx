@@ -44,7 +44,7 @@ describe('FilingSearchForm', () => {
   describe('Search Type Selector', () => {
     it('renders search type selector when onSearchTypeChange provided', () => {
       render(
-        <FilingSearchForm 
+        <FilingSearchForm
           onSearch={mockOnSearch}
           onEdgarSearch={mockOnEdgarSearch}
           onSearchTypeChange={mockOnSearchTypeChange}
@@ -64,7 +64,7 @@ describe('FilingSearchForm', () => {
 
     it('handles search type change to Edgar', () => {
       render(
-        <FilingSearchForm 
+        <FilingSearchForm
           onSearch={mockOnSearch}
           onEdgarSearch={mockOnEdgarSearch}
           onSearchTypeChange={mockOnSearchTypeChange}
@@ -80,7 +80,7 @@ describe('FilingSearchForm', () => {
 
     it('handles search type change to database', () => {
       render(
-        <FilingSearchForm 
+        <FilingSearchForm
           onSearch={mockOnSearch}
           onEdgarSearch={mockOnEdgarSearch}
           onSearchTypeChange={mockOnSearchTypeChange}
@@ -96,7 +96,7 @@ describe('FilingSearchForm', () => {
 
     it('shows correct active state for search type buttons', () => {
       render(
-        <FilingSearchForm 
+        <FilingSearchForm
           onSearch={mockOnSearch}
           onEdgarSearch={mockOnEdgarSearch}
           onSearchTypeChange={mockOnSearchTypeChange}
@@ -135,7 +135,7 @@ describe('FilingSearchForm', () => {
 
     it('calls onEdgarSearch with correct params for Edgar search', async () => {
       render(
-        <FilingSearchForm 
+        <FilingSearchForm
           onSearch={mockOnSearch}
           onEdgarSearch={mockOnEdgarSearch}
           searchType="edgar"
@@ -167,9 +167,7 @@ describe('FilingSearchForm', () => {
       fireEvent.click(searchButton)
 
       await waitFor(() => {
-        expect(mockOnSearch).toHaveBeenCalledWith(
-          expect.objectContaining({ ticker: 'AAPL' })
-        )
+        expect(mockOnSearch).toHaveBeenCalledWith(expect.objectContaining({ ticker: 'AAPL' }))
       })
     })
 
@@ -195,9 +193,7 @@ describe('FilingSearchForm', () => {
       fireEvent.click(searchButton)
 
       await waitFor(() => {
-        expect(mockOnSearch).toHaveBeenCalledWith(
-          expect.objectContaining({ ticker: 'AAPL' })
-        )
+        expect(mockOnSearch).toHaveBeenCalledWith(expect.objectContaining({ ticker: 'AAPL' }))
       })
     })
   })
@@ -207,7 +203,7 @@ describe('FilingSearchForm', () => {
       render(<FilingSearchForm onSearch={mockOnSearch} />)
 
       const filtersButton = screen.getByRole('button', { name: /Filters/ })
-      
+
       // Advanced filters should not be visible initially
       expect(screen.queryByText('Advanced Filters')).not.toBeInTheDocument()
 
@@ -219,7 +215,7 @@ describe('FilingSearchForm', () => {
 
     it('shows filter count badge when filters are active', () => {
       render(
-        <FilingSearchForm 
+        <FilingSearchForm
           onSearch={mockOnSearch}
           initialValues={{
             ticker: 'AAPL',
@@ -231,7 +227,7 @@ describe('FilingSearchForm', () => {
 
       const filtersButton = screen.getByRole('button', { name: /Filters/ })
       const badge = filtersButton.querySelector('.bg-primary')
-      
+
       expect(badge).toBeInTheDocument()
       expect(badge).toHaveTextContent('2') // filing_type and start_date
     })
@@ -308,7 +304,7 @@ describe('FilingSearchForm', () => {
 
     it('includes Edgar-specific filter names', async () => {
       render(
-        <FilingSearchForm 
+        <FilingSearchForm
           onSearch={mockOnSearch}
           onEdgarSearch={mockOnEdgarSearch}
           searchType="edgar"
@@ -332,8 +328,8 @@ describe('FilingSearchForm', () => {
       await waitFor(() => {
         expect(mockOnEdgarSearch).toHaveBeenCalledWith({
           ticker: 'MSFT',
-          form_type: '10-Q',  // Edgar uses form_type
-          date_from: '2024-01-01',  // Edgar uses date_from
+          form_type: '10-Q', // Edgar uses form_type
+          date_from: '2024-01-01', // Edgar uses date_from
           page: 1,
           page_size: 20,
         })
@@ -507,10 +503,7 @@ describe('FilingSearchForm', () => {
 
     it('has accessible button labels', () => {
       render(
-        <FilingSearchForm 
-          onSearch={mockOnSearch}
-          onSearchTypeChange={mockOnSearchTypeChange}
-        />
+        <FilingSearchForm onSearch={mockOnSearch} onSearchTypeChange={mockOnSearchTypeChange} />
       )
 
       expect(screen.getByRole('button', { name: /Filters/ })).toHaveAccessibleName()
@@ -521,7 +514,10 @@ describe('FilingSearchForm', () => {
       render(<FilingSearchForm onSearch={mockOnSearch} />)
 
       const searchInput = screen.getByPlaceholderText(/Enter company ticker/)
-      expect(searchInput).toHaveAttribute('placeholder', 'Enter company ticker (e.g., AAPL, MSFT, GOOGL)')
+      expect(searchInput).toHaveAttribute(
+        'placeholder',
+        'Enter company ticker (e.g., AAPL, MSFT, GOOGL)'
+      )
     })
   })
 })

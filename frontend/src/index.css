@@ -1,5 +1,14 @@
 @import 'tailwindcss';
 
+/* Custom styles for analysis components */
+.sparkline .recharts-wrapper {
+  overflow: visible;
+}
+
+.sparkline .recharts-surface {
+  overflow: visible;
+}
+
 @theme {
   /* Updated to use the new indigo primary palette */
   --color-background: hsl(0 0% 100%);

@@ -129,7 +129,6 @@ describe('Header Component', () => {
       expect(brandName).toHaveClass('text-xl', 'font-bold', 'text-primary')
     })
 
-
     it('maintains correct logo section layout', () => {
       render(<Header />, { wrapper: TestWrapper })
 
@@ -200,7 +199,6 @@ describe('Header Component', () => {
         .closest('[class*="hidden md:flex"]')
       expect(desktopSearchSection).toHaveClass('hidden', 'md:flex', 'flex-1', 'max-w-md', 'mx-8')
     })
-
 
     it('maintains proper layout spacing across breakpoints', () => {
       render(<Header />, { wrapper: TestWrapper })

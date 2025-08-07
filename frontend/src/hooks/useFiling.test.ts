@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { renderHook, waitFor, act } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { http, HttpResponse } from 'msw'
+import { HttpResponse } from 'msw'
 import {
   useFilingSearch,
   useEdgarSearch,
@@ -15,18 +15,24 @@ import {
 } from './useFiling'
 import { filingService } from '@/api/services/FilingService'
 import { tasksApi } from '@/api/tasks'
-import type { FilingResponse, TaskResponse, AnalysisResponse, FilingSearchResult } from '@/api/types'
-import React, { ReactNode } from 'react'
+import type {
+  FilingResponse,
+  TaskResponse,
+  AnalysisResponse,
+  FilingSearchResult,
+} from '@/api/types'
+import type { ReactNode } from 'react'
+import React from 'react'
 
-// Helper function to create error response for MSW
-const createErrorResponse = (status: number, detail: string, error_code?: string) => {
-  const error = {
-    detail,
-    status_code: status,
-    error_code,
-  }
-  return HttpResponse.json(error, { status })
-}
+// Helper function to create error response for MSW (currently unused)
+// const createErrorResponse = (status: number, detail: string, error_code?: string) => {
+//   const error = {
+//     detail,
+//     status_code: status,
+//     error_code,
+//   }
+//   return HttpResponse.json(error, { status })
+// }
 
 // Mock the filing service for unit tests
 vi.mock('@/api/services/FilingService', () => ({
@@ -62,14 +68,14 @@ describe('useFiling hooks', () => {
   beforeEach(() => {
     queryClient = new QueryClient({
       defaultOptions: {
-        queries: { 
+        queries: {
           retry: (failureCount, error: any) => {
             // Mimic the retry logic from the hook
             if (error?.status_code === 404) {
               return false
             }
             return failureCount < 3
-          }
+          },
         },
         mutations: { retry: false },
       },
@@ -135,7 +141,7 @@ describe('useFiling hooks', () => {
           mutations: { retry: false },
         },
       })
-      
+
       const errorTestWrapper = ({ children }: { children: React.ReactNode }) => {
         return React.createElement(QueryClientProvider, { client: errorTestQueryClient }, children)
       }
@@ -144,15 +150,18 @@ describe('useFiling hooks', () => {
       const error = {
         detail: 'Search failed',
         status_code: 500,
-        error_code: 'SEARCH_ERROR'
+        error_code: 'SEARCH_ERROR',
       }
       mockFilingService.searchFilings.mockRejectedValue(error)
 
       const { result } = renderHook(() => useFilingSearch(params), { wrapper: errorTestWrapper })
 
-      await waitFor(() => {
-        expect(result.current.isError).toBe(true)
-      }, { timeout: 3000 })
+      await waitFor(
+        () => {
+          expect(result.current.isError).toBe(true)
+        },
+        { timeout: 3000 }
+      )
 
       expect(result.current.error).toEqual(error)
       expect(mockFilingService.searchFilings).toHaveBeenCalledWith(params)
@@ -266,7 +275,7 @@ describe('useFiling hooks', () => {
       const error = {
         detail: 'Filing not found',
         status_code: 404,
-        error_code: 'NOT_FOUND'
+        error_code: 'NOT_FOUND',
       }
       mockFilingService.getFiling.mockRejectedValue(error)
 
@@ -304,7 +313,9 @@ describe('useFiling hooks', () => {
 
       mockFilingService.getFilingAnalysis.mockResolvedValue(mockAnalysis)
 
-      const { result } = renderHook(() => useFilingAnalysis(accessionNumber), { wrapper: createWrapper })
+      const { result } = renderHook(() => useFilingAnalysis(accessionNumber), {
+        wrapper: createWrapper,
+      })
 
       await waitFor(() => {
         expect(result.current.isSuccess).toBe(true)
@@ -321,7 +332,9 @@ describe('useFiling hooks', () => {
 
       mockFilingService.getFilingAnalysis.mockRejectedValue(error)
 
-      const { result } = renderHook(() => useFilingAnalysis(accessionNumber), { wrapper: createWrapper })
+      const { result } = renderHook(() => useFilingAnalysis(accessionNumber), {
+        wrapper: createWrapper,
+      })
 
       await waitFor(() => {
         expect(result.current.isError).toBe(true)
@@ -336,7 +349,7 @@ describe('useFiling hooks', () => {
       // Create a QueryClient with fast retry for this test
       const retryTestQueryClient = new QueryClient({
         defaultOptions: {
-          queries: { 
+          queries: {
             retry: (failureCount, error: any) => {
               if (error?.status_code === 404) {
                 return false
@@ -348,7 +361,7 @@ describe('useFiling hooks', () => {
           mutations: { retry: false },
         },
       })
-      
+
       const retryTestWrapper = ({ children }: { children: React.ReactNode }) => {
         return React.createElement(QueryClientProvider, { client: retryTestQueryClient }, children)
       }
@@ -357,16 +370,21 @@ describe('useFiling hooks', () => {
       const error = {
         detail: 'Server error',
         status_code: 500,
-        error_code: 'INTERNAL_ERROR'
+        error_code: 'INTERNAL_ERROR',
       }
 
       mockFilingService.getFilingAnalysis.mockRejectedValue(error)
 
-      const { result } = renderHook(() => useFilingAnalysis(accessionNumber), { wrapper: retryTestWrapper })
+      const { result } = renderHook(() => useFilingAnalysis(accessionNumber), {
+        wrapper: retryTestWrapper,
+      })
 
-      await waitFor(() => {
-        expect(result.current.isError).toBe(true)
-      }, { timeout: 3000 })
+      await waitFor(
+        () => {
+          expect(result.current.isError).toBe(true)
+        },
+        { timeout: 3000 }
+      )
 
       // Should retry up to 3 times on non-404 errors
       expect(mockFilingService.getFilingAnalysis).toHaveBeenCalledTimes(4) // 1 initial + 3 retries
@@ -379,7 +397,9 @@ describe('useFiling hooks', () => {
       const accessionNumber = '0000320193-24-000001'
       mockFilingService.hasAnalysis.mockResolvedValue(true)
 
-      const { result } = renderHook(() => useFilingHasAnalysis(accessionNumber), { wrapper: createWrapper })
+      const { result } = renderHook(() => useFilingHasAnalysis(accessionNumber), {
+        wrapper: createWrapper,
+      })
 
       await waitFor(() => {
         expect(result.current.isSuccess).toBe(true)
@@ -393,7 +413,9 @@ describe('useFiling hooks', () => {
       const accessionNumber = '0000320193-24-000001'
       mockFilingService.hasAnalysis.mockResolvedValue(false)
 
-      const { result } = renderHook(() => useFilingHasAnalysis(accessionNumber), { wrapper: createWrapper })
+      const { result } = renderHook(() => useFilingHasAnalysis(accessionNumber), {
+        wrapper: createWrapper,
+      })
 
       await waitFor(() => {
         expect(result.current.isSuccess).toBe(true)
@@ -417,7 +439,9 @@ describe('useFiling hooks', () => {
 
       mockFilingService.getFilingStatus.mockResolvedValue(mockStatus)
 
-      const { result } = renderHook(() => useFilingStatus(accessionNumber), { wrapper: createWrapper })
+      const { result } = renderHook(() => useFilingStatus(accessionNumber), {
+        wrapper: createWrapper,
+      })
 
       await waitFor(() => {
         expect(result.current.isSuccess).toBe(true)
@@ -508,7 +532,11 @@ describe('useFiling hooks', () => {
         expect(result.current.isSuccess).toBe(true)
       })
 
-      expect(mockFilingService.pollForAnalysisCompletion).toHaveBeenCalledWith(accessionNumber, 1000, 10)
+      expect(mockFilingService.pollForAnalysisCompletion).toHaveBeenCalledWith(
+        accessionNumber,
+        1000,
+        10
+      )
       expect(result.current.data).toEqual(mockResult)
       expect(invalidateQueriesSpy).toHaveBeenCalledWith({
         queryKey: ['filing', accessionNumber],
@@ -583,7 +611,9 @@ describe('useFiling hooks', () => {
 
       const invalidateQueriesSpy = vi.spyOn(queryClient, 'invalidateQueries')
 
-      const { result } = renderHook(() => useProgressiveFilingAnalysis(), { wrapper: createWrapper })
+      const { result } = renderHook(() => useProgressiveFilingAnalysis(), {
+        wrapper: createWrapper,
+      })
 
       // Initial state
       expect(result.current.analysisProgress.state).toBe('idle')
@@ -643,7 +673,9 @@ describe('useFiling hooks', () => {
       mockFilingService.analyzeFiling.mockResolvedValue(mockTask)
       mockTasksApi.pollTask.mockResolvedValue(mockFailedTask)
 
-      const { result } = renderHook(() => useProgressiveFilingAnalysis(), { wrapper: createWrapper })
+      const { result } = renderHook(() => useProgressiveFilingAnalysis(), {
+        wrapper: createWrapper,
+      })
 
       let error: Error | null = null
 
@@ -668,7 +700,9 @@ describe('useFiling hooks', () => {
 
       mockFilingService.analyzeFiling.mockRejectedValue(error)
 
-      const { result } = renderHook(() => useProgressiveFilingAnalysis(), { wrapper: createWrapper })
+      const { result } = renderHook(() => useProgressiveFilingAnalysis(), {
+        wrapper: createWrapper,
+      })
 
       let caughtError: Error | null = null
 
@@ -687,7 +721,9 @@ describe('useFiling hooks', () => {
     })
 
     it('should reset progress state', () => {
-      const { result } = renderHook(() => useProgressiveFilingAnalysis(), { wrapper: createWrapper })
+      const { result } = renderHook(() => useProgressiveFilingAnalysis(), {
+        wrapper: createWrapper,
+      })
 
       // Start analysis to set some progress (won't complete due to mock)
       mockFilingService.analyzeFiling.mockResolvedValue({
@@ -701,9 +737,9 @@ describe('useFiling hooks', () => {
         current_step: 'Initiating analysis',
       })
 
-      let startPromise: Promise<any>
+      let _startPromise: Promise<any>
       act(() => {
-        startPromise = result.current.startAnalysis('test-accession').catch(() => {})
+        _startPromise = result.current.startAnalysis('test-accession').catch(() => {})
       })
 
       // Should be in initiating state

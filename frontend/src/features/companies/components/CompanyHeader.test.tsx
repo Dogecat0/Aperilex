@@ -88,15 +88,15 @@ describe('CompanyHeader', () => {
     it('applies correct card styling', () => {
       const { container } = render(<CompanyHeader company={mockCompany} />)
       const header = container.firstChild as HTMLElement
-      
+
       expect(header).toHaveClass('rounded-lg', 'border', 'bg-card', 'p-6')
     })
 
     it('forwards ref correctly', () => {
       const ref = React.createRef<HTMLDivElement>()
-      
+
       render(<CompanyHeader company={mockCompany} ref={ref} />)
-      
+
       expect(ref.current).toBeInstanceOf(HTMLDivElement)
     })
   })
@@ -104,7 +104,7 @@ describe('CompanyHeader', () => {
   describe('Company Information Display', () => {
     it('displays company name as main heading', () => {
       render(<CompanyHeader company={mockCompany} />)
-      
+
       const heading = screen.getByRole('heading', { level: 1 })
       expect(heading).toHaveTextContent('Apple Inc.')
       expect(heading).toHaveClass('text-2xl', 'font-bold', 'text-foreground')
@@ -112,7 +112,7 @@ describe('CompanyHeader', () => {
 
     it('displays ticker symbol when available', () => {
       render(<CompanyHeader company={mockCompany} />)
-      
+
       const tickerElement = screen.getByText('AAPL')
       expect(tickerElement).toBeInTheDocument()
       expect(tickerElement).toHaveClass(
@@ -131,28 +131,28 @@ describe('CompanyHeader', () => {
 
     it('handles company without ticker', () => {
       render(<CompanyHeader company={mockCompanyMinimal} />)
-      
+
       expect(screen.queryByText('AAPL')).not.toBeInTheDocument()
       expect(screen.getByText('Test Company')).toBeInTheDocument()
     })
 
     it('displays industry when available', () => {
       render(<CompanyHeader company={mockCompany} />)
-      
+
       expect(screen.getByText('Industry')).toBeInTheDocument()
       expect(screen.getByText('Technology')).toBeInTheDocument()
     })
 
     it('displays CIK number', () => {
       render(<CompanyHeader company={mockCompany} />)
-      
+
       expect(screen.getByText('CIK')).toBeInTheDocument()
       expect(screen.getByText('0000320193')).toBeInTheDocument()
     })
 
     it('displays fiscal year end when available', () => {
       render(<CompanyHeader company={mockCompany} />)
-      
+
       expect(screen.getByText('Fiscal Year End')).toBeInTheDocument()
       expect(screen.getByText('09-30')).toBeInTheDocument()
     })
@@ -161,7 +161,7 @@ describe('CompanyHeader', () => {
   describe('Business Address Display', () => {
     it('displays complete business address', () => {
       render(<CompanyHeader company={mockCompany} />)
-      
+
       expect(screen.getByText('Location')).toBeInTheDocument()
       expect(screen.getByText('Cupertino, CA, US')).toBeInTheDocument()
     })
@@ -177,13 +177,13 @@ describe('CompanyHeader', () => {
       }
 
       render(<CompanyHeader company={companyPartialAddress} />)
-      
+
       expect(screen.getByText('Cupertino, CA')).toBeInTheDocument()
     })
 
     it('does not show location when address is missing', () => {
       render(<CompanyHeader company={mockCompanyMinimal} />)
-      
+
       expect(screen.queryByText('Location')).not.toBeInTheDocument()
     })
   })
@@ -191,7 +191,7 @@ describe('CompanyHeader', () => {
   describe('SIC Information Display', () => {
     it('displays SIC code and description when available', () => {
       render(<CompanyHeader company={mockCompany} />)
-      
+
       expect(screen.getByText('SIC Classification')).toBeInTheDocument()
       expect(screen.getByText('3571 - Electronic Computers')).toBeInTheDocument()
     })
@@ -204,13 +204,13 @@ describe('CompanyHeader', () => {
       }
 
       render(<CompanyHeader company={companySicDescOnly} />)
-      
+
       expect(screen.getByText('Electronic Computers')).toBeInTheDocument()
     })
 
     it('does not show SIC section when both code and description are missing', () => {
       render(<CompanyHeader company={mockCompanyMinimal} />)
-      
+
       expect(screen.queryByText('SIC Classification')).not.toBeInTheDocument()
     })
   })
@@ -218,53 +218,45 @@ describe('CompanyHeader', () => {
   describe('Action Buttons', () => {
     it('renders analyze filings button when callback provided', () => {
       const mockOnAnalyzeFilings = vi.fn()
-      
-      render(
-        <CompanyHeader company={mockCompany} onAnalyzeFilings={mockOnAnalyzeFilings} />
-      )
-      
+
+      render(<CompanyHeader company={mockCompany} onAnalyzeFilings={mockOnAnalyzeFilings} />)
+
       expect(screen.getByText('Analyze Filings')).toBeInTheDocument()
     })
 
     it('renders view analyses button when callback provided', () => {
       const mockOnViewAnalyses = vi.fn()
-      
-      render(
-        <CompanyHeader company={mockCompany} onViewAnalyses={mockOnViewAnalyses} />
-      )
-      
+
+      render(<CompanyHeader company={mockCompany} onViewAnalyses={mockOnViewAnalyses} />)
+
       expect(screen.getByText('View All Analyses')).toBeInTheDocument()
     })
 
     it('calls onAnalyzeFilings when button clicked', async () => {
       const mockOnAnalyzeFilings = vi.fn()
-      
-      render(
-        <CompanyHeader company={mockCompany} onAnalyzeFilings={mockOnAnalyzeFilings} />
-      )
-      
+
+      render(<CompanyHeader company={mockCompany} onAnalyzeFilings={mockOnAnalyzeFilings} />)
+
       const analyzeButton = screen.getByText('Analyze Filings')
       await user.click(analyzeButton)
-      
+
       expect(mockOnAnalyzeFilings).toHaveBeenCalledTimes(1)
     })
 
     it('calls onViewAnalyses when button clicked', async () => {
       const mockOnViewAnalyses = vi.fn()
-      
-      render(
-        <CompanyHeader company={mockCompany} onViewAnalyses={mockOnViewAnalyses} />
-      )
-      
+
+      render(<CompanyHeader company={mockCompany} onViewAnalyses={mockOnViewAnalyses} />)
+
       const viewAnalysesButton = screen.getByText('View All Analyses')
       await user.click(viewAnalysesButton)
-      
+
       expect(mockOnViewAnalyses).toHaveBeenCalledTimes(1)
     })
 
     it('does not render buttons when no callbacks provided', () => {
       render(<CompanyHeader company={mockCompany} />)
-      
+
       expect(screen.queryByText('Analyze Filings')).not.toBeInTheDocument()
       expect(screen.queryByText('View All Analyses')).not.toBeInTheDocument()
     })
@@ -272,18 +264,18 @@ describe('CompanyHeader', () => {
     it('applies correct button variants', () => {
       const mockOnAnalyzeFilings = vi.fn()
       const mockOnViewAnalyses = vi.fn()
-      
+
       render(
-        <CompanyHeader 
-          company={mockCompany} 
+        <CompanyHeader
+          company={mockCompany}
           onAnalyzeFilings={mockOnAnalyzeFilings}
           onViewAnalyses={mockOnViewAnalyses}
         />
       )
-      
+
       const analyzeButton = screen.getByText('Analyze Filings')
       const viewAnalysesButton = screen.getByText('View All Analyses')
-      
+
       // Primary button (no variant attribute)
       expect(analyzeButton).not.toHaveAttribute('data-variant')
       // Outline button
@@ -294,7 +286,7 @@ describe('CompanyHeader', () => {
   describe('Recent Activity Section', () => {
     it('displays recent analyses when available', () => {
       render(<CompanyHeader company={mockCompany} />)
-      
+
       expect(screen.getByText('Recent Activity')).toBeInTheDocument()
       const analysisElements = screen.getAllByText((content, element) => {
         return /2\s*recent\s*analys(is|es)/.test(element?.textContent || '')
@@ -304,21 +296,21 @@ describe('CompanyHeader', () => {
 
     it('shows individual analysis cards', () => {
       render(<CompanyHeader company={mockCompany} />)
-      
+
       expect(screen.getByText('COMPREHENSIVE')).toBeInTheDocument()
       expect(screen.getByText('FINANCIAL_FOCUSED')).toBeInTheDocument()
     })
 
     it('displays confidence scores when available', () => {
       render(<CompanyHeader company={mockCompany} />)
-      
+
       expect(screen.getByText('Confidence: 95%')).toBeInTheDocument()
       expect(screen.getByText('Confidence: 88%')).toBeInTheDocument()
     })
 
     it('formats analysis dates correctly', () => {
       render(<CompanyHeader company={mockCompany} />)
-      
+
       // Should show formatted dates
       const dateElements = screen.getAllByText(/\d{1,2}\/\d{1,2}\/\d{4}/)
       expect(dateElements).toHaveLength(2) // One for each analysis
@@ -345,7 +337,7 @@ describe('CompanyHeader', () => {
       }
 
       render(<CompanyHeader company={companyManyAnalyses} />)
-      
+
       expect(screen.getByText('COMPREHENSIVE')).toBeInTheDocument()
       expect(screen.getByText('FINANCIAL_FOCUSED')).toBeInTheDocument()
       expect(screen.getByText('RISK_FOCUSED')).toBeInTheDocument()
@@ -359,7 +351,7 @@ describe('CompanyHeader', () => {
       }
 
       render(<CompanyHeader company={companySingleAnalysis} />)
-      
+
       expect(screen.getByText('1 recent analysis')).toBeInTheDocument()
     })
 
@@ -370,7 +362,7 @@ describe('CompanyHeader', () => {
       }
 
       render(<CompanyHeader company={companyNoAnalyses} />)
-      
+
       expect(screen.queryByText('Recent Activity')).not.toBeInTheDocument()
     })
 
@@ -381,7 +373,7 @@ describe('CompanyHeader', () => {
       }
 
       render(<CompanyHeader company={companyNoAnalyses} />)
-      
+
       expect(screen.queryByText('Recent Activity')).not.toBeInTheDocument()
     })
   })
@@ -389,7 +381,7 @@ describe('CompanyHeader', () => {
   describe('Layout and Responsive Design', () => {
     it('uses correct responsive flex layout', () => {
       const { container } = render(<CompanyHeader company={mockCompany} />)
-      
+
       const mainContainer = container.querySelector('.flex.flex-col.lg\\:flex-row')
       expect(mainContainer).toBeInTheDocument()
       expect(mainContainer).toHaveClass(
@@ -405,7 +397,7 @@ describe('CompanyHeader', () => {
 
     it('displays company details in responsive grid', () => {
       const { container } = render(<CompanyHeader company={mockCompany} />)
-      
+
       const detailsGrid = container.querySelector('.grid.grid-cols-1.md\\:grid-cols-2')
       expect(detailsGrid).toBeInTheDocument()
       expect(detailsGrid).toHaveClass('grid', 'grid-cols-1', 'md:grid-cols-2', 'gap-4')
@@ -413,8 +405,10 @@ describe('CompanyHeader', () => {
 
     it('displays recent analyses in responsive grid', () => {
       const { container } = render(<CompanyHeader company={mockCompany} />)
-      
-      const analysesGrid = container.querySelector('.grid.grid-cols-1.sm\\:grid-cols-2.lg\\:grid-cols-3')
+
+      const analysesGrid = container.querySelector(
+        '.grid.grid-cols-1.sm\\:grid-cols-2.lg\\:grid-cols-3'
+      )
       expect(analysesGrid).toBeInTheDocument()
       expect(analysesGrid).toHaveClass(
         'grid',
@@ -428,15 +422,15 @@ describe('CompanyHeader', () => {
     it('applies correct responsive button layout', () => {
       const mockOnAnalyzeFilings = vi.fn()
       const mockOnViewAnalyses = vi.fn()
-      
+
       const { container } = render(
-        <CompanyHeader 
-          company={mockCompany} 
+        <CompanyHeader
+          company={mockCompany}
           onAnalyzeFilings={mockOnAnalyzeFilings}
           onViewAnalyses={mockOnViewAnalyses}
         />
       )
-      
+
       const buttonContainer = container.querySelector('.flex.flex-col.sm\\:flex-row.lg\\:flex-col')
       expect(buttonContainer).toBeInTheDocument()
       expect(buttonContainer).toHaveClass(
@@ -456,7 +450,7 @@ describe('CompanyHeader', () => {
   describe('Visual Elements', () => {
     it('renders building icon in header', () => {
       const { container } = render(<CompanyHeader company={mockCompany} />)
-      
+
       // Should have building icon
       const svgElements = container.querySelectorAll('svg')
       expect(svgElements.length).toBeGreaterThan(0)
@@ -464,7 +458,7 @@ describe('CompanyHeader', () => {
 
     it('renders appropriate icons for different data types', () => {
       const { container } = render(<CompanyHeader company={mockCompany} />)
-      
+
       // Should have multiple icons (Building, BarChart3, MapPin, Calendar, ExternalLink)
       const svgElements = container.querySelectorAll('svg')
       expect(svgElements.length).toBeGreaterThanOrEqual(5)
@@ -472,7 +466,7 @@ describe('CompanyHeader', () => {
 
     it('shows primary indicators for recent analyses', () => {
       const { container } = render(<CompanyHeader company={mockCompany} />)
-      
+
       // Should have indicator dots for analyses
       const dotElements = container.querySelectorAll('.w-2.h-2.bg-primary.rounded-full')
       expect(dotElements.length).toBeGreaterThanOrEqual(2)
@@ -482,11 +476,11 @@ describe('CompanyHeader', () => {
   describe('Accessibility', () => {
     it('uses proper semantic HTML structure', () => {
       render(<CompanyHeader company={mockCompany} />)
-      
+
       // Main heading
       const heading = screen.getByRole('heading', { level: 1 })
       expect(heading).toHaveTextContent('Apple Inc.')
-      
+
       // Section heading for recent activity
       const activityHeading = screen.getByRole('heading', { level: 3 })
       expect(activityHeading).toHaveTextContent('Recent Activity')
@@ -495,19 +489,19 @@ describe('CompanyHeader', () => {
     it('provides accessible button elements', () => {
       const mockOnAnalyzeFilings = vi.fn()
       const mockOnViewAnalyses = vi.fn()
-      
+
       render(
-        <CompanyHeader 
-          company={mockCompany} 
+        <CompanyHeader
+          company={mockCompany}
           onAnalyzeFilings={mockOnAnalyzeFilings}
           onViewAnalyses={mockOnViewAnalyses}
         />
       )
-      
+
       const buttons = screen.getAllByRole('button')
       expect(buttons).toHaveLength(2)
-      
-      buttons.forEach(button => {
+
+      buttons.forEach((button) => {
         expect(button).not.toBeDisabled()
         expect(button.tagName).toBe('BUTTON')
       })
@@ -515,7 +509,7 @@ describe('CompanyHeader', () => {
 
     it('provides meaningful text descriptions', () => {
       render(<CompanyHeader company={mockCompany} />)
-      
+
       // Should have descriptive labels for data sections
       expect(screen.getByText('Industry')).toBeInTheDocument()
       expect(screen.getByText('Location')).toBeInTheDocument()
@@ -539,19 +533,19 @@ describe('CompanyHeader', () => {
       }
 
       render(<CompanyHeader company={companyNoConfidence} />)
-      
+
       expect(screen.getByText('COMPREHENSIVE')).toBeInTheDocument()
       expect(screen.queryByText(/Confidence:/)).not.toBeInTheDocument()
     })
 
     it('handles all optional fields missing gracefully', () => {
       render(<CompanyHeader company={mockCompanyMinimal} />)
-      
+
       // Should still render without errors
       expect(screen.getByText('Test Company')).toBeInTheDocument()
       expect(screen.getByText('CIK')).toBeInTheDocument()
       expect(screen.getByText('0001234567')).toBeInTheDocument()
-      
+
       // Optional sections should not appear
       expect(screen.queryByText('Industry')).not.toBeInTheDocument()
       expect(screen.queryByText('Location')).not.toBeInTheDocument()

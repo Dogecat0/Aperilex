@@ -4,7 +4,8 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { useCompany, useCompanyAnalyses, useCompanyFilings } from './useCompany'
 import { aperilexApi } from '@/api'
 import type { CompanyResponse, AnalysisResponse, FilingResponse } from '@/api/types'
-import React, { ReactNode } from 'react'
+import type { ReactNode } from 'react'
+import React from 'react'
 
 // Mock the API
 vi.mock('@/api', () => ({
@@ -101,10 +102,9 @@ describe('useCompany hooks', () => {
 
       mockApi.getCompany.mockResolvedValue(mockCompany)
 
-      const { result } = renderHook(
-        () => useCompany(ticker, { includeRecentAnalyses: true }),
-        { wrapper: createWrapper }
-      )
+      const { result } = renderHook(() => useCompany(ticker, { includeRecentAnalyses: true }), {
+        wrapper: createWrapper,
+      })
 
       await waitFor(() => {
         expect(result.current.isSuccess).toBe(true)
@@ -162,10 +162,7 @@ describe('useCompany hooks', () => {
       const includeRecentAnalyses = true
       mockApi.getCompany.mockResolvedValue({})
 
-      renderHook(
-        () => useCompany(ticker, { includeRecentAnalyses }),
-        { wrapper: createWrapper }
-      )
+      renderHook(() => useCompany(ticker, { includeRecentAnalyses }), { wrapper: createWrapper })
 
       // The query key should include the includeRecentAnalyses option for proper caching
       const queryState = queryClient.getQueryState(['company', ticker, { includeRecentAnalyses }])
@@ -221,10 +218,9 @@ describe('useCompany hooks', () => {
 
       mockApi.getCompanyAnalyses.mockResolvedValue([])
 
-      const { result } = renderHook(
-        () => useCompanyAnalyses(ticker, filters),
-        { wrapper: createWrapper }
-      )
+      const { result } = renderHook(() => useCompanyAnalyses(ticker, filters), {
+        wrapper: createWrapper,
+      })
 
       await waitFor(() => {
         expect(result.current.isSuccess).toBe(true)
@@ -245,10 +241,7 @@ describe('useCompany hooks', () => {
       const ticker = 'AAPL'
       mockApi.getCompanyAnalyses.mockResolvedValue([])
 
-      renderHook(
-        () => useCompanyAnalyses(ticker, { enabled: false }),
-        { wrapper: createWrapper }
-      )
+      renderHook(() => useCompanyAnalyses(ticker, { enabled: false }), { wrapper: createWrapper })
 
       expect(mockApi.getCompanyAnalyses).not.toHaveBeenCalled()
     })
@@ -338,10 +331,9 @@ describe('useCompany hooks', () => {
 
       mockApi.getCompanyFilings.mockResolvedValue([])
 
-      const { result } = renderHook(
-        () => useCompanyFilings(ticker, filters),
-        { wrapper: createWrapper }
-      )
+      const { result } = renderHook(() => useCompanyFilings(ticker, filters), {
+        wrapper: createWrapper,
+      })
 
       await waitFor(() => {
         expect(result.current.isSuccess).toBe(true)
@@ -362,10 +354,7 @@ describe('useCompany hooks', () => {
       const ticker = 'AAPL'
       mockApi.getCompanyFilings.mockResolvedValue([])
 
-      renderHook(
-        () => useCompanyFilings(ticker, { enabled: false }),
-        { wrapper: createWrapper }
-      )
+      renderHook(() => useCompanyFilings(ticker, { enabled: false }), { wrapper: createWrapper })
 
       expect(mockApi.getCompanyFilings).not.toHaveBeenCalled()
     })

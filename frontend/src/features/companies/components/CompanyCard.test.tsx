@@ -100,7 +100,7 @@ describe('CompanyCard', () => {
     it('applies correct card styling classes', () => {
       const { container } = render(<CompanyCard company={mockCompany} />)
       const card = container.firstChild as HTMLElement
-      
+
       expect(card).toHaveClass(
         'rounded-lg',
         'border',
@@ -114,9 +114,9 @@ describe('CompanyCard', () => {
 
     it('forwards ref correctly', () => {
       const ref = React.createRef<HTMLDivElement>()
-      
+
       render(<CompanyCard company={mockCompany} ref={ref} />)
-      
+
       expect(ref.current).toBeInstanceOf(HTMLDivElement)
     })
   })
@@ -124,14 +124,18 @@ describe('CompanyCard', () => {
   describe('Company Information Display', () => {
     it('displays company name correctly', () => {
       render(<CompanyCard company={mockCompany} />)
-      
+
       expect(screen.getByText('Apple Inc.')).toBeInTheDocument()
-      expect(screen.getByText('Apple Inc.')).toHaveClass('text-lg', 'font-semibold', 'text-foreground')
+      expect(screen.getByText('Apple Inc.')).toHaveClass(
+        'text-lg',
+        'font-semibold',
+        'text-foreground'
+      )
     })
 
     it('displays ticker symbol when available', () => {
       render(<CompanyCard company={mockCompany} />)
-      
+
       const tickerElement = screen.getByText('AAPL')
       expect(tickerElement).toBeInTheDocument()
       expect(tickerElement).toHaveClass(
@@ -149,25 +153,25 @@ describe('CompanyCard', () => {
 
     it('uses explicit ticker prop when company ticker is null', () => {
       render(<CompanyCard company={mockCompanyNoTicker} ticker="EXPLICIT" />)
-      
+
       expect(screen.getByText('EXPLICIT')).toBeInTheDocument()
     })
 
     it('displays industry when available', () => {
       render(<CompanyCard company={mockCompany} />)
-      
+
       expect(screen.getByText('Technology')).toBeInTheDocument()
     })
 
     it('displays CIK number', () => {
       render(<CompanyCard company={mockCompany} />)
-      
+
       expect(screen.getByText('CIK: 0000320193')).toBeInTheDocument()
     })
 
     it('displays fiscal year end when available', () => {
       render(<CompanyCard company={mockCompany} />)
-      
+
       expect(screen.getByText('Fiscal Year End: 09-30')).toBeInTheDocument()
     })
   })
@@ -175,7 +179,7 @@ describe('CompanyCard', () => {
   describe('Business Address Display', () => {
     it('displays complete business address', () => {
       render(<CompanyCard company={mockCompany} />)
-      
+
       expect(screen.getByText('Cupertino, CA, US')).toBeInTheDocument()
     })
 
@@ -190,13 +194,13 @@ describe('CompanyCard', () => {
       }
 
       render(<CompanyCard company={companyPartialAddress} />)
-      
+
       expect(screen.getByText('Cupertino, CA')).toBeInTheDocument()
     })
 
     it('handles missing address', () => {
       render(<CompanyCard company={mockCompanyMinimal} />)
-      
+
       // Should not show address section at all
       expect(screen.queryByText(/,/)).not.toBeInTheDocument()
     })
@@ -205,70 +209,59 @@ describe('CompanyCard', () => {
   describe('View Profile Button', () => {
     it('renders view profile button when onViewProfile and ticker provided', () => {
       const mockOnViewProfile = vi.fn()
-      
-      render(
-        <CompanyCard company={mockCompany} onViewProfile={mockOnViewProfile} />
-      )
-      
+
+      render(<CompanyCard company={mockCompany} onViewProfile={mockOnViewProfile} />)
+
       expect(screen.getByText('View Profile')).toBeInTheDocument()
     })
 
     it('calls onViewProfile with ticker when button clicked', async () => {
       const mockOnViewProfile = vi.fn()
-      
-      render(
-        <CompanyCard company={mockCompany} onViewProfile={mockOnViewProfile} />
-      )
-      
+
+      render(<CompanyCard company={mockCompany} onViewProfile={mockOnViewProfile} />)
+
       const viewButton = screen.getByText('View Profile')
       await user.click(viewButton)
-      
+
       expect(mockOnViewProfile).toHaveBeenCalledWith('AAPL')
     })
 
     it('uses explicit ticker prop for callback', async () => {
       const mockOnViewProfile = vi.fn()
-      
+
       render(
-        <CompanyCard 
-          company={mockCompanyNoTicker} 
+        <CompanyCard
+          company={mockCompanyNoTicker}
           onViewProfile={mockOnViewProfile}
           ticker="EXPLICIT"
         />
       )
-      
+
       const viewButton = screen.getByText('View Profile')
       await user.click(viewButton)
-      
+
       expect(mockOnViewProfile).toHaveBeenCalledWith('EXPLICIT')
     })
 
     it('does not render view profile button when no ticker available', () => {
       const mockOnViewProfile = vi.fn()
-      
-      render(
-        <CompanyCard 
-          company={mockCompanyNoTicker} 
-          onViewProfile={mockOnViewProfile} 
-        />
-      )
-      
+
+      render(<CompanyCard company={mockCompanyNoTicker} onViewProfile={mockOnViewProfile} />)
+
       expect(screen.queryByText('View Profile')).not.toBeInTheDocument()
     })
 
     it('does not render view profile button when no onViewProfile callback', () => {
       render(<CompanyCard company={mockCompany} />)
-      
+
       expect(screen.queryByText('View Profile')).not.toBeInTheDocument()
     })
   })
 
   describe('Recent Analyses Section', () => {
     it('shows recent analyses when showAnalyses is true and analyses exist', () => {
-      render(
-        <CompanyCard company={mockCompany} showAnalyses={true} />
-      )
-      
+      render(<CompanyCard company={mockCompany} showAnalyses={true} />)
+
       expect(screen.getByText('Recent Analyses')).toBeInTheDocument()
       expect(screen.getByText('COMPREHENSIVE')).toBeInTheDocument()
       expect(screen.getByText('FINANCIAL_FOCUSED')).toBeInTheDocument()
@@ -290,15 +283,13 @@ describe('CompanyCard', () => {
             analysis_id: '5',
             analysis_type: 'COMPREHENSIVE',
             created_at: '2024-01-12T10:00:00Z',
-            confidence_score: 0.90,
+            confidence_score: 0.9,
           },
         ],
       }
 
-      render(
-        <CompanyCard company={companyManyAnalyses} showAnalyses={true} />
-      )
-      
+      render(<CompanyCard company={companyManyAnalyses} showAnalyses={true} />)
+
       // Should only show first 3 analyses
       expect(screen.getByText('COMPREHENSIVE')).toBeInTheDocument()
       expect(screen.getByText('FINANCIAL_FOCUSED')).toBeInTheDocument()
@@ -307,20 +298,16 @@ describe('CompanyCard', () => {
     })
 
     it('shows analysis dates correctly formatted', () => {
-      render(
-        <CompanyCard company={mockCompany} showAnalyses={true} />
-      )
-      
+      render(<CompanyCard company={mockCompany} showAnalyses={true} />)
+
       // Should show formatted dates (testing the date formatting)
       const dateElements = screen.getAllByText(/\d{1,2}\/\d{1,2}\/\d{4}/)
       expect(dateElements).toHaveLength(3) // One for each analysis
     })
 
     it('does not show analyses section when showAnalyses is false', () => {
-      render(
-        <CompanyCard company={mockCompany} showAnalyses={false} />
-      )
-      
+      render(<CompanyCard company={mockCompany} showAnalyses={false} />)
+
       expect(screen.queryByText('Recent Analyses')).not.toBeInTheDocument()
     })
 
@@ -330,10 +317,8 @@ describe('CompanyCard', () => {
         recent_analyses: [],
       }
 
-      render(
-        <CompanyCard company={companyNoAnalyses} showAnalyses={true} />
-      )
-      
+      render(<CompanyCard company={companyNoAnalyses} showAnalyses={true} />)
+
       expect(screen.queryByText('Recent Analyses')).not.toBeInTheDocument()
     })
 
@@ -343,10 +328,8 @@ describe('CompanyCard', () => {
         recent_analyses: undefined,
       }
 
-      render(
-        <CompanyCard company={companyNoAnalyses} showAnalyses={true} />
-      )
-      
+      render(<CompanyCard company={companyNoAnalyses} showAnalyses={true} />)
+
       expect(screen.queryByText('Recent Analyses')).not.toBeInTheDocument()
     })
   })
@@ -354,11 +337,11 @@ describe('CompanyCard', () => {
   describe('Minimal Company Data', () => {
     it('handles company with minimal required fields', () => {
       render(<CompanyCard company={mockCompanyMinimal} />)
-      
+
       expect(screen.getByText('Test Company')).toBeInTheDocument()
       expect(screen.getByText('TEST')).toBeInTheDocument()
       expect(screen.getByText('CIK: 0001234567')).toBeInTheDocument()
-      
+
       // Should not show optional fields
       expect(screen.queryByText('Technology')).not.toBeInTheDocument()
       expect(screen.queryByText('Fiscal Year End:')).not.toBeInTheDocument()
@@ -368,7 +351,7 @@ describe('CompanyCard', () => {
   describe('Accessibility', () => {
     it('uses proper semantic structure', () => {
       render(<CompanyCard company={mockCompany} />)
-      
+
       // Company name should be in a heading
       const heading = screen.getByText('Apple Inc.')
       expect(heading).toHaveClass('text-lg', 'font-semibold')
@@ -376,7 +359,7 @@ describe('CompanyCard', () => {
 
     it('provides meaningful text content for screen readers', () => {
       render(<CompanyCard company={mockCompany} showAnalyses={true} />)
-      
+
       // All important information should be in text content
       expect(screen.getByText('Apple Inc.')).toBeInTheDocument()
       expect(screen.getByText('AAPL')).toBeInTheDocument()
@@ -386,11 +369,9 @@ describe('CompanyCard', () => {
 
     it('maintains proper button accessibility', async () => {
       const mockOnViewProfile = vi.fn()
-      
-      render(
-        <CompanyCard company={mockCompany} onViewProfile={mockOnViewProfile} />
-      )
-      
+
+      render(<CompanyCard company={mockCompany} onViewProfile={mockOnViewProfile} />)
+
       const button = screen.getByText('View Profile')
       expect(button.tagName).toBe('BUTTON')
       expect(button).not.toBeDisabled()
@@ -400,7 +381,7 @@ describe('CompanyCard', () => {
   describe('Visual Indicators', () => {
     it('renders building icon for company', () => {
       const { container } = render(<CompanyCard company={mockCompany} />)
-      
+
       // Check for Building icon (lucide-react building icon)
       const buildingIcon = container.querySelector('svg')
       expect(buildingIcon).toBeInTheDocument()
@@ -408,19 +389,17 @@ describe('CompanyCard', () => {
 
     it('renders appropriate icons for different data types', () => {
       const { container } = render(<CompanyCard company={mockCompany} />)
-      
+
       // Should have multiple icons for different sections
       const svgElements = container.querySelectorAll('svg')
       expect(svgElements.length).toBeGreaterThan(1) // Building, BarChart3, MapPin, Calendar icons
     })
 
     it('shows primary indicator dots for recent analyses', () => {
-      render(
-        <CompanyCard company={mockCompany} showAnalyses={true} />
-      )
-      
+      render(<CompanyCard company={mockCompany} showAnalyses={true} />)
+
       const { container } = render(<CompanyCard company={mockCompany} showAnalyses={true} />)
-      
+
       // Should have dot indicators for each analysis
       const dotElements = container.querySelectorAll('.w-2.h-2.bg-primary.rounded-full')
       expect(dotElements.length).toBeGreaterThanOrEqual(3)
@@ -431,25 +410,23 @@ describe('CompanyCard', () => {
     it('applies hover shadow effect', () => {
       const { container } = render(<CompanyCard company={mockCompany} />)
       const card = container.firstChild as HTMLElement
-      
+
       expect(card).toHaveClass('hover:shadow-md', 'transition-shadow')
     })
   })
 
   describe('Layout and Spacing', () => {
     it('maintains proper spacing between sections', () => {
-      const { container } = render(
-        <CompanyCard company={mockCompany} showAnalyses={true} />
-      )
+      const { container } = render(<CompanyCard company={mockCompany} showAnalyses={true} />)
       const card = container.firstChild as HTMLElement
-      
+
       expect(card).toHaveClass('space-y-4')
     })
 
     it('applies proper border and background styling', () => {
       const { container } = render(<CompanyCard company={mockCompany} />)
       const card = container.firstChild as HTMLElement
-      
+
       expect(card).toHaveClass('rounded-lg', 'border', 'bg-card', 'p-6')
     })
   })

@@ -49,7 +49,7 @@ describe('FilingCard', () => {
 
       expect(screen.getByText('Processing:')).toBeInTheDocument()
       expect(screen.getByText('completed')).toBeInTheDocument()
-      
+
       // Check for completed status icon
       const statusIcon = document.querySelector('.text-green-600')
       expect(statusIcon).toBeInTheDocument()
@@ -171,7 +171,10 @@ describe('FilingCard', () => {
       render(<FilingCard filing={filingWithAnalysis} />)
 
       const analysisElements = screen.getAllByText((content, element) => {
-        return /3\s*analys(is|es)/.test(element?.textContent || '') && element?.className?.includes('text-xs')
+        return (
+          /3\s*analys(is|es)/.test(element?.textContent || '') &&
+          element?.className?.includes('text-xs')
+        )
       })
       expect(analysisElements.length).toBeGreaterThan(0)
     })
@@ -267,16 +270,9 @@ describe('FilingCard', () => {
   })
 
   describe('Filing Types', () => {
-    const filingTypes = [
-      '10-K',
-      '10-Q', 
-      '8-K',
-      'DEF 14A',
-      '10-K/A',
-      '10-Q/A',
-    ]
+    const filingTypes = ['10-K', '10-Q', '8-K', 'DEF 14A', '10-K/A', '10-Q/A']
 
-    filingTypes.forEach(filingType => {
+    filingTypes.forEach((filingType) => {
       it(`displays correct icon for ${filingType} filing type`, () => {
         const filing = {
           ...baseFiling,
@@ -315,11 +311,13 @@ describe('FilingCard', () => {
     })
 
     it('has accessible button labels', () => {
-      render(<FilingCard 
-        filing={baseFiling} 
-        onViewDetails={mockOnViewDetails}
-        onAnalyze={mockOnAnalyze}
-      />)
+      render(
+        <FilingCard
+          filing={baseFiling}
+          onViewDetails={mockOnViewDetails}
+          onAnalyze={mockOnAnalyze}
+        />
+      )
 
       const viewButton = screen.getByRole('button', { name: /View Details/ })
       expect(viewButton).toHaveAccessibleName()
@@ -412,7 +410,7 @@ describe('FilingCard', () => {
   describe('Forward Ref', () => {
     it('forwards ref correctly', () => {
       const ref = React.createRef<HTMLDivElement>()
-      
+
       render(<FilingCard filing={baseFiling} ref={ref} />)
 
       expect(ref.current).toBeInstanceOf(HTMLDivElement)

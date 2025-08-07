@@ -5,7 +5,8 @@ import { useAnalyses, useAnalysis, useAnalysisTemplates, useAnalyzeFiling } from
 import { aperilexApi } from '@/api'
 import { useAnalysisStore } from '@/lib/store'
 import type { AnalysisResponse, TaskResponse, TemplatesResponse } from '@/api/types'
-import React, { ReactNode } from 'react'
+import type { ReactNode } from 'react'
+import React from 'react'
 
 // Mock the API
 vi.mock('@/api', () => ({
@@ -314,7 +315,7 @@ describe('useAnalysis hooks', () => {
 
     it('should handle polling with progress updates', async () => {
       const accessionNumber = '0000320193-24-000001'
-      const onProgressSpy = vi.fn()
+      const _onProgressSpy = vi.fn()
 
       const mockTask: TaskResponse = {
         task_id: 'task-123',

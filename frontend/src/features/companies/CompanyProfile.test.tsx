@@ -175,7 +175,7 @@ describe('CompanyProfile', () => {
       )
 
       render(<CompanyProfile />, { wrapper: TestWrapper })
-      
+
       await waitFor(() => {
         expect(screen.getByTestId('company-header')).toBeInTheDocument()
       })
@@ -184,13 +184,13 @@ describe('CompanyProfile', () => {
     it('shows loading state initially', () => {
       server.use(
         http.get('http://localhost:8000/api/companies/AAPL', async () => {
-          await new Promise(resolve => setTimeout(resolve, 100))
+          await new Promise((resolve) => setTimeout(resolve, 100))
           return HttpResponse.json(mockCompany)
         })
       )
 
       render(<CompanyProfile />, { wrapper: TestWrapper })
-      
+
       expect(screen.getAllByTestId('skeleton')).toHaveLength(6) // Header + grid skeletons
     })
 
@@ -202,7 +202,7 @@ describe('CompanyProfile', () => {
       )
 
       render(<CompanyProfile />, { wrapper: TestWrapper })
-      
+
       await waitFor(() => {
         expect(screen.getByText('Back to Companies')).toBeInTheDocument()
       })
@@ -229,7 +229,7 @@ describe('CompanyProfile', () => {
       )
 
       render(<CompanyProfile />, { wrapper: TestWrapper })
-      
+
       await waitFor(() => {
         expect(screen.getByTestId('company-name')).toHaveTextContent('Apple Inc.')
       })
@@ -246,7 +246,7 @@ describe('CompanyProfile', () => {
       )
 
       render(<CompanyProfile />, { wrapper: TestWrapper })
-      
+
       await waitFor(() => {
         expect(screen.getByText('Company Not Found')).toBeInTheDocument()
         expect(screen.getByText('Could not find company with ticker "AAPL".')).toBeInTheDocument()
@@ -263,7 +263,7 @@ describe('CompanyProfile', () => {
       )
 
       render(<CompanyProfile />, { wrapper: TestWrapper })
-      
+
       await waitFor(() => {
         expect(mockSetBreadcrumbs).toHaveBeenCalledWith([
           { label: 'Dashboard', href: '/' },
@@ -276,13 +276,13 @@ describe('CompanyProfile', () => {
     it('sets breadcrumbs with ticker when company not loaded', async () => {
       server.use(
         http.get('http://localhost:8000/api/companies/AAPL', async () => {
-          await new Promise(resolve => setTimeout(resolve, 100))
+          await new Promise((resolve) => setTimeout(resolve, 100))
           return HttpResponse.json(mockCompany)
         })
       )
 
       render(<CompanyProfile />, { wrapper: TestWrapper })
-      
+
       // Should set breadcrumbs with ticker immediately
       expect(mockSetBreadcrumbs).toHaveBeenCalledWith([
         { label: 'Dashboard', href: '/' },
@@ -301,10 +301,10 @@ describe('CompanyProfile', () => {
       )
 
       render(<CompanyProfile />, { wrapper: TestWrapper })
-      
+
       const backButton = screen.getByText('Back to Companies')
       await user.click(backButton)
-      
+
       expect(mockNavigate).toHaveBeenCalledWith('/companies')
     })
 
@@ -316,14 +316,14 @@ describe('CompanyProfile', () => {
       )
 
       render(<CompanyProfile />, { wrapper: TestWrapper })
-      
+
       await waitFor(() => {
         expect(screen.getByTestId('analyze-filings-button')).toBeInTheDocument()
       })
-      
+
       const analyzeButton = screen.getByTestId('analyze-filings-button')
       await user.click(analyzeButton)
-      
+
       expect(mockNavigate).toHaveBeenCalledWith('/filings')
     })
 
@@ -335,14 +335,14 @@ describe('CompanyProfile', () => {
       )
 
       render(<CompanyProfile />, { wrapper: TestWrapper })
-      
+
       await waitFor(() => {
         expect(screen.getByTestId('view-analyses-button')).toBeInTheDocument()
       })
-      
+
       const viewAnalysesButton = screen.getByTestId('view-analyses-button')
       await user.click(viewAnalysesButton)
-      
+
       expect(mockNavigate).toHaveBeenCalledWith('/analyses')
     })
   })
@@ -359,7 +359,7 @@ describe('CompanyProfile', () => {
       )
 
       render(<CompanyProfile />, { wrapper: TestWrapper })
-      
+
       await waitFor(() => {
         expect(screen.getByText('Company Analyses')).toBeInTheDocument()
         expect(screen.getByText('View All (2)')).toBeInTheDocument()
@@ -377,10 +377,12 @@ describe('CompanyProfile', () => {
       )
 
       render(<CompanyProfile />, { wrapper: TestWrapper })
-      
+
       await waitFor(() => {
         expect(screen.getByText('No analyses available')).toBeInTheDocument()
-        expect(screen.getByText('Start by analyzing this company\'s SEC filings.')).toBeInTheDocument()
+        expect(
+          screen.getByText("Start by analyzing this company's SEC filings.")
+        ).toBeInTheDocument()
       })
     })
 
@@ -390,15 +392,12 @@ describe('CompanyProfile', () => {
           return HttpResponse.json(mockCompany)
         }),
         http.get('http://localhost:8000/api/companies/AAPL/analyses', () => {
-          return HttpResponse.json(
-            { detail: 'Server error', status_code: 500 },
-            { status: 500 }
-          )
+          return HttpResponse.json({ detail: 'Server error', status_code: 500 }, { status: 500 })
         })
       )
 
       render(<CompanyProfile />, { wrapper: TestWrapper })
-      
+
       await waitFor(() => {
         expect(screen.getByText('Could not load analyses for this company.')).toBeInTheDocument()
       })
@@ -410,17 +409,17 @@ describe('CompanyProfile', () => {
           return HttpResponse.json(mockCompany)
         }),
         http.get('http://localhost:8000/api/companies/AAPL/analyses', async () => {
-          await new Promise(resolve => setTimeout(resolve, 100))
+          await new Promise((resolve) => setTimeout(resolve, 100))
           return HttpResponse.json(mockAnalyses)
         })
       )
 
       render(<CompanyProfile />, { wrapper: TestWrapper })
-      
+
       await waitFor(() => {
         expect(screen.getByText('Company Analyses')).toBeInTheDocument()
       })
-      
+
       // Should show loading skeletons
       expect(screen.getAllByTestId('skeleton')).toHaveLength(3)
     })
@@ -438,7 +437,7 @@ describe('CompanyProfile', () => {
       )
 
       render(<CompanyProfile />, { wrapper: TestWrapper })
-      
+
       await waitFor(() => {
         expect(screen.getByText('Company Overview')).toBeInTheDocument()
         expect(screen.getByText('Total Analyses')).toBeInTheDocument()
@@ -459,7 +458,7 @@ describe('CompanyProfile', () => {
       )
 
       render(<CompanyProfile />, { wrapper: TestWrapper })
-      
+
       await waitFor(() => {
         expect(screen.getByText('Latest Analysis')).toBeInTheDocument()
       })
@@ -478,7 +477,7 @@ describe('CompanyProfile', () => {
       )
 
       render(<CompanyProfile />, { wrapper: TestWrapper })
-      
+
       await waitFor(() => {
         expect(screen.getByText('Company Analyses')).toBeInTheDocument()
       })
@@ -497,7 +496,7 @@ describe('CompanyProfile', () => {
       )
 
       const { container } = render(<CompanyProfile />, { wrapper: TestWrapper })
-      
+
       await waitFor(() => {
         const gridContainer = container.querySelector('.grid.grid-cols-1.lg\\:grid-cols-3')
         expect(gridContainer).toBeInTheDocument()
@@ -515,13 +514,13 @@ describe('CompanyProfile', () => {
       )
 
       const { container } = render(<CompanyProfile />, { wrapper: TestWrapper })
-      
+
       await waitFor(() => {
         // Main analyses section should be in lg:col-span-2
         const analysesSection = container.querySelector('.lg\\:col-span-2')
         expect(analysesSection).toBeInTheDocument()
         expect(analysesSection).toHaveTextContent('Company Analyses')
-        
+
         // Side panel should not have col-span class (single column)
         expect(screen.getByText('Company Overview')).toBeInTheDocument()
       })
@@ -532,7 +531,7 @@ describe('CompanyProfile', () => {
     it('handles component errors gracefully', () => {
       // Mock a component error
       const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
-      
+
       server.use(
         http.get('http://localhost:8000/api/companies/AAPL', () => {
           return HttpResponse.json(mockCompany)
@@ -542,7 +541,7 @@ describe('CompanyProfile', () => {
       expect(() => {
         render(<CompanyProfile />, { wrapper: TestWrapper })
       }).not.toThrow()
-      
+
       consoleError.mockRestore()
     })
   })
@@ -564,11 +563,11 @@ describe('CompanyProfile', () => {
       )
 
       render(<CompanyProfile />, { wrapper: TestWrapper })
-      
+
       await waitFor(() => {
         expect(screen.getByText('View All (100)')).toBeInTheDocument()
       })
-      
+
       // Should only render first 5 analysis cards for performance
       // This is tested through the slice logic in the component
     })

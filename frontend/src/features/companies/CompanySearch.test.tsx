@@ -131,15 +131,17 @@ describe('CompanySearch', () => {
 
     it('renders the search form elements', () => {
       render(<CompanySearch />, { wrapper: TestWrapper })
-      
+
       expect(screen.getByRole('heading', { name: 'Search Companies' })).toBeInTheDocument()
-      expect(screen.getByPlaceholderText('Enter ticker symbol (e.g., AAPL, MSFT, GOOGL)')).toBeInTheDocument()
+      expect(
+        screen.getByPlaceholderText('Enter ticker symbol (e.g., AAPL, MSFT, GOOGL)')
+      ).toBeInTheDocument()
       expect(screen.getByRole('button', { name: /search/i })).toBeInTheDocument()
     })
 
     it('shows help section by default', () => {
       render(<CompanySearch />, { wrapper: TestWrapper })
-      
+
       expect(screen.getByText('How to search')).toBeInTheDocument()
       expect(screen.getByText('Popular examples:')).toBeInTheDocument()
       expect(screen.getByText('AAPL')).toBeInTheDocument()
@@ -150,26 +152,26 @@ describe('CompanySearch', () => {
   describe('Search Input Handling', () => {
     it('updates search term when typing', async () => {
       render(<CompanySearch />, { wrapper: TestWrapper })
-      
+
       const input = screen.getByTestId('mock-input')
       await user.type(input, 'AAPL')
-      
+
       expect(input).toHaveValue('AAPL')
     })
 
     it('disables search button when input is empty', () => {
       render(<CompanySearch />, { wrapper: TestWrapper })
-      
+
       const searchButton = screen.getByRole('button', { name: /search/i })
       expect(searchButton).toBeDisabled()
     })
 
     it('enables search button when input has value', async () => {
       render(<CompanySearch />, { wrapper: TestWrapper })
-      
+
       const input = screen.getByTestId('mock-input')
       const searchButton = screen.getByRole('button', { name: /search/i })
-      
+
       await user.type(input, 'AAPL')
       expect(searchButton).not.toBeDisabled()
     })
@@ -185,15 +187,15 @@ describe('CompanySearch', () => {
       )
 
       render(<CompanySearch />, { wrapper: TestWrapper })
-      
+
       const input = screen.getByTestId('mock-input')
       const searchButton = screen.getByRole('button', { name: /search/i })
-      
+
       await user.type(input, 'AAPL')
       await user.click(searchButton)
-      
+
       expect(screen.getByText(/Searching for:/)).toBeInTheDocument()
-      
+
       await waitFor(() => {
         expect(screen.getByTestId('company-card')).toBeInTheDocument()
       })
@@ -203,21 +205,21 @@ describe('CompanySearch', () => {
       // Mock slow response
       server.use(
         http.get('http://localhost:8000/api/companies/AAPL', async () => {
-          await new Promise(resolve => setTimeout(resolve, 100))
+          await new Promise((resolve) => setTimeout(resolve, 100))
           return HttpResponse.json(mockCompany)
         })
       )
 
       render(<CompanySearch />, { wrapper: TestWrapper })
-      
+
       const input = screen.getByTestId('mock-input')
       const searchButton = screen.getByRole('button', { name: /search/i })
-      
+
       await user.type(input, 'AAPL')
       await user.click(searchButton)
-      
+
       expect(screen.getByText('Searching for company...')).toBeInTheDocument()
-      
+
       await waitFor(() => {
         expect(screen.getByTestId('company-card')).toBeInTheDocument()
       })
@@ -227,9 +229,9 @@ describe('CompanySearch', () => {
   describe('Popular Examples', () => {
     it('renders popular ticker examples', () => {
       render(<CompanySearch />, { wrapper: TestWrapper })
-      
+
       const popularTickers = ['AAPL', 'MSFT', 'GOOGL', 'AMZN', 'TSLA', 'META']
-      popularTickers.forEach(ticker => {
+      popularTickers.forEach((ticker) => {
         expect(screen.getByText(ticker)).toBeInTheDocument()
       })
     })
@@ -242,12 +244,12 @@ describe('CompanySearch', () => {
       )
 
       render(<CompanySearch />, { wrapper: TestWrapper })
-      
+
       const appleButton = screen.getByRole('button', { name: 'AAPL' })
       await user.click(appleButton)
-      
+
       expect(screen.getByText(/Searching for:/)).toBeInTheDocument()
-      
+
       await waitFor(() => {
         expect(screen.getByTestId('company-card')).toBeInTheDocument()
       })
@@ -263,13 +265,13 @@ describe('CompanySearch', () => {
       )
 
       render(<CompanySearch />, { wrapper: TestWrapper })
-      
+
       const input = screen.getByTestId('mock-input')
       const searchButton = screen.getByRole('button', { name: /search/i })
-      
+
       await user.type(input, 'AAPL')
       await user.click(searchButton)
-      
+
       await waitFor(() => {
         expect(screen.getByText('Search Results')).toBeInTheDocument()
         expect(screen.getByText('1 company found')).toBeInTheDocument()
@@ -288,13 +290,13 @@ describe('CompanySearch', () => {
       )
 
       render(<CompanySearch />, { wrapper: TestWrapper })
-      
+
       const input = screen.getByTestId('mock-input')
       const searchButton = screen.getByRole('button', { name: /search/i })
-      
+
       await user.type(input, 'INVALID')
       await user.click(searchButton)
-      
+
       await waitFor(() => {
         expect(screen.getByText('Company not found')).toBeInTheDocument()
         expect(screen.getByText(/Could not find a company with ticker/)).toBeInTheDocument()
@@ -307,30 +309,27 @@ describe('CompanySearch', () => {
         http.get('http://localhost:8000/api/companies/AAPL', () => {
           callCount++
           if (callCount === 1) {
-            return HttpResponse.json(
-              { detail: 'Server error', status_code: 500 },
-              { status: 500 }
-            )
+            return HttpResponse.json({ detail: 'Server error', status_code: 500 }, { status: 500 })
           }
           return HttpResponse.json(mockCompany)
         })
       )
 
       render(<CompanySearch />, { wrapper: TestWrapper })
-      
+
       const input = screen.getByTestId('mock-input')
       const searchButton = screen.getByRole('button', { name: /search/i })
-      
+
       await user.type(input, 'AAPL')
       await user.click(searchButton)
-      
+
       await waitFor(() => {
         expect(screen.getByText('Company not found')).toBeInTheDocument()
       })
-      
+
       const retryButton = screen.getByRole('button', { name: 'Try Again' })
       await user.click(retryButton)
-      
+
       await waitFor(() => {
         expect(screen.getByTestId('company-card')).toBeInTheDocument()
       })
@@ -346,20 +345,20 @@ describe('CompanySearch', () => {
       )
 
       render(<CompanySearch />, { wrapper: TestWrapper })
-      
+
       const input = screen.getByTestId('mock-input')
       const searchButton = screen.getByRole('button', { name: /search/i })
-      
+
       await user.type(input, 'AAPL')
       await user.click(searchButton)
-      
+
       await waitFor(() => {
         expect(screen.getByTestId('company-card')).toBeInTheDocument()
       })
-      
+
       const clearButton = screen.getByRole('button', { name: 'Clear' })
       await user.click(clearButton)
-      
+
       expect(input).toHaveValue('')
       expect(screen.queryByTestId('company-card')).not.toBeInTheDocument()
       expect(screen.getByText('How to search')).toBeInTheDocument()
@@ -375,26 +374,26 @@ describe('CompanySearch', () => {
       )
 
       render(<CompanySearch />, { wrapper: TestWrapper })
-      
+
       const input = screen.getByTestId('mock-input')
       const searchButton = screen.getByRole('button', { name: /search/i })
-      
+
       await user.type(input, 'AAPL')
       await user.click(searchButton)
-      
+
       await waitFor(() => {
         expect(screen.getByTestId('company-card')).toBeInTheDocument()
       })
-      
+
       const viewProfileButton = screen.getByTestId('view-profile-button')
       await user.click(viewProfileButton)
-      
+
       expect(mockNavigate).toHaveBeenCalledWith('/companies/AAPL')
     })
 
     it('calls onCompanySelect callback when provided', async () => {
       const mockOnCompanySelect = vi.fn()
-      
+
       server.use(
         http.get('http://localhost:8000/api/companies/AAPL', () => {
           return HttpResponse.json(mockCompany)
@@ -402,20 +401,20 @@ describe('CompanySearch', () => {
       )
 
       render(<CompanySearch onCompanySelect={mockOnCompanySelect} />, { wrapper: TestWrapper })
-      
+
       const input = screen.getByTestId('mock-input')
       const searchButton = screen.getByRole('button', { name: /search/i })
-      
+
       await user.type(input, 'AAPL')
       await user.click(searchButton)
-      
+
       await waitFor(() => {
         expect(screen.getByTestId('company-card')).toBeInTheDocument()
       })
-      
+
       const viewProfileButton = screen.getByTestId('view-profile-button')
       await user.click(viewProfileButton)
-      
+
       expect(mockOnCompanySelect).toHaveBeenCalledWith('AAPL')
       expect(mockNavigate).not.toHaveBeenCalled()
     })
@@ -430,13 +429,13 @@ describe('CompanySearch', () => {
       )
 
       render(<CompanySearch showAnalyses={true} />, { wrapper: TestWrapper })
-      
+
       const input = screen.getByTestId('mock-input')
       const searchButton = screen.getByRole('button', { name: /search/i })
-      
+
       await user.type(input, 'AAPL')
       await user.click(searchButton)
-      
+
       await waitFor(() => {
         expect(screen.getByTestId('show-analyses')).toBeInTheDocument()
       })
@@ -444,9 +443,9 @@ describe('CompanySearch', () => {
 
     it('forwards ref correctly', () => {
       const ref = React.createRef<HTMLDivElement>()
-      
+
       render(<CompanySearch ref={ref} />, { wrapper: TestWrapper })
-      
+
       expect(ref.current).toBeInstanceOf(HTMLDivElement)
     })
   })
@@ -454,7 +453,7 @@ describe('CompanySearch', () => {
   describe('Accessibility', () => {
     it('uses proper semantic HTML structure', () => {
       render(<CompanySearch />, { wrapper: TestWrapper })
-      
+
       expect(screen.getByRole('heading', { level: 2 })).toBeInTheDocument()
       expect(screen.getByTestId('mock-input')).toBeInTheDocument()
       expect(screen.getByRole('button', { name: /search/i })).toBeInTheDocument()
@@ -462,8 +461,12 @@ describe('CompanySearch', () => {
 
     it('provides descriptive text for search functionality', () => {
       render(<CompanySearch />, { wrapper: TestWrapper })
-      
-      expect(screen.getByText('Enter a company ticker symbol to search for company information and analysis')).toBeInTheDocument()
+
+      expect(
+        screen.getByText(
+          'Enter a company ticker symbol to search for company information and analysis'
+        )
+      ).toBeInTheDocument()
     })
 
     it('shows clear error messages', async () => {
@@ -477,16 +480,20 @@ describe('CompanySearch', () => {
       )
 
       render(<CompanySearch />, { wrapper: TestWrapper })
-      
+
       const input = screen.getByTestId('mock-input')
       const searchButton = screen.getByRole('button', { name: /search/i })
-      
+
       await user.type(input, 'INVALID')
       await user.click(searchButton)
-      
+
       await waitFor(() => {
         expect(screen.getByText('Company not found')).toBeInTheDocument()
-        expect(screen.getByText('Could not find a company with ticker "INVALID". Please check the spelling and try again.')).toBeInTheDocument()
+        expect(
+          screen.getByText(
+            'Could not find a company with ticker "INVALID". Please check the spelling and try again.'
+          )
+        ).toBeInTheDocument()
       })
     })
   })

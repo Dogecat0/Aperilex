@@ -38,10 +38,10 @@ describe('FilingMetadata', () => {
 
       expect(screen.getByText('Filing Type')).toBeInTheDocument()
       expect(screen.getByText('10-K')).toBeInTheDocument()
-      
+
       expect(screen.getByText('Filing Date')).toBeInTheDocument()
       expect(screen.getByText('1/15/2024')).toBeInTheDocument()
-      
+
       expect(screen.getByText('Accession Number')).toBeInTheDocument()
       expect(screen.getByText('0000320193-24-000001')).toBeInTheDocument()
     })
@@ -93,7 +93,7 @@ describe('FilingMetadata', () => {
 
       expect(screen.getByText('Processing Status')).toBeInTheDocument()
       expect(screen.getByText('Completed')).toBeInTheDocument()
-      
+
       // Check for green styling
       const statusElement = document.querySelector('.text-green-600.bg-green-50')
       expect(statusElement).toBeInTheDocument()
@@ -108,7 +108,7 @@ describe('FilingMetadata', () => {
       render(<FilingMetadata filing={failedFiling} />)
 
       expect(screen.getByText('Failed')).toBeInTheDocument()
-      
+
       // Check for red styling
       const statusElement = document.querySelector('.text-red-600.bg-red-50')
       expect(statusElement).toBeInTheDocument()
@@ -123,7 +123,7 @@ describe('FilingMetadata', () => {
       render(<FilingMetadata filing={processingFiling} />)
 
       expect(screen.getByText('Processing')).toBeInTheDocument()
-      
+
       // Check for blue styling
       const statusElement = document.querySelector('.text-blue-600.bg-blue-50')
       expect(statusElement).toBeInTheDocument()
@@ -138,7 +138,7 @@ describe('FilingMetadata', () => {
       render(<FilingMetadata filing={pendingFiling} />)
 
       expect(screen.getByText('Pending')).toBeInTheDocument()
-      
+
       // Check for yellow styling
       const statusElement = document.querySelector('.text-yellow-600.bg-yellow-50')
       expect(statusElement).toBeInTheDocument()
@@ -164,8 +164,10 @@ describe('FilingMetadata', () => {
       render(<FilingMetadata filing={errorFiling} />)
 
       expect(screen.getByText('Processing Error')).toBeInTheDocument()
-      expect(screen.getByText('Failed to parse financial statements due to malformed XML')).toBeInTheDocument()
-      
+      expect(
+        screen.getByText('Failed to parse financial statements due to malformed XML')
+      ).toBeInTheDocument()
+
       // Check error styling
       const errorSection = document.querySelector('.bg-red-50.border-red-200')
       expect(errorSection).toBeInTheDocument()
@@ -308,7 +310,7 @@ describe('FilingMetadata', () => {
           is_amended: true,
           version_number: 1,
           description: 'Annual report',
-          revenue: 365725000000.50,
+          revenue: 365725000000.5,
         },
       }
 
@@ -440,7 +442,8 @@ describe('FilingMetadata', () => {
       const filingWithLongMetadata = {
         ...baseFiling,
         metadata: {
-          very_long_url: 'https://www.sec.gov/very/long/path/to/some/filing/document/that/has/an/extremely/long/url/structure.htm',
+          very_long_url:
+            'https://www.sec.gov/very/long/path/to/some/filing/document/that/has/an/extremely/long/url/structure.htm',
         },
       }
 
