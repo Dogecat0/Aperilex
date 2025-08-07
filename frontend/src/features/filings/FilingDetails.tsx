@@ -11,12 +11,7 @@ import { FilingMetadata } from './components/FilingMetadata'
 import { FilingAnalysisSection } from './components/FilingAnalysisSection'
 import { Button } from '@/components/ui/Button'
 import { Skeleton } from '@/components/ui/Skeleton'
-import {
-  AlertCircle,
-  ArrowLeft,
-  ExternalLink,
-  RefreshCw,
-} from 'lucide-react'
+import { AlertCircle, ArrowLeft, ExternalLink, RefreshCw } from 'lucide-react'
 import type { AnalyzeFilingRequest } from '@/api/types'
 
 export function FilingDetails() {
@@ -103,7 +98,6 @@ export function FilingDetails() {
       navigate(`/filings/${accessionNumber}/analysis`)
     }
   }
-
 
   const handleViewOnSEC = () => {
     if (filing) {
@@ -243,7 +237,6 @@ export function FilingDetails() {
         <div className="space-y-6">
           {/* Filing Metadata */}
           <FilingMetadata filing={filing} />
-
         </div>
       </div>
     </div>

@@ -270,7 +270,9 @@ export const FilingAnalysisSection: React.FC<FilingAnalysisSectionProps> = ({
           <span>Analysis Results</span>
         </h3>
         <div className="flex items-center space-x-2">
-          <span className={`inline-flex items-center px-2 py-1 rounded-md text-xs font-medium ${getAnalysisStatusDisplay(filingStatus, !!analysis).className}`}>
+          <span
+            className={`inline-flex items-center px-2 py-1 rounded-md text-xs font-medium ${getAnalysisStatusDisplay(filingStatus, !!analysis).className}`}
+          >
             {getAnalysisStatusDisplay(filingStatus, !!analysis).icon}
             <span className="ml-1">{getAnalysisStatusDisplay(filingStatus, !!analysis).text}</span>
           </span>
