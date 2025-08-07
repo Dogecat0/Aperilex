@@ -3,6 +3,7 @@
 import logging
 from datetime import date
 from typing import Annotated
+from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Path, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -12,6 +13,7 @@ from src.application.schemas.commands.analyze_filing import AnalyzeFilingCommand
 from src.application.schemas.queries.get_analysis_by_accession import (
     GetAnalysisByAccessionQuery,
 )
+from src.application.schemas.queries.get_filing import GetFilingQuery
 from src.application.schemas.queries.get_filing_by_accession import (
     GetFilingByAccessionQuery,
 )
@@ -39,7 +41,7 @@ router = APIRouter(
     tags=["filings"],
     responses={
         404: {"description": "Filing not found"},
-        422: {"description": "Invalid accession number format"},
+        422: {"description": "Invalid accession number or filing ID format"},
         500: {"description": "Internal server error"},
     },
 )
@@ -48,6 +50,7 @@ router = APIRouter(
 SessionDep = Annotated[AsyncSession, Depends(get_db)]
 ServiceFactoryDep = Annotated[ServiceFactory, Depends(get_service_factory)]
 AccessionNumberPath = Annotated[str, Path(description="SEC filing accession number")]
+FilingIdPath = Annotated[UUID, Path(description="Filing UUID identifier")]
 
 
 @router.get(
@@ -296,6 +299,90 @@ async def analyze_filing(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to initiate filing analysis",
+        ) from None
+
+
+@router.get(
+    "/by-id/{filing_id}",
+    response_model=FilingResponse,
+    summary="Get filing by UUID",
+    description="""
+    Retrieve detailed information about a specific SEC filing using its unique identifier.
+
+    This endpoint retrieves filing information using the internal filing UUID,
+    providing an alternative to accession-based lookup for maintaining domain separation.
+    Returns filing metadata, processing status, and links to source documents.
+    """,
+)
+async def get_filing_by_id(
+    filing_id: FilingIdPath,
+    session: SessionDep,
+    factory: ServiceFactoryDep,
+) -> FilingResponse:
+    """Get information about a specific SEC filing by UUID.
+
+    Args:
+        filing_id: Filing UUID identifier
+        session: Database session for repository operations
+        factory: Service factory for dependency injection
+
+    Returns:
+        FilingResponse with complete filing information
+
+    Raises:
+        HTTPException: 422 if filing_id format is invalid
+        HTTPException: 404 if filing not found
+        HTTPException: 500 if filing retrieval fails
+    """
+    logger.info(
+        "Retrieving filing information by ID", extra={"filing_id": str(filing_id)}
+    )
+
+    try:
+        # Create query using GetFilingQuery
+        query = GetFilingQuery(
+            filing_id=filing_id,
+            include_analyses=True,  # Include analysis count for enriched response
+            include_content_metadata=True,
+        )
+
+        # Get dependencies and dispatcher
+        dispatcher = factory.create_dispatcher()
+        dependencies = factory.get_handler_dependencies(session)
+
+        # Dispatch query
+        result: FilingResponse = await dispatcher.dispatch_query(query, dependencies)
+
+        logger.info(
+            "Filing retrieved successfully by ID",
+            extra={
+                "filing_id": str(filing_id),
+                "accession_number": result.accession_number,
+                "filing_type": result.filing_type,
+                "processing_status": result.processing_status,
+            },
+        )
+
+        return result
+
+    except ValueError as e:
+        logger.warning(
+            "Filing not found",
+            extra={"filing_id": str(filing_id), "error": str(e)},
+        )
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Filing with ID {filing_id} not found",
+        ) from e
+    except Exception:
+        logger.error(
+            "Failed to retrieve filing information by ID",
+            extra={"filing_id": str(filing_id)},
+            exc_info=True,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to retrieve filing information",
         ) from None
 
 

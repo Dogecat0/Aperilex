@@ -1,10 +1,7 @@
 """Integration tests for filings router endpoints."""
 
 from datetime import date
-from unittest.mock import AsyncMock, MagicMock
 from uuid import uuid4
-
-import pytest
 
 from src.application.schemas.responses.filing_response import FilingResponse
 from src.application.schemas.responses.filing_search_response import FilingSearchResult
@@ -353,6 +350,85 @@ class TestGetFilingEndpoint:
         assert "Failed to retrieve filing information" in data["error"]["message"]
 
 
+class TestGetFilingByIdEndpoint:
+    """Test filing information retrieval by UUID endpoint."""
+
+    def test_get_filing_by_id_success(
+        self, test_client, mock_service_factory, sample_filing_response
+    ):
+        """Test successful filing information retrieval by ID."""
+        factory, mock_dispatcher = mock_service_factory
+
+        mock_dispatcher.dispatch_query.return_value = sample_filing_response
+
+        filing_id = sample_filing_response.filing_id
+        response = test_client.get(f"/api/filings/by-id/{filing_id}")
+
+        assert response.status_code == 200
+        data = response.json()
+
+        assert data["filing_id"] == str(sample_filing_response.filing_id)
+        assert data["accession_number"] == sample_filing_response.accession_number
+        assert data["filing_type"] == sample_filing_response.filing_type
+        assert data["processing_status"] == sample_filing_response.processing_status
+        assert data["analyses_count"] == sample_filing_response.analyses_count
+        assert "metadata" in data
+
+        # Verify dispatcher was called with correct query
+        mock_dispatcher.dispatch_query.assert_called_once()
+        call_args = mock_dispatcher.dispatch_query.call_args[0]
+        query = call_args[0]
+        assert query.filing_id == filing_id
+        assert query.include_analyses is True
+        assert query.include_content_metadata is True
+
+    def test_get_filing_by_id_not_found(self, test_client, mock_service_factory):
+        """Test filing retrieval by ID when filing doesn't exist."""
+        factory, mock_dispatcher = mock_service_factory
+
+        # Mock dispatcher to raise ValueError for not found
+        mock_dispatcher.dispatch_query.side_effect = ValueError(
+            "Filing with ID 12345678-1234-1234-1234-123456789012 not found"
+        )
+
+        filing_id = "12345678-1234-1234-1234-123456789012"
+        response = test_client.get(f"/api/filings/by-id/{filing_id}")
+
+        assert response.status_code == 404
+        data = response.json()
+        assert "error" in data
+        assert f"Filing with ID {filing_id} not found" in data["error"]["message"]
+
+    def test_get_filing_by_id_invalid_uuid(self, test_client, mock_service_factory):
+        """Test filing retrieval with invalid UUID format."""
+        factory, mock_dispatcher = mock_service_factory
+
+        response = test_client.get("/api/filings/by-id/not-a-uuid")
+
+        assert response.status_code == 422
+        data = response.json()
+        # FastAPI UUID validation returns validation errors in 'detail' field
+        assert "detail" in data
+
+    def test_get_filing_by_id_dispatcher_exception(
+        self, test_client, mock_service_factory
+    ):
+        """Test filing retrieval by ID when dispatcher fails."""
+        factory, mock_dispatcher = mock_service_factory
+
+        mock_dispatcher.dispatch_query.side_effect = Exception(
+            "Database connection failed"
+        )
+
+        filing_id = str(uuid4())
+        response = test_client.get(f"/api/filings/by-id/{filing_id}")
+
+        assert response.status_code == 500
+        data = response.json()
+        assert "error" in data
+        assert "Failed to retrieve filing information" in data["error"]["message"]
+
+
 class TestGetFilingAnalysisEndpoint:
     """Test filing analysis results retrieval endpoint."""
 
@@ -444,7 +520,7 @@ class TestFilingsRouterIntegration:
         response = test_client.post(f"/api/filings/{accession_number}/analyze")
         assert response.status_code == 202
         task_data = response.json()
-        task_id = task_data["task_id"]
+        assert "task_id" in task_data
 
         # 3. Check analysis results (after completion)
         mock_dispatcher.dispatch_query.return_value = sample_analysis_response
