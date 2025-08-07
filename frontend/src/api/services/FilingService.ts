@@ -77,6 +77,23 @@ export class FilingService {
   }
 
   /**
+   * Get filing information by filing ID (UUID)
+   *
+   * @param filingId - The filing UUID (e.g., "12345678-1234-1234-1234-123456789abc")
+   * @returns Promise resolving to filing details with metadata
+   * @throws APIError when filing not found or network issues occur
+   */
+  async getFilingById(filingId: string): Promise<FilingResponse> {
+    this.validateFilingId(filingId)
+
+    try {
+      return await filingsApi.getFilingById(filingId)
+    } catch (error) {
+      throw this.handleFilingError(error, 'retrieving filing by ID', filingId)
+    }
+  }
+
+  /**
    * Analyze a filing using LLM processing
    *
    * Initiates the analysis process and returns a task for monitoring progress.
@@ -471,6 +488,33 @@ export class FilingService {
         detail: 'Invalid accession number format. Expected format: XXXXXXXXXX-XX-XXXXXX',
         status_code: 400,
         error_code: 'INVALID_ACCESSION_FORMAT',
+      }
+      throw error
+    }
+  }
+
+  /**
+   * Validate filing ID (UUID) format
+   */
+  private validateFilingId(filingId: string): void {
+    if (!filingId || typeof filingId !== 'string') {
+      const error: APIError = {
+        detail: 'Filing ID is required and must be a string',
+        status_code: 400,
+        error_code: 'INVALID_FILING_ID',
+      }
+      throw error
+    }
+
+    // Basic format validation for UUIDs
+    // Format: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+    if (!uuidRegex.test(filingId)) {
+      const error: APIError = {
+        detail:
+          'Invalid filing ID format. Expected UUID format: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx',
+        status_code: 400,
+        error_code: 'INVALID_FILING_ID_FORMAT',
       }
       throw error
     }

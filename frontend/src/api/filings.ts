@@ -80,6 +80,14 @@ export const filingsApi = {
   },
 
   /**
+   * Get filing by filing ID (UUID)
+   */
+  getFilingById: async (filingId: string): Promise<FilingResponse> => {
+    const { data } = await api.get<FilingResponse>(`/api/filings/by-id/${filingId}`)
+    return data
+  },
+
+  /**
    * Analyze a filing
    */
   analyzeFiling: async (

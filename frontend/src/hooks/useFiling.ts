@@ -15,6 +15,11 @@ export interface UseFilingOptions {
   enabled?: boolean
 }
 
+export interface UseFilingByIdOptions {
+  enabled?: boolean
+  byId?: boolean
+}
+
 /**
  * Hook to search filings by ticker with optional filters (database search)
  */
@@ -54,6 +59,33 @@ export const useFiling = (accessionNumber: string, options: UseFilingOptions = {
     queryKey: ['filing', accessionNumber],
     queryFn: () => filingService.getFiling(accessionNumber),
     enabled: enabled && !!accessionNumber,
+  })
+}
+
+/**
+ * Hook to fetch filing data by filing ID (UUID)
+ */
+export const useFilingById = (filingId: string, options: UseFilingOptions = {}) => {
+  const { enabled = true } = options
+
+  return useQuery({
+    queryKey: ['filing', 'by-id', filingId],
+    queryFn: () => filingService.getFilingById(filingId),
+    enabled: enabled && !!filingId,
+  })
+}
+
+/**
+ * Flexible hook to fetch filing data by either accession number or filing ID
+ */
+export const useFilingFlexible = (identifier: string, options: UseFilingByIdOptions = {}) => {
+  const { enabled = true, byId = false } = options
+
+  return useQuery({
+    queryKey: ['filing', byId ? 'by-id' : 'by-accession', identifier],
+    queryFn: () =>
+      byId ? filingService.getFilingById(identifier) : filingService.getFiling(identifier),
+    enabled: enabled && !!identifier,
   })
 }
 
