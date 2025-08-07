@@ -6,7 +6,6 @@ import {
   Target,
   Brain,
   TrendingUp,
-  AlertTriangle,
   Lightbulb,
   Building,
   Calendar,
@@ -20,6 +19,7 @@ import { AnalysisViewer } from './components/AnalysisViewer'
 import { AnalysisMetrics } from './components/AnalysisMetrics'
 import { ConfidenceIndicator } from './components/ConfidenceIndicator'
 import { SectionResults } from './components/SectionResults'
+import { RiskFactorList } from './components/RiskFactorCard'
 import type { ComprehensiveAnalysisResponse } from '@/api/types'
 
 export function AnalysisDetails() {
@@ -120,9 +120,17 @@ export function AnalysisDetails() {
     )
   }
 
-  // Check if this is a comprehensive analysis with full results
+  // Check if this is a comprehensive analysis with section_analyses
   const comprehensiveAnalysis = analysis.full_results as ComprehensiveAnalysisResponse | undefined
-  const hasFullResults = Boolean(comprehensiveAnalysis)
+  const hasComprehensiveResults = Boolean(
+    comprehensiveAnalysis && 
+    'section_analyses' in comprehensiveAnalysis && 
+    Array.isArray(comprehensiveAnalysis.section_analyses)
+  )
+  const hasLegacyResults = Boolean(
+    analysis.full_results && 
+    !hasComprehensiveResults
+  )
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-US', {
@@ -254,13 +262,13 @@ export function AnalysisDetails() {
           )}
 
           {/* Comprehensive Analysis Sections */}
-          {hasFullResults && comprehensiveAnalysis && (
+          {hasComprehensiveResults && comprehensiveAnalysis && (
             <SectionResults sections={comprehensiveAnalysis.section_analyses} />
           )}
 
           {/* Analysis Viewer for Legacy Format */}
-          {!hasFullResults && analysis.full_results && (
-            <AnalysisViewer results={analysis.full_results} />
+          {hasLegacyResults && (
+            <AnalysisViewer results={analysis.full_results!} />
           )}
         </div>
 
@@ -290,18 +298,11 @@ export function AnalysisDetails() {
           {/* Risk Factors */}
           {analysis.risk_factors && analysis.risk_factors.length > 0 && (
             <div className="bg-white rounded-lg border shadow-sm p-6">
-              <div className="flex items-center gap-2 mb-4">
-                <AlertTriangle className="h-5 w-5 text-error-600" />
-                <h3 className="text-lg font-semibold text-gray-900">Risk Factors</h3>
-              </div>
-              <ul className="space-y-2">
-                {analysis.risk_factors.map((risk, index) => (
-                  <li key={index} className="text-sm text-gray-700 flex gap-2">
-                    <div className="w-1.5 h-1.5 bg-error-600 rounded-full mt-2 flex-shrink-0"></div>
-                    <span>{risk}</span>
-                  </li>
-                ))}
-              </ul>
+              <RiskFactorList 
+                risks={analysis.risk_factors} 
+                title="Risk Factors"
+                showHeader={true}
+              />
             </div>
           )}
 

@@ -20,6 +20,7 @@ import type {
   IncomeStatementAnalysisSection,
   CashFlowAnalysisSection,
 } from '@/api/types'
+import { GenericAnalysisSection } from './GenericAnalysisSection'
 
 interface SectionResultsProps {
   sections: SectionAnalysisResponse[]
@@ -81,14 +82,7 @@ export function SectionResults({ sections }: SectionResultsProps) {
       case 'CashFlowAnalysisSection':
         return <CashFlowSubSection analysis={analysis as CashFlowAnalysisSection} />
       default:
-        return (
-          <div className="text-sm text-gray-600">
-            <p>Analysis type: {schema_type}</p>
-            <pre className="mt-2 p-2 bg-gray-100 rounded text-xs overflow-auto">
-              {JSON.stringify(analysis, null, 2)}
-            </pre>
-          </div>
-        )
+        return <GenericAnalysisSection analysis={analysis} schemaType={schema_type} />
     }
   }
 
