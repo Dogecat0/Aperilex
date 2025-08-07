@@ -115,8 +115,8 @@ export function RiskFactorCard({
                   {riskData?.risk_name || `Risk Factor ${index + 1}`}
                 </h3>
                 {/* Expand/Collapse Button */}
-                {(riskData?.mitigation_measures || 
-                  riskData?.timeline || 
+                {(riskData?.mitigation_measures ||
+                  riskData?.timeline ||
                   riskData?.probability ||
                   riskText.length > 200) && (
                   <button
@@ -206,9 +206,7 @@ export function RiskFactorCard({
                   <Clock className="h-4 w-4 text-gray-600" />
                   <h4 className="text-sm font-medium text-gray-900">Timeline</h4>
                 </div>
-                <p className="text-sm text-gray-700 pl-6">
-                  {riskData.timeline}
-                </p>
+                <p className="text-sm text-gray-700 pl-6">{riskData.timeline}</p>
               </div>
             )}
 
@@ -234,10 +232,7 @@ export function RiskFactorCard({
 
         {/* Action Buttons */}
         {(onViewDetails || onAddToWatchlist) && (
-          <RiskActionButtons
-            onViewDetails={onViewDetails}
-            onAddToWatchlist={onAddToWatchlist}
-          />
+          <RiskActionButtons onViewDetails={onViewDetails} onAddToWatchlist={onAddToWatchlist} />
         )}
       </div>
     </div>
@@ -249,23 +244,13 @@ function RiskActionButtons({ onViewDetails, onAddToWatchlist }: RiskActionButton
     <div className="mt-4 pt-3 border-t border-gray-100">
       <div className="flex items-center gap-2">
         {onViewDetails && (
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={onViewDetails}
-            className="text-xs"
-          >
+          <Button variant="outline" size="sm" onClick={onViewDetails} className="text-xs">
             <Info className="h-3 w-3 mr-1" />
             View Details
           </Button>
         )}
         {onAddToWatchlist && (
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={onAddToWatchlist}
-            className="text-xs"
-          >
+          <Button variant="ghost" size="sm" onClick={onAddToWatchlist} className="text-xs">
             <Shield className="h-3 w-3 mr-1" />
             Monitor Risk
           </Button>

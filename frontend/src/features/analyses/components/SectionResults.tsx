@@ -20,7 +20,8 @@ import type {
   IncomeStatementAnalysisSection,
   CashFlowAnalysisSection,
 } from '@/api/types'
-import { GenericAnalysisSection } from './GenericAnalysisSection'
+import { SubSectionRenderer } from '@/components/analysis/SubSectionRenderer'
+import { AnalysisSummaryCard } from '@/components/analysis/AnalysisSummaryCard'
 
 interface SectionResultsProps {
   sections: SectionAnalysisResponse[]
@@ -66,24 +67,16 @@ export function SectionResults({ sections }: SectionResultsProps) {
   }
 
   const renderSubSectionContent = (subSection: any) => {
-    const { schema_type, analysis } = subSection
+    const { schema_type, analysis, sub_section_name } = subSection
 
-    switch (schema_type) {
-      case 'BusinessAnalysisSection':
-        return <BusinessSubSection analysis={analysis as BusinessAnalysisSection} />
-      case 'RiskFactorsAnalysisSection':
-        return <RiskFactorsSubSection analysis={analysis as RiskFactorsAnalysisSection} />
-      case 'MDAAnalysisSection':
-        return <MDASubSection analysis={analysis as MDAAnalysisSection} />
-      case 'BalanceSheetAnalysisSection':
-        return <BalanceSheetSubSection analysis={analysis as BalanceSheetAnalysisSection} />
-      case 'IncomeStatementAnalysisSection':
-        return <IncomeStatementSubSection analysis={analysis as IncomeStatementAnalysisSection} />
-      case 'CashFlowAnalysisSection':
-        return <CashFlowSubSection analysis={analysis as CashFlowAnalysisSection} />
-      default:
-        return <GenericAnalysisSection analysis={analysis} schemaType={schema_type} />
-    }
+    return (
+      <SubSectionRenderer
+        schemaType={schema_type}
+        analysis={analysis}
+        subSectionName={sub_section_name}
+        parentSection={subSection.section_name || 'Unknown Section'}
+      />
+    )
   }
 
   if (!sections || sections.length === 0) {
@@ -173,28 +166,21 @@ export function SectionResults({ sections }: SectionResultsProps) {
 
                 {isExpanded && (
                   <div className="mt-6 ml-13 space-y-6">
-                    {/* Section Summary */}
-                    {section.section_summary && (
-                      <div className="bg-gray-50 rounded-lg p-4">
-                        <h4 className="font-medium text-gray-900 mb-2">Section Summary</h4>
-                        <p className="text-gray-700 leading-relaxed">{section.section_summary}</p>
-                      </div>
-                    )}
-
-                    {/* Consolidated Insights */}
-                    {section.consolidated_insights && section.consolidated_insights.length > 0 && (
-                      <div>
-                        <h4 className="font-medium text-gray-900 mb-3">Key Insights</h4>
-                        <ul className="space-y-2">
-                          {section.consolidated_insights.map((insight, insightIndex) => (
-                            <li key={insightIndex} className="flex gap-2">
-                              <div className="w-1.5 h-1.5 bg-primary-500 rounded-full mt-2 flex-shrink-0"></div>
-                              <span className="text-gray-700">{insight}</span>
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    )}
+                    {/* Section Summary Card */}
+                    <AnalysisSummaryCard
+                      title={section.section_name}
+                      summary={section.section_summary}
+                      insights={section.consolidated_insights}
+                      sentiment={section.overall_sentiment}
+                      metrics={{
+                        totalSections: section.sub_section_count,
+                        significantItems: section.critical_findings?.length || 0,
+                        categories: {
+                          'sub-sections': section.sub_section_count,
+                        },
+                      }}
+                      processingTime={section.processing_time_ms}
+                    />
 
                     {/* Critical Findings */}
                     {section.critical_findings && section.critical_findings.length > 0 && (

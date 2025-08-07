@@ -169,23 +169,6 @@ export function AnalysisMetrics({ analysis }: AnalysisMetricsProps) {
               </div>
             </div>
           )}
-
-          {/* Insight Density */}
-          {analysis.key_insights && analysis.sections_analyzed && (
-            <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-              <div className="flex items-center gap-2">
-                <Brain className="h-4 w-4 text-purple-600" />
-                <span className="text-sm font-medium text-gray-700">Insight Density</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="text-sm text-gray-600">
-                  {(analysis.key_insights.length / analysis.sections_analyzed).toFixed(1)} per
-                  section
-                </span>
-                <ChevronRight className="h-3 w-3 text-gray-400" />
-              </div>
-            </div>
-          )}
         </div>
       </div>
 
