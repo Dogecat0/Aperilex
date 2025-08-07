@@ -12,6 +12,7 @@ import {
   Play,
 } from 'lucide-react'
 import type { FilingResponse } from '@/api/types'
+import { useFilingHasAnalysis } from '@/hooks/useFilingAnalysisStatus'
 
 interface FilingCardProps {
   filing: FilingResponse & {
@@ -74,6 +75,10 @@ export const FilingCard = React.forwardRef<HTMLDivElement, FilingCardProps>(
     const StatusIcon = getStatusIcon(filing.processing_status)
     const statusColor = getStatusColor(filing.processing_status)
 
+    // Use frontend hook to check analysis status (workaround for backend issue)
+    const { data: analysisStatus, isLoading: analysisLoading } = useFilingHasAnalysis(filing.filing_id)
+    const hasAnalysis = analysisStatus?.hasAnalysis || filing.has_analysis || (filing.analyses_count && filing.analyses_count > 0)
+
     const handleViewDetails = () => {
       if (onViewDetails) {
         onViewDetails(filing.accession_number)
@@ -108,7 +113,7 @@ export const FilingCard = React.forwardRef<HTMLDivElement, FilingCardProps>(
                 View Details
               </Button>
             )}
-            {onAnalyze && !filing.has_analysis && (
+            {onAnalyze && !hasAnalysis && !analysisLoading && (
               <Button size="sm" onClick={handleAnalyze}>
                 <Play className="w-4 h-4 mr-2" />
                 Analyze
@@ -146,7 +151,7 @@ export const FilingCard = React.forwardRef<HTMLDivElement, FilingCardProps>(
               </span>
             </div>
 
-            {filing.has_analysis && (
+            {hasAnalysis && (
               <div className="flex items-center space-x-2 text-sm text-green-600">
                 <BarChart3 className="w-4 h-4" />
                 <span>Analysis Available</span>
@@ -166,12 +171,17 @@ export const FilingCard = React.forwardRef<HTMLDivElement, FilingCardProps>(
         </div>
 
         {/* Analysis Information */}
-        {filing.has_analysis && filing.analysis_date && (
+        {hasAnalysis && (filing.analysis_date || filing.latest_analysis_date) && (
           <div className="pt-4 border-t">
             <div className="flex items-center justify-between text-sm">
               <div className="flex items-center space-x-2 text-muted-foreground">
                 <BarChart3 className="w-4 h-4" />
-                <span>Last Analysis: {new Date(filing.analysis_date).toLocaleDateString()}</span>
+                <span>
+                  Last Analysis:{' '}
+                  {new Date(
+                    filing.analysis_date || filing.latest_analysis_date!
+                  ).toLocaleDateString()}
+                </span>
               </div>
               {filing.analyses_count && filing.analyses_count > 0 && (
                 <span className="text-xs text-muted-foreground">

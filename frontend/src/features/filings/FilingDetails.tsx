@@ -1,11 +1,10 @@
-import React, { useState } from 'react'
+import React from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useAppStore } from '@/lib/store'
 import {
   useFiling,
   useFilingAnalysis,
-  useFilingAnalyzeMutation,
-  usePollAnalysisCompletion,
+  useProgressiveFilingAnalysis,
 } from '@/hooks/useFiling'
 import { FilingMetadata } from './components/FilingMetadata'
 import { FilingAnalysisSection } from './components/FilingAnalysisSection'
@@ -18,7 +17,6 @@ export function FilingDetails() {
   const { accessionNumber } = useParams<{ accessionNumber: string }>()
   const navigate = useNavigate()
   const { setBreadcrumbs } = useAppStore()
-  const [isPolling, setIsPolling] = useState(false)
 
   const {
     data: filing,
@@ -32,13 +30,15 @@ export function FilingDetails() {
     data: analysis,
     isLoading: analysisLoading,
     error: analysisError,
-    refetch: refetchAnalysis,
   } = useFilingAnalysis(accessionNumber || '', {
     enabled: !!accessionNumber,
   })
 
-  const analyzeFiling = useFilingAnalyzeMutation()
-  const pollAnalysisCompletion = usePollAnalysisCompletion()
+  const {
+    analysisProgress,
+    startAnalysis,
+    isAnalyzing,
+  } = useProgressiveFilingAnalysis()
 
   // Set breadcrumbs when filing data loads
   React.useEffect(() => {
@@ -68,28 +68,11 @@ export function FilingDetails() {
     if (!accessionNumber) return
 
     try {
-      setIsPolling(true)
-
-      // Start the analysis
-      await analyzeFiling.mutateAsync({
-        accessionNumber,
-        options: options || { analysis_type: 'COMPREHENSIVE' },
-      })
-
-      // Poll for completion
-      await pollAnalysisCompletion.mutateAsync({
-        accessionNumber,
-        pollIntervalMs: 3000,
-        maxAttempts: 40, // 2 minutes
-      })
-
-      // Refetch analysis data
-      await refetchAnalysis()
+      // Use the progressive analysis system which handles progress tracking automatically
+      await startAnalysis(accessionNumber, options || { analysis_type: 'COMPREHENSIVE' })
     } catch (error) {
       console.error('Analysis failed:', error)
-      // TODO: Show error toast
-    } finally {
-      setIsPolling(false)
+      // Error state is already handled by the progressive analysis hook
     }
   }
 
@@ -170,8 +153,6 @@ export function FilingDetails() {
     return null
   }
 
-  const isAnalyzing = analyzeFiling.isPending || pollAnalysisCompletion.isPending || isPolling
-
   return (
     <div className="space-y-6">
       {/* Back Button */}
@@ -229,6 +210,7 @@ export function FilingDetails() {
             onAnalyze={() => handleAnalyze()}
             onViewFullAnalysis={handleViewFullAnalysis}
             isAnalyzing={isAnalyzing}
+            analysisProgress={analysisProgress}
             filingStatus={filing.processing_status}
           />
         </div>

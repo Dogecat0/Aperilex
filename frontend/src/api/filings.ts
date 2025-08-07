@@ -94,9 +94,15 @@ export const filingsApi = {
     accessionNumber: string,
     request?: AnalyzeFilingRequest
   ): Promise<TaskResponse> => {
+    // Default to COMPREHENSIVE analysis if no request provided or no analysis_type specified
+    const defaultRequest: AnalyzeFilingRequest = {
+      analysis_type: 'COMPREHENSIVE',
+      ...request,
+    }
+
     const { data } = await api.post<TaskResponse>(
       `/api/filings/${accessionNumber}/analyze`,
-      request
+      defaultRequest
     )
     return data
   },
