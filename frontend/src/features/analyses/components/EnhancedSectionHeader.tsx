@@ -22,7 +22,7 @@ interface SectionMetadata {
   confidence?: number | null
   processingTimeMs?: number | null
   subSectionCount?: number
-  totalItems?: number
+  totalSections?: number
 }
 
 interface QuickAction {
@@ -181,10 +181,7 @@ export function EnhancedSectionHeader({
     })
   }
 
-  const allQuickActions = [
-    ...defaultQuickActions,
-    ...(quickActions?.customActions || [])
-  ]
+  const allQuickActions = [...defaultQuickActions, ...(quickActions?.customActions || [])]
 
   return (
     <div
@@ -213,9 +210,7 @@ export function EnhancedSectionHeader({
             {/* Title and Subtitle */}
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2">
-                <h3 className={`${sizeConfig.title} ${theme.textColor} truncate`}>
-                  {title}
-                </h3>
+                <h3 className={`${sizeConfig.title} ${theme.textColor} truncate`}>{title}</h3>
                 {metadata?.confidence !== undefined && metadata?.confidence !== null && (
                   <ConfidenceIndicator
                     score={metadata.confidence}
@@ -224,7 +219,9 @@ export function EnhancedSectionHeader({
                 )}
               </div>
               {subtitle && (
-                <p className={`${sizeConfig.subtitle} ${theme.textColor} opacity-90 mt-0.5 truncate`}>
+                <p
+                  className={`${sizeConfig.subtitle} ${theme.textColor} opacity-90 mt-0.5 truncate`}
+                >
                   {subtitle}
                 </p>
               )}
@@ -235,7 +232,9 @@ export function EnhancedSectionHeader({
           <div className="flex items-center gap-3 flex-shrink-0">
             {/* Metadata */}
             {metadata && (
-              <div className={`flex items-center gap-3 ${sizeConfig.metadata} ${theme.textColor} opacity-90`}>
+              <div
+                className={`flex items-center gap-3 ${sizeConfig.metadata} ${theme.textColor} opacity-90`}
+              >
                 {metadata.processingTimeMs && (
                   <div className="flex items-center gap-1">
                     <Clock className="h-3 w-3" />
@@ -248,10 +247,10 @@ export function EnhancedSectionHeader({
                     <span>{metadata.subSectionCount} sections</span>
                   </div>
                 )}
-                {metadata.totalItems && (
+                {metadata.totalSections && (
                   <div className="flex items-center gap-1">
                     <Target className="h-3 w-3" />
-                    <span>{metadata.totalItems} items</span>
+                    <span>{metadata.totalSections} items</span>
                   </div>
                 )}
               </div>
@@ -293,15 +292,15 @@ export function EnhancedSectionHeader({
       </div>
 
       {/* Optional Light Background Bar for Additional Info */}
-      {(metadata?.subSectionCount || metadata?.totalItems) && (
+      {(metadata?.subSectionCount || metadata?.totalSections) && (
         <div className={`${theme.lightGradient} border-t ${theme.borderColor} px-4 py-2`}>
           <div className="flex items-center justify-between text-xs text-gray-600">
             <div className="flex items-center gap-4">
               {metadata.subSectionCount && (
                 <span>{metadata.subSectionCount} sub-sections analyzed</span>
               )}
-              {metadata.totalItems && (
-                <span>{metadata.totalItems} data points extracted</span>
+              {metadata.totalSections && (
+                <span>{metadata.totalSections} data points extracted</span>
               )}
             </div>
             {metadata.confidence !== undefined && metadata.confidence !== null && (
@@ -320,7 +319,12 @@ export function EnhancedSectionHeader({
 // Export helper function to determine analysis type from section name
 export function getAnalysisType(sectionName: string): AnalysisType {
   const name = sectionName.toLowerCase()
-  if (name.includes('financial') || name.includes('balance') || name.includes('income') || name.includes('cash')) {
+  if (
+    name.includes('financial') ||
+    name.includes('balance') ||
+    name.includes('income') ||
+    name.includes('cash')
+  ) {
     return 'financial'
   }
   if (name.includes('risk') || name.includes('factor')) {
@@ -338,6 +342,6 @@ export function extractSectionMetadata(section: any): SectionMetadata {
     confidence: section.confidence_score || section.overall_confidence || null,
     processingTimeMs: section.processing_time_ms || null,
     subSectionCount: section.sub_section_count || section.sub_sections?.length || 0,
-    totalItems: section.total_items || null,
+    totalSections: section.total_items || null,
   }
 }
