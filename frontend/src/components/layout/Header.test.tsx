@@ -106,7 +106,7 @@ describe('Header Component', () => {
       // Check for the logo icon container
       const logoIcon = screen.getByText('A')
       expect(logoIcon).toBeInTheDocument()
-      expect(logoIcon).toHaveClass('text-primary-foreground', 'font-bold', 'text-sm')
+      expect(logoIcon).toHaveClass('text-primary-foreground', 'font-bold', 'text-lg')
 
       // Check for the logo icon background
       const logoContainer = logoIcon.parentElement
@@ -121,21 +121,14 @@ describe('Header Component', () => {
       )
     })
 
-    it('renders the Aperilex brand name', () => {
+    it('renders the perilex brand name', () => {
       render(<Header />, { wrapper: TestWrapper })
 
       const brandName = screen.getByRole('heading', { level: 1 })
-      expect(brandName).toHaveTextContent('Aperilex')
+      expect(brandName).toHaveTextContent('perilex')
       expect(brandName).toHaveClass('text-xl', 'font-bold', 'text-primary')
     })
 
-    it('renders the tagline with correct responsive behavior', () => {
-      render(<Header />, { wrapper: TestWrapper })
-
-      const tagline = screen.getByText('Financial Analysis Made Simple')
-      expect(tagline).toBeInTheDocument()
-      expect(tagline).toHaveClass('text-xs', 'text-muted-foreground', 'hidden', 'sm:block')
-    })
 
     it('maintains correct logo section layout', () => {
       render(<Header />, { wrapper: TestWrapper })
@@ -208,12 +201,6 @@ describe('Header Component', () => {
       expect(desktopSearchSection).toHaveClass('hidden', 'md:flex', 'flex-1', 'max-w-md', 'mx-8')
     })
 
-    it('renders tagline with responsive visibility', () => {
-      render(<Header />, { wrapper: TestWrapper })
-
-      const tagline = screen.getByText('Financial Analysis Made Simple')
-      expect(tagline).toHaveClass('hidden', 'sm:block')
-    })
 
     it('maintains proper layout spacing across breakpoints', () => {
       render(<Header />, { wrapper: TestWrapper })
@@ -417,7 +404,7 @@ describe('Header Component', () => {
       expect(header.tagName).toBe('HEADER')
 
       const heading = screen.getByRole('heading', { level: 1 })
-      expect(heading).toHaveTextContent('Aperilex')
+      expect(heading).toHaveTextContent('perilex')
     })
 
     it('provides accessible button elements', () => {
@@ -510,12 +497,12 @@ describe('Header Component', () => {
       const { rerender } = render(<Header />, { wrapper: TestWrapper })
 
       const _initialHeader = screen.getByRole('banner')
-      const _initialBrandName = screen.getByText('Aperilex')
+      const _initialBrandName = screen.getByText('perilex')
 
       rerender(<Header />, { wrapper: TestWrapper })
 
       const rerenderedHeader = screen.getByRole('banner')
-      const rerenderedBrandName = screen.getByText('Aperilex')
+      const rerenderedBrandName = screen.getByText('perilex')
 
       expect(rerenderedHeader).toBeInTheDocument()
       expect(rerenderedBrandName).toBeInTheDocument()

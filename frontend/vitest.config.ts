@@ -33,21 +33,26 @@ export default defineConfig({
       },
     },
     coverage: {
+      enabled: false, // Only enable when --coverage flag is used
       provider: 'v8',
       reporter: ['text', 'json', 'html'],
+      reportsDirectory: './coverage',
       exclude: [
-        'node_modules/',
-        'src/test/',
+        'node_modules/**',
+        'src/test/**',
         'src/**/*.test.{ts,tsx}',
         'src/**/*.spec.{ts,tsx}',
         'src/main.tsx',
         'src/vite-env.d.ts',
         'src/api/generated-types.ts',
         '**/*.d.ts',
-        'coverage/',
-        'dist/',
-        'build/',
+        'coverage/**',
+        'dist/**',
+        'build/**',
       ],
+      include: ['src/**/*.{ts,tsx}'],
+      all: true,
+      reportOnFailure: true, // Generate coverage even when tests fail
       thresholds: {
         global: {
           branches: 70,

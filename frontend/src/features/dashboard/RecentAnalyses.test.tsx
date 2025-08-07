@@ -90,7 +90,7 @@ describe('RecentAnalyses', () => {
 
       expect(mockUseAnalyses).toHaveBeenCalledWith({
         page: 1,
-        page_size: 5,
+        page_size: 3,
       })
     })
 

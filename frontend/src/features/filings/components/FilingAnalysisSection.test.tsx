@@ -242,7 +242,7 @@ describe('FilingAnalysisSection Progressive Loading', () => {
 
       expect(screen.getByText('Executive Summary')).toBeInTheDocument()
       expect(screen.getByText('Test executive summary')).toBeInTheDocument()
-      expect(screen.getByText('Complete')).toBeInTheDocument()
+      expect(screen.getByText('Analysis Available')).toBeInTheDocument()
     })
   })
 

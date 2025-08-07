@@ -3,9 +3,12 @@ import type {
   CompanyResponse,
   FilingResponse,
   AnalysisResponse,
+  ComprehensiveAnalysisResponse,
+  SectionAnalysisResponse,
   HealthResponse,
   DetailedHealthResponse,
   APIError,
+  PaginatedResponse,
 } from '../../api/types'
 
 // Mock API response data matching actual API types
@@ -56,6 +59,156 @@ const mockFilings: FilingResponse[] = [
   },
 ]
 
+// Mock comprehensive analysis data with proper structure
+const mockComprehensiveAnalysis: ComprehensiveAnalysisResponse = {
+  section_analyses: [
+    {
+      section_name: 'Business Operations',
+      section_summary: 'Analysis of the company\'s core business operations and strategic initiatives.',
+      overall_sentiment: 0.8,
+      sub_section_count: 3,
+      consolidated_insights: [
+        'Strong operational efficiency across all business units',
+        'Successful expansion into emerging markets',
+        'Effective cost management strategies implemented',
+      ],
+      critical_findings: [
+        'Supply chain optimization needed in Southeast Asia',
+      ],
+      processing_time_ms: 5000,
+      sub_sections: [
+        {
+          sub_section_name: 'Core Business Analysis',
+          subsection_focus: 'Analysis of primary business segments and revenue drivers',
+          schema_type: 'BusinessAnalysisSection',
+          processing_time_ms: 2000,
+          parent_section: 'Business Operations',
+          analysis: {
+            operational_overview: {
+              description: 'Company operates in technology and services sectors',
+              industry_classification: 'Technology',
+              primary_markets: ['Technology'],
+              target_customers: null,
+              business_model: null,
+            },
+            key_products: [
+              {
+                name: 'Software Platform',
+                description: 'Cloud-based enterprise solution',
+                significance: 'Primary revenue driver accounting for 60% of total revenue',
+              },
+            ],
+            competitive_advantages: [
+              {
+                advantage: 'Market Leadership',
+                description: 'Leading position in enterprise software market',
+                competitors: null,
+                sustainability: null,
+              },
+            ],
+            strategic_initiatives: [],
+            business_segments: [],
+            geographic_segments: [],
+            supply_chain: null,
+            partnerships: null,
+          },
+        },
+      ],
+    },
+    {
+      section_name: 'Risk Factors',
+      section_summary: 'Comprehensive analysis of identified risk factors and their potential impact.',
+      overall_sentiment: 0.4,
+      sub_section_count: 2,
+      consolidated_insights: [
+        'Regulatory risks increasing in key markets',
+        'Cybersecurity threats require enhanced measures',
+      ],
+      critical_findings: [
+        'Data privacy regulations may impact operations',
+        'Competitive pressure intensifying',
+      ],
+      processing_time_ms: 3000,
+      sub_sections: [
+        {
+          sub_section_name: 'Risk Assessment',
+          subsection_focus: 'Identification and analysis of key business risks',
+          schema_type: 'RiskFactorsAnalysisSection',
+          processing_time_ms: 1500,
+          parent_section: 'Risk Factors',
+          analysis: {
+            executive_summary: 'Multiple high-severity risks identified that require immediate attention',
+            risk_factors: [
+              {
+                risk_name: 'Regulatory Compliance',
+                category: 'Regulatory',
+                description: 'Evolving data privacy regulations',
+                severity: 'High',
+                probability: null,
+                potential_impact: 'May require significant operational changes',
+                mitigation_measures: null,
+                timeline: null,
+              },
+              {
+                risk_name: 'Market Competition',
+                category: 'Market',
+                description: 'Increasing competitive pressure',
+                severity: 'Medium',
+                probability: null,
+                potential_impact: 'Could affect market share and pricing',
+                mitigation_measures: null,
+                timeline: null,
+              },
+            ],
+            industry_risks: {
+              industry_trends: 'Technology sector facing rapid changes',
+              competitive_pressures: ['New market entrants', 'Price competition'],
+              market_volatility: null,
+              disruption_threats: null,
+            },
+            regulatory_risks: {
+              regulatory_environment: 'Increasing regulatory scrutiny',
+              compliance_requirements: ['Data privacy', 'Financial reporting'],
+              regulatory_changes: null,
+              enforcement_risks: null,
+            },
+            financial_risks: {
+              credit_risk: null,
+              liquidity_risk: null,
+              market_risk: null,
+              interest_rate_risk: null,
+              currency_risk: null,
+            },
+            operational_risks: {
+              key_personnel_dependence: null,
+              supply_chain_disruption: null,
+              technology_failures: null,
+              quality_control: null,
+              capacity_constraints: null,
+            },
+            esg_risks: null,
+            risk_management_framework: null,
+            overall_risk_assessment: 'Moderate risk profile with specific areas requiring attention',
+          },
+        },
+      ],
+    },
+    {
+      section_name: 'Financial Results',
+      section_summary: 'Analysis of financial performance and key metrics.',
+      overall_sentiment: 0.9,
+      sub_section_count: 1,
+      consolidated_insights: [
+        'Revenue growth acceleration in Q4',
+        'Margin improvement across all segments',
+      ],
+      critical_findings: [],
+      processing_time_ms: 2000,
+      sub_sections: [],
+    },
+  ],
+}
+
 const mockAnalysis: AnalysisResponse = {
   analysis_id: '1',
   filing_id: '1',
@@ -90,26 +243,28 @@ const mockAnalysis: AnalysisResponse = {
     'Cash and cash equivalents of $29.5 billion',
   ],
   sections_analyzed: 8,
-  full_results: {
-    sections: [
-      {
-        section_name: 'Business Overview',
-        summary:
-          'Apple designs, manufactures, and markets smartphones, personal computers, tablets, wearables, and accessories.',
-        key_points: [
-          'Leading market position in premium segments',
-          'Strong brand loyalty and ecosystem integration',
-        ],
-        sentiment: 'positive',
-        confidence: 0.92,
-      },
-    ],
-    overall_sentiment: 'positive',
-    metadata: {
-      total_sections: 8,
-      processing_duration: 45.2,
-    },
-  },
+  full_results: mockComprehensiveAnalysis,
+}
+
+// Additional analyses for testing different scenarios
+const mockFinancialAnalysis: AnalysisResponse = {
+  analysis_id: '2',
+  filing_id: '2',
+  analysis_type: 'FINANCIAL_FOCUSED',
+  created_by: 'test-user-2',
+  created_at: '2024-01-14T14:30:00Z',
+  confidence_score: 0.88,
+  llm_provider: 'openai',
+  llm_model: 'gpt-4',
+  processing_time_seconds: 32,
+  filing_summary: 'Financial analysis summary',
+  executive_summary: 'Financial-focused analysis of quarterly results',
+  key_insights: ['Profit margins improved'],
+  financial_highlights: ['Net income increased'],
+  risk_factors: ['Currency fluctuations'],
+  opportunities: ['Cost optimization'],
+  sections_analyzed: 3,
+  full_results: null,
 }
 
 const mockHealthStatus: HealthResponse = {
@@ -227,6 +382,48 @@ export const handlers = [
     })
   }),
 
+  // Company filings endpoint (called by filingsApi.searchFilings)
+  http.get('/api/companies/:ticker/filings', ({ params, request }) => {
+    const url = new URL(request.url)
+    const ticker = params.ticker as string
+    const filingType = url.searchParams.get('filing_type')
+
+    const mockPaginatedResponse = {
+      data: mockFilings.map(filing => ({
+        ...filing,
+        company_id: mockCompany.company_id,
+      })),
+      pagination: {
+        page: 1,
+        page_size: 10,
+        total: mockFilings.length,
+        total_pages: 1,
+      }
+    }
+
+    return HttpResponse.json(mockPaginatedResponse)
+  }),
+  http.get('http://localhost:8000/api/companies/:ticker/filings', ({ params, request }) => {
+    const url = new URL(request.url)
+    const ticker = params.ticker as string
+    const filingType = url.searchParams.get('filing_type')
+
+    const mockPaginatedResponse = {
+      data: mockFilings.map(filing => ({
+        ...filing,
+        company_id: mockCompany.company_id,
+      })),
+      pagination: {
+        page: 1,
+        page_size: 10,
+        total: mockFilings.length,
+        total_pages: 1,
+      }
+    }
+
+    return HttpResponse.json(mockPaginatedResponse)
+  }),
+
   http.get('/api/companies', () => {
     return HttpResponse.json([mockCompany])
   }),
@@ -234,38 +431,163 @@ export const handlers = [
     return HttpResponse.json([mockCompany])
   }),
 
+  // Edgar filing search endpoint (called by filingsApi.searchEdgarFilings)
+  http.get('/api/filings/search', ({ request }) => {
+    const url = new URL(request.url)
+    const ticker = url.searchParams.get('ticker')
+    const formType = url.searchParams.get('form_type')
+
+    const mockFilingResults = [
+      {
+        accession_number: '0000320193-24-000001',
+        filing_type: formType || '10-K',
+        filing_date: '2024-01-15',
+        company_name: 'Apple Inc.',
+        cik: '0000320193',
+        ticker: ticker || 'AAPL',
+        has_content: true,
+        sections_count: 5,
+      },
+    ]
+
+    const mockPaginatedResponse = {
+      data: mockFilingResults,
+      pagination: {
+        page: 1,
+        page_size: 10,
+        total: mockFilingResults.length,
+        total_pages: 1,
+      }
+    }
+
+    return HttpResponse.json(mockPaginatedResponse)
+  }),
+  http.get('http://localhost:8000/api/filings/search', ({ request }) => {
+    const url = new URL(request.url)
+    const ticker = url.searchParams.get('ticker')
+    const formType = url.searchParams.get('form_type')
+
+    const mockFilingResults = [
+      {
+        accession_number: '0000320193-24-000001',
+        filing_type: formType || '10-K',
+        filing_date: '2024-01-15',
+        company_name: 'Apple Inc.',
+        cik: '0000320193',
+        ticker: ticker || 'AAPL',
+        has_content: true,
+        sections_count: 5,
+      },
+    ]
+
+    const mockPaginatedResponse = {
+      data: mockFilingResults,
+      pagination: {
+        page: 1,
+        page_size: 10,
+        total: mockFilingResults.length,
+        total_pages: 1,
+      }
+    }
+
+    return HttpResponse.json(mockPaginatedResponse)
+  }),
+
   // Filing endpoints - both relative and absolute URLs
   http.get('/api/filings', () => {
+    // Return array directly for client.test.ts compatibility
     return HttpResponse.json(mockFilings)
   }),
   http.get('http://localhost:8000/api/filings', () => {
+    // Return array directly for client.test.ts compatibility
     return HttpResponse.json(mockFilings)
   }),
 
-  http.get('/api/filings/:id', ({ params }) => {
+  // Filing by accession number (called by filingsApi.getFiling)
+  http.get('/api/filings/:accessionNumber', ({ params }) => {
+    const param = params.accessionNumber as string
+    // If it's a simple number, treat as filing_id, otherwise as accession_number
+    if (/^\d+$/.test(param)) {
+      return HttpResponse.json({
+        ...mockFilings[0],
+        filing_id: param,
+      })
+    }
     return HttpResponse.json({
       ...mockFilings[0],
-      filing_id: params.id as string,
+      accession_number: param,
     })
   }),
-  http.get('http://localhost:8000/api/filings/:id', ({ params }) => {
+  http.get('http://localhost:8000/api/filings/:accessionNumber', ({ params }) => {
+    const param = params.accessionNumber as string
+    // If it's a simple number, treat as filing_id, otherwise as accession_number
+    if (/^\d+$/.test(param)) {
+      return HttpResponse.json({
+        ...mockFilings[0],
+        filing_id: param,
+      })
+    }
     return HttpResponse.json({
       ...mockFilings[0],
-      filing_id: params.id as string,
+      accession_number: param,
     })
   }),
 
-  // Analysis creation endpoint - both relative and absolute URLs
+  // Filing analysis endpoint (called by filingsApi.getFilingAnalysis)
+  http.get('/api/filings/:accessionNumber/analysis', ({ params }) => {
+    return HttpResponse.json({
+      ...mockAnalysis,
+      filing_id: params.accessionNumber as string,
+    })
+  }),
+  http.get('http://localhost:8000/api/filings/:accessionNumber/analysis', ({ params }) => {
+    return HttpResponse.json({
+      ...mockAnalysis,
+      filing_id: params.accessionNumber as string,
+    })
+  }),
+
+  // Filing analyze endpoint (called by filingsApi.analyzeFiling)
+  http.post('/api/filings/:accessionNumber/analyze', ({ params }) => {
+    const mockTask = {
+      task_id: 'task-123',
+      status: 'pending' as const,
+      result: null,
+      error_message: null,
+      started_at: '2024-01-16T10:00:00Z',
+      completed_at: null,
+      progress_percent: 0,
+      current_step: 'Initiating analysis',
+    }
+    return HttpResponse.json(mockTask)
+  }),
+  http.post('http://localhost:8000/api/filings/:accessionNumber/analyze', ({ params }) => {
+    const mockTask = {
+      task_id: 'task-123',
+      status: 'pending' as const,
+      result: null,
+      error_message: null,
+      started_at: '2024-01-16T10:00:00Z',
+      completed_at: null,
+      progress_percent: 0,
+      current_step: 'Initiating analysis',
+    }
+    return HttpResponse.json(mockTask)
+  }),
+
+  // Legacy analysis endpoint pattern used by client.test.ts - return AnalysisResponse directly
   http.post('/api/filings/:ticker/:formType/analyze', ({ params }) => {
     return HttpResponse.json({
       ...mockAnalysis,
       filing_id: `${params.ticker}-${params.formType}`,
+      analysis_type: 'COMPREHENSIVE' as const,
     })
   }),
   http.post('http://localhost:8000/api/filings/:ticker/:formType/analyze', ({ params }) => {
     return HttpResponse.json({
       ...mockAnalysis,
       filing_id: `${params.ticker}-${params.formType}`,
+      analysis_type: 'COMPREHENSIVE' as const,
     })
   }),
 
@@ -283,11 +605,91 @@ export const handlers = [
     })
   }),
 
-  http.get('/api/analyses', () => {
-    return HttpResponse.json([mockAnalysis])
+  http.get('/api/analyses', ({ request }) => {
+    const url = new URL(request.url)
+    const page = parseInt(url.searchParams.get('page') || '1')
+    const pageSize = parseInt(url.searchParams.get('page_size') || '20')
+    const ticker = url.searchParams.get('ticker')
+    const analysisType = url.searchParams.get('analysis_type')
+
+    // Create a list of analyses for testing
+    const allAnalyses = [mockAnalysis, mockFinancialAnalysis]
+    let filteredAnalyses = allAnalyses
+
+    // Apply filters
+    if (ticker) {
+      // For simplicity, just filter by filename containing ticker
+      filteredAnalyses = allAnalyses.filter(a => a.filing_id.includes(ticker.toLowerCase()))
+    }
+    if (analysisType) {
+      filteredAnalyses = filteredAnalyses.filter(a => a.analysis_type === analysisType)
+    }
+
+    const paginatedResponse: PaginatedResponse<AnalysisResponse> = {
+      items: filteredAnalyses,
+      pagination: {
+        page,
+        page_size: pageSize,
+        total_items: filteredAnalyses.length,
+        total_pages: Math.ceil(filteredAnalyses.length / pageSize),
+        has_next: false,
+        has_previous: false,
+        next_page: null,
+        previous_page: null,
+      }
+    }
+
+    return HttpResponse.json(paginatedResponse)
   }),
-  http.get('http://localhost:8000/api/analyses', () => {
-    return HttpResponse.json([mockAnalysis])
+  http.get('http://localhost:8000/api/analyses', ({ request }) => {
+    const url = new URL(request.url)
+    const page = parseInt(url.searchParams.get('page') || '1')
+    const pageSize = parseInt(url.searchParams.get('page_size') || '20')
+    const ticker = url.searchParams.get('ticker')
+    const analysisType = url.searchParams.get('analysis_type')
+
+    // Create a list of analyses for testing
+    const allAnalyses = [mockAnalysis, mockFinancialAnalysis]
+    let filteredAnalyses = allAnalyses
+
+    // Apply filters
+    if (ticker) {
+      // For simplicity, just filter by filename containing ticker
+      filteredAnalyses = allAnalyses.filter(a => a.filing_id.includes(ticker.toLowerCase()))
+    }
+    if (analysisType) {
+      filteredAnalyses = filteredAnalyses.filter(a => a.analysis_type === analysisType)
+    }
+
+    const paginatedResponse: PaginatedResponse<AnalysisResponse> = {
+      items: filteredAnalyses,
+      pagination: {
+        page,
+        page_size: pageSize,
+        total_items: filteredAnalyses.length,
+        total_pages: Math.ceil(filteredAnalyses.length / pageSize),
+        has_next: false,
+        has_previous: false,
+        next_page: null,
+        previous_page: null,
+      }
+    }
+
+    return HttpResponse.json(paginatedResponse)
+  }),
+
+  // Company analyses endpoints
+  http.get('/api/companies/:ticker/analyses', ({ params }) => {
+    return HttpResponse.json([{
+      ...mockAnalysis,
+      filing_id: `${params.ticker}-filing`,
+    }])
+  }),
+  http.get('http://localhost:8000/api/companies/:ticker/analyses', ({ params }) => {
+    return HttpResponse.json([{
+      ...mockAnalysis,
+      filing_id: `${params.ticker}-filing`,
+    }])
   }),
 
   // Error handlers for testing error scenarios - both relative and absolute URLs

@@ -24,6 +24,7 @@ import type {
   FilingResponse,
   AnalysisResponse,
   DetailedHealthResponse,
+  PaginatedResponse,
 } from './types'
 
 // Mock localStorage for authentication testing
@@ -175,8 +176,8 @@ describe('HTTP Methods Integration', () => {
     })
 
     // Test list analyses
-    const analysesResponse = await api.get<AnalysisResponse[]>('/api/analyses')
-    expect(Array.isArray(analysesResponse.data)).toBe(true)
+    const analysesResponse = await api.get<PaginatedResponse<AnalysisResponse>>('/api/analyses')
+    expect(Array.isArray(analysesResponse.data.items)).toBe(true)
   })
 })
 
