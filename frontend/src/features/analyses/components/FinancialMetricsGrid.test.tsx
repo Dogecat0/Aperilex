@@ -10,7 +10,7 @@ const mockMetrics: FinancialMetric[] = [
     percentage_change: '+11.1%',
     direction: 'Increased',
     explanation: 'Revenue increased due to strong product sales and market expansion',
-    significance: 'This represents significant growth in the company\'s core business',
+    significance: "This represents significant growth in the company's core business",
   },
   {
     metric_name: 'Net Profit Margin',
@@ -24,7 +24,7 @@ const mockMetrics: FinancialMetric[] = [
     ratio_name: 'Debt-to-Equity Ratio',
     current_value: 0.45,
     previous_value: 0.52,
-    industry_benchmark: 0.40,
+    industry_benchmark: 0.4,
     interpretation: 'Company has reduced debt relative to equity, approaching industry average',
   },
   {
@@ -37,7 +37,7 @@ const mockMetrics: FinancialMetric[] = [
 describe('FinancialMetricsGrid', () => {
   it('renders loading state correctly', () => {
     render(<FinancialMetricsGrid metrics={[]} loading={true} />)
-    
+
     expect(screen.getByText(/Loading Financial Metrics/)).toBeInTheDocument()
     // Check for loading animation instead of label
     expect(document.querySelector('.animate-spin')).toBeInTheDocument()
@@ -45,36 +45,36 @@ describe('FinancialMetricsGrid', () => {
 
   it('renders empty state when no metrics provided', () => {
     render(<FinancialMetricsGrid metrics={[]} />)
-    
+
     expect(screen.getByText('No Financial Metrics Available')).toBeInTheDocument()
     expect(screen.getByText(/Financial metrics will appear here/)).toBeInTheDocument()
   })
 
   it('renders metrics grid with provided data', () => {
     render(<FinancialMetricsGrid metrics={mockMetrics} />)
-    
+
     // Check header
     expect(screen.getByText('Financial Metrics')).toBeInTheDocument()
     expect(screen.getByText('4 metrics')).toBeInTheDocument()
-    
+
     // Check individual metrics
     expect(screen.getByText('Total Revenue')).toBeInTheDocument()
     expect(screen.getByText('$50.0B')).toBeInTheDocument()
     expect(screen.getByText('+11.1%')).toBeInTheDocument()
-    
+
     expect(screen.getByText('Net Profit Margin')).toBeInTheDocument()
     expect(screen.getByText('15.2%')).toBeInTheDocument()
-    
+
     expect(screen.getByText('Debt-to-Equity Ratio')).toBeInTheDocument()
     expect(screen.getByText('0.45')).toBeInTheDocument()
-    
+
     expect(screen.getByText('Operating Cash Flow')).toBeInTheDocument()
     expect(screen.getByText('$8.5B')).toBeInTheDocument()
   })
 
   it('shows previous values and changes when available', () => {
     render(<FinancialMetricsGrid metrics={mockMetrics} showComparisons={true} />)
-    
+
     expect(screen.getByText('Previous: $45.0B')).toBeInTheDocument()
     expect(screen.getByText('Previous: 12.8%')).toBeInTheDocument()
     expect(screen.getByText('Previous: 0.52')).toBeInTheDocument()
@@ -82,14 +82,14 @@ describe('FinancialMetricsGrid', () => {
 
   it('hides comparisons when showComparisons is false', () => {
     render(<FinancialMetricsGrid metrics={mockMetrics} showComparisons={false} />)
-    
+
     expect(screen.queryByText('Previous: $45.0B')).not.toBeInTheDocument()
     expect(screen.queryByText('+11.1%')).not.toBeInTheDocument()
   })
 
   it('highlights significant metrics when highlightSignificant is true', () => {
     render(<FinancialMetricsGrid metrics={mockMetrics} highlightSignificant={true} />)
-    
+
     // The first metric should have a "Key" badge due to its significance
     const significantMetric = screen.getByText('Total Revenue').closest('.border')
     expect(significantMetric).toHaveClass('border-blue-300')
@@ -98,41 +98,41 @@ describe('FinancialMetricsGrid', () => {
 
   it('expands metric details when More Info is clicked', async () => {
     render(<FinancialMetricsGrid metrics={mockMetrics} />)
-    
+
     const moreInfoButton = screen.getAllByText('More Info')[0]
     fireEvent.click(moreInfoButton)
-    
+
     expect(screen.getByText('Explanation')).toBeInTheDocument()
     expect(screen.getByText(/Revenue increased due to strong product sales/)).toBeInTheDocument()
-    
+
     // Button should change to "Less Info"
     expect(screen.getByText('Less Info')).toBeInTheDocument()
   })
 
   it('shows industry benchmarks when available', () => {
     render(<FinancialMetricsGrid metrics={mockMetrics} />)
-    
+
     expect(screen.getByText(/Industry avg:/)).toBeInTheDocument()
     expect(screen.getByText('0.40')).toBeInTheDocument()
   })
 
   it('limits display count when maxDisplayCount is set', () => {
     render(<FinancialMetricsGrid metrics={mockMetrics} maxDisplayCount={2} />)
-    
+
     expect(screen.getByText('Total Revenue')).toBeInTheDocument()
     expect(screen.getByText('Net Profit Margin')).toBeInTheDocument()
     expect(screen.queryByText('Debt-to-Equity Ratio')).not.toBeInTheDocument()
-    
+
     // Should show "Show All" button
     expect(screen.getByText('Show All (4)')).toBeInTheDocument()
   })
 
   it('expands to show all metrics when Show All is clicked', () => {
     render(<FinancialMetricsGrid metrics={mockMetrics} maxDisplayCount={2} />)
-    
+
     const showAllButton = screen.getByText('Show All (4)')
     fireEvent.click(showAllButton)
-    
+
     expect(screen.getByText('Debt-to-Equity Ratio')).toBeInTheDocument()
     expect(screen.getByText('Operating Cash Flow')).toBeInTheDocument()
     expect(screen.getByText('Show Less')).toBeInTheDocument()
@@ -146,9 +146,9 @@ describe('FinancialMetricsGrid', () => {
       { metric_name: 'Revenue Billions', current_value: 75000000000 },
       { metric_name: 'Revenue Trillions', current_value: 1500000000000 },
     ]
-    
+
     render(<FinancialMetricsGrid metrics={currencyMetrics} />)
-    
+
     expect(screen.getByText('$1.5K')).toBeInTheDocument()
     expect(screen.getByText('$25.0K')).toBeInTheDocument()
     expect(screen.getByText('$50.0M')).toBeInTheDocument()
@@ -163,9 +163,9 @@ describe('FinancialMetricsGrid', () => {
       { metric_name: 'Total Assets', current_value: '500000000' },
       { metric_name: 'Employee Count', current_value: 50000 },
     ]
-    
+
     render(<FinancialMetricsGrid metrics={mixedMetrics} />)
-    
+
     // Should show appropriate formatting
     expect(screen.getByText('15.5%')).toBeInTheDocument() // percentage preserved
     expect(screen.getByText('18.50')).toBeInTheDocument() // ratio format
@@ -177,13 +177,13 @@ describe('FinancialMetricsGrid', () => {
     const { container } = render(
       <FinancialMetricsGrid metrics={mockMetrics} className="custom-class" />
     )
-    
+
     expect(container.firstChild).toHaveClass('custom-class')
   })
 
   it('uses custom title', () => {
     render(<FinancialMetricsGrid metrics={mockMetrics} title="Custom Title" />)
-    
+
     expect(screen.getByText('Custom Title')).toBeInTheDocument()
   })
 })
@@ -198,9 +198,9 @@ describe('FinancialMetricsGrid - Metric Type Detection', () => {
       { metric_name: 'Cash Flow', current_value: 300000 },
       { metric_name: 'Debt Outstanding', current_value: 800000 },
     ]
-    
+
     render(<FinancialMetricsGrid metrics={currencyMetrics} />)
-    
+
     // All should be formatted as currency
     expect(screen.getByText('$1.0M')).toBeInTheDocument()
     expect(screen.getByText('$500.0K')).toBeInTheDocument()
@@ -216,9 +216,9 @@ describe('FinancialMetricsGrid - Metric Type Detection', () => {
       { metric_name: 'Growth Percentage', current_value: 8.7 },
       { metric_name: 'Market Share', current_value: '15.2%' },
     ]
-    
+
     render(<FinancialMetricsGrid metrics={percentageMetrics} />)
-    
+
     // Should be formatted as percentages
     expect(screen.getByText('25.5%')).toBeInTheDocument()
     expect(screen.getByText('12.3%')).toBeInTheDocument()
@@ -233,9 +233,9 @@ describe('FinancialMetricsGrid - Metric Type Detection', () => {
       { metric_name: 'Debt-to-Equity Ratio', current_value: 0.45 },
       { metric_name: 'Price-to-Book Multiple', current_value: 1.8 },
     ]
-    
+
     render(<FinancialMetricsGrid metrics={ratioMetrics} />)
-    
+
     // Should be formatted as ratios (2 decimal places)
     expect(screen.getByText('18.50')).toBeInTheDocument()
     expect(screen.getByText('2.10')).toBeInTheDocument()

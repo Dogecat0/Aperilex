@@ -26,7 +26,8 @@ const baseAnalysis: Omit<AnalysisResponse, 'analysis_type'> = {
   llm_model: 'gpt-4',
   processing_time_seconds: 32,
   filing_summary: 'Test filing summary',
-  executive_summary: 'This analysis provides comprehensive insights into the company\'s financial performance and strategic direction.',
+  executive_summary:
+    "This analysis provides comprehensive insights into the company's financial performance and strategic direction.",
   key_insights: [
     'Revenue growth of 15% year-over-year',
     'Strong cash position with $50B in reserves',
@@ -540,9 +541,9 @@ describe('AnalysisCard Component', () => {
       )
 
       const cardLink = screen.getByRole('link')
-      
+
       await user.hover(cardLink)
-      
+
       // Hover styles should be applied via CSS classes
       expect(cardLink).toHaveClass('hover:shadow-md', 'hover:border-primary-200')
     })
@@ -603,7 +604,8 @@ describe('AnalysisCard Component', () => {
     it('handles very long text content', () => {
       const analysisWithLongContent = {
         ...comprehensiveAnalysis,
-        executive_summary: 'This is a very long executive summary that should be truncated appropriately when displayed in the card format to ensure good user experience and consistent layout across all cards in the grid view.',
+        executive_summary:
+          'This is a very long executive summary that should be truncated appropriately when displayed in the card format to ensure good user experience and consistent layout across all cards in the grid view.',
       }
 
       render(
@@ -681,7 +683,7 @@ describe('AnalysisCard Component', () => {
 
       const badge = screen.getByText('Comprehensive')
       expect(badge).toHaveClass('text-primary-800')
-      
+
       const metadata = screen.getByText('Jan 15, 2024')
       const metadataContainer = metadata.closest('.text-gray-500')
       expect(metadataContainer).toBeInTheDocument()
@@ -708,13 +710,13 @@ describe('AnalysisCard Component', () => {
       }
 
       const startTime = performance.now()
-      
+
       render(
         <TestWrapper>
           <AnalysisCard analysis={analysisWithLargeData} />
         </TestWrapper>
       )
-      
+
       const endTime = performance.now()
       expect(endTime - startTime).toBeLessThan(100) // Should render quickly
     })

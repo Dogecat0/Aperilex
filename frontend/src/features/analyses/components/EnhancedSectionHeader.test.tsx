@@ -1,7 +1,11 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { describe, it, expect, vi } from 'vitest'
 import { Download, Share, Settings } from 'lucide-react'
-import { EnhancedSectionHeader, getAnalysisType, extractSectionMetadata } from './EnhancedSectionHeader'
+import {
+  EnhancedSectionHeader,
+  getAnalysisType,
+  extractSectionMetadata,
+} from './EnhancedSectionHeader'
 
 describe('EnhancedSectionHeader', () => {
   it('renders basic header with title', () => {
@@ -10,9 +14,7 @@ describe('EnhancedSectionHeader', () => {
   })
 
   it('renders subtitle when provided', () => {
-    render(
-      <EnhancedSectionHeader title="Test Section" subtitle="This is a test subtitle" />
-    )
+    render(<EnhancedSectionHeader title="Test Section" subtitle="This is a test subtitle" />)
     expect(screen.getByText('This is a test subtitle')).toBeInTheDocument()
   })
 
@@ -38,9 +40,7 @@ describe('EnhancedSectionHeader', () => {
   })
 
   it('renders different sizes correctly', () => {
-    const { rerender } = render(
-      <EnhancedSectionHeader title="Small" size="sm" />
-    )
+    const { rerender } = render(<EnhancedSectionHeader title="Small" size="sm" />)
     expect(screen.getByText('Small')).toHaveClass('text-sm', 'font-semibold')
 
     rerender(<EnhancedSectionHeader title="Medium" size="md" />)
@@ -55,15 +55,10 @@ describe('EnhancedSectionHeader', () => {
       confidence: 0.85,
       processingTimeMs: 2500,
       subSectionCount: 5,
-      totalItems: 15
+      totalSections: 15,
     }
 
-    render(
-      <EnhancedSectionHeader
-        title="Test"
-        metadata={metadata}
-      />
-    )
+    render(<EnhancedSectionHeader title="Test" metadata={metadata} />)
 
     expect(screen.getByText('3s')).toBeInTheDocument() // Processing time
     expect(screen.getByText('5 sections')).toBeInTheDocument()
@@ -73,12 +68,7 @@ describe('EnhancedSectionHeader', () => {
   it('renders confidence indicator when confidence is provided', () => {
     const metadata = { confidence: 0.75 }
 
-    render(
-      <EnhancedSectionHeader
-        title="Test"
-        metadata={metadata}
-      />
-    )
+    render(<EnhancedSectionHeader title="Test" metadata={metadata} />)
 
     expect(screen.getByText('75%')).toBeInTheDocument()
   })
@@ -86,13 +76,7 @@ describe('EnhancedSectionHeader', () => {
   it('handles expand/collapse toggle', () => {
     const mockToggle = vi.fn()
 
-    render(
-      <EnhancedSectionHeader
-        title="Test"
-        isExpanded={false}
-        onToggle={mockToggle}
-      />
-    )
+    render(<EnhancedSectionHeader title="Test" isExpanded={false} onToggle={mockToggle} />)
 
     const toggleButton = screen.getByTitle('Expand section')
     fireEvent.click(toggleButton)
@@ -102,22 +86,12 @@ describe('EnhancedSectionHeader', () => {
 
   it('shows different chevron icons based on expanded state', () => {
     const { rerender } = render(
-      <EnhancedSectionHeader
-        title="Test"
-        isExpanded={false}
-        onToggle={() => {}}
-      />
+      <EnhancedSectionHeader title="Test" isExpanded={false} onToggle={() => {}} />
     )
 
     expect(screen.getByTitle('Expand section')).toBeInTheDocument()
 
-    rerender(
-      <EnhancedSectionHeader
-        title="Test"
-        isExpanded={true}
-        onToggle={() => {}}
-      />
-    )
+    rerender(<EnhancedSectionHeader title="Test" isExpanded={true} onToggle={() => {}} />)
 
     expect(screen.getByTitle('Collapse section')).toBeInTheDocument()
   })
@@ -155,15 +129,10 @@ describe('EnhancedSectionHeader', () => {
         icon: Settings,
         label: 'Settings',
         onClick: mockCustomAction,
-      }
+      },
     ]
 
-    render(
-      <EnhancedSectionHeader
-        title="Test"
-        quickActions={{ customActions }}
-      />
-    )
+    render(<EnhancedSectionHeader title="Test" quickActions={{ customActions }} />)
 
     const settingsButton = screen.getByTitle('Settings')
     fireEvent.click(settingsButton)
@@ -179,15 +148,10 @@ describe('EnhancedSectionHeader', () => {
         label: 'Disabled Action',
         onClick: mockDisabledAction,
         disabled: true,
-      }
+      },
     ]
 
-    render(
-      <EnhancedSectionHeader
-        title="Test"
-        quickActions={{ customActions }}
-      />
-    )
+    render(<EnhancedSectionHeader title="Test" quickActions={{ customActions }} />)
 
     const disabledButton = screen.getByTitle('Disabled Action')
     expect(disabledButton).toBeDisabled()
@@ -199,17 +163,11 @@ describe('EnhancedSectionHeader', () => {
   it('shows additional info bar when metadata has sub-sections or total items', () => {
     const metadata = {
       subSectionCount: 3,
-      totalItems: 10,
-      confidence: 0.9
+      totalSections: 10,
+      confidence: 0.9,
     }
 
-    render(
-      <EnhancedSectionHeader
-        title="Test"
-        metadata={metadata}
-        analysisType="financial"
-      />
-    )
+    render(<EnhancedSectionHeader title="Test" metadata={metadata} analysisType="financial" />)
 
     expect(screen.getByText('3 sub-sections analyzed')).toBeInTheDocument()
     expect(screen.getByText('10 data points extracted')).toBeInTheDocument()
@@ -219,7 +177,8 @@ describe('EnhancedSectionHeader', () => {
   it('applies hover effects correctly', async () => {
     const { container } = render(<EnhancedSectionHeader title="Test" analysisType="financial" />)
 
-    const headerElement = container.querySelector('[data-testid]') || container.firstChild as HTMLElement
+    const headerElement =
+      container.querySelector('[data-testid]') || (container.firstChild as HTMLElement)
 
     fireEvent.mouseEnter(headerElement)
 
@@ -235,28 +194,18 @@ describe('EnhancedSectionHeader', () => {
   })
 
   it('applies custom className', () => {
-    const { container } = render(
-      <EnhancedSectionHeader title="Test" className="custom-class" />
-    )
+    const { container } = render(<EnhancedSectionHeader title="Test" className="custom-class" />)
 
     expect(container.firstChild).toHaveClass('custom-class')
   })
 
   it('formats processing time correctly', () => {
     const { rerender } = render(
-      <EnhancedSectionHeader
-        title="Test"
-        metadata={{ processingTimeMs: 500 }}
-      />
+      <EnhancedSectionHeader title="Test" metadata={{ processingTimeMs: 500 }} />
     )
     expect(screen.getByText('500ms')).toBeInTheDocument()
 
-    rerender(
-      <EnhancedSectionHeader
-        title="Test"
-        metadata={{ processingTimeMs: 2500 }}
-      />
-    )
+    rerender(<EnhancedSectionHeader title="Test" metadata={{ processingTimeMs: 2500 }} />)
     expect(screen.getByText('3s')).toBeInTheDocument()
   })
 })
@@ -293,7 +242,7 @@ describe('extractSectionMetadata helper', () => {
       confidence_score: 0.85,
       processing_time_ms: 2500,
       sub_section_count: 5,
-      total_items: 15
+      total_items: 15,
     }
 
     const metadata = extractSectionMetadata(section)
@@ -302,14 +251,14 @@ describe('extractSectionMetadata helper', () => {
       confidence: 0.85,
       processingTimeMs: 2500,
       subSectionCount: 5,
-      totalItems: 15
+      totalSections: 15,
     })
   })
 
   it('handles alternative field names', () => {
     const section = {
       overall_confidence: 0.75,
-      sub_sections: [{}, {}, {}] // Length should be used
+      sub_sections: [{}, {}, {}], // Length should be used
     }
 
     const metadata = extractSectionMetadata(section)
@@ -318,7 +267,7 @@ describe('extractSectionMetadata helper', () => {
       confidence: 0.75,
       processingTimeMs: null,
       subSectionCount: 3,
-      totalItems: null
+      totalSections: null,
     })
   })
 
@@ -331,7 +280,7 @@ describe('extractSectionMetadata helper', () => {
       confidence: null,
       processingTimeMs: null,
       subSectionCount: 0,
-      totalItems: null
+      totalSections: null,
     })
   })
 })
