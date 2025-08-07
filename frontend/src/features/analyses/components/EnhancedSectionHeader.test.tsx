@@ -59,8 +59,8 @@ describe('EnhancedSectionHeader', () => {
     }
 
     render(
-      <EnhancedSectionHeader 
-        title="Test" 
+      <EnhancedSectionHeader
+        title="Test"
         metadata={metadata}
       />
     )
@@ -74,8 +74,8 @@ describe('EnhancedSectionHeader', () => {
     const metadata = { confidence: 0.75 }
 
     render(
-      <EnhancedSectionHeader 
-        title="Test" 
+      <EnhancedSectionHeader
+        title="Test"
         metadata={metadata}
       />
     )
@@ -204,8 +204,8 @@ describe('EnhancedSectionHeader', () => {
     }
 
     render(
-      <EnhancedSectionHeader 
-        title="Test" 
+      <EnhancedSectionHeader
+        title="Test"
         metadata={metadata}
         analysisType="financial"
       />
@@ -218,17 +218,17 @@ describe('EnhancedSectionHeader', () => {
 
   it('applies hover effects correctly', async () => {
     const { container } = render(<EnhancedSectionHeader title="Test" analysisType="financial" />)
-    
+
     const headerElement = container.querySelector('[data-testid]') || container.firstChild as HTMLElement
-    
+
     fireEvent.mouseEnter(headerElement)
-    
+
     await waitFor(() => {
       expect(headerElement).toHaveClass('shadow-md')
     })
 
     fireEvent.mouseLeave(headerElement)
-    
+
     await waitFor(() => {
       expect(headerElement).toHaveClass('shadow-sm')
     })
@@ -238,22 +238,22 @@ describe('EnhancedSectionHeader', () => {
     const { container } = render(
       <EnhancedSectionHeader title="Test" className="custom-class" />
     )
-    
+
     expect(container.firstChild).toHaveClass('custom-class')
   })
 
   it('formats processing time correctly', () => {
     const { rerender } = render(
-      <EnhancedSectionHeader 
-        title="Test" 
+      <EnhancedSectionHeader
+        title="Test"
         metadata={{ processingTimeMs: 500 }}
       />
     )
     expect(screen.getByText('500ms')).toBeInTheDocument()
 
     rerender(
-      <EnhancedSectionHeader 
-        title="Test" 
+      <EnhancedSectionHeader
+        title="Test"
         metadata={{ processingTimeMs: 2500 }}
       />
     )

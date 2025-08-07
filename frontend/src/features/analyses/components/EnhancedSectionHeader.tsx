@@ -164,7 +164,7 @@ export function EnhancedSectionHeader({
 
   // Create default quick actions
   const defaultQuickActions: QuickAction[] = []
-  
+
   if (quickActions?.showExport && quickActions?.onExport) {
     defaultQuickActions.push({
       icon: Download,
@@ -172,7 +172,7 @@ export function EnhancedSectionHeader({
       onClick: quickActions.onExport,
     })
   }
-  
+
   if (quickActions?.showShare && quickActions?.onShare) {
     defaultQuickActions.push({
       icon: Share,
