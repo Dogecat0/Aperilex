@@ -1,12 +1,10 @@
 import React from 'react'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { useAnalyses } from '@/hooks/useAnalysis'
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { render, screen, waitFor } from '@testing-library/react'
 import { BrowserRouter } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import userEvent from '@testing-library/user-event'
-import { server } from '@/test/mocks/server'
-import { http, HttpResponse } from 'msw'
 import { AnalysesList } from './AnalysesList'
 import type { AnalysisResponse, PaginatedResponse } from '@/api/types'
 
@@ -29,7 +27,16 @@ vi.mock('./components/AnalysisCard', () => ({
 }))
 
 vi.mock('@/components/ui/Button', () => ({
-  Button: ({ children, onClick, className, variant, size, disabled, type = 'button', ...props }: any) => (
+  Button: ({
+    children,
+    onClick,
+    className,
+    variant,
+    size,
+    disabled,
+    type = 'button',
+    ...props
+  }: any) => (
     <button
       onClick={onClick}
       className={className}
@@ -131,9 +138,7 @@ const createTestWrapper = () => {
 
   return ({ children }: { children: React.ReactNode }) => (
     <BrowserRouter>
-      <QueryClientProvider client={queryClient}>
-        {children}
-      </QueryClientProvider>
+      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
     </BrowserRouter>
   )
 }
@@ -143,7 +148,7 @@ describe('AnalysesList Component', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
-    
+
     // Default successful mock
     mockUseAnalyses.mockReturnValue({
       data: mockPaginatedResponse,
@@ -197,7 +202,7 @@ describe('AnalysesList Component', () => {
 
       const heading = screen.getByRole('heading', { level: 1 })
       expect(heading).toBeInTheDocument()
-      
+
       const searchInput = screen.getByPlaceholderText(/Search by company ticker/)
       expect(searchInput).toBeInTheDocument()
     })
@@ -279,11 +284,11 @@ describe('AnalysesList Component', () => {
       render(<AnalysesList />, { wrapper: TestWrapper })
 
       const searchInput = screen.getByPlaceholderText(/Search by company ticker/)
-      
+
       await user.type(searchInput, 'AAPL')
-      
+
       expect(searchInput).toHaveValue('AAPL')
-      
+
       // Verify useAnalyses was called with search parameters
       await waitFor(() => {
         expect(mockUseAnalyses).toHaveBeenCalledWith(
@@ -301,16 +306,16 @@ describe('AnalysesList Component', () => {
 
       const searchInput = screen.getByPlaceholderText(/Search by company ticker/)
       await user.type(searchInput, 'AAPL')
-      
+
       // Show filters and clear
       const filtersButton = screen.getByText('Filters')
       await user.click(filtersButton)
-      
+
       const clearButton = screen.getByText('Clear Filters')
       await user.click(clearButton)
 
       expect(searchInput).toHaveValue('')
-      
+
       await waitFor(() => {
         expect(mockUseAnalyses).toHaveBeenCalledWith(
           expect.objectContaining({
@@ -327,7 +332,7 @@ describe('AnalysesList Component', () => {
 
       const searchInput = screen.getByPlaceholderText(/Search by company ticker/)
       await user.type(searchInput, 'aapl')
-      
+
       await waitFor(() => {
         expect(mockUseAnalyses).toHaveBeenCalledWith(
           expect.objectContaining({
@@ -344,12 +349,12 @@ describe('AnalysesList Component', () => {
       render(<AnalysesList />, { wrapper: TestWrapper })
 
       const filtersButton = screen.getByText('Filters')
-      
+
       // Initially filters should be hidden
       expect(screen.queryByText('Analysis Type')).not.toBeInTheDocument()
-      
+
       await user.click(filtersButton)
-      
+
       // Filters should now be visible
       expect(screen.getByText('Analysis Type')).toBeInTheDocument()
       expect(screen.getByText('Start Date')).toBeInTheDocument()
@@ -362,10 +367,10 @@ describe('AnalysesList Component', () => {
 
       const filtersButton = screen.getByText('Filters')
       await user.click(filtersButton)
-      
+
       const analysisTypeSelect = screen.getByDisplayValue('All Types')
       await user.selectOptions(analysisTypeSelect, 'FINANCIAL_FOCUSED')
-      
+
       await waitFor(() => {
         expect(mockUseAnalyses).toHaveBeenCalledWith(
           expect.objectContaining({
@@ -382,15 +387,15 @@ describe('AnalysesList Component', () => {
 
       const filtersButton = screen.getByText('Filters')
       await user.click(filtersButton)
-      
+
       // Find date inputs by type since they aren't properly labeled
       const dateInputs = screen.getAllByDisplayValue('')
       const startDateInput = dateInputs.find((input) => input.getAttribute('type') === 'date')
       const endDateInput = dateInputs.filter((input) => input.getAttribute('type') === 'date')[1]
-      
+
       if (startDateInput) await user.type(startDateInput, '2024-01-01')
       if (endDateInput) await user.type(endDateInput, '2024-01-31')
-      
+
       await waitFor(() => {
         expect(mockUseAnalyses).toHaveBeenCalledWith(
           expect.objectContaining({
@@ -408,7 +413,7 @@ describe('AnalysesList Component', () => {
 
       const filtersButton = screen.getByText('Filters')
       await user.click(filtersButton)
-      
+
       expect(screen.getByText('All Types')).toBeInTheDocument()
       expect(screen.getByText('Comprehensive')).toBeInTheDocument()
       expect(screen.getByText('Financial Focused')).toBeInTheDocument()
@@ -455,7 +460,7 @@ describe('AnalysesList Component', () => {
           page: 1,
           has_previous: false,
           previous_page: null,
-        }
+        },
       }
 
       mockUseAnalyses.mockReturnValue({
@@ -479,7 +484,7 @@ describe('AnalysesList Component', () => {
           page: 3,
           has_next: false,
           next_page: null,
-        }
+        },
       }
 
       mockUseAnalyses.mockReturnValue({
@@ -537,12 +542,12 @@ describe('AnalysesList Component', () => {
       render(<AnalysesList />, { wrapper: TestWrapper })
 
       const filtersButton = screen.getByText('Filters')
-      
+
       // Rapid clicks
       await user.click(filtersButton)
       await user.click(filtersButton)
       await user.click(filtersButton)
-      
+
       expect(() => screen.getByText('Analysis Type')).not.toThrow()
     })
 
@@ -552,11 +557,11 @@ describe('AnalysesList Component', () => {
 
       const searchInput = screen.getByPlaceholderText(/Search by company ticker/)
       await user.type(searchInput, 'AAPL')
-      
+
       const filtersButton = screen.getByText('Filters')
       await user.click(filtersButton)
       await user.click(filtersButton)
-      
+
       expect(searchInput).toHaveValue('AAPL')
     })
 
@@ -566,10 +571,10 @@ describe('AnalysesList Component', () => {
 
       const filtersButton = screen.getByText('Filters')
       await user.click(filtersButton)
-      
+
       const analysisTypeSelect = screen.getByDisplayValue('All Types')
       await user.selectOptions(analysisTypeSelect, 'COMPREHENSIVE')
-      
+
       await waitFor(() => {
         expect(mockUseAnalyses).toHaveBeenCalledWith(
           expect.objectContaining({
@@ -585,11 +590,11 @@ describe('AnalysesList Component', () => {
       render(<AnalysesList />, { wrapper: TestWrapper })
 
       const searchInput = screen.getByPlaceholderText(/Search by company ticker/)
-      
+
       // Focus and type
       searchInput.focus()
       await user.keyboard('MSFT')
-      
+
       expect(searchInput).toHaveValue('MSFT')
       await waitFor(() => {
         expect(mockUseAnalyses).toHaveBeenCalledWith(
@@ -605,11 +610,11 @@ describe('AnalysesList Component', () => {
       render(<AnalysesList />, { wrapper: TestWrapper })
 
       const searchInput = screen.getByPlaceholderText(/Search by company ticker/)
-      
+
       // Type and then clear
       await user.type(searchInput, 'AAPL')
       await user.clear(searchInput)
-      
+
       expect(searchInput).toHaveValue('')
       await waitFor(() => {
         expect(mockUseAnalyses).toHaveBeenCalledWith(
@@ -626,7 +631,7 @@ describe('AnalysesList Component', () => {
     beforeEach(async () => {
       const TestWrapper = createTestWrapper()
       render(<AnalysesList />, { wrapper: TestWrapper })
-      
+
       // Open filters
       const filtersButton = screen.getByText('Filters')
       await user.click(filtersButton)
@@ -637,11 +642,11 @@ describe('AnalysesList Component', () => {
       const dateInputs = screen.getAllByDisplayValue('')
       const startDateInput = dateInputs.find((input) => input.getAttribute('type') === 'date')
       const endDateInput = dateInputs.filter((input) => input.getAttribute('type') === 'date')[1]
-      
+
       await user.selectOptions(analysisTypeSelect, 'FINANCIAL_FOCUSED')
       if (startDateInput) await user.type(startDateInput, '2024-01-01')
       if (endDateInput) await user.type(endDateInput, '2024-12-31')
-      
+
       await waitFor(() => {
         expect(mockUseAnalyses).toHaveBeenCalledWith(
           expect.objectContaining({
@@ -658,14 +663,14 @@ describe('AnalysesList Component', () => {
       const dateInputs = screen.getAllByDisplayValue('')
       const startDateInput = dateInputs.find((input) => input.getAttribute('type') === 'date')
       const endDateInput = dateInputs.filter((input) => input.getAttribute('type') === 'date')[1]
-      
+
       // Set end date before start date (edge case)
       if (startDateInput) await user.type(startDateInput, '2024-12-31')
       if (endDateInput) await user.type(endDateInput, '2024-01-01')
-      
+
       if (startDateInput) expect(startDateInput).toHaveValue('2024-12-31')
       if (endDateInput) expect(endDateInput).toHaveValue('2024-01-01')
-      
+
       await waitFor(() => {
         expect(mockUseAnalyses).toHaveBeenCalledWith(
           expect.objectContaining({
@@ -679,12 +684,12 @@ describe('AnalysesList Component', () => {
     it('persists filters when reopening filter panel', async () => {
       const analysisTypeSelect = screen.getByDisplayValue('All Types')
       await user.selectOptions(analysisTypeSelect, 'RISK_FOCUSED')
-      
+
       // Close and reopen filters
       const filtersButton = screen.getByText('Filters')
       await user.click(filtersButton) // Close
       await user.click(filtersButton) // Reopen
-      
+
       const reopenedSelect = screen.getByDisplayValue('Risk Focused')
       expect(reopenedSelect).toBeInTheDocument()
     })
@@ -705,7 +710,7 @@ describe('AnalysesList Component', () => {
 
       expect(screen.getByTestId('analysis-card-1')).toBeInTheDocument()
       expect(screen.getByTestId('analysis-card-2')).toBeInTheDocument()
-      
+
       // Check analysis types are displayed
       expect(screen.getByText('COMPREHENSIVE')).toBeInTheDocument()
       expect(screen.getByText('FINANCIAL_FOCUSED')).toBeInTheDocument()
@@ -718,7 +723,7 @@ describe('AnalysesList Component', () => {
           executive_summary: undefined,
           key_insights: undefined,
           analysis_id: 'incomplete-1',
-        }
+        },
       ]
 
       mockUseAnalyses.mockReturnValue({
@@ -748,7 +753,7 @@ describe('AnalysesList Component', () => {
           ...mockAnalyses[0],
           analysis_id: 'updated-1',
           executive_summary: 'Updated summary',
-        }
+        },
       ]
 
       mockUseAnalyses.mockReturnValue({
@@ -761,7 +766,7 @@ describe('AnalysesList Component', () => {
       })
 
       rerender(<AnalysesList />)
-      
+
       expect(screen.getByTestId('analysis-card-updated-1')).toBeInTheDocument()
     })
 
@@ -827,17 +832,17 @@ describe('AnalysesList Component', () => {
           pagination: {
             ...mockPaginatedResponse.pagination,
             total_items: 50,
-          }
+          },
         },
         isLoading: false,
         error: null,
       })
 
       const startTime = performance.now()
-      
+
       const TestWrapper = createTestWrapper()
       render(<AnalysesList />, { wrapper: TestWrapper })
-      
+
       const endTime = performance.now()
       expect(endTime - startTime).toBeLessThan(1000) // Should render within 1 second
     })
@@ -857,7 +862,7 @@ describe('AnalysesList Component', () => {
 
       const searchInput = screen.getByPlaceholderText(/Search by company ticker/)
       expect(searchInput).toHaveAttribute('type', 'text')
-      
+
       const filtersButton = screen.getByText('Filters')
       expect(filtersButton).toHaveAttribute('type', 'button')
     })
@@ -883,10 +888,10 @@ describe('AnalysesList Component', () => {
 
       const heading = screen.getByRole('heading', { level: 1 })
       expect(heading).toHaveTextContent('Analysis Library')
-      
+
       const buttons = screen.getAllByRole('button')
       expect(buttons.length).toBeGreaterThan(0)
-      
+
       const textboxes = screen.getAllByRole('textbox')
       expect(textboxes.length).toBeGreaterThan(0)
     })

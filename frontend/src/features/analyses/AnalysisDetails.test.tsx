@@ -1,7 +1,7 @@
 import React from 'react'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
-import { BrowserRouter, MemoryRouter, Routes, Route } from 'react-router-dom'
+import { render, screen } from '@testing-library/react'
+import { MemoryRouter, Routes, Route } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import userEvent from '@testing-library/user-event'
 import { AnalysisDetails } from './AnalysisDetails'
@@ -9,7 +9,7 @@ import type { AnalysisResponse, ComprehensiveAnalysisResponse } from '@/api/type
 
 // Import the hooks first to ensure proper mocking
 import { useAnalysis } from '@/hooks/useAnalysis'
-import { useFilingAnalysis } from '@/hooks/useFiling'
+import { useFilingAnalysis, useFiling, useFilingById } from '@/hooks/useFiling'
 
 // Mock hooks
 vi.mock('@/hooks/useAnalysis', () => ({
@@ -18,25 +18,19 @@ vi.mock('@/hooks/useAnalysis', () => ({
 
 vi.mock('@/hooks/useFiling', () => ({
   useFilingAnalysis: vi.fn(),
+  useFiling: vi.fn(),
+  useFilingById: vi.fn(),
 }))
 
 const mockUseAnalysis = vi.mocked(useAnalysis)
 const mockUseFilingAnalysis = vi.mocked(useFilingAnalysis)
+const mockUseFiling = vi.mocked(useFiling)
+const mockUseFilingById = vi.mocked(useFilingById)
 
 // Mock child components
 vi.mock('./components/AnalysisViewer', () => ({
-  AnalysisViewer: ({ results }: { results: any }) => (
-    <div data-testid="analysis-viewer">
-      Analysis Viewer: {JSON.stringify(results)}
-    </div>
-  ),
-}))
-
-vi.mock('./components/AnalysisMetrics', () => ({
-  AnalysisMetrics: ({ analysis }: { analysis: AnalysisResponse }) => (
-    <div data-testid="analysis-metrics">
-      Metrics for {analysis.analysis_id}
-    </div>
+  AnalysisViewer: ({ results }: { results: unknown }) => (
+    <div data-testid="analysis-viewer">Analysis Viewer: {JSON.stringify(results)}</div>
   ),
 }))
 
@@ -49,10 +43,8 @@ vi.mock('./components/ConfidenceIndicator', () => ({
 }))
 
 vi.mock('./components/SectionResults', () => ({
-  SectionResults: ({ sections }: { sections?: any[] }) => (
-    <div data-testid="section-results">
-      Section Results: {sections?.length ?? 0} sections
-    </div>
+  SectionResults: ({ sections }: { sections?: unknown[] }) => (
+    <div data-testid="section-results">Section Results: {sections?.length ?? 0} sections</div>
   ),
 }))
 
@@ -71,44 +63,82 @@ vi.mock('@/components/ui/Button', () => ({
   ),
 }))
 
-// Mock data
-const mockAnalysisResponse: AnalysisResponse = {
-  analysis_id: 'analysis-123',
+vi.mock('@/components/analysis/AnalysisSummaryCard', () => ({
+  AnalysisSummaryCard: ({
+    title,
+    sentiment,
+    metrics,
+    processingTime,
+  }: {
+    title: string
+    sentiment: number
+    metrics: Record<string, unknown>
+    processingTime?: number
+  }) => (
+    <div data-testid="analysis-summary-card">
+      <div>Title: {title}</div>
+      <div>Sentiment: {sentiment}</div>
+      <div>Metrics: {JSON.stringify(metrics)}</div>
+      <div>Processing Time: {processingTime}</div>
+    </div>
+  ),
+}))
+
+vi.mock('@/components/analysis/MetricsVisualization', () => ({
+  MetricsVisualization: ({ title, data }: any) => (
+    <div data-testid="metrics-visualization">
+      <div>Title: {title}</div>
+      <div>Data: {JSON.stringify(data)}</div>
+    </div>
+  ),
+  MetricsGrid: ({ metrics }: any) => (
+    <div data-testid="metrics-grid">
+      <div>Metrics: {JSON.stringify(metrics)}</div>
+    </div>
+  ),
+}))
+
+vi.mock('@/components/analysis/InsightHighlight', () => ({
+  InsightGroup: ({
+    insights,
+    title,
+    compact,
+    maxItems,
+  }: {
+    insights?: Array<{ text: string }>
+    title?: string
+    compact?: boolean
+    maxItems?: number
+  }) => (
+    <div data-testid="insight-group">
+      {title && <h3>{title}</h3>}
+      <div>Compact: {String(compact)}</div>
+      <div>Max Items: {maxItems}</div>
+      <div>Insights Count: {insights?.length || 0}</div>
+      {insights?.map((insight, index: number) => (
+        <div key={index} data-testid={`insight-${index}`}>
+          {insight.text}
+        </div>
+      ))}
+    </div>
+  ),
+}))
+
+const mockFilingResponse = {
   filing_id: 'filing-456',
-  analysis_type: 'COMPREHENSIVE',
-  created_by: 'user@example.com',
-  created_at: '2024-01-15T10:00:00Z',
-  confidence_score: 0.95,
-  llm_provider: 'openai',
-  llm_model: 'gpt-4-turbo',
-  processing_time_seconds: 45.5,
-  filing_summary: 'Comprehensive analysis of Apple Inc. 10-K filing',
-  executive_summary: 'Apple Inc. demonstrates strong financial performance with robust revenue growth and solid cash position. The company continues to innovate and expand its product portfolio.',
-  key_insights: [
-    'Revenue increased 15% year-over-year',
-    'Strong cash flow generation',
-    'Expanding services segment',
-  ],
-  financial_highlights: [
-    'Revenue: $394.3 billion (+15%)',
-    'Net income: $99.8 billion (+5%)',
-    'Cash and equivalents: $165.0 billion',
-  ],
-  risk_factors: [
-    'Supply chain disruptions',
-    'Regulatory challenges in key markets',
-    'Competitive pressure in smartphone market',
-  ],
-  opportunities: [
-    'Growth in emerging markets',
-    'Services expansion',
-    'AR/VR market potential',
-  ],
-  sections_analyzed: 8,
-  full_results: null,
+  company_id: 'company-123',
+  accession_number: '0000320193-24-000001',
+  filing_type: '10-K',
+  filing_date: '2024-01-14T00:00:00Z',
+  processing_status: 'completed' as const,
+  processing_error: null,
+  metadata: {},
 }
 
 const mockComprehensiveAnalysis: ComprehensiveAnalysisResponse = {
+  company_name: 'Apple Inc.',
+  filing_type: '10-K',
+  analysis_timestamp: '2024-01-14T00:00:00Z',
   section_analyses: [
     {
       section_name: 'Business Operations',
@@ -133,8 +163,45 @@ const mockComprehensiveAnalysis: ComprehensiveAnalysisResponse = {
   ],
 }
 
+// Mock data
+const mockAnalysisResponse: AnalysisResponse = {
+  analysis_id: 'analysis-123',
+  filing_id: 'filing-456',
+  analysis_type: 'COMPREHENSIVE',
+  created_by: 'user@example.com',
+  created_at: '2024-01-15T10:00:00Z',
+  confidence_score: 0.95,
+  llm_provider: 'openai',
+  llm_model: 'gpt-4-turbo',
+  processing_time_seconds: 45.5,
+  filing_summary: 'Comprehensive analysis of Apple Inc. 10-K filing',
+  executive_summary:
+    'Apple Inc. demonstrates strong financial performance with robust revenue growth and solid cash position. The company continues to innovate and expand its product portfolio.',
+  key_insights: [
+    'Revenue increased 15% year-over-year',
+    'Strong cash flow generation',
+    'Expanding services segment',
+  ],
+  financial_highlights: [
+    'Revenue: $394.3 billion (+15%)',
+    'Net income: $99.8 billion (+5%)',
+    'Cash and equivalents: $165.0 billion',
+  ],
+  risk_factors: [
+    'Supply chain disruptions',
+    'Regulatory challenges in key markets',
+    'Competitive pressure in smartphone market',
+  ],
+  opportunities: ['Growth in emerging markets', 'Services expansion', 'AR/VR market potential'],
+  sections_analyzed: 8,
+  full_results: mockComprehensiveAnalysis,
+}
+
 // Test wrapper component
-const createTestWrapper = (initialRoute = '/analyses/analysis-123', routePattern = '/analyses/:analysisId') => {
+const createTestWrapper = (
+  initialRoute = '/analyses/analysis-123',
+  routePattern = '/analyses/:analysisId'
+) => {
   const queryClient = new QueryClient({
     defaultOptions: {
       queries: { retry: false },
@@ -159,7 +226,7 @@ describe('AnalysisDetails Component', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
-    
+
     // Set default mock implementations
     mockUseAnalysis.mockReturnValue({
       data: mockAnalysisResponse,
@@ -169,6 +236,18 @@ describe('AnalysisDetails Component', () => {
 
     mockUseFilingAnalysis.mockReturnValue({
       data: null,
+      isLoading: false,
+      error: null,
+    })
+
+    mockUseFiling.mockReturnValue({
+      data: mockFilingResponse,
+      isLoading: false,
+      error: null,
+    })
+
+    mockUseFilingById.mockReturnValue({
+      data: mockFilingResponse,
       isLoading: false,
       error: null,
     })
@@ -193,7 +272,10 @@ describe('AnalysisDetails Component', () => {
         error: null,
       })
 
-      const TestWrapper = createTestWrapper('/filings/0000320193-24-000001/analysis', '/filings/:accessionNumber/analysis')
+      const TestWrapper = createTestWrapper(
+        '/filings/0000320193-24-000001/analysis',
+        '/filings/:accessionNumber/analysis'
+      )
       expect(() => {
         render(<AnalysisDetails />, { wrapper: TestWrapper })
       }).not.toThrow()
@@ -211,7 +293,7 @@ describe('AnalysisDetails Component', () => {
           </QueryClientProvider>
         </MemoryRouter>
       )
-      
+
       render(<AnalysisDetails />, { wrapper: TestWrapper })
 
       expect(screen.getByText('Invalid Analysis ID')).toBeInTheDocument()
@@ -233,7 +315,10 @@ describe('AnalysisDetails Component', () => {
         error: null,
       })
 
-      const TestWrapper = createTestWrapper('/filings/0000320193-24-000001/analysis', '/filings/:accessionNumber/analysis')
+      const TestWrapper = createTestWrapper(
+        '/filings/0000320193-24-000001/analysis',
+        '/filings/:accessionNumber/analysis'
+      )
       render(<AnalysisDetails />, { wrapper: TestWrapper })
 
       expect(mockUseFilingAnalysis).toHaveBeenCalledWith('0000320193-24-000001', { enabled: true })
@@ -260,8 +345,8 @@ describe('AnalysisDetails Component', () => {
       const TestWrapper = createTestWrapper()
       render(<AnalysisDetails />, { wrapper: TestWrapper })
 
-      expect(screen.getByText('Comprehensive Analysis')).toBeInTheDocument()
-      expect(screen.getByText('Confidence: 95%')).toBeInTheDocument()
+      expect(screen.getByText('Apple Inc. - 10-K (Annual Report)')).toBeInTheDocument()
+      expect(screen.getByText('Filed: January 14, 2024')).toBeInTheDocument()
       expect(screen.getByText('Executive Summary')).toBeInTheDocument()
     })
 
@@ -335,29 +420,28 @@ describe('AnalysisDetails Component', () => {
       expect(screen.getByText('Analysis Details')).toBeInTheDocument()
     })
 
-    it('displays analysis type label correctly', () => {
+    it('displays company and filing information correctly', () => {
       const TestWrapper = createTestWrapper()
       render(<AnalysisDetails />, { wrapper: TestWrapper })
 
-      expect(screen.getByText('Comprehensive Analysis')).toBeInTheDocument()
+      expect(screen.getByText('Apple Inc. - 10-K (Annual Report)')).toBeInTheDocument()
+      expect(screen.getByText('Filed: January 14, 2024')).toBeInTheDocument()
     })
 
-    it('shows confidence indicator', () => {
+    it('shows LLM model information', () => {
       const TestWrapper = createTestWrapper()
       render(<AnalysisDetails />, { wrapper: TestWrapper })
 
-      expect(screen.getByTestId('confidence-indicator')).toBeInTheDocument()
-      expect(screen.getByText('Confidence: 95%')).toBeInTheDocument()
+      expect(screen.getAllByText('gpt-4-turbo')).toHaveLength(2) // Header and overview component
     })
 
     it('displays metadata correctly', () => {
       const TestWrapper = createTestWrapper()
       render(<AnalysisDetails />, { wrapper: TestWrapper })
 
-      expect(screen.getByText(/January 15, 2024/)).toBeInTheDocument()
-      expect(screen.getByText(/Created by user@example.com/)).toBeInTheDocument()
-      expect(screen.getByText(/Processed in 45.5s/)).toBeInTheDocument()
-      expect(screen.getByText('gpt-4-turbo')).toBeInTheDocument()
+      expect(screen.getByText('Filed: January 14, 2024')).toBeInTheDocument()
+      expect(screen.getAllByText('gpt-4-turbo')).toHaveLength(2) // Header and overview component
+      expect(screen.queryByText(/Created by/)).not.toBeInTheDocument()
     })
 
     it('renders action buttons', () => {
@@ -375,7 +459,10 @@ describe('AnalysisDetails Component', () => {
       render(<AnalysisDetails />, { wrapper: TestWrapper })
 
       expect(screen.getByText('Executive Summary')).toBeInTheDocument()
-      expect(screen.getByText(/Apple Inc. demonstrates strong financial performance/)).toBeInTheDocument()
+      // Executive summary now appears only once (not duplicated)
+      expect(
+        screen.getAllByText(/Apple Inc. demonstrates strong financial performance/)
+      ).toHaveLength(1)
     })
 
     it('renders filing summary when available', () => {
@@ -383,17 +470,21 @@ describe('AnalysisDetails Component', () => {
       render(<AnalysisDetails />, { wrapper: TestWrapper })
 
       expect(screen.getByText('Filing Summary')).toBeInTheDocument()
-      expect(screen.getByText(/Comprehensive analysis of Apple Inc. 10-K filing/)).toBeInTheDocument()
+      expect(
+        screen.getByText(/Comprehensive analysis of Apple Inc. 10-K filing/)
+      ).toBeInTheDocument()
     })
 
-    it('renders key insights with numbered list', () => {
+    it('renders key insights with enhanced format', () => {
       const TestWrapper = createTestWrapper()
       render(<AnalysisDetails />, { wrapper: TestWrapper })
 
-      expect(screen.getByText('Key Insights')).toBeInTheDocument()
-      expect(screen.getByText(/Revenue increased 15% year-over-year/)).toBeInTheDocument()
-      expect(screen.getByText(/Strong cash flow generation/)).toBeInTheDocument()
-      expect(screen.getByText(/Expanding services segment/)).toBeInTheDocument()
+      // Key Insights appears twice: in main content section and in overview metrics
+      expect(screen.getAllByText('Key Insights')).toHaveLength(2)
+      // These texts now appear only once in the enhanced InsightGroup format
+      expect(screen.getAllByText(/Revenue increased 15% year-over-year/)).toHaveLength(1)
+      expect(screen.getAllByText(/Strong cash flow generation/)).toHaveLength(1)
+      expect(screen.getAllByText(/Expanding services segment/)).toHaveLength(1)
     })
 
     it('does not render sections when data is not available', () => {
@@ -415,17 +506,21 @@ describe('AnalysisDetails Component', () => {
 
       expect(screen.queryByText('Executive Summary')).not.toBeInTheDocument()
       expect(screen.queryByText('Filing Summary')).not.toBeInTheDocument()
-      expect(screen.queryByText('Key Insights')).not.toBeInTheDocument()
+      // When key_insights is undefined, the Key Insights main section should not appear,
+      // but it might still appear once in the overview metrics summary
+      expect(screen.queryAllByText('Key Insights')).toHaveLength(1)
     })
   })
 
   describe('Sidebar Content', () => {
-    it('renders analysis metrics component', () => {
+    it('renders sidebar content sections when data is available', () => {
       const TestWrapper = createTestWrapper()
       render(<AnalysisDetails />, { wrapper: TestWrapper })
 
-      expect(screen.getByTestId('analysis-metrics')).toBeInTheDocument()
-      expect(screen.getByText('Metrics for analysis-123')).toBeInTheDocument()
+      // The AnalysisMetrics component is no longer used - verify sidebar content instead
+      expect(screen.getByText('Financial Highlights')).toBeInTheDocument()
+      expect(screen.getAllByText('Risk Factors')).toHaveLength(2) // Overview metrics + sidebar
+      expect(screen.getByText('Growth Opportunities')).toBeInTheDocument()
     })
 
     it('renders financial highlights when available', () => {
@@ -433,6 +528,7 @@ describe('AnalysisDetails Component', () => {
       render(<AnalysisDetails />, { wrapper: TestWrapper })
 
       expect(screen.getByText('Financial Highlights')).toBeInTheDocument()
+      // Financial highlights appear in sidebar InsightGroup format
       expect(screen.getByText(/Revenue: \$394.3 billion/)).toBeInTheDocument()
       expect(screen.getByText(/Net income: \$99.8 billion/)).toBeInTheDocument()
     })
@@ -441,7 +537,7 @@ describe('AnalysisDetails Component', () => {
       const TestWrapper = createTestWrapper()
       render(<AnalysisDetails />, { wrapper: TestWrapper })
 
-      expect(screen.getByText('Risk Factors')).toBeInTheDocument()
+      expect(screen.getAllByText('Risk Factors')).toHaveLength(2) // Overview metrics + sidebar
       expect(screen.getByText(/Supply chain disruptions/)).toBeInTheDocument()
       expect(screen.getByText(/Regulatory challenges/)).toBeInTheDocument()
     })
@@ -450,7 +546,8 @@ describe('AnalysisDetails Component', () => {
       const TestWrapper = createTestWrapper()
       render(<AnalysisDetails />, { wrapper: TestWrapper })
 
-      expect(screen.getByText('Opportunities')).toBeInTheDocument()
+      expect(screen.getByText('Growth Opportunities')).toBeInTheDocument()
+      // Opportunities appear in sidebar InsightGroup format
       expect(screen.getByText(/Growth in emerging markets/)).toBeInTheDocument()
       expect(screen.getByText(/Services expansion/)).toBeInTheDocument()
     })
@@ -473,8 +570,9 @@ describe('AnalysisDetails Component', () => {
       render(<AnalysisDetails />, { wrapper: TestWrapper })
 
       expect(screen.queryByText('Financial Highlights')).not.toBeInTheDocument()
-      expect(screen.queryByText('Risk Factors')).not.toBeInTheDocument()
-      expect(screen.queryByText('Opportunities')).not.toBeInTheDocument()
+      // Risk Factors will still appear once in overview metrics even when no data
+      expect(screen.queryAllByText('Risk Factors')).toHaveLength(1) // Just overview metrics
+      expect(screen.queryByText('Growth Opportunities')).not.toBeInTheDocument()
     })
   })
 
@@ -521,7 +619,7 @@ describe('AnalysisDetails Component', () => {
       expect(screen.queryByTestId('section-results')).not.toBeInTheDocument()
       // The analysis-viewer cannot render due to component logic bug
       // expect(screen.getByTestId('analysis-viewer')).toBeInTheDocument()
-      
+
       // Instead verify main content is rendered
       expect(screen.getByText('Executive Summary')).toBeInTheDocument()
     })
@@ -549,22 +647,25 @@ describe('AnalysisDetails Component', () => {
     })
   })
 
-  describe('Analysis Type Display', () => {
-    it('displays correct label for COMPREHENSIVE type', () => {
+  describe('Filing Information Display', () => {
+    it('displays correct filing type labels', () => {
       const TestWrapper = createTestWrapper()
       render(<AnalysisDetails />, { wrapper: TestWrapper })
 
-      expect(screen.getByText('Comprehensive Analysis')).toBeInTheDocument()
+      expect(screen.getByText('Apple Inc. - 10-K (Annual Report)')).toBeInTheDocument()
     })
 
-    it('displays correct label for FINANCIAL_FOCUSED type', () => {
-      const financialAnalysis = {
+    it('displays quarterly filing correctly', () => {
+      const quarterlyAnalysis = {
         ...mockAnalysisResponse,
-        analysis_type: 'FINANCIAL_FOCUSED' as const,
+        full_results: {
+          ...mockComprehensiveAnalysis,
+          filing_type: '10-Q',
+        },
       }
 
       mockUseAnalysis.mockReturnValue({
-        data: financialAnalysis,
+        data: quarterlyAnalysis,
         isLoading: false,
         error: null,
       })
@@ -572,17 +673,20 @@ describe('AnalysisDetails Component', () => {
       const TestWrapper = createTestWrapper()
       render(<AnalysisDetails />, { wrapper: TestWrapper })
 
-      expect(screen.getByText('Financial Analysis')).toBeInTheDocument()
+      expect(screen.getByText('Apple Inc. - 10-Q (Quarterly Report)')).toBeInTheDocument()
     })
 
-    it('displays correct label for RISK_FOCUSED type', () => {
-      const riskAnalysis = {
+    it('displays current report correctly', () => {
+      const currentReportAnalysis = {
         ...mockAnalysisResponse,
-        analysis_type: 'RISK_FOCUSED' as const,
+        full_results: {
+          ...mockComprehensiveAnalysis,
+          filing_type: '8-K',
+        },
       }
 
       mockUseAnalysis.mockReturnValue({
-        data: riskAnalysis,
+        data: currentReportAnalysis,
         isLoading: false,
         error: null,
       })
@@ -590,17 +694,17 @@ describe('AnalysisDetails Component', () => {
       const TestWrapper = createTestWrapper()
       render(<AnalysisDetails />, { wrapper: TestWrapper })
 
-      expect(screen.getByText('Risk Analysis')).toBeInTheDocument()
+      expect(screen.getByText('Apple Inc. - 8-K (Current Report)')).toBeInTheDocument()
     })
 
-    it('displays correct label for BUSINESS_FOCUSED type', () => {
-      const businessAnalysis = {
+    it('falls back gracefully when comprehensive analysis is not available', () => {
+      const analysisWithoutComprehensive = {
         ...mockAnalysisResponse,
-        analysis_type: 'BUSINESS_FOCUSED' as const,
+        full_results: null,
       }
 
       mockUseAnalysis.mockReturnValue({
-        data: businessAnalysis,
+        data: analysisWithoutComprehensive,
         isLoading: false,
         error: null,
       })
@@ -608,17 +712,20 @@ describe('AnalysisDetails Component', () => {
       const TestWrapper = createTestWrapper()
       render(<AnalysisDetails />, { wrapper: TestWrapper })
 
-      expect(screen.getByText('Business Analysis')).toBeInTheDocument()
+      expect(screen.getByText('Unknown Company - Filing Analysis')).toBeInTheDocument()
+      expect(screen.getByText('Filed: January 14, 2024')).toBeInTheDocument()
     })
 
-    it('falls back to original type for unknown types', () => {
-      const unknownAnalysis = {
-        ...mockAnalysisResponse,
-        analysis_type: 'UNKNOWN_TYPE' as any,
-      }
+    it('formats filing date correctly', () => {
+      const TestWrapper = createTestWrapper()
+      render(<AnalysisDetails />, { wrapper: TestWrapper })
 
-      mockUseAnalysis.mockReturnValue({
-        data: unknownAnalysis,
+      expect(screen.getByText('Filed: January 14, 2024')).toBeInTheDocument()
+    })
+
+    it('handles missing filing data gracefully', () => {
+      mockUseFiling.mockReturnValue({
+        data: null,
         isLoading: false,
         error: null,
       })
@@ -626,7 +733,16 @@ describe('AnalysisDetails Component', () => {
       const TestWrapper = createTestWrapper()
       render(<AnalysisDetails />, { wrapper: TestWrapper })
 
-      expect(screen.getByText('UNKNOWN_TYPE')).toBeInTheDocument()
+      expect(screen.getByText('Apple Inc. - 10-K (Annual Report)')).toBeInTheDocument()
+      expect(screen.queryByText('Filed on')).not.toBeInTheDocument()
+    })
+
+    it('displays only the filing date', () => {
+      const TestWrapper = createTestWrapper()
+      render(<AnalysisDetails />, { wrapper: TestWrapper })
+
+      expect(screen.getByText('Filed: January 14, 2024')).toBeInTheDocument()
+      expect(screen.queryByText(/Analysis created on/)).not.toBeInTheDocument()
     })
   })
 
@@ -645,7 +761,7 @@ describe('AnalysisDetails Component', () => {
 
       const shareButton = screen.getByText('Share')
       expect(shareButton).toBeInTheDocument()
-      
+
       await user.click(shareButton)
       // Share functionality would be tested separately
     })
@@ -656,7 +772,7 @@ describe('AnalysisDetails Component', () => {
 
       const exportButton = screen.getByText('Export')
       expect(exportButton).toBeInTheDocument()
-      
+
       await user.click(exportButton)
       // Export functionality would be tested separately
     })
@@ -783,18 +899,18 @@ describe('AnalysisDetails Component', () => {
       const TestWrapper = createTestWrapper()
       render(<AnalysisDetails />, { wrapper: TestWrapper })
 
-      // Test US format
-      expect(screen.getByText(/January 15, 2024/)).toBeInTheDocument()
+      // Test US format - now shows filing date, not analysis creation date
+      expect(screen.getByText(/January 14, 2024/)).toBeInTheDocument()
     })
 
     it('handles edge case date values', () => {
-      const analysisWithEdgeDate = {
-        ...mockAnalysisResponse,
-        created_at: '2024-12-31T23:59:59.999Z', // End of year
+      const filingWithEdgeDate = {
+        ...mockFilingResponse,
+        filing_date: '2024-12-31T00:00:00Z', // End of year filing date
       }
 
-      mockUseAnalysis.mockReturnValue({
-        data: analysisWithEdgeDate,
+      mockUseFiling.mockReturnValue({
+        data: filingWithEdgeDate,
         isLoading: false,
         error: null,
       })
@@ -805,7 +921,7 @@ describe('AnalysisDetails Component', () => {
       expect(screen.getByText(/December 31, 2024/)).toBeInTheDocument()
     })
 
-    it('displays processing time in appropriate units', () => {
+    it('handles large processing times gracefully', () => {
       const analysisWithLongProcessing = {
         ...mockAnalysisResponse,
         processing_time_seconds: 125.7,
@@ -820,17 +936,18 @@ describe('AnalysisDetails Component', () => {
       const TestWrapper = createTestWrapper()
       render(<AnalysisDetails />, { wrapper: TestWrapper })
 
-      expect(screen.getByText(/125\.7s/)).toBeInTheDocument()
+      // Component should render without errors even with large processing times
+      expect(screen.getByText('Executive Summary')).toBeInTheDocument()
     })
 
-    it('handles very large confidence scores', () => {
-      const analysisWithMaxConfidence = {
+    it('handles missing LLM model gracefully', () => {
+      const analysisWithoutModel = {
         ...mockAnalysisResponse,
-        confidence_score: 1.0,
+        llm_model: null,
       }
 
       mockUseAnalysis.mockReturnValue({
-        data: analysisWithMaxConfidence,
+        data: analysisWithoutModel,
         isLoading: false,
         error: null,
       })
@@ -838,17 +955,18 @@ describe('AnalysisDetails Component', () => {
       const TestWrapper = createTestWrapper()
       render(<AnalysisDetails />, { wrapper: TestWrapper })
 
-      expect(screen.getByText('Confidence: 100%')).toBeInTheDocument()
+      expect(screen.getByText('Apple Inc. - 10-K (Annual Report)')).toBeInTheDocument()
+      expect(screen.queryByText(/gpt-/)).not.toBeInTheDocument()
     })
 
-    it('handles zero confidence scores', () => {
-      const analysisWithZeroConfidence = {
+    it('handles different LLM models', () => {
+      const analysisWithDifferentModel = {
         ...mockAnalysisResponse,
-        confidence_score: 0,
+        llm_model: 'claude-3-sonnet',
       }
 
       mockUseAnalysis.mockReturnValue({
-        data: analysisWithZeroConfidence,
+        data: analysisWithDifferentModel,
         isLoading: false,
         error: null,
       })
@@ -856,7 +974,7 @@ describe('AnalysisDetails Component', () => {
       const TestWrapper = createTestWrapper()
       render(<AnalysisDetails />, { wrapper: TestWrapper })
 
-      expect(screen.getByText('Confidence: 0%')).toBeInTheDocument()
+      expect(screen.getAllByText('claude-3-sonnet')).toHaveLength(2) // Header and overview component
     })
   })
 
@@ -885,7 +1003,7 @@ describe('AnalysisDetails Component', () => {
 
       const shareButton = screen.getByText('Share')
       await user.click(shareButton)
-      
+
       // Button should remain clickable
       expect(shareButton).toBeInTheDocument()
     })
@@ -896,7 +1014,7 @@ describe('AnalysisDetails Component', () => {
 
       const exportButton = screen.getByText('Export')
       await user.click(exportButton)
-      
+
       // Button should remain clickable
       expect(exportButton).toBeInTheDocument()
     })
@@ -917,8 +1035,8 @@ describe('AnalysisDetails Component', () => {
 
       expect(screen.getByText('Executive Summary')).toBeInTheDocument()
       expect(screen.getByText('Financial Highlights')).toBeInTheDocument()
-      expect(screen.getByText('Risk Factors')).toBeInTheDocument()
-      expect(screen.getByText('Opportunities')).toBeInTheDocument()
+      expect(screen.getAllByText('Risk Factors')).toHaveLength(2) // Overview metrics + sidebar
+      expect(screen.getByText('Growth Opportunities')).toBeInTheDocument()
     })
 
     it('handles mixed content availability', () => {
@@ -943,10 +1061,10 @@ describe('AnalysisDetails Component', () => {
 
       expect(screen.getByText('Executive Summary')).toBeInTheDocument()
       expect(screen.queryByText('Filing Summary')).not.toBeInTheDocument()
-      expect(screen.getByText('Key Insights')).toBeInTheDocument()
+      expect(screen.getAllByText('Key Insights')).toHaveLength(2) // Main content + overview metrics
       expect(screen.queryByText('Financial Highlights')).not.toBeInTheDocument()
-      expect(screen.getByText('Risk Factors')).toBeInTheDocument()
-      expect(screen.queryByText('Opportunities')).not.toBeInTheDocument()
+      expect(screen.getAllByText('Risk Factors')).toHaveLength(2) // Overview metrics + sidebar
+      expect(screen.queryByText('Growth Opportunities')).not.toBeInTheDocument()
     })
 
     it('handles empty arrays gracefully', () => {
@@ -967,10 +1085,11 @@ describe('AnalysisDetails Component', () => {
       const TestWrapper = createTestWrapper()
       render(<AnalysisDetails />, { wrapper: TestWrapper })
 
-      expect(screen.queryByText('Key Insights')).not.toBeInTheDocument()
+      // Empty arrays still show labels in overview metrics, but not in main/sidebar content
+      expect(screen.queryAllByText('Key Insights')).toHaveLength(1) // Just overview metrics
       expect(screen.queryByText('Financial Highlights')).not.toBeInTheDocument()
-      expect(screen.queryByText('Risk Factors')).not.toBeInTheDocument()
-      expect(screen.queryByText('Opportunities')).not.toBeInTheDocument()
+      expect(screen.queryAllByText('Risk Factors')).toHaveLength(1) // Just overview metrics
+      expect(screen.queryByText('Growth Opportunities')).not.toBeInTheDocument()
     })
   })
 
@@ -979,10 +1098,11 @@ describe('AnalysisDetails Component', () => {
       const TestWrapper = createTestWrapper()
       render(<AnalysisDetails />, { wrapper: TestWrapper })
 
-      const gridContainer = document.querySelector('.grid.grid-cols-1.lg\\:grid-cols-3')
+      const gridContainer = document.querySelector('.grid')
       expect(gridContainer).toBeInTheDocument()
-      
-      const mainContent = gridContainer?.querySelector('.lg\\:col-span-2')
+
+      // Check for main content area (should have lg:col-span-2 class)
+      const mainContent = document.querySelector('[class*="lg:col-span-2"]')
       expect(mainContent).toBeInTheDocument()
     })
 
@@ -1004,21 +1124,22 @@ describe('AnalysisDetails Component', () => {
   })
 
   describe('Component Integration', () => {
-    it('passes correct props to AnalysisMetrics', () => {
+    it('renders overview metrics components', () => {
       const TestWrapper = createTestWrapper()
       render(<AnalysisDetails />, { wrapper: TestWrapper })
 
-      expect(screen.getByTestId('analysis-metrics')).toBeInTheDocument()
-      expect(screen.getByText('Metrics for analysis-123')).toBeInTheDocument()
+      // AnalysisMetrics is no longer used - check for overview metrics instead
+      expect(screen.getByText('Analysis Overview')).toBeInTheDocument()
+      expect(screen.getByText('Key Metrics')).toBeInTheDocument()
     })
 
-    it('passes correct score to ConfidenceIndicator', () => {
+    it('displays filing information in header correctly', () => {
       const TestWrapper = createTestWrapper()
       render(<AnalysisDetails />, { wrapper: TestWrapper })
 
-      // Check that confidence indicator displays the correct percentage
-      // The mocked component renders "Confidence: 95%"
-      expect(screen.getByText('Confidence: 95%')).toBeInTheDocument()
+      // Check that the header shows company and filing type
+      expect(screen.getByText('Apple Inc. - 10-K (Annual Report)')).toBeInTheDocument()
+      expect(screen.getByText('Filed: January 14, 2024')).toBeInTheDocument()
     })
 
     it('handles child component errors gracefully', () => {
@@ -1026,14 +1147,14 @@ describe('AnalysisDetails Component', () => {
       const ErrorComponent = () => {
         throw new Error('Component error')
       }
-      
+
       // Mock the ConfidenceIndicator to throw
       vi.doMock('./components/ConfidenceIndicator', () => ({
         ConfidenceIndicator: ErrorComponent,
       }))
 
       const TestWrapper = createTestWrapper()
-      
+
       // The component should handle errors gracefully and not crash
       expect(() => render(<AnalysisDetails />, { wrapper: TestWrapper })).not.toThrow()
     })
@@ -1057,9 +1178,9 @@ describe('AnalysisDetails Component', () => {
 
       const TestWrapper = createTestWrapper()
       const startTime = performance.now()
-      
+
       render(<AnalysisDetails />, { wrapper: TestWrapper })
-      
+
       const endTime = performance.now()
       expect(endTime - startTime).toBeLessThan(1000) // Should render within 1 second
     })
@@ -1070,20 +1191,19 @@ describe('AnalysisDetails Component', () => {
 
       // Re-render with same props
       rerender(<AnalysisDetails />)
-      
-      expect(screen.getByText('Comprehensive Analysis')).toBeInTheDocument()
+
+      expect(screen.getByText('Apple Inc. - 10-K (Annual Report)')).toBeInTheDocument()
     })
 
     it('handles rapid route changes', () => {
       const TestWrapper1 = createTestWrapper('/analyses/analysis-1')
-      const TestWrapper2 = createTestWrapper('/analyses/analysis-2')
-      
+
       const { rerender } = render(<AnalysisDetails />, { wrapper: TestWrapper1 })
-      
+
       // Simulate route change
       rerender(<AnalysisDetails />)
-      
-      expect(screen.getByText('Comprehensive Analysis')).toBeInTheDocument()
+
+      expect(screen.getByText('Apple Inc. - 10-K (Annual Report)')).toBeInTheDocument()
     })
 
     it('cleans up properly on unmount', () => {
@@ -1110,16 +1230,21 @@ describe('AnalysisDetails Component', () => {
       })
 
       const TestWrapper = createTestWrapper()
-      
+
       expect(() => render(<AnalysisDetails />, { wrapper: TestWrapper })).not.toThrow()
     })
 
     it('handles very long text content', () => {
       const analysisWithLongContent = {
         ...mockAnalysisResponse,
-        executive_summary: 'This is a very long executive summary that contains multiple sentences and detailed analysis that should be displayed properly without breaking the layout or causing any rendering issues in the component. '.repeat(10),
-        key_insights: Array.from({ length: 100 }, (_, i) => 
-          `This is insight number ${i + 1} with detailed explanation that demonstrates how the component handles large amounts of text content`
+        executive_summary:
+          'This is a very long executive summary that contains multiple sentences and detailed analysis that should be displayed properly without breaking the layout or causing any rendering issues in the component. '.repeat(
+            10
+          ),
+        key_insights: Array.from(
+          { length: 100 },
+          (_, i) =>
+            `This is insight number ${i + 1} with detailed explanation that demonstrates how the component handles large amounts of text content`
         ),
       }
 
@@ -1132,8 +1257,9 @@ describe('AnalysisDetails Component', () => {
       const TestWrapper = createTestWrapper()
       render(<AnalysisDetails />, { wrapper: TestWrapper })
 
+      // Long text appears only once now (not duplicated)
       expect(screen.getByText(/This is a very long executive summary/)).toBeInTheDocument()
-      // Check that the insights section is rendered with many items
+      // Check that the insights section is rendered with many items in enhanced format
       const insightElements = screen.getAllByText(/This is insight number/)
       expect(insightElements.length).toBeGreaterThan(10)
     })
@@ -1141,7 +1267,8 @@ describe('AnalysisDetails Component', () => {
     it('handles Unicode and special characters', () => {
       const analysisWithSpecialChars = {
         ...mockAnalysisResponse,
-        executive_summary: 'Analysis with special characters: àáâãäåæçèéêë ñòóôõöø ùúûüý €£¥¢ 中文 日本語 한국어',
+        executive_summary:
+          'Analysis with special characters: àáâãäåæçèéêë ñòóôõöø ùúûüý €£¥¢ 中文 日本語 한국어',
         key_insights: ['Insight with emoji: 📈 📊 💰'],
       }
 
@@ -1154,6 +1281,7 @@ describe('AnalysisDetails Component', () => {
       const TestWrapper = createTestWrapper()
       render(<AnalysisDetails />, { wrapper: TestWrapper })
 
+      // Text with special characters appears only once now (not duplicated)
       expect(screen.getByText(/Analysis with special characters/)).toBeInTheDocument()
       expect(screen.getByText(/Insight with emoji: 📈/)).toBeInTheDocument()
     })

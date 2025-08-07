@@ -98,7 +98,9 @@ describe('FilingsList', () => {
       render(<FilingsList />)
 
       expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('SEC Filing Search')
-      expect(screen.getByText(/Search and analyze SEC filings for any public company/)).toBeInTheDocument()
+      expect(
+        screen.getByText(/Search and analyze SEC filings for any public company/)
+      ).toBeInTheDocument()
     })
 
     it('sets breadcrumbs on mount', () => {
@@ -128,7 +130,7 @@ describe('FilingsList', () => {
       render(<FilingsList />)
 
       const popularTickers = ['AAPL', 'MSFT', 'GOOGL', 'TSLA', 'AMZN']
-      popularTickers.forEach(ticker => {
+      popularTickers.forEach((ticker) => {
         expect(screen.getByText(ticker)).toBeInTheDocument()
       })
     })

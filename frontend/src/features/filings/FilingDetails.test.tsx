@@ -239,10 +239,7 @@ describe('FilingDetails', () => {
       const secButton = screen.getByRole('button', { name: /View on SEC/ })
       fireEvent.click(secButton)
 
-      expect(mockOpen).toHaveBeenCalledWith(
-        expect.stringContaining('sec.gov'),
-        '_blank'
-      )
+      expect(mockOpen).toHaveBeenCalledWith(expect.stringContaining('sec.gov'), '_blank')
     })
 
     it('handles view full analysis navigation', async () => {
