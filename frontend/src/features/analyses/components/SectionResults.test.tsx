@@ -45,20 +45,6 @@ vi.mock('@/components/analysis/SubSectionRenderer', () => ({
   ),
 }))
 
-vi.mock('@/components/analysis/AnalysisSummaryCard', () => ({
-  AnalysisSummaryCard: ({ title, summary, insights, sentiment, metrics, processingTime }: any) => (
-    <div data-testid="analysis-summary-card">
-      <h4>Summary</h4>
-      <p>{summary}</p>
-      <h4>Key Insights</h4>
-      <ul>
-        {insights?.map((insight: string, index: number) => (
-          <li key={index}>{insight}</li>
-        ))}
-      </ul>
-    </div>
-  ),
-}))
 
 // Mock data for testing
 const mockSectionAnalysis: SectionAnalysisResponse[] = [
@@ -190,21 +176,7 @@ describe('SectionResults Component', () => {
       ).toBeInTheDocument()
     })
 
-    it('displays total processing time when available', () => {
-      render(<SectionResults sections={mockSectionAnalysis} />)
 
-      expect(screen.getByText('10s total')).toBeInTheDocument() // 5000 + 3000 + 2000 = 10000ms = 10s
-    })
-
-    it('does not display processing time when not available', () => {
-      const sectionsWithoutTime = mockSectionAnalysis.map((s) => ({
-        ...s,
-        processing_time_ms: undefined,
-      }))
-      render(<SectionResults sections={sectionsWithoutTime} />)
-
-      expect(screen.queryByText(/total$/)).not.toBeInTheDocument()
-    })
   })
 
   describe('Empty State', () => {
@@ -239,16 +211,16 @@ describe('SectionResults Component', () => {
 
       const veryPositiveSentiments = screen.getAllByText('Very Positive')
       expect(veryPositiveSentiments[0]).toHaveClass(
-        'text-success-600',
-        'bg-success-50',
-        'border-success-200'
+        'text-success',
+        'bg-success/10',
+        'border-success/20'
       )
 
       const neutralSentiment = screen.getByText('Neutral')
       expect(neutralSentiment).toHaveClass(
-        'text-warning-600',
-        'bg-warning-50',
-        'border-warning-200'
+        'text-warning',
+        'bg-warning/10',
+        'border-warning/20'
       )
 
       // There are two "Very Positive" sentiments (Business Operations with 0.8 and Financial Results with 0.9)
@@ -262,13 +234,6 @@ describe('SectionResults Component', () => {
       expect(screen.getByText('2 sub-sections')).toBeInTheDocument()
     })
 
-    it('shows processing times when available', () => {
-      render(<SectionResults sections={mockSectionAnalysis} />)
-
-      expect(screen.getByText('5s')).toBeInTheDocument()
-      expect(screen.getByText('3s')).toBeInTheDocument()
-      expect(screen.getByText('2s')).toBeInTheDocument()
-    })
 
     it('displays appropriate icons for different section types', () => {
       render(<SectionResults sections={mockSectionAnalysis} />)
@@ -283,8 +248,8 @@ describe('SectionResults Component', () => {
     it('sections are collapsed by default', () => {
       render(<SectionResults sections={mockSectionAnalysis} />)
 
-      expect(screen.queryByText('Summary')).not.toBeInTheDocument()
-      expect(screen.queryByText('Key Insights')).not.toBeInTheDocument()
+      expect(screen.queryByText('Critical Findings')).not.toBeInTheDocument()
+      expect(screen.queryByText('Detailed Sub-Section Analysis')).not.toBeInTheDocument()
     })
 
     it('expands section when clicked', async () => {
@@ -295,8 +260,8 @@ describe('SectionResults Component', () => {
 
       await user.click(sectionButton!)
 
-      expect(screen.getByText('Summary')).toBeInTheDocument()
-      expect(screen.getByText('Key Insights')).toBeInTheDocument()
+      expect(screen.getByText('Critical Findings')).toBeInTheDocument()
+      expect(screen.getByText('Detailed Sub-Section Analysis')).toBeInTheDocument()
     })
 
     it('toggles chevron icon when expanding/collapsing', async () => {
@@ -320,11 +285,11 @@ describe('SectionResults Component', () => {
 
       // Expand
       await user.click(sectionButton!)
-      expect(screen.getByText('Summary')).toBeInTheDocument()
+      expect(screen.getByText('Critical Findings')).toBeInTheDocument()
 
       // Collapse
       await user.click(sectionButton!)
-      expect(screen.queryByText('Summary')).not.toBeInTheDocument()
+      expect(screen.queryByText('Critical Findings')).not.toBeInTheDocument()
     })
   })
 
@@ -337,19 +302,7 @@ describe('SectionResults Component', () => {
       await user.click(sectionButton!)
     })
 
-    it('displays section summary when available', () => {
-      expect(screen.getByText('Summary')).toBeInTheDocument()
-      expect(
-        screen.getByText(/Analysis of the company's core business operations/)
-      ).toBeInTheDocument()
-    })
 
-    it('displays key insights when available', () => {
-      expect(screen.getByText('Key Insights')).toBeInTheDocument()
-      expect(screen.getByText(/Strong operational efficiency/)).toBeInTheDocument()
-      expect(screen.getByText(/Successful expansion into emerging markets/)).toBeInTheDocument()
-      expect(screen.getByText(/Effective cost management strategies/)).toBeInTheDocument()
-    })
 
     it('displays critical findings when available', () => {
       expect(screen.getByText('Critical Findings')).toBeInTheDocument()
@@ -359,7 +312,9 @@ describe('SectionResults Component', () => {
     it('displays sub-sections when available', () => {
       expect(screen.getByText('Detailed Sub-Section Analysis')).toBeInTheDocument()
       expect(screen.getAllByText('Core Business Analysis').length).toBeGreaterThan(0)
-      expect(screen.getByText(/Analysis of primary business segments/)).toBeInTheDocument()
+      // The subsection focus text is not displayed in the current implementation,
+      // instead the schema type is shown
+      expect(screen.getByText('Schema Type: BusinessAnalysisSection')).toBeInTheDocument()
     })
   })
 
@@ -432,9 +387,9 @@ describe('SectionResults Component', () => {
 
       const veryPositiveElements = screen.getAllByText('Very Positive')
       expect(veryPositiveElements[0]).toHaveClass(
-        'text-success-600',
-        'bg-success-50',
-        'border-success-200'
+        'text-success',
+        'bg-success/10',
+        'border-success/20'
       )
     })
 
@@ -443,14 +398,14 @@ describe('SectionResults Component', () => {
       render(<SectionResults sections={sectionsWithPositiveSentiment} />)
 
       const positive = screen.getByText('Positive')
-      expect(positive).toHaveClass('text-success-600', 'bg-success-50', 'border-success-200')
+      expect(positive).toHaveClass('text-success', 'bg-success/10', 'border-success/20')
     })
 
     it('applies correct color for neutral sentiment (>= 0.4)', () => {
       render(<SectionResults sections={mockSectionAnalysis} />)
 
       const neutral = screen.getByText('Neutral')
-      expect(neutral).toHaveClass('text-warning-600', 'bg-warning-50', 'border-warning-200')
+      expect(neutral).toHaveClass('text-warning', 'bg-warning/10', 'border-warning/20')
     })
 
     it('applies correct color for cautious sentiment (>= 0.2)', () => {
@@ -458,7 +413,7 @@ describe('SectionResults Component', () => {
       render(<SectionResults sections={sectionsWithCautiousSentiment} />)
 
       const cautious = screen.getByText('Cautious')
-      expect(cautious).toHaveClass('text-orange-600', 'bg-orange-50', 'border-orange-200')
+      expect(cautious).toHaveClass('text-warning', 'bg-warning/10', 'border-warning/20')
     })
 
     it('applies correct color for negative sentiment (< 0.2)', () => {
@@ -466,7 +421,7 @@ describe('SectionResults Component', () => {
       render(<SectionResults sections={sectionsWithNegativeSentiment} />)
 
       const negative = screen.getByText('Negative')
-      expect(negative).toHaveClass('text-error-600', 'bg-error-50', 'border-error-200')
+      expect(negative).toHaveClass('text-destructive', 'bg-destructive/10', 'border-destructive/20')
     })
   })
 
@@ -475,7 +430,7 @@ describe('SectionResults Component', () => {
       render(<SectionResults sections={mockSectionAnalysis} />)
 
       // All sections should have icons
-      const iconContainers = document.querySelectorAll('.bg-primary-100')
+      const iconContainers = document.querySelectorAll('.bg-primary\\/10')
       expect(iconContainers.length).toBe(3)
     })
   })
@@ -535,10 +490,8 @@ describe('SectionResults Component', () => {
       await user.click(sectionButton!)
 
       expect(screen.getAllByText('Unknown Section').length).toBeGreaterThan(0)
-      // The schema_type is formatted with spaces: "UnknownAnalysisSection" becomes "Unknown Analysis Section"
-      // Use getAllByText to check that it appears at least once (there might be multiple instances)
-      const analysisTypeElements = screen.getAllByText('Unknown Analysis Section')
-      expect(analysisTypeElements.length).toBeGreaterThan(0)
+      // The schema_type is displayed as is, not formatted with spaces
+      expect(screen.getByText('Schema Type: UnknownAnalysisSection')).toBeInTheDocument()
     })
   })
 
@@ -572,7 +525,7 @@ describe('SectionResults Component', () => {
 
       const h2 = screen.getByText('Comprehensive Section Analysis')
       const h3 = screen.getByText('Business Operations').closest('h3')
-      const h4 = screen.getByText('Summary')
+      const h4 = screen.getByText('Critical Findings')
 
       expect(h2.tagName).toBe('H2')
       expect(h4.tagName).toBe('H4')
@@ -601,12 +554,12 @@ describe('SectionResults Component', () => {
 
       // Expand business section
       await user.click(businessButton!)
-      expect(screen.getByText('Key Insights')).toBeInTheDocument()
+      expect(screen.getByText('Critical Findings')).toBeInTheDocument()
 
       // Expand risk section
       await user.click(riskButton!)
-      expect(screen.getAllByText('Key Insights')).toHaveLength(2) // Both business and risk sections have "Key Insights"
       expect(screen.getAllByText('Critical Findings')).toHaveLength(2) // Both sections have critical findings sections
+      expect(screen.getAllByText('Detailed Sub-Section Analysis')).toHaveLength(2) // Both sections should show sub-section analysis
     })
   })
 

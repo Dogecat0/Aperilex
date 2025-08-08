@@ -144,14 +144,6 @@ export function SectionResults({ sections }: SectionResultsProps) {
 
                 {isExpanded && (
                   <div className="mt-6 ml-13 space-y-6">
-                    {/* Section Overview - Simplified to avoid duplication */}
-                    {section.section_summary && (
-                      <div className="bg-muted/30 border border-border rounded-lg p-4">
-                        <p className="text-sm text-foreground/80 leading-relaxed">
-                          {section.section_summary}
-                        </p>
-                      </div>
-                    )}
 
                     {/* Critical Findings - Keep as high-level summary */}
                     {section.critical_findings && section.critical_findings.length > 0 && (
@@ -173,7 +165,7 @@ export function SectionResults({ sections }: SectionResultsProps) {
                     {/* Sub-Sections - Streamlined presentation */}
                     {section.sub_sections && section.sub_sections.length > 0 && (
                       <div>
-                        <h4 className="font-medium text-foreground mb-4">Detailed Analysis</h4>
+                        <h4 className="font-medium text-foreground mb-4">Detailed Sub-Section Analysis</h4>
                         <div className="space-y-6">
                           {section.sub_sections.map((subSection, subIndex) => (
                             <div
