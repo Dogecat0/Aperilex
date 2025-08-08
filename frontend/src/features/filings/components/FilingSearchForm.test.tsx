@@ -336,26 +336,42 @@ describe('FilingSearchForm', () => {
       })
     })
 
-    it('clears all filters when Clear All button clicked', () => {
+    it('clears all filters when Clear All button clicked', async () => {
       render(<FilingSearchForm onSearch={mockOnSearch} />)
 
       const filtersButton = screen.getByRole('button', { name: /Filters/ })
       fireEvent.click(filtersButton)
 
       // Set some filters first
-      const filingTypeSelect = screen.getByLabelText('Filing Type')
-      const startDateInput = screen.getByLabelText('From Date')
+      let filingTypeSelect = screen.getByLabelText('Filing Type')
+      let startDateInput = screen.getByLabelText('From Date')
 
       fireEvent.change(filingTypeSelect, { target: { value: '10-K' } })
       fireEvent.change(startDateInput, { target: { value: '2024-01-01' } })
+
+      // Verify filters are set
+      expect(filingTypeSelect).toHaveValue('10-K')
+      expect(startDateInput).toHaveValue('2024-01-01')
 
       // Clear all filters
       const clearButton = screen.getByRole('button', { name: /Clear All/ })
       fireEvent.click(clearButton)
 
-      // Filters should be cleared
-      expect(filingTypeSelect).toHaveValue('')
-      expect(startDateInput).toHaveValue('')
+      // After clearing, the advanced filters should be hidden
+      await waitFor(() => {
+        expect(screen.queryByLabelText('Filing Type')).not.toBeInTheDocument()
+        expect(screen.queryByLabelText('From Date')).not.toBeInTheDocument()
+      })
+
+      // Re-open filters to verify they were cleared
+      const filtersButtonAfterClear = screen.getByRole('button', { name: /Filters/ })
+      fireEvent.click(filtersButtonAfterClear)
+
+      // Now the filters should be cleared
+      const clearedFilingTypeSelect = screen.getByLabelText('Filing Type')
+      const clearedStartDateInput = screen.getByLabelText('From Date')
+      expect(clearedFilingTypeSelect).toHaveValue('')
+      expect(clearedStartDateInput).toHaveValue('')
     })
   })
 
@@ -443,10 +459,10 @@ describe('FilingSearchForm', () => {
 
       expect(screen.getByDisplayValue('AAPL')).toBeInTheDocument()
 
-      const filtersButton = screen.getByRole('button', { name: /Filters/ })
-      fireEvent.click(filtersButton)
-
-      expect(screen.getByDisplayValue('10-K (Annual Report)')).toBeInTheDocument()
+      // Advanced filters should be visible automatically with initial values
+      // Check that the filing type select has the correct value
+      const filingTypeSelect = screen.getByLabelText('Filing Type')
+      expect(filingTypeSelect).toHaveValue('10-K')
       expect(screen.getByDisplayValue('2024-01-01')).toBeInTheDocument()
       expect(screen.getByDisplayValue('2024-06-01')).toBeInTheDocument()
     })

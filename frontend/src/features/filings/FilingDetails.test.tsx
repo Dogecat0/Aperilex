@@ -94,6 +94,17 @@ describe('FilingDetails', () => {
       mutateAsync: mockPollAnalysisCompletion,
       isPending: false,
     } as any)
+
+    // Setup progressive filing analysis hook mock
+    vi.mocked(useFiling.useProgressiveFilingAnalysis).mockReturnValue({
+      analysisProgress: {
+        state: 'idle' as const,
+        message: '',
+      },
+      startAnalysis: vi.fn(),
+      resetProgress: vi.fn(),
+      isAnalyzing: false,
+    } as any)
   })
 
   describe('Initial State', () => {
@@ -165,14 +176,20 @@ describe('FilingDetails', () => {
     })
 
     it('shows analysis in progress indicator', () => {
-      vi.mocked(useFiling.useFilingAnalyzeMutation).mockReturnValue({
-        mutateAsync: mockAnalyzeFiling,
-        isPending: true,
+      // Mock the progressive analysis hook to return analyzing state
+      vi.mocked(useFiling.useProgressiveFilingAnalysis).mockReturnValue({
+        analysisProgress: {
+          state: 'analyzing_content' as const,
+          message: 'Analysis in progress...',
+        },
+        startAnalysis: vi.fn(),
+        resetProgress: vi.fn(),
+        isAnalyzing: true,
       } as any)
 
       render(<FilingDetails />)
 
-      expect(screen.getByText('Analysis in progress...')).toBeInTheDocument()
+      expect(screen.getAllByText('Analysis in progress...')).toHaveLength(2)
       expect(document.querySelector('.animate-spin')).toBeInTheDocument()
     })
   })
@@ -254,27 +271,17 @@ describe('FilingDetails', () => {
 
   describe('Analysis Actions', () => {
     it('handles analyze filing action', async () => {
-      mockAnalyzeFiling.mockResolvedValueOnce({})
-      mockPollAnalysisCompletion.mockResolvedValueOnce({})
-      mockRefetchAnalysis.mockResolvedValueOnce({})
-
       render(<FilingDetails />)
 
-      // This tests that the analysis mutation is set up correctly
-      expect(useFiling.useFilingAnalyzeMutation).toHaveBeenCalled()
-      expect(useFiling.usePollAnalysisCompletion).toHaveBeenCalled()
+      // This tests that the progressive analysis hook is set up correctly
+      expect(useFiling.useProgressiveFilingAnalysis).toHaveBeenCalled()
     })
 
     it('handles analysis error gracefully', async () => {
-      const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
-      mockAnalyzeFiling.mockRejectedValueOnce(new Error('Analysis failed'))
-
       render(<FilingDetails />)
 
-      // The error handling is internal, we just verify setup
-      expect(useFiling.useFilingAnalyzeMutation).toHaveBeenCalled()
-
-      consoleError.mockRestore()
+      // The error handling is internal in the progressive analysis hook
+      expect(useFiling.useProgressiveFilingAnalysis).toHaveBeenCalled()
     })
   })
 
@@ -312,24 +319,17 @@ describe('FilingDetails', () => {
 
   describe('Real-time Updates', () => {
     it('polls for analysis completion', async () => {
-      mockAnalyzeFiling.mockResolvedValueOnce({})
-      mockPollAnalysisCompletion.mockResolvedValueOnce({})
-
       render(<FilingDetails />)
 
-      // Verify that polling is set up
-      expect(useFiling.usePollAnalysisCompletion).toHaveBeenCalled()
+      // Verify that progressive analysis hook is set up (which handles polling internally)
+      expect(useFiling.useProgressiveFilingAnalysis).toHaveBeenCalled()
     })
 
     it('refetches analysis data after completion', async () => {
-      mockAnalyzeFiling.mockResolvedValueOnce({})
-      mockPollAnalysisCompletion.mockResolvedValueOnce({})
-      mockRefetchAnalysis.mockResolvedValueOnce({})
-
       render(<FilingDetails />)
 
-      // The refetch should be set up for after polling completes
-      expect(mockRefetchAnalysis).not.toHaveBeenCalled() // Only called after analysis
+      // The progressive analysis hook handles refetching internally after completion
+      expect(useFiling.useProgressiveFilingAnalysis).toHaveBeenCalled()
     })
   })
 
@@ -337,21 +337,25 @@ describe('FilingDetails', () => {
     it('tracks analysis progress state', () => {
       render(<FilingDetails />)
 
-      // Component should manage isPolling state internally
-      // We verify the setup rather than internal state
-      expect(useFiling.useFilingAnalyzeMutation).toHaveBeenCalled()
-      expect(useFiling.usePollAnalysisCompletion).toHaveBeenCalled()
+      // Component should manage progress state internally via progressive analysis hook
+      expect(useFiling.useProgressiveFilingAnalysis).toHaveBeenCalled()
     })
 
     it('determines analyzing state correctly', () => {
-      vi.mocked(useFiling.useFilingAnalyzeMutation).mockReturnValue({
-        mutateAsync: mockAnalyzeFiling,
-        isPending: true,
+      // Mock the progressive analysis hook to return analyzing state
+      vi.mocked(useFiling.useProgressiveFilingAnalysis).mockReturnValue({
+        analysisProgress: {
+          state: 'analyzing_content' as const,
+          message: 'Analysis in progress...',
+        },
+        startAnalysis: vi.fn(),
+        resetProgress: vi.fn(),
+        isAnalyzing: true,
       } as any)
 
       render(<FilingDetails />)
 
-      expect(screen.getByText('Analysis in progress...')).toBeInTheDocument()
+      expect(screen.getAllByText('Analysis in progress...')).toHaveLength(2)
     })
   })
 

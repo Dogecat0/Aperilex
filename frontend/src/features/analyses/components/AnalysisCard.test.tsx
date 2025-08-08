@@ -129,7 +129,7 @@ describe('AnalysisCard Component', () => {
       )
 
       const cardLink = screen.getByRole('link')
-      expect(cardLink).toHaveClass('hover:shadow-md', 'hover:border-primary-200')
+      expect(cardLink).toHaveClass('hover:shadow-md', 'hover:border-primary/30')
     })
 
     it('applies correct layout classes', () => {
@@ -142,10 +142,10 @@ describe('AnalysisCard Component', () => {
       const cardLink = screen.getByRole('link')
       expect(cardLink).toHaveClass(
         'block',
-        'bg-white',
+        'bg-card',
         'rounded-lg',
         'border',
-        'border-gray-200',
+        'border-border',
         'shadow-sm'
       )
     })
@@ -160,7 +160,7 @@ describe('AnalysisCard Component', () => {
       )
 
       const badge = screen.getByText('Comprehensive')
-      expect(badge).toHaveClass('bg-primary-100', 'text-primary-800', 'border-primary-200')
+      expect(badge).toHaveClass('bg-primary/10', 'text-primary', 'border-primary/20')
     })
 
     it('displays FINANCIAL_FOCUSED type with correct styling', () => {
@@ -171,7 +171,7 @@ describe('AnalysisCard Component', () => {
       )
 
       const badge = screen.getByText('Financial')
-      expect(badge).toHaveClass('bg-success-100', 'text-success-800', 'border-success-200')
+      expect(badge).toHaveClass('bg-emerald-50', 'text-emerald-700', 'border-emerald-200')
     })
 
     it('displays RISK_FOCUSED type with correct styling', () => {
@@ -182,7 +182,7 @@ describe('AnalysisCard Component', () => {
       )
 
       const badge = screen.getByText('Risk')
-      expect(badge).toHaveClass('bg-error-100', 'text-error-800', 'border-error-200')
+      expect(badge).toHaveClass('bg-red-50', 'text-red-700', 'border-red-200')
     })
 
     it('displays BUSINESS_FOCUSED type with correct styling', () => {
@@ -193,7 +193,7 @@ describe('AnalysisCard Component', () => {
       )
 
       const badge = screen.getByText('Business')
-      expect(badge).toHaveClass('bg-teal-100', 'text-teal-800', 'border-teal-200')
+      expect(badge).toHaveClass('bg-teal-50', 'text-teal-700', 'border-teal-200')
     })
 
     it('displays appropriate icon for each analysis type', () => {
@@ -300,7 +300,7 @@ describe('AnalysisCard Component', () => {
       )
 
       const summaryText = screen.getByText(/comprehensive insights into the company/)
-      expect(summaryText).toHaveClass('text-gray-700', 'text-sm', 'leading-relaxed', 'line-clamp-3')
+      expect(summaryText).toHaveClass('text-foreground/80', 'text-sm', 'leading-relaxed', 'line-clamp-3')
     })
   })
 
@@ -349,7 +349,7 @@ describe('AnalysisCard Component', () => {
         'items-center',
         'gap-1',
         'text-xs',
-        'text-gray-600'
+        'text-muted-foreground'
       )
     })
   })
@@ -395,7 +395,7 @@ describe('AnalysisCard Component', () => {
 
       const insightText = screen.getByText(/Revenue growth of 15%/)
       expect(insightText).toHaveClass('line-clamp-1')
-      expect(insightText.parentElement).toHaveClass('flex', 'gap-2', 'text-xs', 'text-gray-600')
+      expect(insightText.parentElement).toHaveClass('flex', 'gap-2', 'text-xs', 'text-muted-foreground')
     })
 
     it('does not render insights section when no insights available', () => {
@@ -466,10 +466,10 @@ describe('AnalysisCard Component', () => {
         'items-center',
         'justify-between',
         'text-xs',
-        'text-gray-500',
+        'text-muted-foreground',
         'pt-4',
         'border-t',
-        'border-gray-100'
+        'border-border/50'
       )
     })
   })
@@ -503,15 +503,15 @@ describe('AnalysisCard Component', () => {
       )
 
       const modelBadge = screen.getByText('gpt-4')
-      const badgeContainer = modelBadge.closest('.bg-gray-100')
+      const badgeContainer = modelBadge.closest('.bg-muted')
       expect(badgeContainer).toHaveClass(
         'mt-2',
         'inline-flex',
         'items-center',
         'px-2',
         'py-1',
-        'bg-gray-100',
-        'text-gray-700',
+        'bg-muted',
+        'text-muted-foreground',
         'text-xs',
         'rounded'
       )
@@ -545,7 +545,7 @@ describe('AnalysisCard Component', () => {
       await user.hover(cardLink)
 
       // Hover styles should be applied via CSS classes
-      expect(cardLink).toHaveClass('hover:shadow-md', 'hover:border-primary-200')
+      expect(cardLink).toHaveClass('hover:shadow-md', 'hover:border-primary/30')
     })
 
     it('provides keyboard navigation support', () => {
@@ -682,10 +682,10 @@ describe('AnalysisCard Component', () => {
       )
 
       const badge = screen.getByText('Comprehensive')
-      expect(badge).toHaveClass('text-primary-800')
+      expect(badge).toHaveClass('text-primary')
 
       const metadata = screen.getByText('Jan 15, 2024')
-      const metadataContainer = metadata.closest('.text-gray-500')
+      const metadataContainer = metadata.closest('.text-muted-foreground')
       expect(metadataContainer).toBeInTheDocument()
     })
 

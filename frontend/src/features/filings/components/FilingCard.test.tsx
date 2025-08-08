@@ -4,6 +4,14 @@ import { render, screen, fireEvent } from '@/test/utils'
 import { FilingCard } from './FilingCard'
 import type { FilingResponse } from '@/api/types'
 
+// Mock the useFilingHasAnalysis hook
+vi.mock('@/hooks/useFilingAnalysisStatus', () => ({
+  useFilingHasAnalysis: () => ({
+    data: { hasAnalysis: false },
+    isLoading: false,
+  })
+}))
+
 describe('FilingCard', () => {
   const mockOnViewDetails = vi.fn()
   const mockOnAnalyze = vi.fn()
@@ -40,8 +48,8 @@ describe('FilingCard', () => {
       expect(screen.getByText('10-K')).toBeInTheDocument()
       expect(screen.getByText('0000320193-24-000001')).toBeInTheDocument()
       expect(screen.getByText(/Filed:/)).toBeInTheDocument()
-      // Date might be formatted differently, so use a more flexible matcher
-      expect(screen.getByText(/2024/)).toBeInTheDocument()
+      // Use more specific selector for filing date to avoid ambiguity with analysis date
+      expect(screen.getByText('Filed: 1/15/2024')).toBeInTheDocument()
     })
 
     it('displays processing status with correct styling', () => {
@@ -197,6 +205,8 @@ describe('FilingCard', () => {
       const filingWithoutAnalysis = {
         ...baseFiling,
         has_analysis: false,
+        analyses_count: 0,
+        latest_analysis_date: undefined,
       }
 
       render(<FilingCard filing={filingWithoutAnalysis} />)
@@ -217,6 +227,8 @@ describe('FilingCard', () => {
       const filingWithoutAnalysis = {
         ...baseFiling,
         has_analysis: false,
+        analyses_count: 0,
+        latest_analysis_date: undefined,
       }
 
       render(<FilingCard filing={filingWithoutAnalysis} onAnalyze={mockOnAnalyze} />)
@@ -258,6 +270,8 @@ describe('FilingCard', () => {
       const filingWithoutAnalysis = {
         ...baseFiling,
         has_analysis: false,
+        analyses_count: 0,
+        latest_analysis_date: undefined,
       }
 
       render(<FilingCard filing={filingWithoutAnalysis} onAnalyze={mockOnAnalyze} />)
@@ -353,7 +367,7 @@ describe('FilingCard', () => {
 
       // Date formatting might vary, check for year and that date is present
       expect(screen.getByText(/Filed:/)).toBeInTheDocument()
-      expect(screen.getByText(/2024/)).toBeInTheDocument()
+      expect(screen.getByText('Filed: 1/15/2024')).toBeInTheDocument()
     })
 
     it('formats analysis date correctly', () => {
