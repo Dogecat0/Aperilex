@@ -84,16 +84,6 @@ export function UserPreferences() {
                 <label className="flex items-center space-x-2 py-1">
                   <input
                     type="checkbox"
-                    checked={preferences.compactMode}
-                    onChange={(e) => updatePreferences({ compactMode: e.target.checked })}
-                    className="rounded border-input"
-                  />
-                  <span className="text-sm">Compact mode</span>
-                </label>
-
-                <label className="flex items-center space-x-2 py-1">
-                  <input
-                    type="checkbox"
                     checked={preferences.enableNotifications}
                     onChange={(e) => updatePreferences({ enableNotifications: e.target.checked })}
                     className="rounded border-input"

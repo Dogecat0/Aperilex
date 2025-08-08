@@ -21,7 +21,7 @@ export function MetricCard({
   change,
   changeLabel,
   icon: Icon,
-  iconColor = 'text-primary-600 bg-primary-50',
+  iconColor = 'text-primary bg-primary/10',
   size = 'md',
   format = 'text',
   className = '',
@@ -57,10 +57,10 @@ export function MetricCard({
   }
 
   const getChangeColor = (changeValue?: number) => {
-    if (!changeValue) return 'text-gray-500'
-    if (changeValue > 0) return 'text-success-600'
-    if (changeValue < 0) return 'text-error-600'
-    return 'text-gray-500'
+    if (!changeValue) return 'text-muted-foreground'
+    if (changeValue > 0) return 'text-success dark:text-success'
+    if (changeValue < 0) return 'text-destructive dark:text-destructive'
+    return 'text-muted-foreground'
   }
 
   const sizeClasses = {
@@ -94,7 +94,7 @@ export function MetricCard({
 
   return (
     <div
-      className={`bg-white rounded-lg border shadow-sm hover:shadow-md transition-shadow ${classes.container} ${className}`}
+      className={`bg-card rounded-lg border border-border shadow-sm hover:shadow-md transition-shadow ${classes.container} ${className}`}
     >
       <div className="flex items-start justify-between">
         <div className="flex-1 min-w-0">
@@ -106,15 +106,15 @@ export function MetricCard({
                 <Icon className="h-full w-full" />
               </div>
             )}
-            <p className={`${classes.label} font-medium text-gray-700 truncate`}>{label}</p>
+            <p className={`${classes.label} font-medium text-muted-foreground truncate`}>{label}</p>
           </div>
 
           <div className="space-y-1">
-            <p className={`${classes.value} font-bold text-gray-900`}>{formattedValue}</p>
+            <p className={`${classes.value} font-bold text-foreground`}>{formattedValue}</p>
 
             {/* Previous value */}
             {formattedPreviousValue && (
-              <p className={`${classes.change} text-gray-500`}>
+              <p className={`${classes.change} text-muted-foreground`}>
                 Previous: {formattedPreviousValue}
               </p>
             )}

@@ -8,7 +8,7 @@ interface CardProps {
 
 export function Card({ className = '', children }: CardProps) {
   return (
-    <div className={`bg-white rounded-lg border border-gray-200 shadow-sm ${className}`}>
+    <div className={`bg-card rounded-lg border border-border shadow-sm ${className}`}>
       {children}
     </div>
   )
@@ -20,7 +20,7 @@ interface CardHeaderProps {
 }
 
 export function CardHeader({ className = '', children }: CardHeaderProps) {
-  return <div className={`px-6 py-4 border-b border-gray-200 ${className}`}>{children}</div>
+  return <div className={`px-6 py-4 border-b border-border ${className}`}>{children}</div>
 }
 
 interface CardContentProps {
@@ -38,7 +38,7 @@ interface CardTitleProps {
 }
 
 export function CardTitle({ className = '', children }: CardTitleProps) {
-  return <h3 className={`text-lg font-semibold text-gray-900 ${className}`}>{children}</h3>
+  return <h3 className={`text-lg font-semibold text-foreground ${className}`}>{children}</h3>
 }
 
 interface CardDescriptionProps {
@@ -47,7 +47,7 @@ interface CardDescriptionProps {
 }
 
 export function CardDescription({ className = '', children }: CardDescriptionProps) {
-  return <p className={`text-sm text-gray-600 mt-1 ${className}`}>{children}</p>
+  return <p className={`text-sm text-muted-foreground mt-1 ${className}`}>{children}</p>
 }
 
 interface IconCardProps {
@@ -65,7 +65,7 @@ export function IconCard({
   description,
   children,
   className = '',
-  iconColor = 'text-primary-600 bg-primary-50',
+  iconColor = 'text-primary bg-primary/10',
 }: IconCardProps) {
   return (
     <Card className={`hover:shadow-md transition-shadow ${className}`}>
