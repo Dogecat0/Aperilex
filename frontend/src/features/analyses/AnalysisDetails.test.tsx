@@ -448,7 +448,6 @@ describe('AnalysisDetails Component', () => {
       const TestWrapper = createTestWrapper()
       render(<AnalysisDetails />, { wrapper: TestWrapper })
 
-      expect(screen.getByText('Share')).toBeInTheDocument()
       expect(screen.getByText('Export')).toBeInTheDocument()
     })
   })
@@ -755,16 +754,6 @@ describe('AnalysisDetails Component', () => {
       expect(analysesLink).toHaveAttribute('href', '/analyses')
     })
 
-    it('handles share button click', async () => {
-      const TestWrapper = createTestWrapper()
-      render(<AnalysisDetails />, { wrapper: TestWrapper })
-
-      const shareButton = screen.getByText('Share')
-      expect(shareButton).toBeInTheDocument()
-
-      await user.click(shareButton)
-      // Share functionality would be tested separately
-    })
 
     it('handles export button click', async () => {
       const TestWrapper = createTestWrapper()
@@ -979,14 +968,6 @@ describe('AnalysisDetails Component', () => {
   })
 
   describe('Action Button Functionality', () => {
-    it('renders share button with correct attributes', () => {
-      const TestWrapper = createTestWrapper()
-      render(<AnalysisDetails />, { wrapper: TestWrapper })
-
-      const shareButton = screen.getByText('Share')
-      expect(shareButton.closest('button')).toHaveAttribute('data-variant', 'outline')
-      expect(shareButton.closest('button')).toHaveAttribute('data-size', 'sm')
-    })
 
     it('renders export button with correct attributes', () => {
       const TestWrapper = createTestWrapper()
@@ -997,16 +978,6 @@ describe('AnalysisDetails Component', () => {
       expect(exportButton.closest('button')).toHaveAttribute('data-size', 'sm')
     })
 
-    it('handles share button interaction', async () => {
-      const TestWrapper = createTestWrapper()
-      render(<AnalysisDetails />, { wrapper: TestWrapper })
-
-      const shareButton = screen.getByText('Share')
-      await user.click(shareButton)
-
-      // Button should remain clickable
-      expect(shareButton).toBeInTheDocument()
-    })
 
     it('handles export button interaction', async () => {
       const TestWrapper = createTestWrapper()
@@ -1023,7 +994,7 @@ describe('AnalysisDetails Component', () => {
       const TestWrapper = createTestWrapper()
       render(<AnalysisDetails />, { wrapper: TestWrapper })
 
-      const buttonContainer = screen.getByText('Share').closest('.flex')
+      const buttonContainer = screen.getByText('Export').closest('.flex')
       expect(buttonContainer).toHaveClass('flex', 'items-center', 'gap-2')
     })
   })
@@ -1118,7 +1089,8 @@ describe('AnalysisDetails Component', () => {
       const TestWrapper = createTestWrapper()
       render(<AnalysisDetails />, { wrapper: TestWrapper })
 
-      const cardElements = document.querySelectorAll('.bg-white.rounded-lg.border.shadow-sm')
+      // Check for card elements with the actual classes used in the component
+      const cardElements = document.querySelectorAll('.bg-card.rounded-lg.border')
       expect(cardElements.length).toBeGreaterThan(3) // Header + content cards + sidebar cards
     })
   })
