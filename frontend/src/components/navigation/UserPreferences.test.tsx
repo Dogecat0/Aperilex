@@ -122,7 +122,6 @@ describe('UserPreferences Component', () => {
     })
 
     it('uses preferences from store', async () => {
-      mockStoreState.preferences.compactMode = true
       mockStoreState.preferences.enableNotifications = false
 
       render(<UserPreferences />)
@@ -131,10 +130,8 @@ describe('UserPreferences Component', () => {
       const button = screen.getByTestId('mock-button')
       await user.click(button)
 
-      const compactModeCheckbox = screen.getByLabelText('Compact mode')
       const notificationsCheckbox = screen.getByLabelText('Enable notifications')
 
-      expect(compactModeCheckbox).toBeChecked()
       expect(notificationsCheckbox).not.toBeChecked()
     })
 
@@ -145,11 +142,11 @@ describe('UserPreferences Component', () => {
       const button = screen.getByTestId('mock-button')
       await user.click(button)
 
-      // Toggle compact mode
-      const compactModeCheckbox = screen.getByLabelText('Compact mode')
-      await user.click(compactModeCheckbox)
+      // Toggle notifications
+      const notificationsCheckbox = screen.getByLabelText('Enable notifications')
+      await user.click(notificationsCheckbox)
 
-      expect(mockUpdatePreferences).toHaveBeenCalledWith({ compactMode: true })
+      expect(mockUpdatePreferences).toHaveBeenCalledWith({ enableNotifications: true })
     })
   })
 

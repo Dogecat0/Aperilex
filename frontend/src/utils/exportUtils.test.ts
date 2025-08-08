@@ -1,15 +1,12 @@
-import { describe, it, expect, beforeEach, vi, type MockedFunction } from 'vitest'
+import { describe, it, expect, beforeEach, vi } from 'vitest'
 import {
   transformToExportableData,
   generateFilename,
   exportAsJSON,
-  exportAsCSV,
-  exportAsPDF,
   isExportSupported,
   getFormatInfo,
   exportAnalysis,
   type ExportableAnalysisData,
-  type ExportOptions,
 } from './exportUtils'
 import type {
   AnalysisResponse,
@@ -52,7 +49,10 @@ global.URL.createObjectURL = vi.fn(() => 'blob:mock-url')
 global.URL.revokeObjectURL = vi.fn()
 Object.defineProperty(global, 'Blob', {
   value: class MockBlob {
-    constructor(public content: string[], public options: any) {}
+    constructor(
+      public content: string[],
+      public options: any
+    ) {}
   },
 })
 
@@ -464,7 +464,7 @@ describe('exportUtils', () => {
       expect(data.sectionAnalyses).toHaveLength(1)
 
       const businessSubSection = data.sectionAnalyses![0].sub_sections.find(
-        s => s.schema_type === 'business_analysis'
+        (s) => s.schema_type === 'business_analysis'
       )
 
       expect(businessSubSection).toBeDefined()
@@ -475,7 +475,7 @@ describe('exportUtils', () => {
       const data = transformToExportableData(mockComprehensiveAnalysis)
 
       const riskSubSection = data.sectionAnalyses![0].sub_sections.find(
-        s => s.schema_type === 'risk_factors_analysis'
+        (s) => s.schema_type === 'risk_factors_analysis'
       )
 
       expect(riskSubSection).toBeDefined()

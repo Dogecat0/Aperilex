@@ -274,7 +274,8 @@ function extractSchemaData(sections: SectionAnalysisResponse[]): {
   const riskAnalysis: Array<{ section: string; data: RiskFactorsAnalysisSection }> = []
   const mdaAnalysis: Array<{ section: string; data: MDAAnalysisSection }> = []
   const balanceSheetAnalysis: Array<{ section: string; data: BalanceSheetAnalysisSection }> = []
-  const incomeStatementAnalysis: Array<{ section: string; data: IncomeStatementAnalysisSection }> = []
+  const incomeStatementAnalysis: Array<{ section: string; data: IncomeStatementAnalysisSection }> =
+    []
   const cashFlowAnalysis: Array<{ section: string; data: CashFlowAnalysisSection }> = []
 
   sections.forEach((section) => {
@@ -337,7 +338,10 @@ function extractSchemaData(sections: SectionAnalysisResponse[]): {
 /**
  * Format business analysis data for readable output
  */
-function formatBusinessAnalysisForDisplay(data: BusinessAnalysisSection, sectionName: string): string {
+function formatBusinessAnalysisForDisplay(
+  data: BusinessAnalysisSection,
+  sectionName: string
+): string {
   const sections: string[] = []
 
   sections.push(`=== BUSINESS ANALYSIS: ${sectionName} ===`)
@@ -442,11 +446,13 @@ function formatMDAAnalysisForDisplay(data: MDAAnalysisSection, sectionName: stri
     sections.push(`Performance: ${data.revenue_analysis.total_revenue_performance}`)
     if (data.revenue_analysis.revenue_drivers.length > 0) {
       sections.push('Drivers:')
-      data.revenue_analysis.revenue_drivers.forEach(driver => sections.push(`  • ${driver}`))
+      data.revenue_analysis.revenue_drivers.forEach((driver) => sections.push(`  • ${driver}`))
     }
     if (data.revenue_analysis.revenue_headwinds?.length) {
       sections.push('Headwinds:')
-      data.revenue_analysis.revenue_headwinds.forEach(headwind => sections.push(`  • ${headwind}`))
+      data.revenue_analysis.revenue_headwinds.forEach((headwind) =>
+        sections.push(`  • ${headwind}`)
+      )
     }
     sections.push('')
   }
@@ -513,7 +519,8 @@ function formatFinancialStatementForDisplay(
       sections.push(`• ${ratio.ratio_name}`)
       if (ratio.current_value !== null) sections.push(`  Current: ${ratio.current_value}`)
       if (ratio.previous_value !== null) sections.push(`  Previous: ${ratio.previous_value}`)
-      if (ratio.industry_benchmark !== null) sections.push(`  Industry Benchmark: ${ratio.industry_benchmark}`)
+      if (ratio.industry_benchmark !== null)
+        sections.push(`  Industry Benchmark: ${ratio.industry_benchmark}`)
       sections.push(`  Interpretation: ${ratio.interpretation}`)
       sections.push('')
     })
@@ -522,28 +529,28 @@ function formatFinancialStatementForDisplay(
   // Strengths
   if ('strengths' in data && data.strengths?.length > 0) {
     sections.push('STRENGTHS:')
-    data.strengths.forEach(strength => sections.push(`• ${strength}`))
+    data.strengths.forEach((strength) => sections.push(`• ${strength}`))
     sections.push('')
   }
 
   // Concerns
   if ('concerns' in data && data.concerns?.length > 0) {
     sections.push('CONCERNS:')
-    data.concerns.forEach(concern => sections.push(`• ${concern}`))
+    data.concerns.forEach((concern) => sections.push(`• ${concern}`))
     sections.push('')
   }
 
   // Year-over-year changes
   if ('year_over_year_changes' in data && data.year_over_year_changes?.length > 0) {
     sections.push('YEAR-OVER-YEAR CHANGES:')
-    data.year_over_year_changes.forEach(change => sections.push(`• ${change}`))
+    data.year_over_year_changes.forEach((change) => sections.push(`• ${change}`))
     sections.push('')
   }
 
   // Notable Items
   if ('notable_items' in data && data.notable_items?.length > 0) {
     sections.push('NOTABLE ITEMS:')
-    data.notable_items.forEach(item => sections.push(`• ${item}`))
+    data.notable_items.forEach((item) => sections.push(`• ${item}`))
     sections.push('')
   }
 
@@ -793,7 +800,11 @@ function generateCSVContent(data: ExportableAnalysisData, options: ExportOptions
     if (schemaData.balanceSheetAnalysis.length > 0) {
       sections.push('=== BALANCE SHEET ANALYSIS DETAILS ===')
       schemaData.balanceSheetAnalysis.forEach((item) => {
-        const formattedData = formatFinancialStatementForDisplay(item.data, item.section, 'Balance Sheet')
+        const formattedData = formatFinancialStatementForDisplay(
+          item.data,
+          item.section,
+          'Balance Sheet'
+        )
         sections.push(`"${formattedData.replace(/"/g, '""')}"`)
         sections.push('')
       })
@@ -802,7 +813,11 @@ function generateCSVContent(data: ExportableAnalysisData, options: ExportOptions
     if (schemaData.incomeStatementAnalysis.length > 0) {
       sections.push('=== INCOME STATEMENT ANALYSIS DETAILS ===')
       schemaData.incomeStatementAnalysis.forEach((item) => {
-        const formattedData = formatFinancialStatementForDisplay(item.data, item.section, 'Income Statement')
+        const formattedData = formatFinancialStatementForDisplay(
+          item.data,
+          item.section,
+          'Income Statement'
+        )
         sections.push(`"${formattedData.replace(/"/g, '""')}"`)
         sections.push('')
       })
@@ -811,7 +826,11 @@ function generateCSVContent(data: ExportableAnalysisData, options: ExportOptions
     if (schemaData.cashFlowAnalysis.length > 0) {
       sections.push('=== CASH FLOW ANALYSIS DETAILS ===')
       schemaData.cashFlowAnalysis.forEach((item) => {
-        const formattedData = formatFinancialStatementForDisplay(item.data, item.section, 'Cash Flow')
+        const formattedData = formatFinancialStatementForDisplay(
+          item.data,
+          item.section,
+          'Cash Flow'
+        )
         sections.push(`"${formattedData.replace(/"/g, '""')}"`)
         sections.push('')
       })
@@ -848,7 +867,9 @@ function generateCSVContent(data: ExportableAnalysisData, options: ExportOptions
           riskSections.push('INDUSTRY RISKS:')
           riskSections.push(`Trends: ${riskData.industry_risks.industry_trends}`)
           if (riskData.industry_risks.competitive_pressures.length > 0) {
-            riskSections.push(`Competitive Pressures: ${riskData.industry_risks.competitive_pressures.join('; ')}`)
+            riskSections.push(
+              `Competitive Pressures: ${riskData.industry_risks.competitive_pressures.join('; ')}`
+            )
           }
           riskSections.push('')
         }
@@ -1167,7 +1188,11 @@ export async function exportAsPDF(
             currentY = margin
           }
 
-          const formattedData = formatFinancialStatementForDisplay(item.data, item.section, 'Balance Sheet')
+          const formattedData = formatFinancialStatementForDisplay(
+            item.data,
+            item.section,
+            'Balance Sheet'
+          )
           addText(formattedData, 10)
           currentY += 10
         })
@@ -1181,7 +1206,11 @@ export async function exportAsPDF(
             currentY = margin
           }
 
-          const formattedData = formatFinancialStatementForDisplay(item.data, item.section, 'Income Statement')
+          const formattedData = formatFinancialStatementForDisplay(
+            item.data,
+            item.section,
+            'Income Statement'
+          )
           addText(formattedData, 10)
           currentY += 10
         })
@@ -1195,7 +1224,11 @@ export async function exportAsPDF(
             currentY = margin
           }
 
-          const formattedData = formatFinancialStatementForDisplay(item.data, item.section, 'Cash Flow')
+          const formattedData = formatFinancialStatementForDisplay(
+            item.data,
+            item.section,
+            'Cash Flow'
+          )
           addText(formattedData, 10)
           currentY += 10
         })
@@ -1235,7 +1268,9 @@ export async function exportAsPDF(
             addText('Industry Risks:', 11, true)
             addText(`Trends: ${riskData.industry_risks.industry_trends}`)
             if (riskData.industry_risks.competitive_pressures.length > 0) {
-              addText(`Competitive Pressures: ${riskData.industry_risks.competitive_pressures.join('; ')}`)
+              addText(
+                `Competitive Pressures: ${riskData.industry_risks.competitive_pressures.join('; ')}`
+              )
             }
           }
 

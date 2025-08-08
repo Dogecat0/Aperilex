@@ -720,7 +720,7 @@ describe('useFiling hooks', () => {
       expect(caughtError).toEqual(error)
     })
 
-    it('should reset progress state', () => {
+    it('should reset progress state', async () => {
       const { result } = renderHook(() => useProgressiveFilingAnalysis(), {
         wrapper: createWrapper,
       })
@@ -737,13 +737,13 @@ describe('useFiling hooks', () => {
         current_step: 'Initiating analysis',
       })
 
-      let _startPromise: Promise<any>
-      act(() => {
-        _startPromise = result.current.startAnalysis('test-accession').catch(() => {})
+      // Start analysis and wait for state to update
+      await act(async () => {
+        result.current.startAnalysis('test-accession').catch(() => {})
+        await waitFor(() => {
+          expect(result.current.analysisProgress.state).toBe('initiating')
+        })
       })
-
-      // Should be in initiating state
-      expect(result.current.analysisProgress.state).toBe('initiating')
 
       // Reset progress
       act(() => {
