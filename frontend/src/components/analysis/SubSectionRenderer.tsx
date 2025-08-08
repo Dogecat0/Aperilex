@@ -1,4 +1,3 @@
-import React from 'react'
 import {
   Building,
   DollarSign,
@@ -51,7 +50,7 @@ export function SubSectionRenderer({
   const renderer = SCHEMA_RENDERERS[schemaType as keyof typeof SCHEMA_RENDERERS]
 
   if (renderer) {
-    return renderer(analysis, subSectionName, parentSection, className)
+    return renderer(analysis, subSectionName)
   }
 
   // Generic fallback
@@ -60,19 +59,13 @@ export function SubSectionRenderer({
       title={subSectionName}
       schemaType={schemaType}
       analysisData={analysis}
-      parentSection={parentSection}
       className={className}
     />
   )
 }
 
 // Business Analysis Section Renderer
-function renderBusinessSection(
-  analysis: BusinessAnalysisSection,
-  title: string,
-  parentSection: string,
-  className: string
-) {
+function renderBusinessSection(analysis: BusinessAnalysisSection, className: string) {
   return (
     <div className={`space-y-4 ${className}`}>
       {/* Operational Overview */}
@@ -178,12 +171,7 @@ function renderBusinessSection(
 }
 
 // Risk Factors Section Renderer
-function renderRiskFactorsSection(
-  analysis: RiskFactorsAnalysisSection,
-  title: string,
-  parentSection: string,
-  className: string
-) {
+function renderRiskFactorsSection(analysis: RiskFactorsAnalysisSection, className: string) {
   return (
     <div className={`space-y-4 ${className}`}>
       {/* Executive Summary */}
@@ -244,12 +232,7 @@ function renderRiskFactorsSection(
 }
 
 // MDA Section Renderer
-function renderMDASection(
-  analysis: MDAAnalysisSection,
-  title: string,
-  parentSection: string,
-  className: string
-) {
+function renderMDASection(analysis: MDAAnalysisSection, className: string) {
   return (
     <div className={`space-y-4 ${className}`}>
       {/* Executive Overview */}
@@ -303,12 +286,7 @@ function renderMDASection(
 }
 
 // Balance Sheet Section Renderer
-function renderBalanceSheetSection(
-  analysis: BalanceSheetAnalysisSection,
-  title: string,
-  parentSection: string,
-  className: string
-) {
+function renderBalanceSheetSection(analysis: BalanceSheetAnalysisSection, className: string) {
   return (
     <div className={`space-y-4 ${className}`}>
       {/* Key Totals */}
@@ -386,12 +364,7 @@ function renderBalanceSheetSection(
 }
 
 // Income Statement Section Renderer
-function renderIncomeStatementSection(
-  analysis: IncomeStatementAnalysisSection,
-  title: string,
-  parentSection: string,
-  className: string
-) {
+function renderIncomeStatementSection(analysis: IncomeStatementAnalysisSection, className: string) {
   return (
     <div className={`space-y-4 ${className}`}>
       {/* Key Totals */}
@@ -469,12 +442,7 @@ function renderIncomeStatementSection(
 }
 
 // Cash Flow Section Renderer
-function renderCashFlowSection(
-  analysis: CashFlowAnalysisSection,
-  title: string,
-  parentSection: string,
-  className: string
-) {
+function renderCashFlowSection(analysis: CashFlowAnalysisSection, className: string) {
   return (
     <div className={`space-y-4 ${className}`}>
       {/* Section Summary */}

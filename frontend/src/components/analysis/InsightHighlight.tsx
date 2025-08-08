@@ -39,38 +39,38 @@ export function InsightHighlight({
       case 'financial':
         return {
           icon: DollarSign,
-          gradient: 'bg-gradient-to-r from-blue-50 to-indigo-50',
-          borderColor: 'border-blue-200',
-          iconColor: 'text-blue-600',
-          iconBg: 'bg-blue-100',
-          accentColor: 'text-blue-600',
+          gradient: 'bg-primary/5',
+          borderColor: 'border-primary/20',
+          iconColor: 'text-primary',
+          iconBg: 'bg-primary/10',
+          accentColor: 'text-primary',
         }
       case 'risk':
         return {
           icon: AlertTriangle,
-          gradient: 'bg-gradient-to-r from-red-50 to-orange-50',
-          borderColor: 'border-red-200',
-          iconColor: 'text-red-600',
-          iconBg: 'bg-red-100',
-          accentColor: 'text-red-600',
+          gradient: 'bg-destructive/5',
+          borderColor: 'border-destructive/20',
+          iconColor: 'text-destructive',
+          iconBg: 'bg-destructive/10',
+          accentColor: 'text-destructive',
         }
       case 'opportunity':
         return {
           icon: Target,
-          gradient: 'bg-gradient-to-r from-green-50 to-emerald-50',
-          borderColor: 'border-green-200',
-          iconColor: 'text-green-600',
-          iconBg: 'bg-green-100',
-          accentColor: 'text-green-600',
+          gradient: 'bg-success/5',
+          borderColor: 'border-success/20',
+          iconColor: 'text-success',
+          iconBg: 'bg-success/10',
+          accentColor: 'text-success',
         }
       default: // general
         return {
           icon: Info,
-          gradient: 'bg-gradient-to-r from-gray-50 to-slate-50',
-          borderColor: 'border-gray-200',
-          iconColor: 'text-gray-600',
-          iconBg: 'bg-gray-100',
-          accentColor: 'text-gray-600',
+          gradient: 'bg-gradient-to-r from-muted/50 to-muted/30',
+          borderColor: 'border-border',
+          iconColor: 'text-muted-foreground',
+          iconBg: 'bg-muted/50',
+          accentColor: 'text-muted-foreground',
         }
     }
   }
@@ -80,11 +80,11 @@ export function InsightHighlight({
     switch (priorityLevel) {
       case 'critical':
         return {
-          dot: 'bg-red-500',
+          dot: 'bg-destructive',
           pulse: 'animate-pulse',
           label: 'Critical',
-          labelColor: 'text-red-700',
-          labelBg: 'bg-red-100',
+          labelColor: 'text-destructive',
+          labelBg: 'bg-destructive/10',
           weight: 4,
         }
       case 'high':
@@ -92,8 +92,8 @@ export function InsightHighlight({
           dot: 'bg-orange-500',
           pulse: '',
           label: 'High Priority',
-          labelColor: 'text-orange-700',
-          labelBg: 'bg-orange-100',
+          labelColor: 'text-orange-500',
+          labelBg: 'bg-orange-500/10',
           weight: 3,
         }
       case 'medium':
@@ -101,17 +101,17 @@ export function InsightHighlight({
           dot: 'bg-yellow-500',
           pulse: '',
           label: 'Medium',
-          labelColor: 'text-yellow-700',
-          labelBg: 'bg-yellow-100',
+          labelColor: 'text-yellow-500',
+          labelBg: 'bg-yellow-500/10',
           weight: 2,
         }
       case 'low':
         return {
-          dot: 'bg-gray-400',
+          dot: 'bg-muted-foreground/50',
           pulse: '',
           label: 'Low Priority',
-          labelColor: 'text-gray-600',
-          labelBg: 'bg-gray-100',
+          labelColor: 'text-muted-foreground',
+          labelBg: 'bg-muted/50',
           weight: 1,
         }
     }
@@ -125,27 +125,27 @@ export function InsightHighlight({
       case 'positive':
         return {
           icon: TrendingUp,
-          iconColor: 'text-green-600',
-          iconBg: 'bg-green-100',
-          gradient: 'bg-gradient-to-r from-green-50 to-emerald-50',
-          borderColor: 'border-green-200',
+          iconColor: 'text-success',
+          iconBg: 'bg-success/10',
+          gradient: 'bg-success/5',
+          borderColor: 'border-success/20',
         }
       case 'negative':
         return {
           icon: TrendingDown,
-          iconColor: 'text-red-600',
-          iconBg: 'bg-red-100',
-          gradient: 'bg-gradient-to-r from-red-50 to-pink-50',
-          borderColor: 'border-red-200',
+          iconColor: 'text-destructive',
+          iconBg: 'bg-destructive/10',
+          gradient: 'bg-destructive/5',
+          borderColor: 'border-destructive/20',
         }
       case 'neutral':
       default:
         return {
           icon: BarChart3,
-          iconColor: 'text-gray-600',
-          iconBg: 'bg-gray-100',
-          gradient: 'bg-gradient-to-r from-gray-50 to-slate-50',
-          borderColor: 'border-gray-200',
+          iconColor: 'text-muted-foreground',
+          iconBg: 'bg-muted/50',
+          gradient: 'bg-gradient-to-r from-muted/50 to-muted/30',
+          borderColor: 'border-border',
         }
     }
   }
@@ -194,7 +194,7 @@ export function InsightHighlight({
 
             {/* Insight text */}
             <p
-              className={`${compact ? 'text-sm' : 'text-sm'} text-gray-800 leading-relaxed ${compact ? 'line-clamp-2' : ''}`}
+              className={`${compact ? 'text-sm' : 'text-sm'} text-foreground/90 leading-relaxed ${compact ? 'line-clamp-2' : ''}`}
             >
               {text}
             </p>
@@ -205,10 +205,10 @@ export function InsightHighlight({
                 <div
                   className={`w-1.5 h-1.5 rounded-full ${priorityConfig.dot} ${priorityConfig.pulse}`}
                 ></div>
-                <span className="text-xs text-gray-500">
+                <span className="text-xs text-muted-foreground">
                   {type.charAt(0).toUpperCase() + type.slice(1)}
                 </span>
-                <span className="text-xs text-gray-400">"</span>
+                <span className="text-xs text-muted-foreground/50">"</span>
                 <span className={`text-xs ${priorityConfig.labelColor}`}>
                   {priorityConfig.label}
                 </span>
@@ -219,9 +219,9 @@ export function InsightHighlight({
           {/* Sentiment/status indicator */}
           {sentiment && (
             <div className="flex-shrink-0">
-              {sentiment === 'positive' && <CheckCircle className="h-4 w-4 text-green-500" />}
-              {sentiment === 'negative' && <XCircle className="h-4 w-4 text-red-500" />}
-              {sentiment === 'neutral' && <Clock className="h-4 w-4 text-gray-500" />}
+              {sentiment === 'positive' && <CheckCircle className="h-4 w-4 text-success" />}
+              {sentiment === 'negative' && <XCircle className="h-4 w-4 text-destructive" />}
+              {sentiment === 'neutral' && <Clock className="h-4 w-4 text-muted-foreground" />}
             </div>
           )}
         </div>
@@ -266,11 +266,13 @@ export function InsightGroup({
     <div className={className}>
       {title && (
         <h4
-          className={`font-semibold text-gray-900 ${compact ? 'text-sm mb-2' : 'text-base mb-3'}`}
+          className={`font-semibold text-foreground ${compact ? 'text-sm mb-2' : 'text-base mb-3'}`}
         >
           {title}
           {insights.length > 0 && (
-            <span className="text-gray-500 font-normal text-sm ml-2">({insights.length})</span>
+            <span className="text-muted-foreground font-normal text-sm ml-2">
+              ({insights.length})
+            </span>
           )}
         </h4>
       )}
@@ -289,7 +291,7 @@ export function InsightGroup({
 
         {hasMore && (
           <div className="text-center py-2">
-            <span className="text-sm text-gray-500">
+            <span className="text-sm text-muted-foreground">
               +{insights.length - maxItems!} more insights
             </span>
           </div>

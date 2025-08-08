@@ -6,7 +6,6 @@ import {
   DollarSign,
   AlertTriangle,
   FileText,
-  Target,
   TrendingUp,
 } from 'lucide-react'
 import type { AnalysisSchemaData } from '@/api/types'
@@ -15,7 +14,6 @@ interface AnalysisDetailCardProps {
   title: string
   schemaType: string
   analysisData: AnalysisSchemaData
-  parentSection: string
   className?: string
   defaultExpanded?: boolean
 }
@@ -24,7 +22,6 @@ export function AnalysisDetailCard({
   title,
   schemaType,
   analysisData,
-  parentSection,
   className = '',
   defaultExpanded = false,
 }: AnalysisDetailCardProps) {
@@ -37,11 +34,11 @@ export function AnalysisDetailCard({
     if (normalizedType.includes('business')) {
       return {
         icon: Building,
-        gradient: 'bg-gradient-to-br from-teal-50 to-cyan-50',
-        borderColor: 'border-teal-200',
-        iconBg: 'bg-teal-100',
-        iconColor: 'text-teal-700',
-        accentColor: 'text-teal-600',
+        gradient: 'bg-primary/5 hover:bg-primary/10',
+        borderColor: 'border-primary/20',
+        iconBg: 'bg-primary/10',
+        iconColor: 'text-primary',
+        accentColor: 'text-primary',
       }
     }
 
@@ -53,44 +50,44 @@ export function AnalysisDetailCard({
     ) {
       return {
         icon: DollarSign,
-        gradient: 'bg-gradient-to-br from-blue-50 to-indigo-50',
-        borderColor: 'border-blue-200',
-        iconBg: 'bg-blue-100',
-        iconColor: 'text-blue-700',
-        accentColor: 'text-blue-600',
+        gradient: 'bg-green-500/5 hover:bg-green-500/10',
+        borderColor: 'border-green-500/20',
+        iconBg: 'bg-green-500/10',
+        iconColor: 'text-green-600 dark:text-green-400',
+        accentColor: 'text-green-600 dark:text-green-400',
       }
     }
 
     if (normalizedType.includes('risk')) {
       return {
         icon: AlertTriangle,
-        gradient: 'bg-gradient-to-br from-red-50 to-pink-50',
-        borderColor: 'border-red-200',
-        iconBg: 'bg-red-100',
-        iconColor: 'text-red-700',
-        accentColor: 'text-red-600',
+        gradient: 'bg-destructive/5 hover:bg-destructive/10',
+        borderColor: 'border-destructive/20',
+        iconBg: 'bg-destructive/10',
+        iconColor: 'text-destructive',
+        accentColor: 'text-destructive',
       }
     }
 
     if (normalizedType.includes('mda') || normalizedType.includes('management')) {
       return {
         icon: TrendingUp,
-        gradient: 'bg-gradient-to-br from-purple-50 to-indigo-50',
-        borderColor: 'border-purple-200',
-        iconBg: 'bg-purple-100',
-        iconColor: 'text-purple-700',
-        accentColor: 'text-purple-600',
+        gradient: 'bg-yellow-500/5 hover:bg-yellow-500/10',
+        borderColor: 'border-yellow-500/20',
+        iconBg: 'bg-yellow-500/10',
+        iconColor: 'text-yellow-600 dark:text-yellow-400',
+        accentColor: 'text-yellow-600 dark:text-yellow-400',
       }
     }
 
     // Default
     return {
       icon: FileText,
-      gradient: 'bg-gradient-to-br from-gray-50 to-slate-50',
-      borderColor: 'border-gray-200',
-      iconBg: 'bg-gray-100',
-      iconColor: 'text-gray-700',
-      accentColor: 'text-gray-600',
+      gradient: 'bg-muted/50 hover:bg-muted/70',
+      borderColor: 'border-border',
+      iconBg: 'bg-muted',
+      iconColor: 'text-foreground/80',
+      accentColor: 'text-muted-foreground',
     }
   }
 
@@ -107,15 +104,15 @@ export function AnalysisDetailCard({
       const indent = level > 0 ? `ml-${level * 4}` : ''
       const keyClass =
         level === 0
-          ? 'text-sm font-semibold text-gray-900 mb-2'
-          : 'text-xs font-medium text-gray-700 mb-1'
+          ? 'text-sm font-semibold text-foreground mb-2'
+          : 'text-xs font-medium text-foreground/80 mb-1'
 
       if (typeof value === 'string') {
         if (value.length === 0) return null
         return (
           <div key={key} className={`${indent} mb-3`}>
             <div className={keyClass}>{formatKey(key)}</div>
-            <p className="text-sm text-gray-700 leading-relaxed">{value}</p>
+            <p className="text-sm text-foreground/80 leading-relaxed">{value}</p>
           </div>
         )
       }
@@ -129,8 +126,8 @@ export function AnalysisDetailCard({
             </div>
             <ul className="space-y-2">
               {value.map((item, index) => (
-                <li key={index} className="flex gap-2 text-sm text-gray-700">
-                  <div className="w-1 h-1 bg-primary-500 rounded-full mt-2 flex-shrink-0"></div>
+                <li key={index} className="flex gap-2 text-sm text-foreground/80">
+                  <div className="w-1 h-1 bg-primary rounded-full mt-2 flex-shrink-0"></div>
                   <div className="flex-1">
                     {typeof item === 'object' ? renderObjectAsCard(item, index) : item}
                   </div>
@@ -145,7 +142,7 @@ export function AnalysisDetailCard({
         return (
           <div key={key} className={`${indent} mb-4`}>
             <div className={keyClass}>{formatKey(key)}</div>
-            <div className="bg-gray-50 rounded-lg p-3 space-y-2">
+            <div className="bg-muted/50 rounded-lg p-3 space-y-2">
               {Object.entries(value).map(([subKey, subValue]) =>
                 renderSection(subKey, subValue, level + 1)
               )}
@@ -158,7 +155,7 @@ export function AnalysisDetailCard({
       return (
         <div key={key} className={`${indent} mb-2`}>
           <span className={keyClass}>{formatKey(key)}:</span>
-          <span className="text-sm text-gray-700 ml-2">
+          <span className="text-sm text-foreground/80 ml-2">
             {typeof value === 'number' ? value.toLocaleString() : String(value)}
           </span>
         </div>
@@ -174,11 +171,11 @@ export function AnalysisDetailCard({
 
   const renderObjectAsCard = (obj: any, index: number) => {
     return (
-      <div key={index} className="bg-white border border-gray-100 rounded-md p-3 mt-2">
+      <div key={index} className="bg-card border border-border/50 rounded-md p-3 mt-2">
         {Object.entries(obj).map(([key, value]) => (
           <div key={key} className="mb-2">
-            <span className="text-xs font-medium text-gray-600">{formatKey(key)}:</span>
-            <span className="text-sm text-gray-800 ml-1">
+            <span className="text-xs font-medium text-muted-foreground">{formatKey(key)}:</span>
+            <span className="text-sm text-foreground ml-1">
               {Array.isArray(value) ? value.join(', ') : String(value)}
             </span>
           </div>
@@ -219,7 +216,7 @@ export function AnalysisDetailCard({
       className={`rounded-lg border ${config.borderColor} ${config.gradient} shadow-sm hover:shadow-md transition-all duration-200 ${className}`}
     >
       {/* Header */}
-      <div className="p-4 border-b border-gray-100">
+      <div className="p-4 border-b border-border/50">
         <div className="flex items-start justify-between">
           <div className="flex items-start gap-3 min-w-0 flex-1">
             {/* Icon */}
@@ -229,39 +226,28 @@ export function AnalysisDetailCard({
 
             {/* Title and Meta */}
             <div className="min-w-0 flex-1">
-              <h3 className="font-semibold text-gray-900 text-sm mb-1 leading-tight">{title}</h3>
-              <div className="flex items-center gap-2 text-xs text-gray-500">
-                <span className="inline-flex items-center gap-1">
-                  <Target className="h-3 w-3" />
-                  {schemaType}
-                </span>
-                <span>"</span>
-                <span className="inline-flex items-center gap-1">
-                  <FileText className="h-3 w-3" />
-                  {parentSection}
-                </span>
-              </div>
+              <h3 className="font-semibold text-foreground text-sm mb-1 leading-tight">{title}</h3>
             </div>
           </div>
 
           {/* Expand Toggle */}
           <button
             onClick={() => setIsExpanded(!isExpanded)}
-            className="flex-shrink-0 p-1 hover:bg-gray-100 rounded-md transition-colors"
+            className="flex-shrink-0 p-1 hover:bg-muted/50 rounded-md transition-colors"
             title={isExpanded ? 'Collapse details' : 'Expand details'}
           >
             {isExpanded ? (
-              <ChevronDown className="h-4 w-4 text-gray-500" />
+              <ChevronDown className="h-4 w-4 text-muted-foreground/70" />
             ) : (
-              <ChevronRight className="h-4 w-4 text-gray-500" />
+              <ChevronRight className="h-4 w-4 text-muted-foreground/70" />
             )}
           </button>
         </div>
 
         {/* Preview when collapsed */}
         {!isExpanded && (
-          <div className="mt-3 pt-3 border-t border-gray-100">
-            <p className="text-sm text-gray-600 line-clamp-2">{getContentPreview()}</p>
+          <div className="mt-3 pt-3 border-t border-border/50">
+            <p className="text-sm text-muted-foreground line-clamp-2">{getContentPreview()}</p>
           </div>
         )}
       </div>

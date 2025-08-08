@@ -65,18 +65,18 @@ export function MetricsVisualization({
   className = '',
   compact = false,
 }: MetricsVisualizationProps) {
-  // Default color palette from Tailwind theme
+  // Default color palette using CSS custom properties for theme awareness
   const defaultColors = [
-    '#6366f1', // primary
-    '#14b8a6', // teal
-    '#f59e0b', // amber
-    '#ef4444', // red
-    '#8b5cf6', // violet
-    '#06b6d4', // cyan
-    '#84cc16', // lime
-    '#f97316', // orange
-    '#ec4899', // pink
-    '#64748b', // slate
+    'hsl(var(--color-chart-1))', // primary
+    'hsl(var(--color-chart-2))', // teal
+    'hsl(var(--color-chart-3))', // amber
+    'hsl(var(--color-chart-4))', // red
+    'hsl(var(--color-chart-5))', // violet
+    'hsl(var(--color-chart-6))', // cyan
+    'hsl(var(--color-chart-7))', // lime
+    'hsl(var(--color-chart-8))', // orange
+    'hsl(var(--color-chart-9))', // pink
+    'hsl(var(--color-chart-10))', // slate
   ]
 
   const chartColors = colors || defaultColors
@@ -128,27 +128,29 @@ export function MetricsVisualization({
     if (active && payload && payload.length) {
       const data = payload[0].payload
       return (
-        <div className="bg-white p-3 border border-gray-200 rounded-lg shadow-lg">
-          <p className="font-semibold text-gray-900 text-sm mb-2">{label}</p>
+        <div className="bg-popover p-3 border border-border rounded-lg shadow-lg">
+          <p className="font-semibold text-popover-foreground text-sm mb-2">{label}</p>
           {payload.map((item: any, index: number) => (
             <div key={index} className="flex items-center gap-2">
               <div className="w-3 h-3 rounded-full" style={{ backgroundColor: item.color }} />
-              <span className="text-sm text-gray-700">
+              <span className="text-sm text-popover-foreground/80">
                 {item.name}: {formatValue(item.value)}
               </span>
               {data.trend && (
                 <div className="flex items-center gap-1">
-                  {data.trend === 'up' && <TrendingUp className="h-3 w-3 text-green-500" />}
-                  {data.trend === 'down' && <TrendingDown className="h-3 w-3 text-red-500" />}
-                  {data.trend === 'stable' && <Activity className="h-3 w-3 text-gray-500" />}
+                  {data.trend === 'up' && <TrendingUp className="h-3 w-3 text-success" />}
+                  {data.trend === 'down' && <TrendingDown className="h-3 w-3 text-destructive" />}
+                  {data.trend === 'stable' && (
+                    <Activity className="h-3 w-3 text-muted-foreground" />
+                  )}
                 </div>
               )}
             </div>
           ))}
           {data.metadata && (
-            <div className="mt-2 pt-2 border-t border-gray-100">
+            <div className="mt-2 pt-2 border-t border-border/50">
               {Object.entries(data.metadata).map(([key, value]) => (
-                <p key={key} className="text-xs text-gray-500">
+                <p key={key} className="text-xs text-muted-foreground">
                   {key}: {String(value)}
                 </p>
               ))}
@@ -277,9 +279,9 @@ export function MetricsVisualization({
               cx="50%"
               cy="50%"
               labelLine={false}
-              label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+              label={({ name, percent }) => `${name} ${((percent || 0) * 100).toFixed(0)}%`}
               outerRadius={compact ? 60 : 80}
-              fill="#8884d8"
+              fill="hsl(var(--color-chart-1))"
               dataKey="value"
             >
               {data.map((entry, index) => (
@@ -300,25 +302,25 @@ export function MetricsVisualization({
   }
 
   return (
-    <div className={`bg-white rounded-lg border border-gray-200 shadow-sm ${className}`}>
+    <div className={`bg-card rounded-lg border border-border shadow-sm ${className}`}>
       {/* Header */}
-      <div className={`${compact ? 'p-3' : 'p-4'} border-b border-gray-100`}>
+      <div className={`${compact ? 'p-3' : 'p-4'} border-b border-border`}>
         <div className="flex items-start justify-between">
           <div className="flex items-center gap-3 min-w-0 flex-1">
             {/* Chart Type Icon */}
-            <div className="bg-primary-100 rounded-lg p-2 flex-shrink-0">
-              <ChartIcon className={`${compact ? 'h-3 w-3' : 'h-4 w-4'} text-primary-600`} />
-            </div>
+            {/* <div className="bg-secondary/10 rounded-lg p-2 flex-shrink-0">
+              <ChartIcon className={`${compact ? 'h-3 w-3' : 'h-4 w-4'} text-secondary`} />
+            </div> */}
 
             {/* Title and Subtitle */}
             <div className="min-w-0 flex-1">
               <h3
-                className={`font-semibold text-gray-900 ${compact ? 'text-sm' : 'text-base'} leading-tight`}
+                className={`font-semibold text-foreground ${compact ? 'text-sm' : 'text-base'} leading-tight`}
               >
                 {title}
               </h3>
               {subtitle && (
-                <p className={`text-gray-600 ${compact ? 'text-xs' : 'text-sm'} mt-0.5`}>
+                <p className={`text-muted-foreground ${compact ? 'text-xs' : 'text-sm'} mt-0.5`}>
                   {subtitle}
                 </p>
               )}
@@ -329,13 +331,12 @@ export function MetricsVisualization({
           {trendSummary && (
             <div className="flex items-center gap-2 flex-shrink-0">
               <div
-                className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs ${
-                  trendSummary.direction === 'up'
-                    ? 'bg-green-100 text-green-700'
-                    : trendSummary.direction === 'down'
-                      ? 'bg-red-100 text-red-700'
-                      : 'bg-gray-100 text-gray-700'
-                }`}
+                className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs ${trendSummary.direction === 'up'
+                  ? 'bg-success/10 text-success'
+                  : trendSummary.direction === 'down'
+                    ? 'bg-destructive/10 text-destructive'
+                    : 'bg-muted text-muted-foreground'
+                  }`}
               >
                 {trendSummary.direction === 'up' && <TrendingUp className="h-3 w-3" />}
                 {trendSummary.direction === 'down' && <TrendingDown className="h-3 w-3" />}
@@ -359,8 +360,8 @@ export function MetricsVisualization({
 
       {/* Footer with summary stats */}
       {!compact && data.length > 0 && (
-        <div className="px-4 py-3 bg-gray-50 border-t border-gray-100 rounded-b-lg">
-          <div className="flex items-center justify-between text-sm text-gray-600">
+        <div className="px-4 py-3 bg-muted/50 border-t border-border rounded-b-lg">
+          <div className="flex items-center justify-between text-sm text-muted-foreground">
             <div className="flex items-center gap-1">
               <Info className="h-3 w-3" />
               <span>{data.length} data points</span>
