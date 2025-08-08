@@ -74,8 +74,10 @@ class AsyncTask(Task):
                     try:
                         if not loop.is_closed():
                             loop.close()
-                    except Exception:
-                        pass  # Ignore cleanup errors
+                    except Exception as e:
+                        logger.warning(
+                            f"Error closing event loop during cleanup: {str(e)}"
+                        )
         else:
             return self.run(*args, **kwargs)
 

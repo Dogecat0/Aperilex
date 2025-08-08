@@ -135,7 +135,7 @@ class AnalysisOrchestrator:
         """
         # Initialize filing variable to prevent UnboundLocalError in exception handlers
         filing = None
-        
+
         try:
             # Validate command first to ensure required fields are present
             command.validate()
