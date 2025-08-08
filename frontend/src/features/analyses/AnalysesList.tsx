@@ -64,8 +64,8 @@ export function AnalysesList() {
       <div className="mb-6">
         <div className="flex items-center justify-between mb-4">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">Analysis Library</h1>
-            <p className="text-gray-600 mt-1">
+            <h1 className="text-3xl font-bold">Analysis Library</h1>
+            <p className="text-muted-foreground mt-1">
               Browse and explore all financial analyses across companies and filings
             </p>
           </div>
@@ -101,7 +101,7 @@ export function AnalysesList() {
 
         {/* Expandable Filters */}
         {showFilters && (
-          <div className="mt-4 p-4 bg-gray-50 rounded-lg border">
+          <div className="mt-4 p-4 rounded-lg border">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
