@@ -21,9 +21,6 @@ vi.mock('./RecentAnalyses', () => ({
   RecentAnalyses: () => <div data-testid="recent-analyses">RecentAnalyses Component</div>,
 }))
 
-vi.mock('./MarketOverview', () => ({
-  MarketOverview: () => <div data-testid="market-overview">MarketOverview Component</div>,
-}))
 
 vi.mock('./SystemHealth', () => ({
   SystemHealth: () => <div data-testid="system-health">SystemHealth Component</div>,
@@ -68,7 +65,6 @@ describe('DashboardHome Component', () => {
       expect(screen.getByText('Welcome to Aperilex')).toBeInTheDocument()
       expect(screen.getByTestId('quick-actions')).toBeInTheDocument()
       expect(screen.getByTestId('recent-analyses')).toBeInTheDocument()
-      expect(screen.getByTestId('market-overview')).toBeInTheDocument()
       expect(screen.getByTestId('system-health')).toBeInTheDocument()
     })
   })
@@ -180,13 +176,6 @@ describe('DashboardHome Component', () => {
       expect(recentAnalyses).toHaveTextContent('RecentAnalyses Component')
     })
 
-    it('renders MarketOverview component', () => {
-      render(<DashboardHome />)
-
-      const marketOverview = screen.getByTestId('market-overview')
-      expect(marketOverview).toBeInTheDocument()
-      expect(marketOverview).toHaveTextContent('MarketOverview Component')
-    })
 
     it('renders SystemHealth component', () => {
       render(<DashboardHome />)
@@ -202,7 +191,6 @@ describe('DashboardHome Component', () => {
       // All components should be present simultaneously
       expect(screen.getByTestId('quick-actions')).toBeInTheDocument()
       expect(screen.getByTestId('recent-analyses')).toBeInTheDocument()
-      expect(screen.getByTestId('market-overview')).toBeInTheDocument()
       expect(screen.getByTestId('system-health')).toBeInTheDocument()
     })
   })
@@ -227,11 +215,10 @@ describe('DashboardHome Component', () => {
     it('renders side panel with correct structure', () => {
       render(<DashboardHome />)
 
-      const sidePanel = screen.getByTestId('market-overview').closest('[class*="space-y-6"]')
+      const sidePanel = screen.getByTestId('system-health').closest('[class*="space-y-6"]')
       expect(sidePanel).toHaveClass('space-y-6')
 
-      // Verify both MarketOverview and SystemHealth are in the side panel
-      expect(sidePanel).toContainElement(screen.getByTestId('market-overview'))
+      // Verify SystemHealth is in the side panel
       expect(sidePanel).toContainElement(screen.getByTestId('system-health'))
     })
 
@@ -251,7 +238,7 @@ describe('DashboardHome Component', () => {
 
       // Grid container should be third
       expect(children[2]).toContainElement(screen.getByTestId('recent-analyses'))
-      expect(children[2]).toContainElement(screen.getByTestId('market-overview'))
+      expect(children[2]).toContainElement(screen.getByTestId('system-health'))
     })
 
     it('applies responsive grid layout correctly', () => {
@@ -331,7 +318,6 @@ describe('DashboardHome Component', () => {
       expect(screen.getByText('Welcome to Aperilex')).toBeInTheDocument()
       expect(screen.getByTestId('quick-actions')).toBeInTheDocument()
       expect(screen.getByTestId('recent-analyses')).toBeInTheDocument()
-      expect(screen.getByTestId('market-overview')).toBeInTheDocument()
       expect(screen.getByTestId('system-health')).toBeInTheDocument()
     })
 
