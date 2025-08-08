@@ -175,6 +175,16 @@ class AnalysisOrchestrator:
                 progress_callback, 0.1, "Analysis started"
             )
 
+            # Step 3.5: Mark filing as processing
+            if filing.processing_status != ProcessingStatus.PROCESSING:
+                filing.mark_as_processing()
+                await self.filing_repository.update(filing)
+                logger.info(
+                    f"Marked filing {filing.id} as processing for analysis {analysis.id}"
+                )
+            else:
+                logger.debug(f"Filing {filing.id} already in processing status")
+
             # Step 4: Resolve analysis template and schemas
             schemas_to_use = self.template_service.get_schemas_for_template(
                 command.analysis_template
@@ -272,15 +282,20 @@ class AnalysisOrchestrator:
             if filing.processing_status != ProcessingStatus.COMPLETED:
                 filing.mark_as_completed()
                 await self.filing_repository.update(filing)
-                logger.info(f"Updated filing {filing.id} status to completed after analysis")
+                logger.info(
+                    f"Updated filing {filing.id} status to completed after analysis"
+                )
 
             logger.info(f"Analysis orchestration completed: {analysis.id}")
             return analysis
 
-        except (FilingAccessError, AnalysisProcessingError):
-            # Re-raise known exceptions
+        except (FilingAccessError, AnalysisProcessingError) as e:
+            # Handle filing status rollback for known exceptions
+            await self._rollback_filing_status_on_failure(filing, str(e))
             raise
         except Exception as e:
+            # Handle filing status rollback for unexpected exceptions
+            await self._rollback_filing_status_on_failure(filing, str(e))
             logger.error(f"Unexpected orchestration error: {str(e)}", exc_info=True)
             raise AnalysisOrchestrationError(
                 f"Analysis orchestration failed: {str(e)}"
@@ -708,3 +723,24 @@ class AnalysisOrchestrator:
             else:
                 # Return content as a single section for analysis
                 return {"Filing Content": filing_data.content_text}
+
+    async def _rollback_filing_status_on_failure(
+        self, filing: Filing | None, error_message: str
+    ) -> None:
+        """Rollback filing status to FAILED if analysis fails after marking as processing.
+
+        Args:
+            filing: Filing entity that may need status rollback
+            error_message: Error message to record with the failure
+        """
+        try:
+            if filing and filing.processing_status == ProcessingStatus.PROCESSING:
+                filing.mark_as_failed(error_message)
+                await self.filing_repository.update(filing)
+                logger.info(
+                    f"Rolled back filing {filing.id} status to FAILED after analysis failure"
+                )
+        except Exception as e:
+            logger.warning(
+                f"Failed to rollback filing status for {filing.id if filing else 'None'}: {str(e)}"
+            )

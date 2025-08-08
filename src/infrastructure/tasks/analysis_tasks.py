@@ -154,6 +154,7 @@ async def analyze_filing_task(
                     from src.infrastructure.repositories.company_repository import (
                         CompanyRepository,
                     )
+
                     company_repo = CompanyRepository(session)
                     company = await company_repo.get_by_id(filing.company_id)
                     if company:
@@ -169,10 +170,16 @@ async def analyze_filing_task(
                 # Get filing data from Edgar to extract CIK
                 filing_data = edgar_service.get_filing_by_accession(accession_number)
                 company_cik = CIK(filing_data.cik)
-                logger.info(f"Retrieved company CIK {company_cik} from Edgar for filing {accession_number}")
+                logger.info(
+                    f"Retrieved company CIK {company_cik} from Edgar for filing {accession_number}"
+                )
             except Exception as e:
-                logger.error(f"Failed to get company CIK from Edgar for filing {filing_id}: {str(e)}")
-                raise ValueError(f"Could not determine company CIK for filing {filing_id}") from e
+                logger.error(
+                    f"Failed to get company CIK from Edgar for filing {filing_id}: {str(e)}"
+                )
+                raise ValueError(
+                    f"Could not determine company CIK for filing {filing_id}"
+                ) from e
 
         # Validate we have all required information
         if not accession_number:
