@@ -59,7 +59,6 @@ Successfully implemented Phase 5, Component 2 of the Aperilex project plan - a c
 - **Choice**: Extended existing API client with health endpoints
 - **Justification**: Real-time system monitoring enhances user confidence
 - **Implementation**: SystemHealth component with 30-second refresh intervals
-- **Files**: `src/api/health.ts`, `src/features/dashboard/SystemHealth.tsx`
 
 ### 5. Component Architecture
 - **Choice**: Feature-based organization with shared UI components
