@@ -2,7 +2,15 @@ import type { FC } from 'react'
 import { Button } from '@/components/ui/Button'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { FilingCard } from './FilingCard'
-import { ChevronLeft, ChevronRight, FileText, ExternalLink, Database, Zap, BarChart3 } from 'lucide-react'
+import {
+  ChevronLeft,
+  ChevronRight,
+  FileText,
+  ExternalLink,
+  Database,
+  Zap,
+  BarChart3,
+} from 'lucide-react'
 import { useFilingHasAnalysisByAccession } from '@/hooks/useFilingAnalysisStatus'
 import type { FilingResponse, FilingSearchResult, PaginatedResponse } from '@/api/types'
 

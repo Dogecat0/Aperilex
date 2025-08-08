@@ -76,8 +76,13 @@ export const FilingCard = React.forwardRef<HTMLDivElement, FilingCardProps>(
     const statusColor = getStatusColor(filing.processing_status)
 
     // Use frontend hook to check analysis status (workaround for backend issue)
-    const { data: analysisStatus, isLoading: analysisLoading } = useFilingHasAnalysis(filing.filing_id)
-    const hasAnalysis = analysisStatus?.hasAnalysis || filing.has_analysis || (filing.analyses_count && filing.analyses_count > 0)
+    const { data: analysisStatus, isLoading: analysisLoading } = useFilingHasAnalysis(
+      filing.filing_id
+    )
+    const hasAnalysis =
+      analysisStatus?.hasAnalysis ||
+      filing.has_analysis ||
+      (filing.analyses_count && filing.analyses_count > 0)
 
     const handleViewDetails = () => {
       if (onViewDetails) {

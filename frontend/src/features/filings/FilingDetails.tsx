@@ -1,11 +1,7 @@
 import React from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useAppStore } from '@/lib/store'
-import {
-  useFiling,
-  useFilingAnalysis,
-  useProgressiveFilingAnalysis,
-} from '@/hooks/useFiling'
+import { useFiling, useFilingAnalysis, useProgressiveFilingAnalysis } from '@/hooks/useFiling'
 import { FilingMetadata } from './components/FilingMetadata'
 import { FilingAnalysisSection } from './components/FilingAnalysisSection'
 import { Button } from '@/components/ui/Button'
@@ -34,11 +30,7 @@ export function FilingDetails() {
     enabled: !!accessionNumber,
   })
 
-  const {
-    analysisProgress,
-    startAnalysis,
-    isAnalyzing,
-  } = useProgressiveFilingAnalysis()
+  const { analysisProgress, startAnalysis, isAnalyzing } = useProgressiveFilingAnalysis()
 
   // Set breadcrumbs when filing data loads
   React.useEffect(() => {
