@@ -1,7 +1,7 @@
 At the end of this message, I will ask you to do something. Please follow the "Explore, Plan, Code, Test" workflow when you are in each phase and use relevant subagents to perform the tasks (Using defined or default agents depends on your choice after a thorough and hard think).
 
 # Explore
-First, use parallel subagents to find and read files that may be useful for implementing the task/ticket. 
+First, use parallel subagents to find and read files that may be useful for implementing the task/ticket.
 
 **IMPORTANT: You MUST use subagents to read ANY file during exploration. DO NOT read files directly in the main thread.**
 
@@ -13,7 +13,7 @@ First, use parallel subagents to find and read files that may be useful for impl
 
 Design specific tasks for each subagent based on what you need to understand. Give focused missions like:
 - "Extract authentication system interface and dependencies"
-- "Find repository patterns and method signatures" 
+- "Find repository patterns and method signatures"
 - "Identify domain layer error handling patterns"
 - "Map database schema for entities X, Y, Z"
 - "Extract configuration and environment patterns"
@@ -34,7 +34,7 @@ If there are things you are not sure about, use parallel subagents to do some on
 If there are things you still do not understand or questions you have for the user, pause here to ask them before continuing.
 
 # Code
-When you have a thorough implementation plan, you are ready to start writing code. Follow the style of the existing codebase (e.g. we prefer clearly named variables and methods to extensive comments). 
+When you have a thorough implementation plan, you are ready to start writing code. Follow the style of the existing codebase (e.g. we prefer clearly named variables and methods to extensive comments).
 
 **IMPORTANT: When writing code, always use subagents to edit files. Do not edit files directly in the main thread.**
 

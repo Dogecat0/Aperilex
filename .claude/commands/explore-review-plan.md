@@ -13,7 +13,7 @@ First, use parallel subagents to find and read files that may be useful for impl
 
 Design specific tasks for each subagent based on what you need to understand. Give focused missions like:
 - "Extract authentication system interface and dependencies"
-- "Find repository patterns and method signatures" 
+- "Find repository patterns and method signatures"
 - "Identify domain layer error handling patterns"
 - "Map database schema for entities X, Y, Z"
 - "Extract configuration and environment patterns"

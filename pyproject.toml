@@ -160,6 +160,10 @@ disable_error_code = ["import-untyped", "attr-defined", "call-arg", "arg-type", 
 module = "src.infrastructure.cache.*"
 disable_error_code = ["union-attr", "no-any-return", "misc"]
 
+[[tool.mypy.overrides]]
+module = "edgar.*"
+ignore_missing_imports = true
+
 [tool.pytest.ini_options]
 minversion = "6.0"
 addopts = "-ra -q --strict-markers --strict-config"

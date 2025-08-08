@@ -72,7 +72,7 @@ cd frontend && npm run build
 ### Unified Quality Execution:
 ```bash
 # Full-stack fast check (parallel execution)
-(poetry run mypy src/ && poetry run ruff check src/) & 
+(poetry run mypy src/ && poetry run ruff check src/) &
 (cd frontend && npm run typecheck && npm run lint) &
 wait
 
@@ -108,7 +108,7 @@ cd frontend && npm run format && npm run lint:fix
 For each quality execution:
 1. **Project Detection**: Automatically identify backend/frontend components
 2. **Parallel Execution**: Run stack-specific checks simultaneously for efficiency
-3. **Issue Categorization**: 
+3. **Issue Categorization**:
    - **Stack**: Backend (Python) vs Frontend (React/TypeScript)
    - **Severity**: Error, warning, style (per stack standards)
    - **Type**: Type safety, formatting, architecture, security, performance

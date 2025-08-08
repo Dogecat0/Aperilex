@@ -51,7 +51,7 @@ cd frontend && npm run test:visual
 ### Cross-Stack Testing Strategies:
 ```bash
 # Parallel execution for maximum efficiency
-(pytest tests/unit/ -m "not external_api" --cov=src) & 
+(pytest tests/unit/ -m "not external_api" --cov=src) &
 (cd frontend && npm run test:run) &
 wait
 

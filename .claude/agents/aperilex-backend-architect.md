@@ -28,7 +28,7 @@ class Filing:
     ticker: Ticker
     form_type: FilingType
     filing_date: date
-    
+
     def analyze_with_template(self, template: AnalysisTemplate) -> Analysis:
         # Domain logic here
 
