@@ -23,12 +23,12 @@
     "erasableSyntaxOnly": true,
     "noFallthroughCasesInSwitch": true,
     "noUncheckedSideEffectImports": true,
-    
+
     /* Additional strict checks */
     "noImplicitReturns": true,
     "noImplicitOverride": true,
     "forceConsistentCasingInFileNames": true,
-    
+
     /* Path aliases */
     "baseUrl": ".",
     "paths": {
