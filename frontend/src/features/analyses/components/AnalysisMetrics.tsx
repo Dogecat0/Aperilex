@@ -123,12 +123,13 @@ export function AnalysisMetrics({ analysis }: AnalysisMetricsProps) {
               </div>
               <div className="flex items-center gap-2">
                 <div
-                  className={`w-2 h-2 rounded-full ${analysis.processing_time_seconds < 30
-                    ? 'bg-success-500'
-                    : analysis.processing_time_seconds < 60
-                      ? 'bg-warning-500'
-                      : 'bg-error-500'
-                    }`}
+                  className={`w-2 h-2 rounded-full ${
+                    analysis.processing_time_seconds < 30
+                      ? 'bg-success-500'
+                      : analysis.processing_time_seconds < 60
+                        ? 'bg-warning-500'
+                        : 'bg-error-500'
+                  }`}
                 ></div>
                 <span className="text-sm text-gray-600">
                   {analysis.processing_time_seconds < 30
@@ -150,12 +151,13 @@ export function AnalysisMetrics({ analysis }: AnalysisMetricsProps) {
               </div>
               <div className="flex items-center gap-2">
                 <div
-                  className={`w-2 h-2 rounded-full ${analysis.sections_analyzed >= 5
-                    ? 'bg-success-500'
-                    : analysis.sections_analyzed >= 3
-                      ? 'bg-warning-500'
-                      : 'bg-error-500'
-                    }`}
+                  className={`w-2 h-2 rounded-full ${
+                    analysis.sections_analyzed >= 5
+                      ? 'bg-success-500'
+                      : analysis.sections_analyzed >= 3
+                        ? 'bg-warning-500'
+                        : 'bg-error-500'
+                  }`}
                 ></div>
                 <span className="text-sm text-gray-600">
                   {analysis.sections_analyzed >= 5
@@ -178,12 +180,13 @@ export function AnalysisMetrics({ analysis }: AnalysisMetricsProps) {
             <div className="flex items-center justify-between">
               <span className="text-sm font-medium text-gray-700">Overall Quality</span>
               <span
-                className={`text-sm font-medium ${analysis.confidence_score >= 0.8
-                  ? 'text-success-600'
-                  : analysis.confidence_score >= 0.6
-                    ? 'text-warning-600'
-                    : 'text-error-600'
-                  }`}
+                className={`text-sm font-medium ${
+                  analysis.confidence_score >= 0.8
+                    ? 'text-success-600'
+                    : analysis.confidence_score >= 0.6
+                      ? 'text-warning-600'
+                      : 'text-error-600'
+                }`}
               >
                 {analysis.confidence_score >= 0.8
                   ? 'Excellent'
@@ -195,12 +198,13 @@ export function AnalysisMetrics({ analysis }: AnalysisMetricsProps) {
 
             <div className="w-full bg-gray-200 rounded-full h-2">
               <div
-                className={`h-2 rounded-full transition-all duration-300 ${analysis.confidence_score >= 0.8
-                  ? 'bg-success-500'
-                  : analysis.confidence_score >= 0.6
-                    ? 'bg-warning-500'
-                    : 'bg-error-500'
-                  }`}
+                className={`h-2 rounded-full transition-all duration-300 ${
+                  analysis.confidence_score >= 0.8
+                    ? 'bg-success-500'
+                    : analysis.confidence_score >= 0.6
+                      ? 'bg-warning-500'
+                      : 'bg-error-500'
+                }`}
                 style={{ width: `${(analysis.confidence_score || 0) * 100}%` }}
               ></div>
             </div>

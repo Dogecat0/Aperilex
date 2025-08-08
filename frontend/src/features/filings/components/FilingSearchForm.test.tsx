@@ -2,8 +2,8 @@ import React from 'react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@/test/utils'
 import { FilingSearchForm } from './FilingSearchForm'
-import type { FilingSearchParams } from '@/api/filings'
-import type { EdgarSearchParams } from '@/api/types'
+// import type { FilingSearchParams } from '@/api/filings'
+// import type { EdgarSearchParams } from '@/api/types'
 
 describe('FilingSearchForm', () => {
   const mockOnSearch = vi.fn()

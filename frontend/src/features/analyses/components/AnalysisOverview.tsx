@@ -28,8 +28,8 @@ export function AnalysisOverview({
   // Check if this is a comprehensive analysis with section_analyses
   const hasComprehensiveResults = Boolean(
     comprehensiveData &&
-    'section_analyses' in comprehensiveData &&
-    Array.isArray(comprehensiveData.section_analyses)
+      'section_analyses' in comprehensiveData &&
+      Array.isArray(comprehensiveData.section_analyses)
   )
 
   const getAnalysisTypeLabel = (type: string) => {
@@ -45,26 +45,26 @@ export function AnalysisOverview({
   // Extract base analysis props for backward compatibility
   const baseAnalysis: AnalysisResponse = hasComprehensiveResults
     ? {
-      analysis_id: (analysis as any).analysis_id || '',
-      filing_id: (analysis as any).filing_id || '',
-      analysis_type: (analysis as any).analysis_type || 'COMPREHENSIVE',
-      created_by: (analysis as any).created_by || null,
-      created_at: (analysis as any).created_at || new Date().toISOString(),
-      confidence_score: comprehensiveData?.confidence_score || null,
-      llm_provider: (analysis as any).llm_provider || null,
-      llm_model: (analysis as any).llm_model || null,
-      processing_time_seconds: comprehensiveData?.total_processing_time_ms
-        ? Math.round(comprehensiveData.total_processing_time_ms / 1000)
-        : null,
-      sections_analyzed: comprehensiveData?.total_sections_analyzed || null,
-      key_insights: comprehensiveData?.key_insights || [],
-      risk_factors: comprehensiveData?.risk_factors || [],
-      opportunities: comprehensiveData?.opportunities || [],
-      financial_highlights: comprehensiveData?.financial_highlights || [],
-      executive_summary: comprehensiveData?.executive_summary,
-      filing_summary: comprehensiveData?.filing_summary,
-      full_results: comprehensiveData,
-    }
+        analysis_id: (analysis as any).analysis_id || '',
+        filing_id: (analysis as any).filing_id || '',
+        analysis_type: (analysis as any).analysis_type || 'COMPREHENSIVE',
+        created_by: (analysis as any).created_by || null,
+        created_at: (analysis as any).created_at || new Date().toISOString(),
+        confidence_score: comprehensiveData?.confidence_score || null,
+        llm_provider: (analysis as any).llm_provider || null,
+        llm_model: (analysis as any).llm_model || null,
+        processing_time_seconds: comprehensiveData?.total_processing_time_ms
+          ? Math.round(comprehensiveData.total_processing_time_ms / 1000)
+          : null,
+        sections_analyzed: comprehensiveData?.total_sections_analyzed || null,
+        key_insights: comprehensiveData?.key_insights || [],
+        risk_factors: comprehensiveData?.risk_factors || [],
+        opportunities: comprehensiveData?.opportunities || [],
+        financial_highlights: comprehensiveData?.financial_highlights || [],
+        executive_summary: comprehensiveData?.executive_summary,
+        filing_summary: comprehensiveData?.filing_summary,
+        full_results: comprehensiveData,
+      }
     : (analysis as AnalysisResponse)
 
   return (
