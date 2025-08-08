@@ -14,8 +14,8 @@ vi.mock('./RiskFactorCard', () => ({
   RiskFactorCard: vi.fn(() => <div data-testid="risk-factor-card">Risk Factor Card</div>),
 }))
 
-vi.mock('./EnhancedSectionHeader', () => ({
-  EnhancedSectionHeader: vi.fn(({ title, onToggle, isExpanded }) => (
+vi.mock('./SectionHeader', () => ({
+  SectionHeader: vi.fn(({ title, onToggle, isExpanded }) => (
     <div data-testid="enhanced-section-header">
       <h3>{title}</h3>
       <button onClick={onToggle} data-testid="toggle-button">

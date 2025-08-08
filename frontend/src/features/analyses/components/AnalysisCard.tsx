@@ -28,22 +28,26 @@ export function AnalysisCard({ analysis }: AnalysisCardProps) {
     const configs = {
       COMPREHENSIVE: {
         label: 'Comprehensive',
-        color: 'bg-primary-100 text-primary-800 border-primary-200',
+        color:
+          'bg-primary/10 text-primary border-primary/20 dark:bg-primary/20 dark:text-primary dark:border-primary/30',
         icon: Target,
       },
       FINANCIAL_FOCUSED: {
         label: 'Financial',
-        color: 'bg-success-100 text-success-800 border-success-200',
+        color:
+          'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-500/20 dark:text-emerald-400 dark:border-emerald-500/30',
         icon: TrendingUp,
       },
       RISK_FOCUSED: {
         label: 'Risk',
-        color: 'bg-error-100 text-error-800 border-error-200',
+        color:
+          'bg-red-50 text-red-700 border-red-200 dark:bg-red-500/20 dark:text-red-400 dark:border-red-500/30',
         icon: AlertTriangle,
       },
       BUSINESS_FOCUSED: {
         label: 'Business',
-        color: 'bg-teal-100 text-teal-800 border-teal-200',
+        color:
+          'bg-teal-50 text-teal-700 border-teal-200 dark:bg-teal-500/20 dark:text-teal-400 dark:border-teal-500/30',
         icon: Brain,
       },
     }
@@ -56,7 +60,7 @@ export function AnalysisCard({ analysis }: AnalysisCardProps) {
   return (
     <Link
       to={`/analyses/${analysis.analysis_id}`}
-      className="block bg-white rounded-lg border border-gray-200 shadow-sm hover:shadow-md hover:border-primary-200 transition-all duration-200 group"
+      className="block bg-card rounded-lg border border-border shadow-sm hover:shadow-md hover:border-primary/30 transition-all duration-200 group dark:bg-card dark:border-border dark:hover:border-primary/30"
     >
       <div className="p-6">
         {/* Header */}
@@ -75,7 +79,7 @@ export function AnalysisCard({ analysis }: AnalysisCardProps) {
         {/* Content Preview */}
         <div className="mb-4">
           {analysis.executive_summary && (
-            <p className="text-gray-700 text-sm leading-relaxed line-clamp-3 mb-3">
+            <p className="text-foreground/80 text-sm leading-relaxed line-clamp-3 mb-3 dark:text-foreground/80">
               {analysis.executive_summary}
             </p>
           )}
@@ -83,13 +87,13 @@ export function AnalysisCard({ analysis }: AnalysisCardProps) {
           {/* Key Metrics */}
           <div className="flex flex-wrap gap-2 mb-3">
             {analysis.sections_analyzed && (
-              <div className="inline-flex items-center gap-1 text-xs text-gray-600">
+              <div className="inline-flex items-center gap-1 text-xs text-muted-foreground">
                 <Target className="h-3 w-3" />
                 <span>{analysis.sections_analyzed} sections</span>
               </div>
             )}
             {analysis.key_insights && analysis.key_insights.length > 0 && (
-              <div className="inline-flex items-center gap-1 text-xs text-gray-600">
+              <div className="inline-flex items-center gap-1 text-xs text-muted-foreground">
                 <Brain className="h-3 w-3" />
                 <span>{analysis.key_insights.length} insights</span>
               </div>
@@ -100,13 +104,13 @@ export function AnalysisCard({ analysis }: AnalysisCardProps) {
           {analysis.key_insights && analysis.key_insights.length > 0 && (
             <div className="space-y-1">
               {analysis.key_insights.slice(0, 2).map((insight, index) => (
-                <div key={index} className="flex gap-2 text-xs text-gray-600">
-                  <div className="w-1 h-1 bg-primary-500 rounded-full mt-1.5 flex-shrink-0"></div>
+                <div key={index} className="flex gap-2 text-xs text-muted-foreground">
+                  <div className="w-1 h-1 bg-primary rounded-full mt-1.5 flex-shrink-0"></div>
                   <span className="line-clamp-1">{insight}</span>
                 </div>
               ))}
               {analysis.key_insights.length > 2 && (
-                <div className="text-xs text-gray-500 pl-3">
+                <div className="text-xs text-muted-foreground/70 pl-3">
                   +{analysis.key_insights.length - 2} more insights
                 </div>
               )}
@@ -115,7 +119,7 @@ export function AnalysisCard({ analysis }: AnalysisCardProps) {
         </div>
 
         {/* Metadata Footer */}
-        <div className="flex items-center justify-between text-xs text-gray-500 pt-4 border-t border-gray-100">
+        <div className="flex items-center justify-between text-xs text-muted-foreground pt-4 border-t border-border/50">
           <div className="flex items-center gap-3">
             <div className="flex items-center gap-1">
               <Calendar className="h-3 w-3" />
@@ -128,12 +132,12 @@ export function AnalysisCard({ analysis }: AnalysisCardProps) {
               </div>
             )}
           </div>
-          <ChevronRight className="h-4 w-4 text-gray-400 group-hover:text-primary-500 transition-colors" />
+          <ChevronRight className="h-4 w-4 text-muted-foreground/50 group-hover:text-primary transition-colors" />
         </div>
 
         {/* LLM Model Badge */}
         {analysis.llm_model && (
-          <div className="mt-2 inline-flex items-center px-2 py-1 bg-gray-100 text-gray-700 text-xs rounded">
+          <div className="mt-2 inline-flex items-center px-2 py-1 bg-muted text-muted-foreground text-xs rounded">
             <Brain className="h-3 w-3 mr-1" />
             {analysis.llm_model}
           </div>

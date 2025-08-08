@@ -32,7 +32,7 @@ interface QuickAction {
   disabled?: boolean
 }
 
-interface EnhancedSectionHeaderProps {
+interface SectionHeaderProps {
   title: string
   subtitle?: string
   analysisType?: AnalysisType
@@ -50,7 +50,7 @@ interface EnhancedSectionHeaderProps {
   className?: string
 }
 
-export function EnhancedSectionHeader({
+export function SectionHeader({
   title,
   subtitle,
   analysisType = 'default',
@@ -60,7 +60,7 @@ export function EnhancedSectionHeader({
   metadata,
   quickActions,
   className = '',
-}: EnhancedSectionHeaderProps) {
+}: SectionHeaderProps) {
   const [isHovered, setIsHovered] = useState(false)
 
   // Get gradient and color schemes based on analysis type

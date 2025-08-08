@@ -1,52 +1,48 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { describe, it, expect, vi } from 'vitest'
 import { Download, Share, Settings } from 'lucide-react'
-import {
-  EnhancedSectionHeader,
-  getAnalysisType,
-  extractSectionMetadata,
-} from './EnhancedSectionHeader'
+import { SectionHeader, getAnalysisType, extractSectionMetadata } from './SectionHeader'
 
-describe('EnhancedSectionHeader', () => {
+describe('SectionHeader', () => {
   it('renders basic header with title', () => {
-    render(<EnhancedSectionHeader title="Test Section" />)
+    render(<SectionHeader title="Test Section" />)
     expect(screen.getByText('Test Section')).toBeInTheDocument()
   })
 
   it('renders subtitle when provided', () => {
-    render(<EnhancedSectionHeader title="Test Section" subtitle="This is a test subtitle" />)
+    render(<SectionHeader title="Test Section" subtitle="This is a test subtitle" />)
     expect(screen.getByText('This is a test subtitle')).toBeInTheDocument()
   })
 
   it('applies different gradient themes for each analysis type', () => {
     const { container, rerender } = render(
-      <EnhancedSectionHeader title="Financial" analysisType="financial" />
+      <SectionHeader title="Financial" analysisType="financial" />
     )
     // Check for the gradient classes in the header container
     const headerContainer = container.querySelector('[class*="bg-gradient-to-r"]')
     expect(headerContainer).toHaveClass('bg-gradient-to-r', 'from-blue-500')
 
-    rerender(<EnhancedSectionHeader title="Risk" analysisType="risk" />)
+    rerender(<SectionHeader title="Risk" analysisType="risk" />)
     const riskHeaderContainer = container.querySelector('[class*="bg-gradient-to-r"]')
     expect(riskHeaderContainer).toHaveClass('bg-gradient-to-r', 'from-red-500')
 
-    rerender(<EnhancedSectionHeader title="Business" analysisType="business" />)
+    rerender(<SectionHeader title="Business" analysisType="business" />)
     const businessHeaderContainer = container.querySelector('[class*="bg-gradient-to-r"]')
     expect(businessHeaderContainer).toHaveClass('bg-gradient-to-r', 'from-teal-500')
 
-    rerender(<EnhancedSectionHeader title="Default" analysisType="default" />)
+    rerender(<SectionHeader title="Default" analysisType="default" />)
     const defaultHeaderContainer = container.querySelector('[class*="bg-gradient-to-r"]')
     expect(defaultHeaderContainer).toHaveClass('bg-gradient-to-r', 'from-gray-500')
   })
 
   it('renders different sizes correctly', () => {
-    const { rerender } = render(<EnhancedSectionHeader title="Small" size="sm" />)
+    const { rerender } = render(<SectionHeader title="Small" size="sm" />)
     expect(screen.getByText('Small')).toHaveClass('text-sm', 'font-semibold')
 
-    rerender(<EnhancedSectionHeader title="Medium" size="md" />)
+    rerender(<SectionHeader title="Medium" size="md" />)
     expect(screen.getByText('Medium')).toHaveClass('text-lg', 'font-semibold')
 
-    rerender(<EnhancedSectionHeader title="Large" size="lg" />)
+    rerender(<SectionHeader title="Large" size="lg" />)
     expect(screen.getByText('Large')).toHaveClass('text-xl', 'font-bold')
   })
 
@@ -58,7 +54,7 @@ describe('EnhancedSectionHeader', () => {
       totalSections: 15,
     }
 
-    render(<EnhancedSectionHeader title="Test" metadata={metadata} />)
+    render(<SectionHeader title="Test" metadata={metadata} />)
 
     expect(screen.getByText('3s')).toBeInTheDocument() // Processing time
     expect(screen.getByText('5 sections')).toBeInTheDocument()
@@ -68,7 +64,7 @@ describe('EnhancedSectionHeader', () => {
   it('renders confidence indicator when confidence is provided', () => {
     const metadata = { confidence: 0.75 }
 
-    render(<EnhancedSectionHeader title="Test" metadata={metadata} />)
+    render(<SectionHeader title="Test" metadata={metadata} />)
 
     expect(screen.getByText('75%')).toBeInTheDocument()
   })
@@ -76,7 +72,7 @@ describe('EnhancedSectionHeader', () => {
   it('handles expand/collapse toggle', () => {
     const mockToggle = vi.fn()
 
-    render(<EnhancedSectionHeader title="Test" isExpanded={false} onToggle={mockToggle} />)
+    render(<SectionHeader title="Test" isExpanded={false} onToggle={mockToggle} />)
 
     const toggleButton = screen.getByTitle('Expand section')
     fireEvent.click(toggleButton)
@@ -86,12 +82,12 @@ describe('EnhancedSectionHeader', () => {
 
   it('shows different chevron icons based on expanded state', () => {
     const { rerender } = render(
-      <EnhancedSectionHeader title="Test" isExpanded={false} onToggle={() => {}} />
+      <SectionHeader title="Test" isExpanded={false} onToggle={() => {}} />
     )
 
     expect(screen.getByTitle('Expand section')).toBeInTheDocument()
 
-    rerender(<EnhancedSectionHeader title="Test" isExpanded={true} onToggle={() => {}} />)
+    rerender(<SectionHeader title="Test" isExpanded={true} onToggle={() => {}} />)
 
     expect(screen.getByTitle('Collapse section')).toBeInTheDocument()
   })
@@ -101,7 +97,7 @@ describe('EnhancedSectionHeader', () => {
     const mockShare = vi.fn()
 
     render(
-      <EnhancedSectionHeader
+      <SectionHeader
         title="Test"
         quickActions={{
           showExport: true,
@@ -132,7 +128,7 @@ describe('EnhancedSectionHeader', () => {
       },
     ]
 
-    render(<EnhancedSectionHeader title="Test" quickActions={{ customActions }} />)
+    render(<SectionHeader title="Test" quickActions={{ customActions }} />)
 
     const settingsButton = screen.getByTitle('Settings')
     fireEvent.click(settingsButton)
@@ -151,7 +147,7 @@ describe('EnhancedSectionHeader', () => {
       },
     ]
 
-    render(<EnhancedSectionHeader title="Test" quickActions={{ customActions }} />)
+    render(<SectionHeader title="Test" quickActions={{ customActions }} />)
 
     const disabledButton = screen.getByTitle('Disabled Action')
     expect(disabledButton).toBeDisabled()
@@ -167,7 +163,7 @@ describe('EnhancedSectionHeader', () => {
       confidence: 0.9,
     }
 
-    render(<EnhancedSectionHeader title="Test" metadata={metadata} analysisType="financial" />)
+    render(<SectionHeader title="Test" metadata={metadata} analysisType="financial" />)
 
     expect(screen.getByText('3 sub-sections analyzed')).toBeInTheDocument()
     expect(screen.getByText('10 data points extracted')).toBeInTheDocument()
@@ -175,7 +171,7 @@ describe('EnhancedSectionHeader', () => {
   })
 
   it('applies hover effects correctly', async () => {
-    const { container } = render(<EnhancedSectionHeader title="Test" analysisType="financial" />)
+    const { container } = render(<SectionHeader title="Test" analysisType="financial" />)
 
     const headerElement =
       container.querySelector('[data-testid]') || (container.firstChild as HTMLElement)
@@ -194,18 +190,16 @@ describe('EnhancedSectionHeader', () => {
   })
 
   it('applies custom className', () => {
-    const { container } = render(<EnhancedSectionHeader title="Test" className="custom-class" />)
+    const { container } = render(<SectionHeader title="Test" className="custom-class" />)
 
     expect(container.firstChild).toHaveClass('custom-class')
   })
 
   it('formats processing time correctly', () => {
-    const { rerender } = render(
-      <EnhancedSectionHeader title="Test" metadata={{ processingTimeMs: 500 }} />
-    )
+    const { rerender } = render(<SectionHeader title="Test" metadata={{ processingTimeMs: 500 }} />)
     expect(screen.getByText('500ms')).toBeInTheDocument()
 
-    rerender(<EnhancedSectionHeader title="Test" metadata={{ processingTimeMs: 2500 }} />)
+    rerender(<SectionHeader title="Test" metadata={{ processingTimeMs: 2500 }} />)
     expect(screen.getByText('3s')).toBeInTheDocument()
   })
 })

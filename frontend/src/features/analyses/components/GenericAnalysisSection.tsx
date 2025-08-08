@@ -16,11 +16,7 @@ import {
 } from 'lucide-react'
 import { RiskFactorList } from './RiskFactorCard'
 import { FinancialMetricsGrid } from './FinancialMetricsGrid'
-import {
-  EnhancedSectionHeader,
-  getAnalysisType,
-  extractSectionMetadata,
-} from './EnhancedSectionHeader'
+import { SectionHeader, getAnalysisType, extractSectionMetadata } from './SectionHeader'
 import { AnalysisSummaryCard } from '@/components/analysis/AnalysisSummaryCard'
 import { Button } from '@/components/ui/Button'
 import {
@@ -182,7 +178,7 @@ export function GenericAnalysisSection({
     return (
       <div className={`space-y-6 ${className}`}>
         {/* Enhanced Section Header */}
-        <EnhancedSectionHeader
+        <SectionHeader
           title={formatKey(schemaType.replace(/([A-Z])/g, ' $1').trim())}
           subtitle="Specialized analysis view with enhanced visualizations"
           analysisType={analysisType}
@@ -237,7 +233,7 @@ export function GenericAnalysisSection({
   return (
     <div className={`space-y-6 ${className}`}>
       {/* Enhanced Section Header */}
-      <EnhancedSectionHeader
+      <SectionHeader
         title={formatKey(schemaType.replace(/([A-Z])/g, ' $1').trim())}
         subtitle={`Analysis contains ${processedData.totalSections} data point${processedData.totalSections !== 1 ? 's' : ''}`}
         analysisType={analysisType}

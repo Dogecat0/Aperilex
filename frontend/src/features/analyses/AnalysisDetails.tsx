@@ -15,7 +15,7 @@ import { useFilingAnalysis, useFiling, useFilingById } from '@/hooks/useFiling'
 import { Button } from '@/components/ui/Button'
 import { AnalysisViewer } from './components/AnalysisViewer'
 import { SectionResults } from './components/SectionResults'
-import { EnhancedAnalysisOverview } from './components/EnhancedAnalysisOverview'
+import { AnalysisOverview } from './components/AnalysisOverview'
 import { MetricsVisualization } from '@/components/analysis/MetricsVisualization'
 import { InsightGroup } from '@/components/analysis/InsightHighlight'
 import type { AnalysisResponse, ComprehensiveAnalysisResponse } from '@/api/types'
@@ -68,9 +68,9 @@ export function AnalysisDetails() {
   if (!identifier) {
     return (
       <div className="p-6">
-        <div className="bg-error-50 border border-error-200 rounded-lg p-4">
-          <h3 className="text-error-800 font-medium">Invalid Analysis ID</h3>
-          <p className="text-error-600 text-sm mt-1">
+        <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-4">
+          <h3 className="text-destructive font-medium">Invalid Analysis ID</h3>
+          <p className="text-destructive/80 text-sm mt-1">
             The analysis ID or accession number is missing from the URL.
           </p>
         </div>
@@ -81,14 +81,14 @@ export function AnalysisDetails() {
   if (error) {
     return (
       <div className="p-6">
-        <div className="bg-error-50 border border-error-200 rounded-lg p-4">
-          <h3 className="text-error-800 font-medium">Error loading analysis</h3>
-          <p className="text-error-600 text-sm mt-1">
+        <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-4">
+          <h3 className="text-destructive font-medium">Error loading analysis</h3>
+          <p className="text-destructive/80 text-sm mt-1">
             {error instanceof Error ? error.message : 'An unexpected error occurred'}
           </p>
           <Link
             to="/analyses"
-            className="text-primary-600 hover:text-primary-800 text-sm font-medium mt-2 inline-block"
+            className="text-primary hover:text-primary/80 text-sm font-medium mt-2 inline-block"
           >
             ← Back to analyses
           </Link>
@@ -102,29 +102,32 @@ export function AnalysisDetails() {
       <div className="space-y-4">
         {/* Header Skeleton */}
         <div className="animate-pulse mb-8">
-          <div className="h-4 bg-gray-200 rounded w-32 mb-4"></div>
-          <div className="h-8 bg-gray-200 rounded w-96 mb-2"></div>
-          <div className="h-4 bg-gray-200 rounded w-64"></div>
+          <div className="h-4 bg-muted rounded w-32 mb-4"></div>
+          <div className="h-8 bg-muted rounded w-96 mb-2"></div>
+          <div className="h-4 bg-muted rounded w-64"></div>
         </div>
 
         {/* Content Skeleton */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           <div className="lg:col-span-2 space-y-6">
             {Array.from({ length: 4 }).map((_, i) => (
-              <div key={i} className="bg-white rounded-lg border shadow-sm p-6 animate-pulse">
-                <div className="h-6 bg-gray-200 rounded mb-4"></div>
+              <div
+                key={i}
+                className="bg-card rounded-lg border border-border shadow-sm p-6 animate-pulse"
+              >
+                <div className="h-6 bg-muted rounded mb-4"></div>
                 <div className="space-y-2">
-                  <div className="h-4 bg-gray-200 rounded"></div>
-                  <div className="h-4 bg-gray-200 rounded w-3/4"></div>
-                  <div className="h-4 bg-gray-200 rounded w-1/2"></div>
+                  <div className="h-4 bg-muted rounded"></div>
+                  <div className="h-4 bg-muted rounded w-3/4"></div>
+                  <div className="h-4 bg-muted rounded w-1/2"></div>
                 </div>
               </div>
             ))}
           </div>
           <div className="space-y-6">
-            <div className="bg-white rounded-lg border shadow-sm p-6 animate-pulse">
-              <div className="h-6 bg-gray-200 rounded mb-4"></div>
-              <div className="h-32 bg-gray-200 rounded"></div>
+            <div className="bg-card rounded-lg border border-border shadow-sm p-6 animate-pulse">
+              <div className="h-6 bg-muted rounded mb-4"></div>
+              <div className="h-32 bg-muted rounded"></div>
             </div>
           </div>
         </div>
@@ -135,14 +138,14 @@ export function AnalysisDetails() {
   if (!analysis) {
     return (
       <div className="p-6">
-        <div className="bg-warning-50 border border-warning-200 rounded-lg p-4">
-          <h3 className="text-warning-800 font-medium">Analysis not found</h3>
-          <p className="text-warning-600 text-sm mt-1">
+        <div className="bg-yellow-50 dark:bg-yellow-950 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4">
+          <h3 className="text-yellow-800 dark:text-yellow-200 font-medium">Analysis not found</h3>
+          <p className="text-yellow-600 dark:text-yellow-300 text-sm mt-1">
             The requested analysis could not be found.
           </p>
           <Link
             to="/analyses"
-            className="text-primary-600 hover:text-primary-800 text-sm font-medium mt-2 inline-block"
+            className="text-primary hover:text-primary/80 text-sm font-medium mt-2 inline-block"
           >
             ← Back to analyses
           </Link>
@@ -155,8 +158,8 @@ export function AnalysisDetails() {
   const comprehensiveAnalysis = analysis.full_results as ComprehensiveAnalysisResponse | undefined
   const hasComprehensiveResults = Boolean(
     comprehensiveAnalysis &&
-      'section_analyses' in comprehensiveAnalysis &&
-      Array.isArray(comprehensiveAnalysis.section_analyses)
+    'section_analyses' in comprehensiveAnalysis &&
+    Array.isArray(comprehensiveAnalysis.section_analyses)
   )
   const hasLegacyResults = Boolean(analysis.full_results && !hasComprehensiveResults)
 
@@ -241,29 +244,29 @@ export function AnalysisDetails() {
   return (
     <div className="space-y-4">
       {/* Breadcrumb */}
-      <nav className="flex items-center space-x-2 text-sm text-gray-500 mb-6">
-        <Link to="/analyses" className="hover:text-primary-600 flex items-center gap-1">
+      <nav className="flex items-center space-x-2 text-sm text-muted-foreground mb-6">
+        <Link to="/analyses" className="hover:text-primary flex items-center gap-1">
           <ArrowLeft className="h-4 w-4" />
           Analyses
         </Link>
         <span>/</span>
-        <span className="text-gray-900 font-medium">Analysis Details</span>
+        <span className="text-foreground font-medium">Analysis Details</span>
       </nav>
 
       {/* Header */}
-      <div className="bg-white rounded-lg border shadow-sm p-6 mb-8">
+      <div className="bg-card rounded-lg border border-border shadow-sm p-6 mb-8">
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
           <div className="flex-1">
             <div className="flex items-center gap-3 mb-2">
-              <FileText className="h-6 w-6 text-blue-600" />
-              <h1 className="text-2xl font-bold text-gray-900">
+              <FileText className="h-6 w-6 text-blue-600 dark:text-blue-400" />
+              <h1 className="text-2xl font-bold text-foreground">
                 {comprehensiveAnalysis?.company_name || 'Unknown Company'} -{' '}
                 {comprehensiveAnalysis?.filing_type
                   ? getFilingTypeLabel(comprehensiveAnalysis.filing_type)
                   : 'Filing Analysis'}
               </h1>
             </div>
-            <div className="flex flex-wrap items-center gap-4 text-sm text-gray-600">
+            <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
               {/* Filing Date with loading state */}
               {(() => {
                 const filingDate = getFilingDate()
@@ -271,7 +274,7 @@ export function AnalysisDetails() {
                   return (
                     <div className="flex items-center gap-1">
                       <Calendar className="h-4 w-4" />
-                      <span className="animate-pulse bg-gray-200 rounded w-24 h-4"></span>
+                      <span className="animate-pulse bg-muted rounded w-24 h-4"></span>
                     </div>
                   )
                 }
@@ -310,7 +313,7 @@ export function AnalysisDetails() {
 
       {/* Analysis Overview Section */}
       {analysis && (
-        <EnhancedAnalysisOverview
+        <AnalysisOverview
           analysis={analysis}
           comprehensiveAnalysis={comprehensiveAnalysis}
           overviewMetrics={overviewMetrics}
@@ -322,36 +325,36 @@ export function AnalysisDetails() {
         <div className="lg:col-span-2 space-y-6">
           {/* Executive Summary */}
           {analysis.executive_summary && (
-            <div className="bg-white rounded-lg border shadow-sm p-6">
+            <div className="bg-card rounded-lg border border-border shadow-sm p-6">
               <div className="flex items-center gap-2 mb-4">
-                <Target className="h-5 w-5 text-primary-600" />
-                <h2 className="text-xl font-semibold text-gray-900">Executive Summary</h2>
+                <Target className="h-5 w-5 text-primary" />
+                <h2 className="text-xl font-semibold text-foreground">Executive Summary</h2>
               </div>
               <div className="prose prose-gray max-w-none">
-                <p className="text-gray-700 leading-relaxed">{analysis.executive_summary}</p>
+                <p className="text-foreground/80 leading-relaxed">{analysis.executive_summary}</p>
               </div>
             </div>
           )}
 
           {/* Filing Summary */}
           {analysis.filing_summary && (
-            <div className="bg-white rounded-lg border shadow-sm p-6">
+            <div className="bg-card rounded-lg border border-border shadow-sm p-6">
               <div className="flex items-center gap-2 mb-4">
-                <Building className="h-5 w-5 text-primary-600" />
-                <h2 className="text-xl font-semibold text-gray-900">Filing Summary</h2>
+                <Building className="h-5 w-5 text-primary" />
+                <h2 className="text-xl font-semibold text-foreground">Filing Summary</h2>
               </div>
               <div className="prose prose-gray max-w-none">
-                <p className="text-gray-700 leading-relaxed">{analysis.filing_summary}</p>
+                <p className="text-foreground/80 leading-relaxed">{analysis.filing_summary}</p>
               </div>
             </div>
           )}
 
-          {/* Enhanced Key Insights */}
+          {/* Key Insights */}
           {analysis.key_insights && analysis.key_insights.length > 0 && (
-            <div className="bg-white rounded-lg border shadow-sm p-6">
+            <div className="bg-card rounded-lg border border-border shadow-sm p-6">
               <div className="flex items-center gap-2 mb-4">
-                <Lightbulb className="h-5 w-5 text-amber-600" />
-                <h2 className="text-xl font-semibold text-gray-900">Key Insights</h2>
+                <Lightbulb className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+                <h2 className="text-xl font-semibold text-foreground">Key Insights</h2>
               </div>
               <InsightGroup
                 insights={analysis.key_insights.map((insight, index) => ({
@@ -383,7 +386,7 @@ export function AnalysisDetails() {
         <div className="space-y-6">
           {/* Financial Highlights */}
           {analysis.financial_highlights && analysis.financial_highlights.length > 0 && (
-            <div className="bg-white rounded-lg border shadow-sm p-6">
+            <div className="bg-card rounded-lg border border-border shadow-sm p-6">
               <InsightGroup
                 insights={analysis.financial_highlights.map((highlight, index) => ({
                   text: highlight,
@@ -398,7 +401,7 @@ export function AnalysisDetails() {
 
               {/* Quick financial metrics visualization if we have comprehensive data */}
               {hasComprehensiveResults && comprehensiveAnalysis && (
-                <div className="mt-4 pt-4 border-t border-gray-200">
+                <div className="mt-4 pt-4 border-t border-border">
                   <MetricsVisualization
                     title="Financial Sentiment Trends"
                     data={comprehensiveAnalysis.section_analyses
@@ -417,6 +420,12 @@ export function AnalysisDetails() {
                             : section.overall_sentiment < 0.4
                               ? ('down' as const)
                               : ('stable' as const),
+                        color:
+                          section.overall_sentiment > 0.6
+                            ? '#22c55e' // success green
+                            : section.overall_sentiment < 0.4
+                              ? '#ef4444' // destructive red
+                              : '#f59e0b', // warning amber
                       }))}
                     chartType="bar"
                     dataType="percentage"
@@ -431,7 +440,7 @@ export function AnalysisDetails() {
 
           {/* Risk Factors */}
           {analysis.risk_factors && analysis.risk_factors.length > 0 && (
-            <div className="bg-white rounded-lg border shadow-sm p-6">
+            <div className="bg-card rounded-lg border border-border shadow-sm p-6">
               <InsightGroup
                 insights={analysis.risk_factors.map((risk, index) => ({
                   text: risk,
@@ -451,7 +460,7 @@ export function AnalysisDetails() {
 
               {/* Risk severity distribution if we have comprehensive data */}
               {hasComprehensiveResults && comprehensiveAnalysis && (
-                <div className="mt-4 pt-4 border-t border-gray-200">
+                <div className="mt-4 pt-4 border-t border-border">
                   <MetricsVisualization
                     title="Risk Assessment Distribution"
                     data={comprehensiveAnalysis.section_analyses
@@ -480,7 +489,7 @@ export function AnalysisDetails() {
 
           {/* Opportunities */}
           {analysis.opportunities && analysis.opportunities.length > 0 && (
-            <div className="bg-white rounded-lg border shadow-sm p-6">
+            <div className="bg-card rounded-lg border border-border shadow-sm p-6">
               <InsightGroup
                 insights={analysis.opportunities.map((opportunity, index) => ({
                   text: opportunity,
@@ -497,7 +506,7 @@ export function AnalysisDetails() {
               {hasComprehensiveResults &&
                 comprehensiveAnalysis &&
                 analysis.opportunities.length > 0 && (
-                  <div className="mt-4 pt-4 border-t border-gray-200">
+                  <div className="mt-4 pt-4 border-t border-border">
                     <MetricsVisualization
                       title="Opportunity Potential"
                       data={[
