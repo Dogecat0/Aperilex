@@ -133,6 +133,9 @@ class AnalysisOrchestrator:
             AnalysisProcessingError: If LLM analysis fails
             AnalysisOrchestrationError: For other orchestration failures
         """
+        # Initialize filing variable to prevent UnboundLocalError in exception handlers
+        filing = None
+        
         try:
             # Validate command first to ensure required fields are present
             command.validate()
@@ -291,11 +294,13 @@ class AnalysisOrchestrator:
 
         except (FilingAccessError, AnalysisProcessingError) as e:
             # Handle filing status rollback for known exceptions
-            await self._rollback_filing_status_on_failure(filing, str(e))
+            if filing is not None:
+                await self._rollback_filing_status_on_failure(filing, str(e))
             raise
         except Exception as e:
             # Handle filing status rollback for unexpected exceptions
-            await self._rollback_filing_status_on_failure(filing, str(e))
+            if filing is not None:
+                await self._rollback_filing_status_on_failure(filing, str(e))
             logger.error(f"Unexpected orchestration error: {str(e)}", exc_info=True)
             raise AnalysisOrchestrationError(
                 f"Analysis orchestration failed: {str(e)}"
