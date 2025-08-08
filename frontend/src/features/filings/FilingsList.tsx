@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useAppStore } from '@/lib/store'
 import { useFilingSearch, useEdgarSearch, useFilingAnalyzeMutation } from '@/hooks/useFiling'
 import { FilingSearchForm, FilingSearchResults } from './components'
-import { FileText, Search } from 'lucide-react'
+import { Search } from 'lucide-react'
 import type { FilingSearchParams } from '@/api/filings'
 import type { CompanyResponse, EdgarSearchParams } from '@/api/types'
 
@@ -109,7 +109,6 @@ export function FilingsList(_props: FilingsListProps) {
       {/* Page Header */}
       <div className="space-y-2">
         <h1 className="text-3xl font-bold flex items-center space-x-2">
-          <FileText className="w-8 h-8" />
           <span>SEC Filing Search</span>
         </h1>
         <p className="text-muted-foreground">
