@@ -15,7 +15,8 @@
     "generate:types": "openapi-typescript http://localhost:8000/openapi.json -o src/api/generated-types.ts",
     "test": "vitest",
     "test:ui": "vitest --ui",
-    "test:run": "vitest run",
+    "test:run": "vitest run --silent passed-only",
+    "test:list-fail": "vitest run --reporter=verbose 2>&1 | grep -E \"FAIL|✓|✗\"",
     "test:watch": "vitest --watch",
     "test:coverage": "vitest run --coverage",
     "test:coverage:open": "vitest run --coverage && open coverage/index.html"
