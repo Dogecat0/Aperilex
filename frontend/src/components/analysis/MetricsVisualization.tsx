@@ -15,14 +15,7 @@ import {
   Area,
   AreaChart,
 } from 'recharts'
-import {
-  TrendingUp,
-  TrendingDown,
-  BarChart3,
-  PieChart as PieChartIcon,
-  Activity,
-  Info,
-} from 'lucide-react'
+import { TrendingUp, TrendingDown, Activity, Info } from 'lucide-react'
 
 export type ChartType = 'line' | 'bar' | 'pie' | 'area'
 export type DataType = 'currency' | 'percentage' | 'number' | 'ratio'
@@ -161,24 +154,6 @@ export function MetricsVisualization({
     }
     return null
   }
-
-  // Get chart icon based on type
-  const getChartIcon = () => {
-    switch (chartType) {
-      case 'line':
-        return TrendingUp
-      case 'bar':
-        return BarChart3
-      case 'pie':
-        return PieChartIcon
-      case 'area':
-        return Activity
-      default:
-        return BarChart3
-    }
-  }
-
-  const ChartIcon = getChartIcon()
 
   // Calculate trend summary if enabled
   const getTrendSummary = () => {
@@ -331,12 +306,13 @@ export function MetricsVisualization({
           {trendSummary && (
             <div className="flex items-center gap-2 flex-shrink-0">
               <div
-                className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs ${trendSummary.direction === 'up'
-                  ? 'bg-success/10 text-success'
-                  : trendSummary.direction === 'down'
-                    ? 'bg-destructive/10 text-destructive'
-                    : 'bg-muted text-muted-foreground'
-                  }`}
+                className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs ${
+                  trendSummary.direction === 'up'
+                    ? 'bg-success/10 text-success'
+                    : trendSummary.direction === 'down'
+                      ? 'bg-destructive/10 text-destructive'
+                      : 'bg-muted text-muted-foreground'
+                }`}
               >
                 {trendSummary.direction === 'up' && <TrendingUp className="h-3 w-3" />}
                 {trendSummary.direction === 'down' && <TrendingDown className="h-3 w-3" />}

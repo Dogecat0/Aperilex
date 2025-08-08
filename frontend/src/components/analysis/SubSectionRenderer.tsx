@@ -43,7 +43,7 @@ export function SubSectionRenderer({
   schemaType,
   analysis,
   subSectionName,
-  parentSection,
+  parentSection: _parentSection,
   className = '',
 }: SubSectionRendererProps) {
   // Use specific renderer if available, otherwise fall back to generic

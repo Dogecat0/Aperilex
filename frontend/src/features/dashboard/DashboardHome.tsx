@@ -1,7 +1,7 @@
 import React from 'react'
 import { useAppStore } from '@/lib/store'
 import { RecentAnalyses } from './RecentAnalyses'
-import { MarketOverview } from './MarketOverview'
+// import { MarketOverview } from './MarketOverview'
 import { QuickActions } from './QuickActions'
 import { SystemHealth } from './SystemHealth'
 
@@ -35,7 +35,7 @@ export function DashboardHome() {
 
         {/* Side Panel */}
         <div className="space-y-6">
-          <MarketOverview />
+          {/* <MarketOverview /> */}
           <SystemHealth />
         </div>
       </div>
