@@ -16,7 +16,6 @@ const mockStoreState = {
     pageSize: 20,
     enableNotifications: true,
     navigationCollapsed: false,
-    compactMode: false,
   },
   updatePreferences: mockUpdatePreferences,
 }
@@ -53,8 +52,7 @@ describe('UserPreferences Component', () => {
       pageSize: 20,
       enableNotifications: true,
       navigationCollapsed: false,
-      compactMode: false,
-    }
+      }
   })
 
   afterEach(() => {
@@ -146,7 +144,7 @@ describe('UserPreferences Component', () => {
       const notificationsCheckbox = screen.getByLabelText('Enable notifications')
       await user.click(notificationsCheckbox)
 
-      expect(mockUpdatePreferences).toHaveBeenCalledWith({ enableNotifications: true })
+      expect(mockUpdatePreferences).toHaveBeenCalledWith({ enableNotifications: false })
     })
   })
 
@@ -388,12 +386,6 @@ describe('UserPreferences Component', () => {
       await user.click(button)
     })
 
-    it('renders compact mode checkbox with correct state', () => {
-      const compactModeCheckbox = screen.getByLabelText('Compact mode')
-      expect(compactModeCheckbox).toBeInTheDocument()
-      expect(compactModeCheckbox).toHaveAttribute('type', 'checkbox')
-      expect(compactModeCheckbox).not.toBeChecked() // Default state
-    })
 
     it('renders notifications checkbox with correct state', () => {
       const notificationsCheckbox = screen.getByLabelText('Enable notifications')
@@ -402,11 +394,6 @@ describe('UserPreferences Component', () => {
       expect(notificationsCheckbox).toBeChecked() // Default state is true
     })
 
-    it('reflects preferences.compactMode state', async () => {
-      // Default compactMode is false, so checkbox should not be checked
-      const compactModeCheckbox = screen.getByLabelText('Compact mode')
-      expect(compactModeCheckbox).not.toBeChecked() // Default state is false
-    })
 
     it('reflects preferences.enableNotifications state', async () => {
       // Default enableNotifications is true, so checkbox should be checked
@@ -414,23 +401,7 @@ describe('UserPreferences Component', () => {
       expect(notificationsCheckbox).toBeChecked() // Default state is true
     })
 
-    it('calls updatePreferences when compact mode is toggled on', async () => {
-      const compactModeCheckbox = screen.getByLabelText('Compact mode')
-      await user.click(compactModeCheckbox)
 
-      expect(mockUpdatePreferences).toHaveBeenCalledWith({ compactMode: true })
-    })
-
-    it('calls updatePreferences when compact mode is toggled off', async () => {
-      // This test case is covered by testing the basic toggle functionality
-      // Since compactMode starts as false, clicking it will set it to true
-      // The opposite case (true -> false) would require a more complex setup
-      const compactModeCheckbox = screen.getByLabelText('Compact mode')
-      await user.click(compactModeCheckbox)
-
-      // Verify the toggle function was called (false -> true)
-      expect(mockUpdatePreferences).toHaveBeenCalledWith({ compactMode: true })
-    })
 
     it('calls updatePreferences when notifications are toggled off', async () => {
       const notificationsCheckbox = screen.getByLabelText('Enable notifications')
@@ -451,24 +422,18 @@ describe('UserPreferences Component', () => {
     })
 
     it('renders checkbox labels with correct structure', () => {
-      const compactModeLabel = screen.getByLabelText('Compact mode').closest('label')
       const notificationsLabel = screen.getByLabelText('Enable notifications').closest('label')
 
-      expect(compactModeLabel).toHaveClass('flex', 'items-center', 'space-x-2', 'py-1')
       expect(notificationsLabel).toHaveClass('flex', 'items-center', 'space-x-2', 'py-1')
 
-      const compactModeSpan = compactModeLabel?.querySelector('span')
       const notificationsSpan = notificationsLabel?.querySelector('span')
 
-      expect(compactModeSpan).toHaveClass('text-sm')
       expect(notificationsSpan).toHaveClass('text-sm')
     })
 
     it('applies correct styling to checkboxes', () => {
-      const compactModeCheckbox = screen.getByLabelText('Compact mode')
       const notificationsCheckbox = screen.getByLabelText('Enable notifications')
 
-      expect(compactModeCheckbox).toHaveClass('rounded', 'border-input')
       expect(notificationsCheckbox).toHaveClass('rounded', 'border-input')
     })
   })
@@ -540,10 +505,8 @@ describe('UserPreferences Component', () => {
       const button = screen.getByTestId('mock-button')
       await user.click(button)
 
-      const compactModeCheckbox = screen.getByLabelText('Compact mode')
       const notificationsCheckbox = screen.getByLabelText('Enable notifications')
 
-      expect(compactModeCheckbox).toBeInTheDocument()
       expect(notificationsCheckbox).toBeInTheDocument()
     })
 
@@ -558,7 +521,6 @@ describe('UserPreferences Component', () => {
         screen.getByText('system'),
       ]
       const checkboxes = [
-        screen.getByLabelText('Compact mode'),
         screen.getByLabelText('Enable notifications'),
       ]
 
@@ -619,20 +581,15 @@ describe('UserPreferences Component', () => {
       const button = screen.getByTestId('mock-button')
       await user.click(button)
 
-      const compactModeCheckbox = screen.getByLabelText('Compact mode')
       const notificationsCheckbox = screen.getByLabelText('Enable notifications')
 
-      // Toggle multiple preferences
-      await user.click(compactModeCheckbox)
+      // Toggle preferences multiple times
       await user.click(notificationsCheckbox)
-      await user.click(compactModeCheckbox)
+      await user.click(notificationsCheckbox)
 
-      expect(mockUpdatePreferences).toHaveBeenCalledTimes(3)
-      expect(mockUpdatePreferences).toHaveBeenNthCalledWith(1, { compactMode: true })
+      expect(mockUpdatePreferences).toHaveBeenCalledTimes(2)
+      expect(mockUpdatePreferences).toHaveBeenNthCalledWith(1, { enableNotifications: false })
       expect(mockUpdatePreferences).toHaveBeenNthCalledWith(2, { enableNotifications: false })
-      // Since the mock state doesn't actually update, the second compactMode click
-      // still reads the original false state and toggles to true again
-      expect(mockUpdatePreferences).toHaveBeenNthCalledWith(3, { compactMode: true })
     })
 
     it('handles theme switching during dropdown open state', async () => {
@@ -669,7 +626,6 @@ describe('UserPreferences Component', () => {
 
       // Change store state externally
       mockStoreState.theme = 'dark'
-      mockStoreState.preferences.compactMode = true
 
       // Component should still function correctly
       const lightButton = screen.getByText('light')
@@ -701,7 +657,6 @@ describe('UserPreferences Component', () => {
       expect(screen.queryByText('light')).not.toBeInTheDocument()
       expect(screen.queryByText('dark')).not.toBeInTheDocument()
       expect(screen.queryByText('system')).not.toBeInTheDocument()
-      expect(screen.queryByLabelText('Compact mode')).not.toBeInTheDocument()
       expect(screen.queryByLabelText('Enable notifications')).not.toBeInTheDocument()
     })
 
@@ -734,10 +689,10 @@ describe('UserPreferences Component', () => {
       const button = screen.getByTestId('mock-button')
       await user.click(button)
 
-      const compactModeCheckbox = screen.getByLabelText('Compact mode')
+      const notificationsCheckbox = screen.getByLabelText('Enable notifications')
 
       expect(async () => {
-        await user.click(compactModeCheckbox)
+        await user.click(notificationsCheckbox)
       }).not.toThrow()
 
       consoleError.mockRestore()

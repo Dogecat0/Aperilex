@@ -90,6 +90,7 @@ export function UserPreferences() {
                   />
                   <span className="text-sm">Enable notifications</span>
                 </label>
+
               </div>
             </div>
           </div>
