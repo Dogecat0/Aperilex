@@ -1,11 +1,8 @@
 """Integration tests for task management endpoints."""
 
-from unittest.mock import AsyncMock
 from uuid import uuid4
 
-import pytest
-
-from src.application.schemas.responses.task_response import TaskResponse, TaskStatus
+from src.application.schemas.responses.task_response import TaskResponse
 
 
 class TestTaskStatusEndpoint:

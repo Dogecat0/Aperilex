@@ -1,7 +1,5 @@
 """Tests for AnalysisTemplateService."""
 
-from typing import Any
-
 import pytest
 
 from src.application.schemas.commands.analyze_filing import AnalysisTemplate

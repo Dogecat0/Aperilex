@@ -4,9 +4,9 @@
 # Import the current schemas to test
 from typing import Any
 
-from src.infrastructure.llm.base import SubSectionAnalysisResponse  # The Union type
 from src.infrastructure.llm.base import (
     SectionAnalysisResponse,
+    SubSectionAnalysisResponse,  # The Union type
     SubsectionAnalysisResponse,
 )
 from src.infrastructure.llm.schemas.mda import MDAAnalysisSection
@@ -21,7 +21,7 @@ def test_schema_introspection():
     print("\n1. Testing SubsectionAnalysisResponse schema serialization...")
     try:
         schema = SubsectionAnalysisResponse.model_json_schema()
-        print(f"✓ Schema serialization successful")
+        print("✓ Schema serialization successful")
         print(f"  Schema keys: {list(schema.keys())}")
 
         # Check if analysis field has proper type
@@ -54,7 +54,7 @@ def test_schema_introspection():
         )
 
         schema = TestModel.model_json_schema()
-        print(f"✓ Union schema serialization successful")
+        print("✓ Union schema serialization successful")
 
         # Check sub_sections field
         if "properties" in schema and "sub_sections" in schema["properties"]:
@@ -82,7 +82,7 @@ def test_schema_introspection():
     print("\n3. Testing SectionAnalysisResponse schema...")
     try:
         schema = SectionAnalysisResponse.model_json_schema()
-        print(f"✓ SectionAnalysisResponse schema serialization successful")
+        print("✓ SectionAnalysisResponse schema serialization successful")
 
         # Check sub_sections field
         if "properties" in schema and "sub_sections" in schema["properties"]:
@@ -110,7 +110,7 @@ def test_schema_introspection():
     print("\n4. Testing MDAAnalysisSection schema...")
     try:
         schema = MDAAnalysisSection.model_json_schema()
-        print(f"✓ MDAAnalysisSection schema serialization successful")
+        print("✓ MDAAnalysisSection schema serialization successful")
         print(f"  Schema has {len(schema.get('properties', {}))} properties")
 
         # Check if all properties have proper types

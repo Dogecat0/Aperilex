@@ -1,12 +1,11 @@
 """Unit tests for companies router endpoints."""
 
-import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
 from datetime import date, datetime
+from unittest.mock import AsyncMock, MagicMock
 from uuid import uuid4
 
+import pytest
 from fastapi import HTTPException, status
-from fastapi.testclient import TestClient
 
 from src.application.schemas.queries.get_company import GetCompanyQuery
 from src.application.schemas.queries.list_analyses import ListAnalysesQuery
@@ -18,7 +17,6 @@ from src.application.schemas.responses.paginated_response import PaginatedRespon
 from src.domain.entities.analysis import AnalysisType
 from src.domain.value_objects.cik import CIK
 from src.domain.value_objects.filing_type import FilingType
-from src.presentation.api.routers.companies import router
 
 
 class TestGetCompanyEndpoint:
@@ -80,7 +78,7 @@ class TestGetCompanyEndpoint:
 
         assert result == sample_company_response
         mock_dispatcher.dispatch_query.assert_called_once()
-        
+
         # Check query structure
         call_args = mock_dispatcher.dispatch_query.call_args[0]
         query = call_args[0]
@@ -94,7 +92,7 @@ class TestGetCompanyEndpoint:
     ):
         """Test company retrieval with recent analyses included."""
         factory, mock_dispatcher = mock_service_factory
-        
+
         # Create a new response with recent analyses
         response_with_analyses = CompanyResponse(
             company_id=uuid4(),
@@ -115,7 +113,7 @@ class TestGetCompanyEndpoint:
             },
             recent_analyses=[
                 {"analysis_id": str(uuid4()), "analysis_type": "comprehensive"}
-            ]
+            ],
         )
         mock_dispatcher.dispatch_query.return_value = response_with_analyses
 
@@ -129,7 +127,7 @@ class TestGetCompanyEndpoint:
         )
 
         assert result == response_with_analyses
-        
+
         # Check query included analyses
         call_args = mock_dispatcher.dispatch_query.call_args[0]
         query = call_args[0]
@@ -159,9 +157,7 @@ class TestGetCompanyEndpoint:
         assert query.ticker == "AAPL"
 
     @pytest.mark.asyncio
-    async def test_get_company_empty_ticker(
-        self, mock_service_factory, mock_session
-    ):
+    async def test_get_company_empty_ticker(self, mock_service_factory, mock_session):
         """Test empty ticker validation."""
         factory, mock_dispatcher = mock_service_factory
 
@@ -217,7 +213,9 @@ class TestGetCompanyEndpoint:
             )
 
         assert exc_info.value.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
-        assert "must contain only alphanumeric characters and hyphens" in str(exc_info.value.detail)
+        assert "must contain only alphanumeric characters and hyphens" in str(
+            exc_info.value.detail
+        )
 
     @pytest.mark.asyncio
     async def test_get_company_valid_ticker_with_hyphens(
@@ -261,7 +259,9 @@ class TestGetCompanyEndpoint:
             )
 
         assert exc_info.value.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
-        assert "Invalid ticker format: Invalid ticker format" in str(exc_info.value.detail)
+        assert "Invalid ticker format: Invalid ticker format" in str(
+            exc_info.value.detail
+        )
 
     @pytest.mark.asyncio
     async def test_get_company_general_exception_handling(
@@ -269,7 +269,9 @@ class TestGetCompanyEndpoint:
     ):
         """Test general exception handling from dispatcher."""
         factory, mock_dispatcher = mock_service_factory
-        mock_dispatcher.dispatch_query.side_effect = Exception("Database connection failed")
+        mock_dispatcher.dispatch_query.side_effect = Exception(
+            "Database connection failed"
+        )
 
         from src.presentation.api.routers.companies import get_company
 
@@ -290,11 +292,10 @@ class TestGetCompanyEndpoint:
     ):
         """Test that HTTPExceptions are re-raised without modification."""
         factory, mock_dispatcher = mock_service_factory
-        
+
         # Dispatcher raises HTTPException (e.g., company not found)
         original_exception = HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Company not found"
+            status_code=status.HTTP_404_NOT_FOUND, detail="Company not found"
         )
         mock_dispatcher.dispatch_query.side_effect = original_exception
 
@@ -382,19 +383,19 @@ class TestListCompanyAnalysesEndpoint:
 
     @pytest.mark.asyncio
     async def test_list_company_analyses_success(
-        self, 
-        mock_service_factory, 
-        mock_session, 
+        self,
+        mock_service_factory,
+        mock_session,
         sample_company_response,
-        sample_paginated_analyses_response
+        sample_paginated_analyses_response,
     ):
         """Test successful company analyses listing."""
         factory, mock_dispatcher = mock_service_factory
-        
+
         # Mock two dispatch calls: first for company lookup, second for analyses
         mock_dispatcher.dispatch_query.side_effect = [
             sample_company_response,
-            sample_paginated_analyses_response
+            sample_paginated_analyses_response,
         ]
 
         from src.presentation.api.routers.companies import list_company_analyses
@@ -411,13 +412,13 @@ class TestListCompanyAnalysesEndpoint:
 
         assert result == sample_paginated_analyses_response
         assert mock_dispatcher.dispatch_query.call_count == 2
-        
+
         # Check first call was company lookup
         first_call_args = mock_dispatcher.dispatch_query.call_args_list[0][0]
         company_query = first_call_args[0]
         assert isinstance(company_query, GetCompanyQuery)
         assert company_query.ticker == "AAPL"
-        
+
         # Check second call was analyses lookup
         second_call_args = mock_dispatcher.dispatch_query.call_args_list[1][0]
         analyses_query = second_call_args[0]
@@ -430,13 +431,13 @@ class TestListCompanyAnalysesEndpoint:
         mock_service_factory,
         mock_session,
         sample_company_response,
-        sample_paginated_analyses_response
+        sample_paginated_analyses_response,
     ):
         """Test company analyses listing with filters."""
         factory, mock_dispatcher = mock_service_factory
         mock_dispatcher.dispatch_query.side_effect = [
             sample_company_response,
-            sample_paginated_analyses_response
+            sample_paginated_analyses_response,
         ]
 
         from src.presentation.api.routers.companies import list_company_analyses
@@ -452,7 +453,7 @@ class TestListCompanyAnalysesEndpoint:
         )
 
         assert result == sample_paginated_analyses_response
-        
+
         # Check analyses query has correct filters
         second_call_args = mock_dispatcher.dispatch_query.call_args_list[1][0]
         analyses_query = second_call_args[0]
@@ -486,7 +487,7 @@ class TestListCompanyAnalysesEndpoint:
     ):
         """Test company not found handling."""
         factory, mock_dispatcher = mock_service_factory
-        
+
         # First call (company lookup) raises exception
         mock_dispatcher.dispatch_query.side_effect = Exception("Company not found")
 
@@ -508,11 +509,11 @@ class TestListCompanyAnalysesEndpoint:
     ):
         """Test ValueError handling during analyses lookup."""
         factory, mock_dispatcher = mock_service_factory
-        
+
         # Company lookup succeeds, but analyses query raises ValueError
         mock_dispatcher.dispatch_query.side_effect = [
             sample_company_response,
-            ValueError("Invalid CIK format")
+            ValueError("Invalid CIK format"),
         ]
 
         from src.presentation.api.routers.companies import list_company_analyses
@@ -533,11 +534,11 @@ class TestListCompanyAnalysesEndpoint:
     ):
         """Test general exception handling."""
         factory, mock_dispatcher = mock_service_factory
-        
+
         # Company lookup succeeds, but analyses query fails
         mock_dispatcher.dispatch_query.side_effect = [
             sample_company_response,
-            Exception("Database error")
+            Exception("Database error"),
         ]
 
         from src.presentation.api.routers.companies import list_company_analyses
@@ -599,10 +600,7 @@ class TestListCompanyFilingsEndpoint:
 
     @pytest.mark.asyncio
     async def test_list_company_filings_success_paginated(
-        self,
-        mock_service_factory,
-        mock_session,
-        sample_paginated_filings_response
+        self, mock_service_factory, mock_session, sample_paginated_filings_response
     ):
         """Test successful company filings listing with pagination."""
         factory, mock_dispatcher = mock_service_factory
@@ -624,7 +622,7 @@ class TestListCompanyFilingsEndpoint:
         # Should return paginated response when pagination params provided
         assert result == sample_paginated_filings_response
         mock_dispatcher.dispatch_query.assert_called_once()
-        
+
         # Check query structure
         call_args = mock_dispatcher.dispatch_query.call_args[0]
         query = call_args[0]
@@ -639,7 +637,7 @@ class TestListCompanyFilingsEndpoint:
         mock_service_factory,
         mock_session,
         sample_paginated_filings_response,
-        sample_filing_response
+        sample_filing_response,
     ):
         """Test successful company filings listing without pagination (list format)."""
         factory, mock_dispatcher = mock_service_factory
@@ -664,10 +662,7 @@ class TestListCompanyFilingsEndpoint:
 
     @pytest.mark.asyncio
     async def test_list_company_filings_with_filters(
-        self,
-        mock_service_factory,
-        mock_session,
-        sample_paginated_filings_response
+        self, mock_service_factory, mock_session, sample_paginated_filings_response
     ):
         """Test company filings listing with all filters."""
         factory, mock_dispatcher = mock_service_factory
@@ -687,7 +682,7 @@ class TestListCompanyFilingsEndpoint:
         )
 
         assert result == sample_paginated_filings_response
-        
+
         # Check query has correct filters
         call_args = mock_dispatcher.dispatch_query.call_args[0]
         query = call_args[0]
@@ -697,10 +692,7 @@ class TestListCompanyFilingsEndpoint:
 
     @pytest.mark.asyncio
     async def test_list_company_filings_partial_pagination(
-        self,
-        mock_service_factory,
-        mock_session,
-        sample_paginated_filings_response
+        self, mock_service_factory, mock_session, sample_paginated_filings_response
     ):
         """Test default pagination when only one param provided."""
         factory, mock_dispatcher = mock_service_factory
@@ -814,7 +806,9 @@ class TestListCompanyFilingsEndpoint:
     ):
         """Test ValueError handling."""
         factory, mock_dispatcher = mock_service_factory
-        mock_dispatcher.dispatch_query.side_effect = ValueError("Invalid query parameters")
+        mock_dispatcher.dispatch_query.side_effect = ValueError(
+            "Invalid query parameters"
+        )
 
         from src.presentation.api.routers.companies import list_company_filings
 
@@ -826,7 +820,9 @@ class TestListCompanyFilingsEndpoint:
             )
 
         assert exc_info.value.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
-        assert "Invalid parameters: Invalid query parameters" in str(exc_info.value.detail)
+        assert "Invalid parameters: Invalid query parameters" in str(
+            exc_info.value.detail
+        )
 
     @pytest.mark.asyncio
     async def test_list_company_filings_general_exception(
@@ -834,7 +830,9 @@ class TestListCompanyFilingsEndpoint:
     ):
         """Test general exception handling."""
         factory, mock_dispatcher = mock_service_factory
-        mock_dispatcher.dispatch_query.side_effect = Exception("Database connection failed")
+        mock_dispatcher.dispatch_query.side_effect = Exception(
+            "Database connection failed"
+        )
 
         from src.presentation.api.routers.companies import list_company_filings
 
@@ -854,10 +852,9 @@ class TestListCompanyFilingsEndpoint:
     ):
         """Test that HTTPExceptions are re-raised without modification."""
         factory, mock_dispatcher = mock_service_factory
-        
+
         original_exception = HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Company not found"
+            status_code=status.HTTP_404_NOT_FOUND, detail="Company not found"
         )
         mock_dispatcher.dispatch_query.side_effect = original_exception
 
@@ -896,15 +893,15 @@ class TestCompaniesRouterValidation:
     ):
         """Test ticker validation consistency across all endpoints."""
         factory, mock_dispatcher = mock_service_factory
-        
+
         from src.presentation.api.routers.companies import (
             get_company,
             list_company_analyses,
-            list_company_filings
+            list_company_filings,
         )
 
         invalid_tickers = ["", "   ", "AA@PL", "AAPL!"]
-        
+
         for invalid_ticker in invalid_tickers:
             # Test get_company
             with pytest.raises(HTTPException) as exc_info:
@@ -935,16 +932,16 @@ class TestCompaniesRouterValidation:
             assert exc_info.value.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
 
     @pytest.mark.asyncio
-    async def test_valid_ticker_formats(
-        self, mock_service_factory, mock_session
-    ):
+    async def test_valid_ticker_formats(self, mock_service_factory, mock_session):
         """Test that valid ticker formats are accepted."""
         factory, mock_dispatcher = mock_service_factory
-        
+
         # Mock successful responses
         from src.application.schemas.responses.company_response import CompanyResponse
-        from src.application.schemas.responses.paginated_response import PaginatedResponse
-        
+        from src.application.schemas.responses.paginated_response import (
+            PaginatedResponse,
+        )
+
         mock_company_response = CompanyResponse(
             company_id=uuid4(),
             cik="0000320193",
@@ -957,7 +954,7 @@ class TestCompaniesRouterValidation:
             fiscal_year_end=None,
             business_address=None,
         )
-        
+
         mock_paginated_response = PaginatedResponse.create(
             items=[],
             page=1,
@@ -969,10 +966,10 @@ class TestCompaniesRouterValidation:
         from src.presentation.api.routers.companies import get_company
 
         valid_tickers = ["AAPL", "BRK-A", "MSFT", "A", "ABCDEFGHIJ"]
-        
+
         for valid_ticker in valid_tickers:
             mock_dispatcher.dispatch_query.return_value = mock_company_response
-            
+
             # Should not raise exception
             result = await get_company(
                 ticker=valid_ticker,
@@ -980,16 +977,16 @@ class TestCompaniesRouterValidation:
                 factory=factory,
                 include_recent_analyses=False,
             )
-            
+
             assert result == mock_company_response
 
-    @pytest.mark.asyncio 
+    @pytest.mark.asyncio
     async def test_confidence_score_validation(
         self, mock_service_factory, mock_session
     ):
         """Test confidence score validation in list_company_analyses."""
         factory, mock_dispatcher = mock_service_factory
-        
+
         # Mock company lookup success
         mock_company_response = CompanyResponse(
             company_id=uuid4(),
@@ -1003,7 +1000,7 @@ class TestCompaniesRouterValidation:
             fiscal_year_end=None,
             business_address=None,
         )
-        
+
         mock_paginated_response = PaginatedResponse.create(
             items=[],
             page=1,
@@ -1016,22 +1013,22 @@ class TestCompaniesRouterValidation:
 
         # Test valid confidence scores
         valid_scores = [0.0, 0.5, 1.0, 0.75]
-        
+
         for score in valid_scores:
             # Reset the mock for each iteration
             mock_dispatcher.reset_mock()
             mock_dispatcher.dispatch_query.side_effect = [
                 mock_company_response,
-                mock_paginated_response
+                mock_paginated_response,
             ]
-            
+
             result = await list_company_analyses(
                 ticker="AAPL",
                 session=mock_session,
                 factory=factory,
                 min_confidence=score,
             )
-            
+
             # Check that the score was passed to the query
             second_call_args = mock_dispatcher.dispatch_query.call_args_list[1][0]
             analyses_query = second_call_args[0]
@@ -1043,7 +1040,7 @@ class TestCompaniesRouterValidation:
     ):
         """Test that filing type validation is case insensitive."""
         factory, mock_dispatcher = mock_service_factory
-        
+
         mock_paginated_response = PaginatedResponse.create(
             items=[],
             page=1,
@@ -1067,19 +1064,22 @@ class TestCompaniesRouterValidation:
         query = call_args[0]
         assert query.filing_type == FilingType.FORM_10K
 
-    @pytest.mark.parametrize("analysis_type", [
-        AnalysisType.COMPREHENSIVE,
-        AnalysisType.FILING_ANALYSIS,
-        AnalysisType.CUSTOM_QUERY,
-        AnalysisType.COMPARISON
-    ])
+    @pytest.mark.parametrize(
+        "analysis_type",
+        [
+            AnalysisType.COMPREHENSIVE,
+            AnalysisType.FILING_ANALYSIS,
+            AnalysisType.CUSTOM_QUERY,
+            AnalysisType.COMPARISON,
+        ],
+    )
     @pytest.mark.asyncio
     async def test_analysis_type_validation(
         self, analysis_type, mock_service_factory, mock_session
     ):
         """Test that all valid analysis types are accepted."""
         factory, mock_dispatcher = mock_service_factory
-        
+
         # Mock company lookup and analyses response
         mock_company_response = CompanyResponse(
             company_id=uuid4(),
@@ -1093,7 +1093,7 @@ class TestCompaniesRouterValidation:
             fiscal_year_end=None,
             business_address=None,
         )
-        
+
         mock_paginated_response = PaginatedResponse.create(
             items=[],
             page=1,
@@ -1101,10 +1101,10 @@ class TestCompaniesRouterValidation:
             total_items=0,
             query_id=uuid4(),
         )
-        
+
         mock_dispatcher.dispatch_query.side_effect = [
             mock_company_response,
-            mock_paginated_response
+            mock_paginated_response,
         ]
 
         from src.presentation.api.routers.companies import list_company_analyses

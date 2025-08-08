@@ -1,8 +1,7 @@
 """Tests for BackgroundTaskCoordinator."""
 
-from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock, patch
-from uuid import UUID, uuid4
+from uuid import uuid4
 
 import pytest
 
@@ -16,7 +15,7 @@ from src.application.services.background_task_coordinator import (
     BackgroundTaskCoordinator,
 )
 from src.application.services.task_service import TaskService
-from src.domain.entities.analysis import Analysis, AnalysisType
+from src.domain.entities.analysis import Analysis
 from src.domain.value_objects.accession_number import AccessionNumber
 from src.domain.value_objects.cik import CIK
 

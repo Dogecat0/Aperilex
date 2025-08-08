@@ -3,15 +3,13 @@
 These tests simulate various Redis failure scenarios to ensure robust error handling.
 """
 
-import json
 from datetime import UTC, datetime
-from unittest.mock import AsyncMock, Mock, patch
+from unittest.mock import AsyncMock, patch
 from uuid import uuid4
 
 import pytest
 import redis.exceptions
 
-from src.domain.entities.analysis import Analysis, AnalysisType
 from src.domain.entities.company import Company
 from src.domain.entities.filing import Filing
 from src.domain.value_objects import CIK, AccessionNumber, FilingType, ProcessingStatus
@@ -230,8 +228,6 @@ class TestRedisErrorScenarios:
         self, cache_manager, sample_company
     ):
         """Test handling of concurrent cache access scenarios."""
-        import threading
-        import time
 
         errors = []
 

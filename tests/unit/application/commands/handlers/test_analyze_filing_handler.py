@@ -1,6 +1,6 @@
 """Tests for AnalyzeFilingCommandHandler."""
 
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, patch
 from uuid import uuid4
 
 import pytest

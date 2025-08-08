@@ -1,11 +1,10 @@
 """Tests for TaskService."""
 
 from datetime import UTC, datetime, timedelta
-from unittest.mock import MagicMock, patch
-from uuid import UUID, uuid4
+from unittest.mock import patch
+from uuid import uuid4
 
 import pytest
-import pytest_asyncio
 
 from src.application.schemas.responses.task_response import TaskResponse
 from src.application.services.task_service import TaskService

@@ -1,11 +1,13 @@
 """Unit tests for analyses router endpoints."""
 
-import pytest
-from unittest.mock import AsyncMock, MagicMock
 from datetime import datetime
+from unittest.mock import AsyncMock, MagicMock
 from uuid import uuid4
 
-from fastapi import HTTPException, status
+import pytest
+
+# Create a test app with just the analyses router
+from fastapi import FastAPI, HTTPException, status
 from fastapi.testclient import TestClient
 
 from src.application.schemas.queries.get_analysis import GetAnalysisQuery
@@ -18,9 +20,6 @@ from src.domain.entities.analysis import AnalysisType
 from src.domain.value_objects.cik import CIK
 from src.presentation.api.routers.analyses import router
 
-
-# Create a test app with just the analyses router
-from fastapi import FastAPI
 test_app = FastAPI()
 test_app.include_router(router)
 client = TestClient(test_app)
@@ -93,7 +92,7 @@ class TestListAnalysesEndpoint:
 
         assert result == sample_paginated_response
         mock_dispatcher.dispatch_query.assert_called_once()
-        
+
         # Check query structure
         call_args = mock_dispatcher.dispatch_query.call_args[0]
         query = call_args[0]
@@ -129,7 +128,7 @@ class TestListAnalysesEndpoint:
         )
 
         assert result == sample_paginated_response
-        
+
         # Check query has correct filters
         call_args = mock_dispatcher.dispatch_query.call_args[0]
         query = call_args[0]
@@ -256,7 +255,7 @@ class TestGetAnalysisTemplatesEndpoint:
 
         assert result == sample_templates_response
         mock_dispatcher.dispatch_query.assert_called_once()
-        
+
         # Check query structure
         call_args = mock_dispatcher.dispatch_query.call_args[0]
         query = call_args[0]
@@ -280,7 +279,7 @@ class TestGetAnalysisTemplatesEndpoint:
         )
 
         assert result == sample_templates_response
-        
+
         # Check query has filter
         call_args = mock_dispatcher.dispatch_query.call_args[0]
         query = call_args[0]
@@ -365,7 +364,7 @@ class TestGetAnalysisEndpoint:
 
         assert result == sample_analysis_response
         mock_dispatcher.dispatch_query.assert_called_once()
-        
+
         # Check query structure
         call_args = mock_dispatcher.dispatch_query.call_args[0]
         query = call_args[0]
@@ -373,9 +372,7 @@ class TestGetAnalysisEndpoint:
         assert query.analysis_id == analysis_id
 
     @pytest.mark.asyncio
-    async def test_get_analysis_not_found(
-        self, mock_service_factory, mock_session
-    ):
+    async def test_get_analysis_not_found(self, mock_service_factory, mock_session):
         """Test analysis not found handling."""
         factory, mock_dispatcher = mock_service_factory
         mock_dispatcher.dispatch_query.side_effect = Exception("Analysis not found")
@@ -398,7 +395,9 @@ class TestGetAnalysisEndpoint:
     ):
         """Test general exception handling."""
         factory, mock_dispatcher = mock_service_factory
-        mock_dispatcher.dispatch_query.side_effect = Exception("Database connection failed")
+        mock_dispatcher.dispatch_query.side_effect = Exception(
+            "Database connection failed"
+        )
 
         from src.presentation.api.routers.analyses import get_analysis
 
@@ -425,14 +424,14 @@ class TestAnalysesRouterIntegration:
         """Test that list analyses endpoint exists."""
         # This will fail without proper dependency injection, but validates route exists
         response = client.get("/analyses")
-        
+
         # Should not be 404 (route exists) - may be 500 due to missing dependencies
         assert response.status_code != 404
 
     def test_get_analysis_templates_endpoint_exists(self, client):
         """Test that get templates endpoint exists."""
         response = client.get("/analyses/templates")
-        
+
         # Should not be 404 (route exists)
         assert response.status_code != 404
 
@@ -440,14 +439,14 @@ class TestAnalysesRouterIntegration:
         """Test that get analysis by ID endpoint exists."""
         analysis_id = str(uuid4())
         response = client.get(f"/analyses/{analysis_id}")
-        
+
         # Should not be 404 (route exists)
         assert response.status_code != 404
 
     def test_invalid_analysis_id_format(self, client):
         """Test invalid analysis ID format."""
         response = client.get("/analyses/invalid-uuid")
-        
+
         # Should return 422 for invalid UUID format
         assert response.status_code == 422
 
@@ -455,7 +454,7 @@ class TestAnalysesRouterIntegration:
     def test_invalid_confidence_score_validation(self, client, invalid_confidence):
         """Test that invalid confidence scores are rejected."""
         response = client.get(f"/analyses?min_confidence_score={invalid_confidence}")
-        
+
         # Should return 422 for out-of-bounds confidence scores
         assert response.status_code == 422
 
@@ -463,7 +462,7 @@ class TestAnalysesRouterIntegration:
     def test_invalid_page_validation(self, client, invalid_page):
         """Test that invalid page numbers are rejected."""
         response = client.get(f"/analyses?page={invalid_page}")
-        
+
         # Should return 422 for invalid page numbers
         assert response.status_code == 422
 
@@ -471,14 +470,14 @@ class TestAnalysesRouterIntegration:
     def test_invalid_page_size_validation(self, client, invalid_page_size):
         """Test that invalid page sizes are rejected."""
         response = client.get(f"/analyses?page_size={invalid_page_size}")
-        
+
         # Should return 422 for invalid page sizes
         assert response.status_code == 422
 
     def test_valid_analysis_type_parameter(self, client):
         """Test that valid analysis type is accepted."""
         response = client.get("/analyses?analysis_type=comprehensive")
-        
+
         # Should not return 422 for valid analysis type
         assert response.status_code != 422
 
@@ -487,28 +486,28 @@ class TestAnalysesRouterIntegration:
         response = client.get(
             "/analyses?created_from=2023-01-01T00:00:00&created_to=2023-12-31T23:59:59"
         )
-        
+
         # Should not return 422 for valid datetime format
         assert response.status_code != 422
 
     def test_router_tags_and_prefix(self):
         """Test that router has correct tags and prefix."""
         from src.presentation.api.routers.analyses import router
-        
+
         assert router.prefix == "/analyses"
         assert "analyses" in router.tags
 
     def test_router_response_models(self):
         """Test that endpoints have proper response models."""
         from src.presentation.api.routers.analyses import router
-        
+
         routes = {route.name: route for route in router.routes}
-        
+
         # Check that main endpoints exist
         assert "list_analyses" in routes
-        assert "get_analysis_templates" in routes  
+        assert "get_analysis_templates" in routes
         assert "get_analysis" in routes
-        
+
         # Check response models are set (they should have response_model)
         for route_name, route in routes.items():
             if hasattr(route, 'response_model') and route.response_model:

@@ -1,9 +1,8 @@
 """Tests for CacheService."""
 
-import json
 from datetime import UTC, datetime, timedelta
-from unittest.mock import MagicMock, patch
-from uuid import UUID, uuid4
+from unittest.mock import patch
+from uuid import uuid4
 
 import pytest
 

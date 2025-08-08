@@ -2,12 +2,11 @@
 
 import json
 from datetime import UTC, datetime
-from unittest.mock import AsyncMock, MagicMock, patch
-from uuid import UUID, uuid4
+from unittest.mock import AsyncMock
+from uuid import uuid4
 
 import pytest
 
-from src.application.schemas.responses.task_response import TaskResponse
 from src.application.services.task_service import TaskService
 
 

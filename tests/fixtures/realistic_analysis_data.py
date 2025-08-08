@@ -5,7 +5,6 @@ real analysis outputs from test_results/ to ensure unit tests validate
 the actual data structures the system produces.
 """
 
-import json
 from datetime import datetime
 from typing import Any
 
@@ -306,7 +305,7 @@ Revenue increased $9.5 billion or 21% driven by Azure and other cloud services g
 
 SQL Server revenue growth was driven by continued hybrid demand and Premium tier uptake.
 
-MORE PERSONAL COMPUTING  
+MORE PERSONAL COMPUTING
 
 Revenue increased $3.6 billion or 17% driven by growth across Windows, Devices, Xbox, and Search advertising. Windows Commercial revenue grew driven by the commercial PC market and increased adoption of Windows 11.""",
     }

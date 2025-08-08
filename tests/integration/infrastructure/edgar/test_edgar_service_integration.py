@@ -8,7 +8,7 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from src.domain.value_objects import CIK, AccessionNumber, FilingType, Ticker
+from src.domain.value_objects import CIK, FilingType, Ticker
 from src.infrastructure.edgar.schemas.company_data import CompanyData
 from src.infrastructure.edgar.schemas.filing_data import FilingData
 from src.infrastructure.edgar.service import EdgarService

@@ -10,10 +10,7 @@ from fastapi.testclient import TestClient
 from src.application.schemas.responses.analysis_response import AnalysisResponse
 from src.application.schemas.responses.company_response import CompanyResponse
 from src.application.schemas.responses.filing_response import FilingResponse
-from src.application.schemas.responses.paginated_response import (
-    PaginatedResponse,
-    PaginationMetadata,
-)
+from src.application.schemas.responses.paginated_response import PaginatedResponse
 from src.application.schemas.responses.task_response import TaskResponse
 from src.application.schemas.responses.templates_response import TemplatesResponse
 from src.domain.entities.analysis import AnalysisType

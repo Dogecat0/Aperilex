@@ -2,8 +2,6 @@
 
 from unittest.mock import Mock, patch
 
-import pytest
-
 from src.infrastructure.tasks.celery_app import create_celery_app
 
 
@@ -67,7 +65,9 @@ class TestCreateCeleryApp:
         assert "task_routes" in config_args
         task_routes = config_args["task_routes"]
         assert task_routes["analyze_filing"] == {"queue": "analysis_queue"}
-        assert task_routes["analyze_filing_comprehensive"] == {"queue": "analysis_queue"}
+        assert task_routes["analyze_filing_comprehensive"] == {
+            "queue": "analysis_queue"
+        }
         assert task_routes["batch_analyze_filings"] == {"queue": "analysis_queue"}
         assert task_routes["fetch_company_filings"] == {"queue": "filing_queue"}
         assert task_routes["process_filing"] == {"queue": "filing_queue"}
@@ -273,23 +273,23 @@ class TestCeleryAppInstance:
         """Test the configuration flow that creates celery_app."""
         # Test that create_celery_app returns a properly configured app
         result = create_celery_app()
-        
+
         # Verify it's a Celery instance
         assert hasattr(result, 'conf')
         assert hasattr(result, 'autodiscover_tasks')
-        
+
         # Verify configuration was applied
         assert result.conf.task_serializer is not None
-        
+
     def test_celery_app_has_required_methods(self):
         """Test that celery_app has all required methods and attributes."""
         app = create_celery_app()
-        
+
         # Verify essential Celery methods exist
         assert hasattr(app, 'task')
         assert hasattr(app, 'autodiscover_tasks')
         assert hasattr(app, 'conf')
-        
+
         # Verify configuration object has expected attributes
         assert hasattr(app.conf, 'task_routes')
         assert hasattr(app.conf, 'task_serializer')
@@ -404,4 +404,6 @@ class TestCeleryAppEdgeCases:
 
         for task in expected_tasks:
             assert task in task_routes, f"Task '{task}' not found in routes"
-            assert "queue" in task_routes[task], f"Queue not specified for task '{task}'"
+            assert (
+                "queue" in task_routes[task]
+            ), f"Queue not specified for task '{task}'"

@@ -166,7 +166,6 @@ def mock_openai_response():
 
 # Import realistic fixtures
 from tests.fixtures.realistic_analysis_data import (
-    get_processing_metadata,
     get_realistic_company_data,
     get_realistic_edgar_filing_sections,
     get_realistic_filing_analysis_response,

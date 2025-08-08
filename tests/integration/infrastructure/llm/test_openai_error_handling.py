@@ -9,14 +9,11 @@ from unittest.mock import AsyncMock, Mock, patch
 
 import httpx
 import pytest
-from openai import APIConnectionError, APITimeoutError, AsyncOpenAI, RateLimitError
+from openai import APIConnectionError, APITimeoutError, RateLimitError
 
 from src.domain.value_objects.filing_type import FilingType
 from src.infrastructure.edgar.schemas.filing_data import FilingData
-from src.infrastructure.llm.base import (
-    ComprehensiveAnalysisResponse,
-    SectionAnalysisResponse,
-)
+from src.infrastructure.llm.base import ComprehensiveAnalysisResponse
 from src.infrastructure.llm.openai_provider import OpenAIProvider
 
 
@@ -414,7 +411,7 @@ class TestOpenAIProviderErrorHandling:
                 )
                 # If no exception, verify it's a valid response object (may be empty)
                 assert isinstance(result, ComprehensiveAnalysisResponse)
-            except (Exception, asyncio.TimeoutError) as e:
+            except (TimeoutError, Exception) as e:
                 # If exception is raised, verify it contains parsing error info or is timeout
                 if isinstance(e, asyncio.TimeoutError):
                     pytest.fail("Test timed out - possible hanging condition")
@@ -459,7 +456,7 @@ class TestOpenAIProviderErrorHandling:
                 )
                 # If no exception, verify it's a valid response object
                 assert isinstance(result, ComprehensiveAnalysisResponse)
-            except (Exception, asyncio.TimeoutError) as e:
+            except (TimeoutError, Exception) as e:
                 # Exception is acceptable for partial/invalid data, but timeout indicates hanging
                 if isinstance(e, asyncio.TimeoutError):
                     pytest.fail("Test timed out - possible hanging condition")
@@ -492,7 +489,7 @@ class TestOpenAIProviderErrorHandling:
                 )
                 # If no exception, verify it's a valid response object (may be empty)
                 assert isinstance(result, ComprehensiveAnalysisResponse)
-            except (Exception, asyncio.TimeoutError) as e:
+            except (TimeoutError, Exception) as e:
                 # If timeout, this indicates a hanging condition
                 if isinstance(e, asyncio.TimeoutError):
                     pytest.fail("Test timed out - possible hanging condition")
@@ -935,7 +932,7 @@ class TestOpenAIProviderErrorHandling:
                 )
                 # If no exception, verify it's still a valid response object
                 assert isinstance(result, ComprehensiveAnalysisResponse)
-            except (Exception, asyncio.TimeoutError) as e:
+            except (TimeoutError, Exception) as e:
                 # Timeout indicates a hanging condition
                 if isinstance(e, asyncio.TimeoutError):
                     pytest.fail("Test timed out - possible hanging condition")

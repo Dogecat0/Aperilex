@@ -2,7 +2,6 @@
 
 from abc import ABC
 from dataclasses import dataclass
-from typing import Dict, List
 from uuid import uuid4
 
 import pytest
@@ -122,7 +121,7 @@ class UpdateUserCommandHandler(CommandHandler[UpdateUserCommand, UserResult]):
 
     def __init__(self, user_repository=None):
         self.user_repository = user_repository
-        self.users: Dict[str, UserResult] = {}
+        self.users: dict[str, UserResult] = {}
 
     async def handle(self, command: UpdateUserCommand) -> UserResult:
         """Handle user update."""
@@ -150,7 +149,7 @@ class GetUserQueryHandler(QueryHandler[GetUserQuery, UserResult | None]):
 
     def __init__(self, user_repository=None):
         self.user_repository = user_repository
-        self.users: Dict[str, UserResult] = {}
+        self.users: dict[str, UserResult] = {}
 
     async def handle(self, query: GetUserQuery) -> UserResult | None:
         """Handle get user query."""
@@ -162,14 +161,14 @@ class GetUserQueryHandler(QueryHandler[GetUserQuery, UserResult | None]):
         return GetUserQuery
 
 
-class SearchUsersQueryHandler(QueryHandler[SearchUsersQuery, List[UserResult]]):
+class SearchUsersQueryHandler(QueryHandler[SearchUsersQuery, list[UserResult]]):
     """Test query handler for searching users."""
 
     def __init__(self, user_repository=None):
         self.user_repository = user_repository
-        self.users: List[UserResult] = []
+        self.users: list[UserResult] = []
 
-    async def handle(self, query: SearchUsersQuery) -> List[UserResult]:
+    async def handle(self, query: SearchUsersQuery) -> list[UserResult]:
         """Handle search users query."""
         results = self.users
 
@@ -199,7 +198,7 @@ class GetUserStatsQueryHandler(QueryHandler[GetUserStatsQuery, UserStatsResult])
 
     def __init__(self, user_repository=None):
         self.user_repository = user_repository
-        self.users: List[UserResult] = []
+        self.users: list[UserResult] = []
 
     async def handle(self, query: GetUserStatsQuery) -> UserStatsResult:
         """Handle get user stats query."""

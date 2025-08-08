@@ -3,8 +3,6 @@
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-import pytest_asyncio
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.application.application_service import ApplicationService
 from src.application.factory import ServiceFactory
@@ -16,10 +14,6 @@ from src.application.services.task_service import TaskService
 from src.shared.config.settings import Settings
 
 # Import database fixtures
-from tests.integration.infrastructure.repositories.conftest import (
-    async_engine,
-    async_session,
-)
 
 
 @pytest.fixture

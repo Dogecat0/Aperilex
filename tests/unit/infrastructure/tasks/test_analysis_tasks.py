@@ -8,11 +8,10 @@ import pytest
 from src.domain.entities.company import Company
 from src.domain.value_objects.cik import CIK
 from src.domain.value_objects.filing_type import FilingType
-from src.domain.value_objects.processing_status import ProcessingStatus
 from src.infrastructure.tasks.analysis_tasks import (
     AsyncTask,
-    get_llm_provider,
     _create_filing_from_edgar_data,
+    get_llm_provider,
 )
 
 
@@ -40,11 +39,11 @@ class TestAsyncTask:
 
     def test_sync_task_execution(self):
         """Test execution of synchronous task."""
-        
+
         class TestSyncTask(AsyncTask):
             def run(self, x, y):
                 return x + y
-        
+
         task = TestSyncTask()
         result = task(3, 4)
         assert result == 7
@@ -52,25 +51,27 @@ class TestAsyncTask:
     @patch('asyncio.get_event_loop')
     @patch('asyncio.new_event_loop')
     @patch('asyncio.set_event_loop')
-    def test_async_task_execution_new_loop(self, mock_set_loop, mock_new_loop, mock_get_loop):
+    def test_async_task_execution_new_loop(
+        self, mock_set_loop, mock_new_loop, mock_get_loop
+    ):
         """Test execution of async task when no event loop exists."""
         # Mock RuntimeError when getting event loop (no loop exists)
         mock_get_loop.side_effect = RuntimeError("No event loop")
-        
+
         # Mock new loop creation
         mock_loop = Mock()
         mock_loop.run_until_complete.return_value = "async_result"
         mock_loop.is_running.return_value = False
         mock_loop.is_closed.return_value = False
         mock_new_loop.return_value = mock_loop
-        
+
         class TestAsyncTask(AsyncTask):
             async def run(self, x, y):
                 return x + y
-        
+
         task = TestAsyncTask()
         result = task(3, 4)
-        
+
         mock_new_loop.assert_called_once()
         mock_set_loop.assert_called_once_with(mock_loop)
         mock_loop.run_until_complete.assert_called_once()
@@ -85,14 +86,14 @@ class TestAsyncTask:
         mock_loop.is_running.return_value = False
         mock_loop.is_closed.return_value = False
         mock_get_loop.return_value = mock_loop
-        
+
         class TestAsyncTask(AsyncTask):
             async def run(self, x, y):
                 return x + y
-        
+
         task = TestAsyncTask()
         result = task(3, 4)
-        
+
         mock_loop.run_until_complete.assert_called_once()
         assert result == "async_result"
 
@@ -136,12 +137,12 @@ class TestCreateFilingFromEdgarData:
     ):
         """Test creating filing when company already exists."""
         mock_session = AsyncMock()
-        
+
         # Setup company repository mock
         mock_company_repo = AsyncMock()
         mock_company_repo.get_by_cik.return_value = existing_company
         mock_company_repo_class.return_value = mock_company_repo
-        
+
         # Setup filing repository mock
         mock_filing_repo = AsyncMock()
         created_filing = Mock()
@@ -149,17 +150,19 @@ class TestCreateFilingFromEdgarData:
         created_filing.filing_type = FilingType.FORM_10K
         mock_filing_repo.create.return_value = created_filing
         mock_filing_repo_class.return_value = mock_filing_repo
-        
+
         # Execute function
-        result = await _create_filing_from_edgar_data(mock_session, mock_edgar_filing_data)
-        
+        result = await _create_filing_from_edgar_data(
+            mock_session, mock_edgar_filing_data
+        )
+
         # Verify company lookup
         mock_company_repo.get_by_cik.assert_called_once_with(CIK("320193"))
         mock_company_repo.create.assert_not_called()
-        
+
         # Verify filing creation
         mock_filing_repo.create.assert_called_once()
-        
+
         assert result == created_filing
 
     @patch('src.infrastructure.tasks.analysis_tasks.CompanyRepository')
@@ -170,12 +173,14 @@ class TestCreateFilingFromEdgarData:
     ):
         """Test error handling in filing creation."""
         mock_session = AsyncMock()
-        
+
         # Setup company repository to raise exception
         mock_company_repo = AsyncMock()
-        mock_company_repo.get_by_cik.side_effect = Exception("Database connection failed")
+        mock_company_repo.get_by_cik.side_effect = Exception(
+            "Database connection failed"
+        )
         mock_company_repo_class.return_value = mock_company_repo
-        
+
         # Execute function and expect exception
         with pytest.raises(Exception, match="Database connection failed"):
             await _create_filing_from_edgar_data(mock_session, mock_edgar_filing_data)

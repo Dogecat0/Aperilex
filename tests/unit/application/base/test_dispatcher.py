@@ -2,7 +2,6 @@
 
 import logging
 from dataclasses import dataclass
-from typing import Dict, List
 from unittest.mock import Mock, patch
 from uuid import uuid4
 
@@ -60,7 +59,7 @@ class TestResult:
 
     id: str
     processed_data: str
-    metadata: Dict[str, any] = None
+    metadata: dict[str, any] = None
 
 
 # Test Handler Implementations
@@ -109,7 +108,7 @@ class AnotherCommandHandler(CommandHandler[AnotherCommand, str]):
         return AnotherCommand
 
 
-class TestQueryHandler(QueryHandler[TestQuery, List[str]]):
+class TestQueryHandler(QueryHandler[TestQuery, list[str]]):
     """Test query handler implementation."""
 
     def __init__(self, repository=None, cache=None):
@@ -117,7 +116,7 @@ class TestQueryHandler(QueryHandler[TestQuery, List[str]]):
         self.cache = cache
         self.handled_queries = []
 
-    async def handle(self, query: TestQuery) -> List[str]:
+    async def handle(self, query: TestQuery) -> list[str]:
         """Handle the test query."""
         self.handled_queries.append(query)
 
@@ -131,13 +130,13 @@ class TestQueryHandler(QueryHandler[TestQuery, List[str]]):
         return TestQuery
 
 
-class AnotherQueryHandler(QueryHandler[AnotherQuery, Dict[str, str]]):
+class AnotherQueryHandler(QueryHandler[AnotherQuery, dict[str, str]]):
     """Another query handler for testing multiple handlers."""
 
     def __init__(self, data_source=None):
         self.data_source = data_source
 
-    async def handle(self, query: AnotherQuery) -> Dict[str, str]:
+    async def handle(self, query: AnotherQuery) -> dict[str, str]:
         """Handle the another query."""
         return {"filter": query.filter_value, "result": "filtered_data"}
 

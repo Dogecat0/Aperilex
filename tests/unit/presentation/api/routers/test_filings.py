@@ -1,17 +1,27 @@
 """Unit tests for filings router endpoints."""
 
-import pytest
-from unittest.mock import AsyncMock, MagicMock
 from datetime import date, datetime
+from unittest.mock import AsyncMock, MagicMock
 from uuid import uuid4
 
-from fastapi import HTTPException, status
+import pytest
+
+# Create a test app with just the filings router
+from fastapi import FastAPI, HTTPException, status
 from fastapi.testclient import TestClient
 
-from src.application.schemas.queries.get_analysis_by_accession import GetAnalysisByAccessionQuery
-from src.application.schemas.queries.get_filing_by_accession import GetFilingByAccessionQuery
-from src.application.schemas.queries.search_filings import SearchFilingsQuery, FilingSortField, SortDirection
 from src.application.schemas.commands.analyze_filing import AnalyzeFilingCommand
+from src.application.schemas.queries.get_analysis_by_accession import (
+    GetAnalysisByAccessionQuery,
+)
+from src.application.schemas.queries.get_filing_by_accession import (
+    GetFilingByAccessionQuery,
+)
+from src.application.schemas.queries.search_filings import (
+    FilingSortField,
+    SearchFilingsQuery,
+    SortDirection,
+)
 from src.application.schemas.responses.analysis_response import AnalysisResponse
 from src.application.schemas.responses.filing_response import FilingResponse
 from src.application.schemas.responses.filing_search_response import FilingSearchResult
@@ -23,9 +33,6 @@ from src.domain.value_objects.cik import CIK
 from src.domain.value_objects.filing_type import FilingType
 from src.presentation.api.routers.filings import router
 
-
-# Create a test app with just the filings router
-from fastapi import FastAPI
 test_app = FastAPI()
 test_app.include_router(router)
 client = TestClient(test_app)
@@ -92,7 +99,7 @@ class TestSearchFilingsEndpoint:
 
         assert result == sample_paginated_search_response
         mock_dispatcher.dispatch_query.assert_called_once()
-        
+
         # Check query structure
         call_args = mock_dispatcher.dispatch_query.call_args[0]
         query = call_args[0]
@@ -126,7 +133,7 @@ class TestSearchFilingsEndpoint:
         )
 
         assert result == sample_paginated_search_response
-        
+
         # Check query has correct filters
         call_args = mock_dispatcher.dispatch_query.call_args[0]
         query = call_args[0]
@@ -205,7 +212,9 @@ class TestSearchFilingsEndpoint:
     ):
         """Test ValueError handling from dispatcher."""
         factory, mock_dispatcher = mock_service_factory
-        mock_dispatcher.dispatch_query.side_effect = ValueError("Invalid search parameters")
+        mock_dispatcher.dispatch_query.side_effect = ValueError(
+            "Invalid search parameters"
+        )
 
         from src.presentation.api.routers.filings import search_filings
 
@@ -225,7 +234,9 @@ class TestSearchFilingsEndpoint:
     ):
         """Test general exception handling."""
         factory, mock_dispatcher = mock_service_factory
-        mock_dispatcher.dispatch_query.side_effect = Exception("Database connection failed")
+        mock_dispatcher.dispatch_query.side_effect = Exception(
+            "Database connection failed"
+        )
 
         from src.presentation.api.routers.filings import search_filings
 
@@ -290,7 +301,7 @@ class TestAnalyzeFilingEndpoint:
 
         assert result == sample_task_response
         mock_dispatcher.dispatch_command.assert_called_once()
-        
+
         # Check command structure
         call_args = mock_dispatcher.dispatch_command.call_args[0]
         command = call_args[0]
@@ -394,7 +405,7 @@ class TestGetFilingEndpoint:
 
         assert result == sample_filing_response
         mock_dispatcher.dispatch_query.assert_called_once()
-        
+
         # Check query structure
         call_args = mock_dispatcher.dispatch_query.call_args[0]
         query = call_args[0]
@@ -501,7 +512,7 @@ class TestGetFilingAnalysisEndpoint:
 
         assert result == sample_analysis_response
         mock_dispatcher.dispatch_query.assert_called_once()
-        
+
         # Check query structure
         call_args = mock_dispatcher.dispatch_query.call_args[0]
         query = call_args[0]
@@ -546,7 +557,9 @@ class TestGetFilingAnalysisEndpoint:
             )
 
         assert exc_info.value.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
-        assert "Failed to retrieve filing analysis results" in str(exc_info.value.detail)
+        assert "Failed to retrieve filing analysis results" in str(
+            exc_info.value.detail
+        )
 
 
 class TestFilingsRouterIntegration:
@@ -560,46 +573,49 @@ class TestFilingsRouterIntegration:
     def test_search_filings_endpoint_exists(self, client):
         """Test that search filings endpoint exists."""
         response = client.get("/filings/search?ticker=AAPL")
-        
+
         # Should not be 404 (route exists)
         assert response.status_code != 404
 
     def test_analyze_filing_endpoint_exists(self, client):
         """Test that analyze filing endpoint exists."""
         response = client.post("/filings/0000320193-23-000077/analyze")
-        
+
         # Should not be 404 (route exists)
         assert response.status_code != 404
 
     def test_get_filing_endpoint_exists(self, client):
         """Test that get filing endpoint exists."""
         response = client.get("/filings/0000320193-23-000077")
-        
+
         # Should not be 404 (route exists)
         assert response.status_code != 404
 
     def test_get_filing_analysis_endpoint_exists(self, client):
         """Test that get filing analysis endpoint exists."""
         response = client.get("/filings/0000320193-23-000077/analysis")
-        
+
         # Should not be 404 (route exists)
         assert response.status_code != 404
 
     def test_search_filings_missing_ticker_parameter(self, client):
         """Test that search endpoint requires ticker parameter."""
         response = client.get("/filings/search")
-        
+
         # Should return 422 for missing required ticker parameter
         assert response.status_code == 422
 
-    @pytest.mark.parametrize("invalid_accession", [
-        "invalid-format",
-        "0000320193-23",  # Missing document number
-    ])
+    @pytest.mark.parametrize(
+        "invalid_accession",
+        [
+            "invalid-format",
+            "0000320193-23",  # Missing document number
+        ],
+    )
     def test_invalid_accession_number_validation(self, client, invalid_accession):
         """Test that invalid accession numbers are rejected."""
         response = client.get(f"/filings/{invalid_accession}")
-        
+
         # Should return 422 for invalid accession number format
         assert response.status_code == 422
 
@@ -607,15 +623,19 @@ class TestFilingsRouterIntegration:
     def test_search_filings_invalid_page_validation(self, client, invalid_page):
         """Test that invalid page numbers are rejected."""
         response = client.get(f"/filings/search?ticker=AAPL&page={invalid_page}")
-        
+
         # Should return 422 for invalid page numbers
         assert response.status_code == 422
 
     @pytest.mark.parametrize("invalid_page_size", [0, 101])
-    def test_search_filings_invalid_page_size_validation(self, client, invalid_page_size):
+    def test_search_filings_invalid_page_size_validation(
+        self, client, invalid_page_size
+    ):
         """Test that invalid page sizes are rejected."""
-        response = client.get(f"/filings/search?ticker=AAPL&page_size={invalid_page_size}")
-        
+        response = client.get(
+            f"/filings/search?ticker=AAPL&page_size={invalid_page_size}"
+        )
+
         # Should return 422 for invalid page sizes
         assert response.status_code == 422
 
@@ -623,7 +643,7 @@ class TestFilingsRouterIntegration:
         """Test that valid form types are accepted."""
         # Test just one valid form type instead of iterating through all
         response = client.get("/filings/search?ticker=AAPL&form_type=10-K")
-        
+
         # Should not return 422 for valid form types
         assert response.status_code != 422
 
@@ -632,7 +652,7 @@ class TestFilingsRouterIntegration:
         response = client.get(
             "/filings/search?ticker=AAPL&sort_by=filing_date&sort_direction=desc"
         )
-        
+
         # Should not return 422 for valid sort parameters
         assert response.status_code != 422
 
@@ -641,29 +661,29 @@ class TestFilingsRouterIntegration:
         response = client.get(
             "/filings/search?ticker=AAPL&date_from=2023-01-01&date_to=2023-12-31"
         )
-        
+
         # Should not return 422 for valid date range
         assert response.status_code != 422
 
     def test_router_tags_and_prefix(self):
         """Test that router has correct tags and prefix."""
         from src.presentation.api.routers.filings import router
-        
+
         assert router.prefix == "/filings"
         assert "filings" in router.tags
 
     def test_router_response_models(self):
         """Test that endpoints have proper response models."""
         from src.presentation.api.routers.filings import router
-        
+
         routes = {route.name: route for route in router.routes}
-        
+
         # Check that main endpoints exist
         assert "search_filings" in routes
         assert "analyze_filing" in routes
         assert "get_filing" in routes
         assert "get_filing_analysis" in routes
-        
+
         # Check response models are set
         for route_name, route in routes.items():
             if hasattr(route, 'response_model') and route.response_model:
@@ -672,9 +692,9 @@ class TestFilingsRouterIntegration:
     def test_analyze_filing_correct_status_code(self):
         """Test that analyze filing endpoint returns 202 Accepted."""
         from src.presentation.api.routers.filings import router
-        
+
         routes = {route.name: route for route in router.routes}
         analyze_route = routes.get("analyze_filing")
-        
+
         if analyze_route and hasattr(analyze_route, 'status_code'):
             assert analyze_route.status_code == 202

@@ -231,12 +231,12 @@ class TestEdgarService:
         mock_filings = Mock()
         mock_filings.latest.return_value = mock_filing
         mock_company.get_filings.return_value = mock_filings
-        
+
         # Mock the Company class to return the mock_company for initial call
         # and configure get_ticker method for _extract_filing_data call
         mock_company_for_ticker = Mock()
         mock_company_for_ticker.get_ticker.return_value = "AAPL"
-        
+
         # Configure mock_company_class to return different mocks based on call order
         mock_company_class.side_effect = [mock_company, mock_company_for_ticker]
 
@@ -320,14 +320,17 @@ class TestEdgarService:
         mock_filings = Mock()
         mock_filings.latest.return_value = realistic_mock_filing
         realistic_mock_company.get_filings.return_value = mock_filings
-        
+
         # Mock the Company class to return realistic_mock_company for initial call
         # and configure get_ticker method for _extract_filing_data call
         mock_company_for_ticker = Mock()
         mock_company_for_ticker.get_ticker.return_value = "MSFT"
-        
+
         # Configure mock_company_class to return different mocks based on call order
-        mock_company_class.side_effect = [realistic_mock_company, mock_company_for_ticker]
+        mock_company_class.side_effect = [
+            realistic_mock_company,
+            mock_company_for_ticker,
+        ]
 
         ticker = Ticker("MSFT")
         filing_type = FilingType.FORM_10K
@@ -547,7 +550,9 @@ class TestEdgarService:
         """Test filing data extraction from edgar Filing object."""
         # Setup - mock Company call that happens in _extract_filing_data
         mock_company = Mock()
-        mock_company.get_ticker.return_value = "AAPL"  # Provide get_ticker method for extraction
+        mock_company.get_ticker.return_value = (
+            "AAPL"  # Provide get_ticker method for extraction
+        )
         mock_company_class.return_value = mock_company
 
         # Execute
@@ -649,9 +654,7 @@ class TestEdgarService:
     # ===== NEW COMPREHENSIVE TESTS TO IMPROVE COVERAGE =====
 
     @pytest.mark.asyncio
-    async def test_get_company_by_cik_async_success(
-        self, service, mock_company
-    ):
+    async def test_get_company_by_cik_async_success(self, service, mock_company):
         """Test async company retrieval by CIK."""
         with patch("src.infrastructure.edgar.service.Company") as mock_company_class:
             mock_company_class.return_value = mock_company
@@ -803,7 +806,7 @@ class TestEdgarService:
             month = int(filing.filing_date.split('-')[1])
             quarter = (month - 1) // 3 + 1
             quarters.append(quarter)
-        
+
         assert 1 in quarters  # Q1
         assert 3 in quarters  # Q3
 
@@ -860,7 +863,10 @@ class TestEdgarService:
         mock_filing_amended.text.return_value = "Amended filing"
         mock_filing_amended.html.return_value = "<html>Amended</html>"
 
-        mock_company.get_filings.return_value = [mock_filing_regular, mock_filing_amended]
+        mock_company.get_filings.return_value = [
+            mock_filing_regular,
+            mock_filing_amended,
+        ]
         mock_company_class.return_value = mock_company
 
         ticker = Ticker("AAPL")
@@ -874,9 +880,7 @@ class TestEdgarService:
         assert result[0].filing_type == "10-K"  # Not amended
 
     @patch("src.infrastructure.edgar.service.Company")
-    def test_get_filings_with_limit(
-        self, mock_company_class, service, mock_company
-    ):
+    def test_get_filings_with_limit(self, mock_company_class, service, mock_company):
         """Test get_filings with limit parameter."""
         # Create 5 mock filings
         mock_filings = []
@@ -963,9 +967,7 @@ class TestEdgarService:
         ticker = Ticker("AAPL")
 
         # Execute with date range
-        result = service.search_all_filings(
-            ticker, filing_date="2024-01-01:2024-12-31"
-        )
+        result = service.search_all_filings(ticker, filing_date="2024-01-01:2024-12-31")
 
         assert len(result) == 1
         assert isinstance(result[0], FilingData)
@@ -975,6 +977,7 @@ class TestEdgarService:
         self, mock_company_class, service
     ):
         """Test search_all_filings with PyArrow compatibility fallback."""
+
         # Create the failing iterable for first call
         class FailingIterable:
             def __iter__(self):
@@ -1000,7 +1003,11 @@ class TestEdgarService:
         mock_company_2.get_ticker.return_value = "AAPL"
 
         # Return different mocks for the two Company calls
-        mock_company_class.side_effect = [mock_company_1, mock_company_2, mock_company_2]
+        mock_company_class.side_effect = [
+            mock_company_1,
+            mock_company_2,
+            mock_company_2,
+        ]
 
         ticker = Ticker("AAPL")
 
@@ -1022,14 +1029,16 @@ class TestEdgarService:
 
         mock_filing_obj = Mock()
         mock_filing_obj.items = ["Item 1", "Item 2", "Item 3"]
-        
+
         # Mock dictionary-style access
-        mock_filing_obj.__getitem__ = Mock(side_effect=lambda key: {
-            "Item 1": "Financial statements content",
-            "Item 2": "Management discussion content",
-            "Item 3": "Quantitative disclosures content"
-        }.get(key, ""))
-        
+        mock_filing_obj.__getitem__ = Mock(
+            side_effect=lambda key: {
+                "Item 1": "Financial statements content",
+                "Item 2": "Management discussion content",
+                "Item 3": "Quantitative disclosures content",
+            }.get(key, "")
+        )
+
         mock_filing_10q.obj.return_value = mock_filing_obj
 
         mock_filings = Mock()
@@ -1080,11 +1089,11 @@ class TestEdgarService:
         assert isinstance(result, dict)
         expected_sections = [
             "Item 1.01 - Completion of Acquisition",
-            "Item 2.02 - Results of Operations", 
+            "Item 2.02 - Results of Operations",
             "Item 7.01 - Regulation FD Disclosure",
-            "Item 8.01 - Other Events"
+            "Item 8.01 - Other Events",
         ]
-        
+
         for section in expected_sections:
             assert section in result
 
@@ -1119,7 +1128,7 @@ class TestEdgarService:
 
         # Verify financial statements are included
         assert "Balance Sheet" in result
-        assert "Income Statement" in result  
+        assert "Income Statement" in result
         assert "Cash Flow Statement" in result
         assert "Assets: $1000" in result["Balance Sheet"]
         assert "Revenue: $2000" in result["Income Statement"]
@@ -1134,11 +1143,11 @@ class TestEdgarService:
 
         # Create a mock filing object that has no extractable sections
         mock_filing_obj = Mock(spec=[])  # Empty spec means no attributes
-        
+
         # Ensure hasattr returns False for all our section attributes
         def mock_hasattr(obj, name):
             return False
-        
+
         mock_filing.obj.return_value = mock_filing_obj
 
         mock_filings = Mock()
@@ -1243,10 +1252,10 @@ class TestEdgarService:
         # Create mock filings with different dates
         filing1 = Mock()
         filing1.filing_date = date(2024, 6, 15)
-        
+
         filing2 = Mock()
         filing2.filing_date = date(2024, 7, 15)
-        
+
         filing3 = Mock()
         filing3.filing_date = date(2024, 6, 15)  # Same as filing1
 
@@ -1265,10 +1274,10 @@ class TestEdgarService:
         """Test date filtering with both start and end dates."""
         filing1 = Mock()
         filing1.filing_date = date(2024, 5, 15)  # Before range
-        
+
         filing2 = Mock()
         filing2.filing_date = date(2024, 6, 15)  # In range
-        
+
         filing3 = Mock()
         filing3.filing_date = date(2024, 8, 15)  # After range
 
@@ -1285,10 +1294,10 @@ class TestEdgarService:
         """Test date filtering with start date only."""
         filing1 = Mock()
         filing1.filing_date = date(2024, 5, 15)  # Before start
-        
+
         filing2 = Mock()
         filing2.filing_date = date(2024, 7, 15)  # After start
-        
+
         filings = [filing1, filing2]
 
         # Execute with start date only
@@ -1302,10 +1311,10 @@ class TestEdgarService:
         """Test date filtering with end date only."""
         filing1 = Mock()
         filing1.filing_date = date(2024, 5, 15)  # Before end
-        
+
         filing2 = Mock()
         filing2.filing_date = date(2024, 8, 15)  # After end
-        
+
         filings = [filing1, filing2]
 
         # Execute with end date only
@@ -1322,7 +1331,7 @@ class TestEdgarService:
         mock_entity_filing.form = "UNKNOWN-FORM"  # Not in FilingType enum
         mock_entity_filing.filing_date = date(2024, 1, 15)
         mock_entity_filing.cik = 320193
-        
+
         # Mock company attribute
         mock_entity_filing.company = Mock()
         mock_entity_filing.company.name = "Apple Inc."
@@ -1365,7 +1374,7 @@ class TestEdgarService:
             (2024, 3, 15),  # Q1 2024
             (2024, 9, 15),  # Q3 2024
         ]
-        
+
         for year, month, day in dates:
             filing = Mock()
             filing.filing_date = date(year, month, day)
@@ -1397,10 +1406,10 @@ class TestEdgarService:
         mock_company_class.return_value = mock_company
 
         from src.infrastructure.edgar.schemas.filing_query import FilingQueryParams
-        
+
         # Test latest=True with no flexible params
         query_params = FilingQueryParams(latest=True)
-        
+
         result = service._get_filings_with_params(
             Ticker("AAPL"), FilingType.FORM_10K, query_params
         )
@@ -1409,15 +1418,13 @@ class TestEdgarService:
         assert result[0] == mock_filing
         mock_filings_result.latest.assert_called_once()
 
-    @patch("src.infrastructure.edgar.service.Company") 
-    def test_connection_timeout_in_get_filing(
-        self, mock_company_class, service
-    ):
+    @patch("src.infrastructure.edgar.service.Company")
+    def test_connection_timeout_in_get_filing(self, mock_company_class, service):
         """Test connection timeout handling in get_filing method."""
         # Mock connection timeout
-        import socket
-        mock_company_class.side_effect = socket.timeout("Connection timed out")
-        
+
+        mock_company_class.side_effect = TimeoutError("Connection timed out")
+
         ticker = Ticker("AAPL")
         filing_type = FilingType.FORM_10K
 
@@ -1430,7 +1437,7 @@ class TestEdgarService:
         """Test rate limiting error handling."""
         # Mock rate limiting error (common with SEC API)
         mock_company_class.side_effect = ConnectionError("429 Too Many Requests")
-        
+
         ticker = Ticker("AAPL")
 
         with pytest.raises(ValueError, match="Failed to get company for ticker"):
@@ -1441,8 +1448,9 @@ class TestEdgarService:
         """Test handling of malformed API responses."""
         # Mock JSON decode error (malformed response)
         import json
+
         mock_company_class.side_effect = json.JSONDecodeError("Invalid JSON", "", 0)
-        
+
         ticker = Ticker("AAPL")
 
         with pytest.raises(ValueError, match="Failed to get company for ticker"):

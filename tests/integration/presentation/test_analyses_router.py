@@ -1,11 +1,7 @@
 """Integration tests for analyses router endpoints."""
 
-from unittest.mock import AsyncMock, MagicMock
 from uuid import uuid4
 
-import pytest
-
-from src.application.schemas.responses.paginated_response import PaginatedResponse
 from src.application.schemas.responses.templates_response import TemplatesResponse
 from src.domain.entities.analysis import AnalysisType
 from src.domain.value_objects.cik import CIK

@@ -1,22 +1,19 @@
 """Integration tests for health check endpoints and FastAPI dependencies."""
 
-import json
-from unittest.mock import AsyncMock, MagicMock, PropertyMock, patch
+from unittest.mock import AsyncMock, MagicMock, PropertyMock
 
 import pytest
 from fastapi.testclient import TestClient
 
 from src.application.factory import ServiceFactory
 from src.presentation.api.app import app
-from src.presentation.api.dependencies import get_service_factory
-from src.shared.config.settings import Settings
 
 
 @pytest.fixture
 def test_client():
     """FastAPI test client with dependency overrides."""
     from src.infrastructure.database.base import get_db
-    from src.presentation.api.dependencies import get_redis_service, get_service_factory
+    from src.presentation.api.dependencies import get_redis_service
 
     # Create mock dependencies
     mock_factory = MagicMock(spec=ServiceFactory)

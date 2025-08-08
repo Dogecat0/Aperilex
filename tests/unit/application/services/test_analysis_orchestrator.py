@@ -1,9 +1,8 @@
 """Tests for AnalysisOrchestrator."""
 
 from datetime import UTC, datetime
-from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
-from uuid import UUID, uuid4
+from uuid import uuid4
 
 import pytest
 
@@ -629,6 +628,7 @@ class TestAnalysisOrchestrator:
         orchestrator: AnalysisOrchestrator,
     ) -> None:
         """Test _call_progress_callback with sync callback that raises exception."""
+
         def failing_sync_callback(progress: float, message: str) -> None:
             raise ValueError("Sync callback failed")
 
@@ -643,6 +643,7 @@ class TestAnalysisOrchestrator:
         orchestrator: AnalysisOrchestrator,
     ) -> None:
         """Test _call_progress_callback with async callback that raises exception."""
+
         async def failing_async_callback(progress: float, message: str) -> None:
             raise ValueError("Async callback failed")
 
@@ -666,10 +667,14 @@ class TestAnalysisOrchestrator:
         accession_number = AccessionNumber("1234567890-12-123456")
         mock_edgar_service.get_filing_by_accession.return_value = mock_filing_data
 
-        result = await orchestrator.validate_filing_access_and_get_data(accession_number)
+        result = await orchestrator.validate_filing_access_and_get_data(
+            accession_number
+        )
 
         assert result == mock_filing_data
-        mock_edgar_service.get_filing_by_accession.assert_called_once_with(accession_number)
+        mock_edgar_service.get_filing_by_accession.assert_called_once_with(
+            accession_number
+        )
 
     @pytest.mark.asyncio
     async def test_validate_filing_access_and_get_data_missing_company_name(
@@ -683,7 +688,9 @@ class TestAnalysisOrchestrator:
         mock_filing_data.company_name = None
         mock_edgar_service.get_filing_by_accession.return_value = mock_filing_data
 
-        with pytest.raises(FilingAccessError, match="Filing missing required company name"):
+        with pytest.raises(
+            FilingAccessError, match="Filing missing required company name"
+        ):
             await orchestrator.validate_filing_access_and_get_data(accession_number)
 
     @pytest.mark.asyncio
@@ -698,7 +705,9 @@ class TestAnalysisOrchestrator:
         mock_filing_data.filing_type = None
         mock_edgar_service.get_filing_by_accession.return_value = mock_filing_data
 
-        with pytest.raises(FilingAccessError, match="Filing missing required filing type"):
+        with pytest.raises(
+            FilingAccessError, match="Filing missing required filing type"
+        ):
             await orchestrator.validate_filing_access_and_get_data(accession_number)
 
     @pytest.mark.asyncio
@@ -709,7 +718,9 @@ class TestAnalysisOrchestrator:
     ) -> None:
         """Test validate_filing_access_and_get_data with ValueError from EdgarService."""
         accession_number = AccessionNumber("1234567890-12-123456")
-        mock_edgar_service.get_filing_by_accession.side_effect = ValueError("Filing not found")
+        mock_edgar_service.get_filing_by_accession.side_effect = ValueError(
+            "Filing not found"
+        )
 
         with pytest.raises(FilingAccessError, match="Cannot access filing"):
             await orchestrator.validate_filing_access_and_get_data(accession_number)
@@ -722,9 +733,13 @@ class TestAnalysisOrchestrator:
     ) -> None:
         """Test validate_filing_access with unexpected exception handling."""
         accession_number = AccessionNumber("1234567890-12-123456")
-        mock_edgar_service.get_filing_by_accession.side_effect = RuntimeError("Unexpected error")
+        mock_edgar_service.get_filing_by_accession.side_effect = RuntimeError(
+            "Unexpected error"
+        )
 
-        with pytest.raises(FilingAccessError, match="Unexpected error validating filing access"):
+        with pytest.raises(
+            FilingAccessError, match="Unexpected error validating filing access"
+        ):
             await orchestrator.validate_filing_access(accession_number)
 
     # ====================
@@ -869,7 +884,9 @@ class TestAnalysisOrchestrator:
                 'src.infrastructure.repositories.company_repository.CompanyRepository'
             ) as mock_company_repo_class,
         ):
-            mock_company_repo_class.side_effect = Exception("Database connection failed")
+            mock_company_repo_class.side_effect = Exception(
+                "Database connection failed"
+            )
 
             with pytest.raises(
                 AnalysisOrchestrationError, match="Failed to create filing entity"
@@ -892,7 +909,7 @@ class TestAnalysisOrchestrator:
     ) -> None:
         """Test finding existing analysis with matching template."""
         filing_id = uuid4()
-        
+
         # Set up existing analysis with matching template metadata
         mock_analysis_entity._metadata = {
             "template_used": sample_command.analysis_template.value
@@ -916,11 +933,9 @@ class TestAnalysisOrchestrator:
     ) -> None:
         """Test finding existing analysis with no matching template."""
         filing_id = uuid4()
-        
+
         # Set up existing analysis with different template metadata
-        mock_analysis_entity._metadata = {
-            "template_used": "DIFFERENT_TEMPLATE"
-        }
+        mock_analysis_entity._metadata = {"template_used": "DIFFERENT_TEMPLATE"}
         mock_analysis_repository.get_by_filing_id.return_value = [mock_analysis_entity]
 
         result = await orchestrator._find_existing_analysis(filing_id, sample_command)
@@ -939,7 +954,7 @@ class TestAnalysisOrchestrator:
     ) -> None:
         """Test finding existing analysis when no analyses exist."""
         filing_id = uuid4()
-        
+
         mock_analysis_repository.get_by_filing_id.return_value = []
 
         result = await orchestrator._find_existing_analysis(filing_id, sample_command)
@@ -958,7 +973,7 @@ class TestAnalysisOrchestrator:
     ) -> None:
         """Test finding existing analysis with multiple analyses, returns first match."""
         filing_id = uuid4()
-        
+
         # Create two analyses, first one matches
         analysis1 = Analysis(
             id=uuid4(),
@@ -970,7 +985,7 @@ class TestAnalysisOrchestrator:
             created_at=datetime.now(UTC),
         )
         analysis1._metadata = {"template_used": sample_command.analysis_template.value}
-        
+
         analysis2 = Analysis(
             id=uuid4(),
             filing_id=filing_id,
@@ -981,7 +996,7 @@ class TestAnalysisOrchestrator:
             created_at=datetime.now(UTC),
         )
         analysis2._metadata = {"template_used": "DIFFERENT_TEMPLATE"}
-        
+
         mock_analysis_repository.get_by_filing_id.return_value = [analysis1, analysis2]
 
         result = await orchestrator._find_existing_analysis(filing_id, sample_command)
@@ -1000,8 +1015,10 @@ class TestAnalysisOrchestrator:
     ) -> None:
         """Test finding existing analysis with repository exception."""
         filing_id = uuid4()
-        
-        mock_analysis_repository.get_by_filing_id.side_effect = Exception("Database error")
+
+        mock_analysis_repository.get_by_filing_id.side_effect = Exception(
+            "Database error"
+        )
 
         result = await orchestrator._find_existing_analysis(filing_id, sample_command)
 
@@ -1099,7 +1116,7 @@ class TestAnalysisOrchestrator:
         # Mock filing data with sections but no relevant ones
         mock_filing_data.sections = {"Item 2 - Properties": "Properties content"}
         mock_filing_data.ticker = "TEST"
-        
+
         # Mock EdgarService to return all sections when no relevant sections found
         all_sections = {
             "Item 1 - Business": "Business content",
@@ -1139,12 +1156,12 @@ class TestAnalysisOrchestrator:
     ) -> None:
         """Test orchestration when filing is already marked as completed."""
         from src.domain.value_objects.processing_status import ProcessingStatus
-        
+
         # Create filing with COMPLETED status
         mock_filing_entity = MagicMock()
         mock_filing_entity.id = uuid4()
         mock_filing_entity.processing_status = ProcessingStatus.COMPLETED
-        
+
         mock_filing_repository.get_by_accession_number.return_value = mock_filing_entity
         mock_analysis_repository.create.return_value = mock_analysis_entity
         mock_analysis_repository.get_by_id.return_value = mock_analysis_entity
@@ -1168,7 +1185,7 @@ class TestAnalysisOrchestrator:
             result = await orchestrator.orchestrate_filing_analysis(sample_command)
 
         assert result == mock_analysis_entity
-        
+
         # Verify filing status was NOT updated since it's already completed
         mock_filing_entity.mark_as_completed.assert_not_called()
 
@@ -1202,13 +1219,16 @@ class TestAnalysisOrchestrator:
         mock_llm_response = MagicMock()
         mock_llm_response.model_dump.return_value = {"test": "results"}
         mock_llm_response.confidence_score = 0.85
-        mock_llm_response.section_analyses = [mock_section_analysis1, mock_section_analysis2]
+        mock_llm_response.section_analyses = [
+            mock_section_analysis1,
+            mock_section_analysis2,
+        ]
         mock_llm_provider.analyze_filing.return_value = mock_llm_response
 
         # Mock section extraction
         mock_edgar_service.extract_filing_sections.return_value = {
             "Item 1 - Business": "Business content",
-            "Item 1A - Risk Factors": "Risk content"
+            "Item 1A - Risk Factors": "Risk content",
         }
 
         with patch.object(
@@ -1219,9 +1239,12 @@ class TestAnalysisOrchestrator:
             result = await orchestrator.orchestrate_filing_analysis(sample_command)
 
         assert result == mock_analysis_entity
-        
+
         # Check that metadata includes processed schemas
-        expected_schemas_processed = ["BusinessAnalysisSection", "RiskFactorsAnalysisSection"]
+        expected_schemas_processed = [
+            "BusinessAnalysisSection",
+            "RiskFactorsAnalysisSection",
+        ]
         # The metadata should be updated during orchestration
         mock_analysis_repository.update.assert_called_with(mock_analysis_entity)
 
@@ -1239,12 +1262,12 @@ class TestAnalysisOrchestrator:
     ) -> None:
         """Test orchestration updates filing status to completed."""
         from src.domain.value_objects.processing_status import ProcessingStatus
-        
+
         # Create filing with PENDING status
         mock_filing_entity = MagicMock()
         mock_filing_entity.id = uuid4()
         mock_filing_entity.processing_status = ProcessingStatus.PENDING
-        
+
         mock_filing_repository.get_by_accession_number.return_value = mock_filing_entity
         mock_analysis_repository.create.return_value = mock_analysis_entity
         mock_analysis_repository.get_by_id.return_value = mock_analysis_entity
@@ -1268,7 +1291,7 @@ class TestAnalysisOrchestrator:
             result = await orchestrator.orchestrate_filing_analysis(sample_command)
 
         assert result == mock_analysis_entity
-        
+
         # Verify filing status was updated
         mock_filing_entity.mark_as_completed.assert_called_once()
         mock_filing_repository.update.assert_called_with(mock_filing_entity)
