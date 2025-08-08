@@ -18,7 +18,7 @@ The existing LLM infrastructure provides comprehensive **filing-level analysis**
 **✅ Already Implemented:**
 - `analyze_filing()` - Comprehensive analysis of individual SEC filings
 - Filing summaries (3-4 sentences per filing)
-- Executive summaries (2-3 paragraphs per filing) 
+- Executive summaries (2-3 paragraphs per filing)
 - Financial highlights extraction per filing
 - Key insights (7-10 per filing)
 - Risk factor analysis per filing
@@ -53,7 +53,7 @@ The current LLM architecture operates on **individual filings**, not **company e
 
 ### API Changes
 - Removed `include_filing_summary` query parameter from `/companies/{ticker}`
-- Removed `include_financial_overview` query parameter from `/companies/{ticker}` 
+- Removed `include_financial_overview` query parameter from `/companies/{ticker}`
 - Removed corresponding fields from `CompanyResponse` schema
 
 ### Code Changes
@@ -115,7 +115,7 @@ Response structure:
 ```json
 {
   "company_id": "...",
-  "cik": "789019", 
+  "cik": "789019",
   "name": "Microsoft Corporation",
   "company_overview": {
     "executive_summary": "LLM-generated company overview...",

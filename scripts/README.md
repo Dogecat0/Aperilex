@@ -177,7 +177,7 @@ def test_analysis_with_realistic_data(realistic_filing_analysis):
   ```bash
   # Skip external API tests
   pytest -m "not external_api"
-  
+
   # Run only integration tests
   pytest -m "integration"
   ```

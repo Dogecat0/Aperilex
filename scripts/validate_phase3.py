@@ -22,9 +22,9 @@ os.environ["REDIS_URL"] = "redis://:dev_password@localhost:6379"
 
 from src.domain.entities.company import Company
 from src.domain.entities.filing import Filing
+from src.domain.value_objects.accession_number import AccessionNumber
 from src.domain.value_objects.cik import CIK
 from src.domain.value_objects.filing_type import FilingType
-from src.domain.value_objects.accession_number import AccessionNumber
 from src.infrastructure.cache.cache_manager import CacheManager
 from src.infrastructure.database.base import async_session_maker, engine
 from src.infrastructure.database.models import Base
@@ -81,7 +81,7 @@ async def validate_phase3() -> None:
                 id=test_company.id,
                 cik=test_company.cik,
                 name="Microsoft Corp (Updated)",
-                metadata=test_company.metadata
+                metadata=test_company.metadata,
             )
             updated = await company_repo.update(updated_company)
             print(f"✅ Updated company name: {updated.name}")
@@ -137,11 +137,11 @@ async def validate_phase3() -> None:
         # Test schema structure (schemas are defined as static schemas)
         print("✅ LLM provider initialized successfully")
         print("✅ OpenAI schemas defined for hierarchical analysis")
-        
+
         # The provider has predefined schemas for different sections
         schema_names = [
             "business_overview",
-            "risk_factors", 
+            "risk_factors",
             "financial_performance",
         ]
         for schema_name in schema_names:

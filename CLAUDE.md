@@ -66,7 +66,7 @@ The previous version used edgartools (Context7 Library ID: `/dgunning/edgartools
    # Aperilex Implementation Pattern (NOT using XBRL)
    # Financial data is extracted as text from filing objects
    filing_obj = filing.obj()
-   
+
    # Check for financial statement attributes
    if hasattr(filing_obj, "balance_sheet"):
        balance_sheet_text = str(filing_obj.balance_sheet)
@@ -74,7 +74,7 @@ The previous version used edgartools (Context7 Library ID: `/dgunning/edgartools
        income_statement_text = str(filing_obj.income_statement)
    if hasattr(filing_obj, "cash_flow_statement"):
        cash_flow_text = str(filing_obj.cash_flow_statement)
-   
+
    # Financial data is then analyzed by LLM for insights
    # NOT parsed into structured numeric values
    ```
@@ -145,7 +145,7 @@ Use **aperilex-code-quality** subagent for:
 - Architecture compliance validation
 - Security scanning with Bandit and Safety
 
-### Testing Strategy  
+### Testing Strategy
 Use **aperilex-test-strategy** subagent for:
 - Intelligent test execution based on changes
 - Cost optimization for external API tests
@@ -193,7 +193,7 @@ poetry run ruff check src/ && poetry run mypy src/ && poetry run black --check s
 Aperilex uses clean architecture principles to enable both powerful user features and robust technical capabilities:
 
 - **Domain Layer**: Core business entities and logic (Filing, Company, Analysis) that represent real-world financial concepts
-- **Application Layer**: Use cases and commands (AnalyzeFilingCommand, SearchFilingsQuery) that orchestrate user workflows  
+- **Application Layer**: Use cases and commands (AnalyzeFilingCommand, SearchFilingsQuery) that orchestrate user workflows
 - **Infrastructure Layer**: External integrations (SEC API, LLM providers, Database) that power data access and AI insights
 - **Presentation Layer**: Both REST API endpoints for developers AND web UI for end users
 
