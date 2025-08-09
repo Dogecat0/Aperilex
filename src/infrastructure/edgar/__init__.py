@@ -2,4 +2,6 @@
 
 from .service import EdgarService
 
-__all__ = ["EdgarService"]
+__all__ = [
+    "EdgarService",
+]

@@ -1,16 +1,21 @@
 """Tests for AnalyzeFilingCommandHandler."""
 
-import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, patch
 from uuid import uuid4
 
-from src.application.commands.handlers.analyze_filing_handler import AnalyzeFilingCommandHandler
+import pytest
+
+from src.application.commands.handlers.analyze_filing_handler import (
+    AnalyzeFilingCommandHandler,
+)
 from src.application.schemas.commands.analyze_filing import (
-    AnalyzeFilingCommand,
     AnalysisTemplate,
+    AnalyzeFilingCommand,
 )
 from src.application.schemas.responses.task_response import TaskResponse
-from src.application.services.background_task_coordinator import BackgroundTaskCoordinator
+from src.application.services.background_task_coordinator import (
+    BackgroundTaskCoordinator,
+)
 from src.domain.value_objects.accession_number import AccessionNumber
 from src.domain.value_objects.cik import CIK
 
@@ -67,7 +72,7 @@ class TestAnalyzeFilingCommandHandler:
     def test_command_type_class_method(self) -> None:
         """Test command_type class method returns correct type."""
         command_type = AnalyzeFilingCommandHandler.command_type()
-        
+
         assert command_type == AnalyzeFilingCommand
 
     @pytest.mark.asyncio
@@ -80,16 +85,20 @@ class TestAnalyzeFilingCommandHandler:
     ) -> None:
         """Test successful command handling."""
         # Setup mock
-        mock_background_task_coordinator.queue_filing_analysis.return_value = mock_task_response
-        
+        mock_background_task_coordinator.queue_filing_analysis.return_value = (
+            mock_task_response
+        )
+
         # Execute handler (validation will be called internally)
         result = await handler.handle(sample_command)
 
         # Verify result
         assert result == mock_task_response
-        
+
         # Verify background task coordinator was called with command
-        mock_background_task_coordinator.queue_filing_analysis.assert_called_once_with(sample_command)
+        mock_background_task_coordinator.queue_filing_analysis.assert_called_once_with(
+            sample_command
+        )
 
     @pytest.mark.asyncio
     async def test_handle_command_validation_failure(
@@ -122,13 +131,17 @@ class TestAnalyzeFilingCommandHandler:
         """Test command handling when background task coordinator fails."""
         # Mock coordinator to raise exception
         coordinator_error = Exception("Background processing failed")
-        mock_background_task_coordinator.queue_filing_analysis.side_effect = coordinator_error
+        mock_background_task_coordinator.queue_filing_analysis.side_effect = (
+            coordinator_error
+        )
 
         with pytest.raises(Exception, match="Background processing failed"):
             await handler.handle(sample_command)
 
         # Verify coordinator was called despite failure
-        mock_background_task_coordinator.queue_filing_analysis.assert_called_once_with(sample_command)
+        mock_background_task_coordinator.queue_filing_analysis.assert_called_once_with(
+            sample_command
+        )
 
     @pytest.mark.asyncio
     async def test_handle_command_different_templates(
@@ -154,12 +167,16 @@ class TestAnalyzeFilingCommandHandler:
             )
 
             # Setup mock for each iteration
-            mock_background_task_coordinator.queue_filing_analysis.return_value = mock_task_response
+            mock_background_task_coordinator.queue_filing_analysis.return_value = (
+                mock_task_response
+            )
 
             result = await handler.handle(command)
 
             assert result == mock_task_response
-            mock_background_task_coordinator.queue_filing_analysis.assert_called_with(command)
+            mock_background_task_coordinator.queue_filing_analysis.assert_called_with(
+                command
+            )
 
             # Reset mock for next iteration
             mock_background_task_coordinator.reset_mock()
@@ -180,12 +197,14 @@ class TestAnalyzeFilingCommandHandler:
             user_id="test_user",
         )
 
-        mock_background_task_coordinator.queue_filing_analysis.return_value = mock_task_response
+        mock_background_task_coordinator.queue_filing_analysis.return_value = (
+            mock_task_response
+        )
 
         result = await handler.handle(command)
 
         assert result == mock_task_response
-        
+
         # Verify the command passed to coordinator has force_reprocess=True
         call_args = mock_background_task_coordinator.queue_filing_analysis.call_args
         passed_command = call_args[0][0]
@@ -206,12 +225,14 @@ class TestAnalyzeFilingCommandHandler:
             user_id=None,  # No user ID provided
         )
 
-        mock_background_task_coordinator.queue_filing_analysis.return_value = mock_task_response
+        mock_background_task_coordinator.queue_filing_analysis.return_value = (
+            mock_task_response
+        )
 
         result = await handler.handle(command)
 
         assert result == mock_task_response
-        
+
         # Verify command was still processed
         call_args = mock_background_task_coordinator.queue_filing_analysis.call_args
         passed_command = call_args[0][0]
@@ -226,22 +247,26 @@ class TestAnalyzeFilingCommandHandler:
         mock_task_response: TaskResponse,
     ) -> None:
         """Test that command handling includes proper logging."""
-        mock_background_task_coordinator.queue_filing_analysis.return_value = mock_task_response
+        mock_background_task_coordinator.queue_filing_analysis.return_value = (
+            mock_task_response
+        )
 
-        with patch('src.application.commands.handlers.analyze_filing_handler.logger') as mock_logger:
+        with patch(
+            'src.application.commands.handlers.analyze_filing_handler.logger'
+        ) as mock_logger:
             result = await handler.handle(sample_command)
 
         # Verify logging was called
         mock_logger.info.assert_called_once()
-        
+
         # Verify log message contains expected information
         log_call = mock_logger.info.call_args
         log_message = log_call[0][0]  # First argument is the message
         log_extra = log_call[1]["extra"]  # extra parameter
-        
+
         assert "Processing analyze filing command" in log_message
         assert sample_command.filing_identifier in log_message
-        
+
         # Verify log extras contain expected fields
         expected_log_fields = [
             "company_cik",
@@ -250,7 +275,7 @@ class TestAnalyzeFilingCommandHandler:
             "force_reprocess",
             "user_id",
         ]
-        
+
         for field in expected_log_fields:
             assert field in log_extra
 
@@ -264,11 +289,12 @@ class TestAnalyzeFilingCommandHandler:
         """Test handler type annotations and generic typing."""
         # Verify handler is properly typed
         assert hasattr(handler, 'handle')
-        
+
         # The handler should be a CommandHandler with proper generics
         from src.application.base.handlers import CommandHandler
+
         assert isinstance(handler, CommandHandler)
-        
+
         # Verify command type method
         assert handler.command_type() == AnalyzeFilingCommand
 
@@ -294,12 +320,14 @@ class TestAnalyzeFilingCommandHandler:
             result=None,
         )
 
-        mock_background_task_coordinator.queue_filing_analysis.return_value = expected_response
+        mock_background_task_coordinator.queue_filing_analysis.return_value = (
+            expected_response
+        )
 
         result = await handler.handle(realistic_command)
 
         assert result == expected_response
-        
+
         # Verify realistic data was passed through correctly
         call_args = mock_background_task_coordinator.queue_filing_analysis.call_args
         passed_command = call_args[0][0]

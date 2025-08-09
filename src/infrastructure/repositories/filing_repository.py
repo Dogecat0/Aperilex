@@ -3,12 +3,15 @@
 from datetime import date
 from uuid import UUID
 
-from sqlalchemy import and_, select
+from sqlalchemy import and_, desc, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.domain.entities.filing import Filing, ProcessingStatus
+from src.domain.entities.filing import Filing
 from src.domain.value_objects.accession_number import AccessionNumber
 from src.domain.value_objects.filing_type import FilingType
+from src.domain.value_objects.processing_status import ProcessingStatus
+from src.domain.value_objects.ticker import Ticker
+from src.infrastructure.database.models import Company as CompanyModel
 from src.infrastructure.database.models import Filing as FilingModel
 from src.infrastructure.repositories.base import BaseRepository
 
@@ -207,3 +210,101 @@ class FilingRepository(BaseRepository[FilingModel, Filing]):
 
         await self.session.flush()
         return len(models)
+
+    async def get_by_ticker_with_filters(
+        self,
+        ticker: Ticker,
+        filing_type: FilingType | None = None,
+        start_date: date | None = None,
+        end_date: date | None = None,
+        sort_field: str = "filing_date",
+        sort_direction: str = "desc",
+        page: int = 1,
+        page_size: int = 20,
+    ) -> list[Filing]:
+        """Get filings by ticker with optional filters, sorting, and pagination.
+
+        Args:
+            ticker: Company ticker symbol
+            filing_type: Optional filing type filter
+            start_date: Optional start date filter
+            end_date: Optional end date filter
+            sort_field: Field to sort by
+            sort_direction: Sort direction ("asc" or "desc")
+            page: Page number (1-based)
+            page_size: Number of items per page
+
+        Returns:
+            List of filings matching criteria
+        """
+        # Join with Company table to filter by ticker in meta_data JSON field
+        conditions = [CompanyModel.meta_data["ticker"].as_string() == str(ticker)]
+
+        if filing_type:
+            conditions.append(FilingModel.filing_type == filing_type.value)
+
+        if start_date:
+            conditions.append(FilingModel.filing_date >= start_date)
+
+        if end_date:
+            conditions.append(FilingModel.filing_date <= end_date)
+
+        # Determine sort column
+        sort_column = getattr(FilingModel, sort_field)
+        if sort_direction.lower() == "desc":
+            sort_column = desc(sort_column)
+
+        # Calculate offset
+        offset = (page - 1) * page_size
+
+        stmt = (
+            select(FilingModel)
+            .join(CompanyModel, FilingModel.company_id == CompanyModel.id)
+            .where(and_(*conditions))
+            .order_by(sort_column)
+            .offset(offset)
+            .limit(page_size)
+        )
+
+        result = await self.session.execute(stmt)
+        models = result.scalars().all()
+        return [self.to_entity(model) for model in models]
+
+    async def count_by_ticker_with_filters(
+        self,
+        ticker: Ticker,
+        filing_type: FilingType | None = None,
+        start_date: date | None = None,
+        end_date: date | None = None,
+    ) -> int:
+        """Count filings by ticker with optional filters.
+
+        Args:
+            ticker: Company ticker symbol
+            filing_type: Optional filing type filter
+            start_date: Optional start date filter
+            end_date: Optional end date filter
+
+        Returns:
+            Total count of filings matching criteria
+        """
+        # Join with Company table to filter by ticker in meta_data JSON field
+        conditions = [CompanyModel.meta_data["ticker"].as_string() == str(ticker)]
+
+        if filing_type:
+            conditions.append(FilingModel.filing_type == filing_type.value)
+
+        if start_date:
+            conditions.append(FilingModel.filing_date >= start_date)
+
+        if end_date:
+            conditions.append(FilingModel.filing_date <= end_date)
+
+        stmt = (
+            select(func.count(FilingModel.id))
+            .join(CompanyModel, FilingModel.company_id == CompanyModel.id)
+            .where(and_(*conditions))
+        )
+
+        result = await self.session.execute(stmt)
+        return result.scalar() or 0

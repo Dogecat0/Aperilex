@@ -46,16 +46,19 @@ class TestTicker:
             Ticker("")
 
         # Too long
-        with pytest.raises(ValueError, match="Ticker must be 1-5 uppercase letters"):
-            Ticker("ABCDEF")
+        with pytest.raises(
+            ValueError,
+            match="Ticker must be 1-10 characters and contain only uppercase letters, numbers, dots, and hyphens",
+        ):
+            Ticker("ABCDEFGHIJK")
 
-        # Contains numbers
-        with pytest.raises(ValueError, match="Ticker must be 1-5 uppercase letters"):
-            Ticker("AAPL1")
+        # Contains numbers (now allowed in current implementation)
+        ticker_with_numbers = Ticker("AAPL1")
+        assert ticker_with_numbers.value == "AAPL1"
 
-        # Contains special characters
-        with pytest.raises(ValueError, match="Ticker must be 1-5 uppercase letters"):
-            Ticker("AA-PL")
+        # Contains hyphens (now allowed in current implementation)
+        ticker_with_hyphen = Ticker("AA-PL")
+        assert ticker_with_hyphen.value == "AA-PL"
 
         # Just whitespace
         with pytest.raises(ValueError, match="Ticker cannot be empty"):
@@ -143,22 +146,55 @@ class TestTicker:
 
     def test_validation_requirements(self):
         """Test specific validation requirements."""
-        # Must be letters only
-        with pytest.raises(ValueError, match="Ticker must be 1-5 uppercase letters"):
-            Ticker("123")
+        # Numbers are now allowed
+        ticker_numbers = Ticker("123")
+        assert ticker_numbers.value == "123"
 
-        with pytest.raises(ValueError, match="Ticker must be 1-5 uppercase letters"):
-            Ticker("A1B")
+        ticker_mixed = Ticker("A1B")
+        assert ticker_mixed.value == "A1B"
 
-        with pytest.raises(ValueError, match="Ticker must be 1-5 uppercase letters"):
-            Ticker("A.B")
+        # Dots are now allowed
+        ticker_dots = Ticker("A.B")
+        assert ticker_dots.value == "A.B"
 
-        # Length validation
-        with pytest.raises(ValueError, match="Ticker must be 1-5 uppercase letters"):
-            Ticker("ABCDEFG")
+        # Length validation - too long (over 10 characters)
+        with pytest.raises(
+            ValueError,
+            match="Ticker must be 1-10 characters and contain only uppercase letters, numbers, dots, and hyphens",
+        ):
+            Ticker("ABCDEFGHIJK")
 
-        # Valid examples
-        valid_tickers = ["A", "AB", "ABC", "ABCD", "ABCDE"]
+        # Invalid characters (only letters, numbers, dots, and hyphens allowed)
+        with pytest.raises(
+            ValueError,
+            match="Ticker must be 1-10 characters and contain only uppercase letters, numbers, dots, and hyphens",
+        ):
+            Ticker("AA@PL")
+
+        with pytest.raises(
+            ValueError,
+            match="Ticker must be 1-10 characters and contain only uppercase letters, numbers, dots, and hyphens",
+        ):
+            Ticker("AA PL")  # space not allowed
+
+        with pytest.raises(
+            ValueError,
+            match="Ticker must be 1-10 characters and contain only uppercase letters, numbers, dots, and hyphens",
+        ):
+            Ticker("AA_PL")  # underscore not allowed
+
+        # Valid examples (now includes longer tickers up to 10 chars)
+        valid_tickers = [
+            "A",
+            "AB",
+            "ABC",
+            "ABCD",
+            "ABCDE",
+            "ABCDEF",
+            "BRK.A",
+            "ABC-123",
+            "1234567890",
+        ]
         for ticker_str in valid_tickers:
             ticker = Ticker(ticker_str)
             assert ticker.value == ticker_str

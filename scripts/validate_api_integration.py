@@ -24,7 +24,6 @@ from typing import Any
 from src.domain.value_objects import FilingType, Ticker
 from src.infrastructure.edgar.schemas.filing_data import FilingData
 from src.infrastructure.edgar.service import EdgarService
-from src.infrastructure.llm.base import AnalysisResponse
 from src.infrastructure.llm.openai_provider import OpenAIProvider
 
 # Add project root to Python path for src imports
@@ -167,8 +166,8 @@ class APIIntegrationValidator:
             # Test 1: Basic connectivity with minimal section analysis
             print("\n1. Testing basic connectivity...")
             test_section = """
-            Apple Inc. designs, manufactures, and markets smartphones, personal computers, 
-            tablets, wearables, and accessories worldwide. The company operates through 
+            Apple Inc. designs, manufactures, and markets smartphones, personal computers,
+            tablets, wearables, and accessories worldwide. The company operates through
             iPhone, Mac, iPad, Wearables, Home and Accessories, and Services segments.
             """
 
@@ -478,9 +477,7 @@ class APIIntegrationValidator:
                 status = (
                     "✓ PASS"
                     if category_passed == category_tests
-                    else "⚠️  PARTIAL"
-                    if category_passed > 0
-                    else "✗ FAIL"
+                    else "⚠️  PARTIAL" if category_passed > 0 else "✗ FAIL"
                 )
                 print(
                     f"{category.upper()}: {category_passed}/{category_tests} {status}"
@@ -495,9 +492,7 @@ class APIIntegrationValidator:
         overall_status = (
             "✓ PASS"
             if passed_tests == total_tests
-            else "⚠️  PARTIAL"
-            if passed_tests > 0
-            else "✗ FAIL"
+            else "⚠️  PARTIAL" if passed_tests > 0 else "✗ FAIL"
         )
         print(f"\nOVERALL: {passed_tests}/{total_tests} {overall_status}")
 

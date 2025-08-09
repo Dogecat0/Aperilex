@@ -12,6 +12,7 @@ When invoked:
 3. Implement infrastructure integrations (Edgar, LLM, Database, Cache)
 4. Design API endpoints with proper request/response schemas
 5. Ensure clean architecture compliance and dependency directions
+6. Use `poetry` for dependency management and command execution
 
 Clean Architecture Layers:
 - **Domain Layer**: Entities (Analysis, Company, Filing), Value Objects (Money, Ticker, CIK)
@@ -27,7 +28,7 @@ class Filing:
     ticker: Ticker
     form_type: FilingType
     filing_date: date
-    
+
     def analyze_with_template(self, template: AnalysisTemplate) -> Analysis:
         # Domain logic here
 

@@ -1,0 +1,79 @@
+import { useLocation } from 'react-router-dom'
+import { useAppStore } from '@/lib/store'
+import { Button } from '@/components/ui/Button'
+import { NavMenu } from '@/components/navigation/NavMenu'
+
+export function MobileNav() {
+  const { toggleMobileNav } = useAppStore()
+  const location = useLocation()
+
+  return (
+    <>
+      {/* Backdrop */}
+      <div
+        className="fixed inset-0 z-40 bg-background/80 backdrop-blur-sm lg:hidden"
+        onClick={toggleMobileNav}
+      />
+
+      <div className="fixed inset-y-0 left-0 z-50 w-64 bg-background border-r lg:hidden">
+        <div className="flex h-16 items-center justify-between px-4 border-b">
+          <div className="flex items-center space-x-2">
+            <div className="h-8 w-8 rounded-md bg-primary flex items-center justify-center">
+              <span className="text-primary-foreground font-bold text-sm">A</span>
+            </div>
+            <div>
+              <h1 className="text-lg font-bold text-primary">Aperilex</h1>
+            </div>
+          </div>
+
+          <Button variant="ghost" size="sm" onClick={toggleMobileNav}>
+            <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M6 18L18 6M6 6l12 12"
+              />
+            </svg>
+          </Button>
+        </div>
+
+        <div className="flex grow flex-col gap-y-5 overflow-y-auto px-6 py-4">
+          <nav className="flex flex-1 flex-col">
+            <ul role="list" className="flex flex-1 flex-col gap-y-7">
+              <li>
+                <NavMenu currentPath={location.pathname} onNavigate={toggleMobileNav} />
+              </li>
+
+              {/* Recent Activity Section */}
+              <li>
+                <div className="text-xs font-semibold leading-6 text-muted-foreground">
+                  Recent Activity
+                </div>
+                <ul role="list" className="-mx-2 mt-2 space-y-1">
+                  <li>
+                    <div className="text-sm text-muted-foreground px-2 py-1">
+                      No recent activity
+                    </div>
+                  </li>
+                </ul>
+              </li>
+
+              {/* Quick Actions */}
+              <li className="mt-auto">
+                <div className="space-y-2">
+                  <button className="w-full rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90">
+                    Find Analysis
+                  </button>
+                  <button className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground">
+                    View Filings
+                  </button>
+                </div>
+              </li>
+            </ul>
+          </nav>
+        </div>
+      </div>
+    </>
+  )
+}

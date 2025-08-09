@@ -1,7 +1,8 @@
 """Tests for ApplicationService."""
 
+from unittest.mock import ANY, AsyncMock, MagicMock
+
 import pytest
-from unittest.mock import AsyncMock, MagicMock, ANY
 
 from src.application.application_service import ApplicationService
 from src.application.base.command import BaseCommand
@@ -9,11 +10,13 @@ from src.application.base.dispatcher import Dispatcher
 from src.application.base.query import BaseQuery
 from src.application.services.analysis_orchestrator import AnalysisOrchestrator
 from src.application.services.analysis_template_service import AnalysisTemplateService
-from src.application.services.background_task_coordinator import BackgroundTaskCoordinator
-from src.infrastructure.repositories.analysis_repository import AnalysisRepository
-from src.infrastructure.repositories.filing_repository import FilingRepository
-from src.infrastructure.repositories.company_repository import CompanyRepository
+from src.application.services.background_task_coordinator import (
+    BackgroundTaskCoordinator,
+)
 from src.infrastructure.edgar.service import EdgarService
+from src.infrastructure.repositories.analysis_repository import AnalysisRepository
+from src.infrastructure.repositories.company_repository import CompanyRepository
+from src.infrastructure.repositories.filing_repository import FilingRepository
 
 
 class TestApplicationService:
@@ -140,11 +143,11 @@ class TestApplicationService:
 
         assert result == expected_result
         mock_dispatcher.dispatch_command.assert_called_once()
-        
+
         # Verify command and dependencies were passed correctly
         call_args = mock_dispatcher.dispatch_command.call_args
         assert call_args[0][0] == mock_command  # First argument is the command
-        
+
         # Second argument should be the dependencies dict
         dependencies = call_args[0][1]
         assert isinstance(dependencies, dict)
@@ -171,11 +174,11 @@ class TestApplicationService:
 
         assert result == expected_result
         mock_dispatcher.dispatch_query.assert_called_once()
-        
+
         # Verify query and dependencies were passed correctly
         call_args = mock_dispatcher.dispatch_query.call_args
         assert call_args[0][0] == mock_query  # First argument is the query
-        
+
         # Second argument should be the dependencies dict
         dependencies = call_args[0][1]
         assert isinstance(dependencies, dict)
@@ -236,14 +239,14 @@ class TestApplicationService:
         # Verify all expected dependencies are present
         expected_keys = [
             "analysis_orchestrator",
-            "analysis_repository", 
+            "analysis_repository",
             "filing_repository",
             "template_service",
             "company_repository",
             "edgar_service",
             "background_task_coordinator",
         ]
-        
+
         for key in expected_keys:
             assert key in dependencies
 
@@ -254,7 +257,10 @@ class TestApplicationService:
         assert dependencies["template_service"] == mock_analysis_template_service
         assert dependencies["company_repository"] == mock_company_repository
         assert dependencies["edgar_service"] == mock_edgar_service
-        assert dependencies["background_task_coordinator"] == mock_background_task_coordinator
+        assert (
+            dependencies["background_task_coordinator"]
+            == mock_background_task_coordinator
+        )
 
     def test_get_dependencies_immutable_references(
         self,
@@ -271,7 +277,9 @@ class TestApplicationService:
         assert deps1["template_service"] is deps2["template_service"]
         assert deps1["company_repository"] is deps2["company_repository"]
         assert deps1["edgar_service"] is deps2["edgar_service"]
-        assert deps1["background_task_coordinator"] is deps2["background_task_coordinator"]
+        assert (
+            deps1["background_task_coordinator"] is deps2["background_task_coordinator"]
+        )
 
     @pytest.mark.asyncio
     async def test_dependency_injection_integration(
@@ -290,7 +298,7 @@ class TestApplicationService:
         # Verify that the dependencies passed to dispatch include correct instances
         call_args = mock_dispatcher.dispatch_command.call_args
         dependencies = call_args[0][1]
-        
+
         assert dependencies["analysis_orchestrator"] is mock_analysis_orchestrator
         assert dependencies["analysis_repository"] is mock_analysis_repository
 
@@ -317,7 +325,7 @@ class TestApplicationService:
         mock_dispatcher.dispatch_command.assert_called_once_with(mock_command, ANY)
         mock_dispatcher.dispatch_query.assert_called_once_with(mock_query, ANY)
 
-    @pytest.mark.asyncio 
+    @pytest.mark.asyncio
     async def test_dependencies_consistency_across_calls(
         self,
         application_service: ApplicationService,
@@ -335,13 +343,13 @@ class TestApplicationService:
         # Get dependencies from both calls
         command_call_args = mock_dispatcher.dispatch_command.call_args
         query_call_args = mock_dispatcher.dispatch_query.call_args
-        
+
         command_dependencies = command_call_args[0][1]
         query_dependencies = query_call_args[0][1]
 
         # Dependencies should have the same structure and values
         assert command_dependencies.keys() == query_dependencies.keys()
-        
+
         for key in command_dependencies:
             assert command_dependencies[key] is query_dependencies[key]
 
@@ -351,13 +359,17 @@ class TestApplicationService:
     ) -> None:
         """Test that ApplicationService acts as a proper facade."""
         # The service should encapsulate complexity and provide simple interface
-        
+
         # Verify public interface is clean
-        public_methods = [method for method in dir(application_service) 
-                         if not method.startswith('_') and callable(getattr(application_service, method))]
-        
+        public_methods = [
+            method
+            for method in dir(application_service)
+            if not method.startswith('_')
+            and callable(getattr(application_service, method))
+        ]
+
         expected_public_methods = ["execute_command", "execute_query"]
-        
+
         for method in expected_public_methods:
             assert method in public_methods
 
@@ -388,7 +400,7 @@ class TestApplicationService:
 
         for exception in exceptions_to_test:
             mock_dispatcher.dispatch_command.side_effect = exception
-            
+
             with pytest.raises(type(exception), match=str(exception)):
                 await application_service.execute_command(mock_command)
 
@@ -398,9 +410,11 @@ class TestApplicationService:
     ) -> None:
         """Test that dependency keys follow consistent naming conventions."""
         dependencies = application_service._get_dependencies()
-        
+
         # All keys should be lowercase with underscores
         for key in dependencies.keys():
             assert key.islower()
             assert ' ' not in key  # No spaces
-            assert key.replace('_', '').isalnum()  # Only letters, numbers, and underscores
+            assert key.replace(
+                '_', ''
+            ).isalnum()  # Only letters, numbers, and underscores

@@ -91,7 +91,7 @@ class Dispatcher:
         Args:
             handler_class: The handler class to register
         """
-        command_type = handler_class.command_type()
+        command_type: type[BaseCommand] = handler_class.command_type()
         self._command_handlers[command_type] = handler_class
         logger.debug(
             f"Registered command handler: {handler_class.__name__} for {command_type.__name__}"
@@ -105,7 +105,7 @@ class Dispatcher:
         Args:
             handler_class: The handler class to register
         """
-        query_type = handler_class.query_type()
+        query_type: type[BaseQuery] = handler_class.query_type()
         self._query_handlers[query_type] = handler_class
         logger.debug(
             f"Registered query handler: {handler_class.__name__} for {query_type.__name__}"
@@ -142,7 +142,7 @@ class Dispatcher:
         )
 
         try:
-            result = await handler.handle(command)
+            result: Any = await handler.handle(command)
             logger.info(f"Command processed successfully: {type(command).__name__}")
             return result
         except Exception as e:
@@ -186,7 +186,7 @@ class Dispatcher:
         )
 
         try:
-            result = await handler.handle(query)
+            result: Any = await handler.handle(query)
             logger.debug(f"Query processed successfully: {type(query).__name__}")
             return result
         except Exception as e:

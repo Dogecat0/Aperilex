@@ -116,9 +116,8 @@ class BackgroundTaskCoordinator:
             # Queue the Celery task
             celery_task = analyze_filing_task.delay(
                 filing_id=str(command.accession_number),
-                analysis_type=command.analysis_template.value,
+                analysis_template=command.analysis_template.value,
                 created_by=command.user_id,
-                task_id=task_id,  # Pass our task ID for tracking
                 force_reprocess=command.force_reprocess,
             )
 
@@ -166,7 +165,8 @@ class BackgroundTaskCoordinator:
             )
 
             # accession_number is guaranteed to be not None after validation
-            assert command.accession_number is not None
+            if command.accession_number is None:
+                raise ValueError("Accession number is required after validation")
             is_accessible = await self.analysis_orchestrator.validate_filing_access(
                 command.accession_number
             )

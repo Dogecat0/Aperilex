@@ -1,4 +1,4 @@
-At the end of this message, I will ask you to do something. Please follow the "Explore, Review, Plan" workflow when you start and use relevant agents to perform the tasks.
+At the end of this message, I will ask you to do something. Please follow the "Explore, Review, Plan" workflow when you start and use relevant subagents to perform the tasks (Using defined or default agents depends on your choice after a thorough and hard think).
 
 # Explore
 First, use parallel subagents to find and read files that may be useful for implementing the task/ticket.
@@ -13,7 +13,7 @@ First, use parallel subagents to find and read files that may be useful for impl
 
 Design specific tasks for each subagent based on what you need to understand. Give focused missions like:
 - "Extract authentication system interface and dependencies"
-- "Find repository patterns and method signatures" 
+- "Find repository patterns and method signatures"
 - "Identify domain layer error handling patterns"
 - "Map database schema for entities X, Y, Z"
 - "Extract configuration and environment patterns"
@@ -90,7 +90,7 @@ Next, think ultrahard and write up a detailed implementation plan. Consider all 
 - Error handling and logging enhancements
 - Performance considerations and monitoring
 
-If there are things you are not sure about, use parallel subagents to do some web research. They should only return useful information, no noise.
+If there are things you are not sure about, use parallel subagents to do some very necessary web research. They should only return useful information, no noise.
 
 If there are things you still do not understand or questions you have for the user, pause here to ask them before continuing.
 

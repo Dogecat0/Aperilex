@@ -1,13 +1,13 @@
 """Tests for TaskService."""
 
-import pytest
-import pytest_asyncio
 from datetime import UTC, datetime, timedelta
-from unittest.mock import patch, MagicMock
-from uuid import UUID, uuid4
+from unittest.mock import patch
+from uuid import uuid4
 
-from src.application.services.task_service import TaskService
+import pytest
+
 from src.application.schemas.responses.task_response import TaskResponse
+from src.application.services.task_service import TaskService
 
 
 class TestTaskService:
@@ -30,7 +30,7 @@ class TestTaskService:
     def test_task_service_initialization(self) -> None:
         """Test TaskService initialization."""
         service = TaskService()
-        
+
         assert service.tasks == {}
         assert isinstance(service.tasks, dict)
 
@@ -91,7 +91,7 @@ class TestTaskService:
 
         assert isinstance(result, TaskResponse)
         assert result.status == "pending"
-        
+
         # Verify task is stored with None user_id
         task_info = task_service.tasks[result.task_id]
         assert task_info["user_id"] is None
@@ -113,7 +113,7 @@ class TestTaskService:
         # Update progress
         progress = 0.5
         message = "Processing data"
-        
+
         await task_service.update_task_progress(task_id, progress, message)
 
         # Verify task was updated
@@ -135,7 +135,7 @@ class TestTaskService:
             parameters=sample_task_parameters,
         )
         task_id = task_response.task_id
-        
+
         # Verify initial status
         assert task_service.tasks[task_id]["status"] == "pending"
 
@@ -174,10 +174,10 @@ class TestTaskService:
     ) -> None:
         """Test updating progress for non-existent task."""
         fake_task_id = uuid4()
-        
+
         # Should not raise exception, just log warning
         await task_service.update_task_progress(fake_task_id, 0.5)
-        
+
         # Verify no task was created
         assert fake_task_id not in task_service.tasks
 
@@ -198,7 +198,7 @@ class TestTaskService:
         # Complete the task
         result_data = {"analysis_id": str(uuid4()), "confidence_score": 0.85}
         message = "Analysis completed successfully"
-        
+
         await task_service.complete_task(task_id, result_data, message)
 
         # Verify task completion
@@ -216,10 +216,10 @@ class TestTaskService:
         """Test completing non-existent task."""
         fake_task_id = uuid4()
         result_data = {"test": "data"}
-        
+
         # Should not raise exception, just log warning
         await task_service.complete_task(fake_task_id, result_data)
-        
+
         # Verify no task was created
         assert fake_task_id not in task_service.tasks
 
@@ -240,7 +240,7 @@ class TestTaskService:
         # Fail the task
         error_message = "LLM provider failed"
         retry_count = 2
-        
+
         await task_service.fail_task(task_id, error_message, retry_count)
 
         # Verify task failure
@@ -277,10 +277,10 @@ class TestTaskService:
     ) -> None:
         """Test failing non-existent task."""
         fake_task_id = uuid4()
-        
+
         # Should not raise exception, just log warning
         await task_service.fail_task(fake_task_id, "Some error")
-        
+
         # Verify no task was created
         assert fake_task_id not in task_service.tasks
 
@@ -379,9 +379,9 @@ class TestTaskService:
     ) -> None:
         """Test getting status of non-existent task."""
         fake_task_id = uuid4()
-        
+
         status = await task_service.get_task_status(fake_task_id)
-        
+
         assert status is None
 
     @pytest.mark.asyncio
@@ -395,7 +395,9 @@ class TestTaskService:
         completed_task = await task_service.create_task("task1", sample_task_parameters)
         failed_task = await task_service.create_task("task2", sample_task_parameters)
         pending_task = await task_service.create_task("task3", sample_task_parameters)
-        processing_task = await task_service.create_task("task4", sample_task_parameters)
+        processing_task = await task_service.create_task(
+            "task4", sample_task_parameters
+        )
 
         # Complete and fail some tasks
         await task_service.complete_task(completed_task.task_id, {"result": "success"})
@@ -414,7 +416,7 @@ class TestTaskService:
         assert cleaned_count == 2
         assert completed_task.task_id not in task_service.tasks
         assert failed_task.task_id not in task_service.tasks
-        
+
         # Pending and processing tasks should remain (even if old)
         assert pending_task.task_id in task_service.tasks
         assert processing_task.task_id in task_service.tasks
@@ -460,7 +462,9 @@ class TestTaskService:
         """Test task statistics with mixed task states."""
         # Create tasks in different states
         pending_task = await task_service.create_task("task1", sample_task_parameters)
-        processing_task = await task_service.create_task("task2", sample_task_parameters)
+        processing_task = await task_service.create_task(
+            "task2", sample_task_parameters
+        )
         completed_task = await task_service.create_task("task3", sample_task_parameters)
         failed_task1 = await task_service.create_task("task4", sample_task_parameters)
         failed_task2 = await task_service.create_task("task5", sample_task_parameters)
@@ -509,11 +513,11 @@ class TestTaskService:
         assert progress_status.status == "processing"
 
         await task_service.update_task_progress(task_id, 0.75, "Almost done")
-        
+
         # Complete task
         result_data = {"analysis_id": str(uuid4())}
         await task_service.complete_task(task_id, result_data)
-        
+
         # Verify final state
         final_status = await task_service.get_task_status(task_id)
         assert final_status.status == "completed"

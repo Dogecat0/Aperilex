@@ -5,7 +5,7 @@ They follow the single responsibility principle - one handler per command/query.
 """
 
 from abc import ABC, abstractmethod
-from typing import TypeVar
+from typing import Generic, TypeVar
 
 from .command import BaseCommand
 from .query import BaseQuery
@@ -15,7 +15,7 @@ TQuery = TypeVar("TQuery", bound=BaseQuery)
 TResult = TypeVar("TResult")
 
 
-class CommandHandler[TCommand: BaseCommand, TResult](ABC):
+class CommandHandler(Generic[TCommand, TResult], ABC):
     """Base class for command handlers.
 
     Command handlers contain the business logic for processing commands.
@@ -55,7 +55,7 @@ class CommandHandler[TCommand: BaseCommand, TResult](ABC):
         pass
 
 
-class QueryHandler[TQuery: BaseQuery, TResult](ABC):
+class QueryHandler(Generic[TQuery, TResult], ABC):
     """Base class for query handlers.
 
     Query handlers contain the logic for processing queries.

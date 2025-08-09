@@ -1,10 +1,14 @@
 """Integration tests for AnalysisRepository advanced filtering and querying methods."""
 
-import pytest
-from datetime import UTC, datetime, timedelta, date
+from datetime import UTC, date, datetime, timedelta
 from uuid import uuid4
 
-from src.application.schemas.queries.list_analyses import AnalysisSortField, SortDirection
+import pytest
+
+from src.application.schemas.queries.list_analyses import (
+    AnalysisSortField,
+    SortDirection,
+)
 from src.domain.entities.analysis import Analysis, AnalysisType
 from src.domain.entities.company import Company
 from src.domain.entities.filing import Filing
@@ -42,7 +46,7 @@ class TestAnalysisRepositoryAdvancedQueries:
         company_repository: CompanyRepository,
     ) -> list[Company]:
         """Create test companies."""
-        # Use unique CIKs to avoid database conflicts  
+        # Use unique CIKs to avoid database conflicts
         base_cik = 8000000000  # Different base for test_companies fixture
         companies = [
             Company(
@@ -131,7 +135,10 @@ class TestAnalysisRepositoryAdvancedQueries:
                     filing_id=filing.id,
                     analysis_type=analysis_types[i % len(analysis_types)],
                     created_by=f"analyst_{(i + j) % 3 + 1}",  # analyst_1, analyst_2, analyst_3
-                    results={"summary": f"Test analysis {i}-{j}", "key_metrics": {"metric1": i * 10}},
+                    results={
+                        "summary": f"Test analysis {i}-{j}",
+                        "key_metrics": {"metric1": i * 10},
+                    },
                     llm_provider="openai",
                     llm_model=f"gpt-{4 if i % 2 == 0 else 3.5}-turbo",
                     confidence_score=confidence_scores[i % len(confidence_scores)],
@@ -139,9 +146,9 @@ class TestAnalysisRepositoryAdvancedQueries:
                     metadata={
                         "processing_time": 30.5 + i * 5.2,
                         "tokens_used": 5000 + i * 500,
-                        "template_used": "COMPREHENSIVE"
-                        if i % 2 == 0
-                        else "FINANCIAL_FOCUSED",
+                        "template_used": (
+                            "COMPREHENSIVE" if i % 2 == 0 else "FINANCIAL_FOCUSED"
+                        ),
                     },
                 )
                 analyses.append(analysis)
@@ -508,9 +515,9 @@ class TestAnalysisRepositoryAdvancedQueries:
         assert len(analyses) > 0
 
         # Verify reasonable performance (should complete in under 1 second for test data)
-        assert query_time < 1.0, (
-            f"Query took {query_time:.2f} seconds, which is too slow"
-        )
+        assert (
+            query_time < 1.0
+        ), f"Query took {query_time:.2f} seconds, which is too slow"
 
     @pytest.mark.asyncio
     async def test_integration_with_real_database_operations(

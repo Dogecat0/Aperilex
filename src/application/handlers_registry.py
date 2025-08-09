@@ -25,6 +25,10 @@ from src.application.queries.handlers.get_templates_handler import (
 from src.application.queries.handlers.list_analyses_handler import (
     ListAnalysesQueryHandler,
 )
+from src.application.queries.handlers.list_company_filings_handler import (
+    ListCompanyFilingsQueryHandler,
+)
+from src.application.queries.handlers.search_filings_handler import SearchFilingsHandler
 
 logger = logging.getLogger(__name__)
 
@@ -50,6 +54,8 @@ def register_handlers(dispatcher: Dispatcher) -> None:
     dispatcher.register_query_handler(GetFilingByAccessionQueryHandler)
     dispatcher.register_query_handler(GetFilingQueryHandler)
     dispatcher.register_query_handler(ListAnalysesQueryHandler)
+    dispatcher.register_query_handler(ListCompanyFilingsQueryHandler)
+    dispatcher.register_query_handler(SearchFilingsHandler)
     dispatcher.register_query_handler(GetTemplatesQueryHandler)
 
     logger.info("Handler registration completed successfully")

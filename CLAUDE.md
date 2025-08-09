@@ -66,7 +66,7 @@ The previous version used edgartools (Context7 Library ID: `/dgunning/edgartools
    # Aperilex Implementation Pattern (NOT using XBRL)
    # Financial data is extracted as text from filing objects
    filing_obj = filing.obj()
-   
+
    # Check for financial statement attributes
    if hasattr(filing_obj, "balance_sheet"):
        balance_sheet_text = str(filing_obj.balance_sheet)
@@ -74,7 +74,7 @@ The previous version used edgartools (Context7 Library ID: `/dgunning/edgartools
        income_statement_text = str(filing_obj.income_statement)
    if hasattr(filing_obj, "cash_flow_statement"):
        cash_flow_text = str(filing_obj.cash_flow_statement)
-   
+
    # Financial data is then analyzed by LLM for insights
    # NOT parsed into structured numeric values
    ```
@@ -129,45 +129,45 @@ analysis = llm_provider.analyze_filing(
 
 ## Development Workflow
 
-For complex development tasks, use specialized sub-agents that understand Aperilex's architecture and requirements:
+For complex development tasks, you must try to use specialized sub-agents that understand Aperilex's architecture and requirements, and each sub-agent has a specific focus area and each sub-agent should use `explore-review-code-test.md` working pattern. Also use `Context7` accordingly based on tech stack to search for latest doc if you have any questions or encountering any issues you are not sure about, not other ways like direct url/web search. Here are the key sub-agents and their responsibilities:
 
 ### Environment Setup
-Use **aperilex-environment-setup** agent for:
+Use **aperilex-environment-setup** subagent for:
 - Complete development environment initialization
 - Docker service management and health checks
 - Environment variable configuration
 - Troubleshooting setup issues
 
 ### Code Quality
-Use **aperilex-code-quality** agent for:
+Use **aperilex-code-quality** subagent for:
 - Comprehensive quality checks (MyPy, Ruff, Black, isort)
 - Automated fix recommendations and implementation
 - Architecture compliance validation
 - Security scanning with Bandit and Safety
 
-### Testing Strategy  
-Use **aperilex-test-strategy** agent for:
+### Testing Strategy
+Use **aperilex-test-strategy** subagent for:
 - Intelligent test execution based on changes
 - Cost optimization for external API tests
 - Coverage analysis and improvement suggestions
 - Test data management and fixture generation
 
 ### Backend Development
-Use **aperilex-backend-architect** agent for:
+Use **aperilex-backend-architect** subagent for:
 - Clean architecture design and implementation
 - Domain modeling and CQRS patterns
 - Infrastructure integrations (Edgar, LLM, Database)
 - API endpoint design and validation schemas
 
 ### Frontend Development
-Use **aperilex-frontend-developer** agent for:
+Use **aperilex-frontend-developer** subagent for:
 - React TypeScript component implementation
 - Financial data visualization and charts
 - User interface design for complex financial data
 - API integration and state management
 
 ### Financial Analysis
-Use **aperilex-financial-analysis** agent for:
+Use **aperilex-financial-analysis** subagent for:
 - Edgar → LLM → Analysis pipeline orchestration
 - SEC filing processing and optimization
 - LLM prompt engineering and schema management
@@ -193,11 +193,11 @@ poetry run ruff check src/ && poetry run mypy src/ && poetry run black --check s
 Aperilex uses clean architecture principles to enable both powerful user features and robust technical capabilities:
 
 - **Domain Layer**: Core business entities and logic (Filing, Company, Analysis) that represent real-world financial concepts
-- **Application Layer**: Use cases and commands (AnalyzeFilingCommand, SearchFilingsQuery) that orchestrate user workflows  
+- **Application Layer**: Use cases and commands (AnalyzeFilingCommand, SearchFilingsQuery) that orchestrate user workflows
 - **Infrastructure Layer**: External integrations (SEC API, LLM providers, Database) that power data access and AI insights
 - **Presentation Layer**: Both REST API endpoints for developers AND web UI for end users
 
-**For architectural guidance**: Use the **aperilex-backend-architect** agent for domain modeling, clean architecture patterns, and infrastructure design decisions.
+**For architectural guidance**: Use the **aperilex-backend-architect** subagent for domain modeling, clean architecture patterns, and infrastructure design decisions.
 
 ## Git Integration
 Before any code changes or implementation, ensure we are in the correct Git branch that follows the best git practice and the development plan in `docs/phases/PHASE_*_DETAILED_PLAN.md`:
@@ -232,7 +232,7 @@ git checkout feature/existing-feature
 - **SQLAlchemy**: Use `async_sessionmaker` for async database sessions
 
 ### Development Workflow
-**IMPORTANT**: Use specialized sub-agents for complex development tasks. For quick checks:
+**IMPORTANT**: Use specialized subagents for complex development tasks. For quick checks:
 ```bash
 # Before starting development (or use aperilex-code-quality agent)
 poetry run mypy src/ && poetry run ruff check src/
@@ -278,7 +278,7 @@ Aperilex currently uses OpenAI as the sole LLM provider (`infrastructure.llm.ope
 
 When implementing ANY feature that involves understanding, summarizing, or extracting insights from filings:
 
-**Use the aperilex-financial-analysis agent** for:
+**Use the aperilex-financial-analysis subagent** for:
 - Edgar filing processing workflows
 - LLM integration and prompt optimization
 - Analysis quality validation

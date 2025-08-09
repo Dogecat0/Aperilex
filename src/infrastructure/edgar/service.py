@@ -1,6 +1,10 @@
 """Edgar Tools integration service for SEC data access."""
 
-from edgar import Company, Filing, set_identity  # type: ignore[import-untyped]
+import asyncio
+import logging
+from typing import Any
+
+from edgar import Company, Filing, set_identity
 
 from src.domain.value_objects import CIK, AccessionNumber, FilingType, Ticker
 from src.infrastructure.edgar.schemas.company_data import CompanyData
@@ -8,15 +12,21 @@ from src.infrastructure.edgar.schemas.filing_data import FilingData
 from src.infrastructure.edgar.schemas.filing_query import FilingQueryParams
 from src.shared.config import settings
 
+# Get logger for this method
+logger = logging.getLogger(__name__)
+
 
 class EdgarService:
     """Service for interacting with SEC EDGAR through edgartools."""
 
     def __init__(self) -> None:
         """Initialize Edgar service with SEC identity."""
+        logger = logging.getLogger(__name__)
+
         # Set identity for SEC compliance
         identity = settings.edgar_identity or "aperilex@example.com"
         set_identity(identity)
+        logger.info(f"Edgar service initialized with identity: {identity}")
 
     def get_company_by_ticker(self, ticker: Ticker) -> CompanyData:
         """Get company information by ticker symbol.
@@ -307,68 +317,40 @@ class EdgarService:
                         continue
 
             elif filing_type == FilingType.FORM_10Q:
-                # Comprehensive 10-Q sections mapping with variations
-                section_mapping = {
-                    (
-                        "financial_statements",
-                        "financials",
-                        "part1_item1",
-                    ): "Part I Item 1 - Financial Statements",
-                    (
-                        "mda",
-                        "management_discussion",
-                        "management_discussion_and_analysis",
-                        "part1_item2",
-                    ): "Part I Item 2 - Management Discussion & Analysis",
-                    (
-                        "quantitative_qualitative",
-                        "market_risk",
-                        "part1_item3",
-                    ): "Part I Item 3 - Quantitative and Qualitative Disclosures",
-                    (
-                        "controls_procedures",
-                        "controls",
-                        "part1_item4",
-                    ): "Part I Item 4 - Controls and Procedures",
-                    (
-                        "legal_proceedings",
-                        "legal",
-                        "part2_item1",
-                    ): "Part II Item 1 - Legal Proceedings",
-                    (
-                        "risk_factors",
-                        "risks",
-                        "part2_item1a",
-                    ): "Part II Item 1A - Risk Factors",
-                    (
-                        "unregistered_sales",
-                        "unregistered",
-                        "part2_item2",
-                    ): "Part II Item 2 - Unregistered Sales",
-                    ("defaults", "default", "part2_item3"): "Part II Item 3 - Defaults",
-                    ("mine_safety", "part2_item4"): "Part II Item 4 - Mine Safety",
-                    (
-                        "other_information",
-                        "other",
-                        "part2_item5",
-                    ): "Part II Item 5 - Other Information",
-                    (
-                        "exhibits",
-                        "exhibit_index",
-                        "part2_item6",
-                    ): "Part II Item 6 - Exhibits and Reports",
-                }
+                # Log available attributes for debugging
+                logger.debug(
+                    f"10-Q filing object attributes: {[attr for attr in dir(filing_obj) if not attr.startswith('_')]}"
+                )
 
-                # Try multiple attribute variations for each section
-                for attr_variations, section_name in section_mapping.items():
-                    found = False
-                    for attr_name in attr_variations:
-                        if hasattr(filing_obj, attr_name):
-                            section_text = getattr(filing_obj, attr_name)
-                            if section_text and str(section_text).strip():
-                                sections[section_name] = str(section_text).strip()
-                                found = True
-                                break
+                # Check if filing_obj has items list (newer edgartools pattern)
+                if hasattr(filing_obj, "items") and isinstance(filing_obj.items, list):
+                    logger.debug(f"Found items list: {filing_obj.items}")
+
+                    # Map simplified item names to full section names
+                    item_to_section_map = {
+                        "Item 1": "Part I Item 1 - Financial Statements",
+                        "Item 2": "Part I Item 2 - Management Discussion & Analysis",
+                        "Item 3": "Part I Item 3 - Quantitative and Qualitative Disclosures",
+                        "Item 4": "Part I Item 4 - Controls and Procedures",
+                        "Item 1A": "Part II Item 1A - Risk Factors",
+                        "Item 5": "Part II Item 5 - Other Information",
+                        "Item 6": "Part II Item 6 - Exhibits and Reports",
+                    }
+
+                    # Extract sections using dictionary access
+                    for item_key in filing_obj.items:
+                        if item_key in item_to_section_map:
+                            try:
+                                content = filing_obj[item_key]
+                                if content and str(content).strip():
+                                    sections[item_to_section_map[item_key]] = str(
+                                        content
+                                    ).strip()
+                                    logger.debug(
+                                        f"Extracted {item_key} -> {item_to_section_map[item_key]}"
+                                    )
+                            except Exception as e:
+                                logger.debug(f"Failed to extract {item_key}: {e}")
 
             elif filing_type == FilingType.FORM_8K:
                 # 8-K sections mapping with variations
@@ -503,6 +485,75 @@ class EdgarService:
         except Exception as e:
             raise ValueError(f"Failed to extract filing sections: {str(e)}") from e
 
+    async def get_filing_by_accession_async(
+        self, accession_number: AccessionNumber
+    ) -> FilingData:
+        """Async version of get_filing_by_accession.
+
+        Args:
+            accession_number: SEC accession number
+
+        Returns:
+            Filing data
+
+        Raises:
+            ValueError: If filing not found
+        """
+        return await asyncio.to_thread(self.get_filing_by_accession, accession_number)
+
+    async def get_company_by_cik_async(self, cik: CIK) -> CompanyData:
+        """Async version of get_company_by_cik.
+
+        Args:
+            cik: Central Index Key
+
+        Returns:
+            Company data from SEC
+
+        Raises:
+            ValueError: If company not found
+        """
+        return await asyncio.to_thread(self.get_company_by_cik, cik)
+
+    async def extract_filing_sections_async(
+        self,
+        ticker: Ticker,
+        filing_type: FilingType,
+        *,
+        latest: bool = True,
+        year: int | list[int] | range | None = None,
+        quarter: int | list[int] | None = None,
+        filing_date: str | None = None,
+        limit: int | None = None,
+        amendments: bool = True,
+    ) -> dict[str, str]:
+        """Async version of extract_filing_sections.
+
+        Args:
+            ticker: Company ticker symbol
+            filing_type: Type of filing
+            latest: Whether to get the latest filing
+            year: Year(s) to filter by. Can be int, list of ints, or range
+            quarter: Quarter(s) to filter by (1-4). Can be int or list of ints
+            filing_date: Date or date range filter. Format: 'YYYY-MM-DD' or 'YYYY-MM-DD:YYYY-MM-DD'
+            limit: Maximum number of filings to return
+            amendments: Whether to include amended filings
+
+        Returns:
+            Dictionary of section_name -> section_text
+        """
+        return await asyncio.to_thread(
+            self.extract_filing_sections,
+            ticker,
+            filing_type,
+            latest=latest,
+            year=year,
+            quarter=quarter,
+            filing_date=filing_date,
+            limit=limit,
+            amendments=amendments,
+        )
+
     def _extract_company_data(self, company: Company) -> CompanyData:
         """Extract company data from edgartools Company object."""
         # Safely extract ticker with fallback to None
@@ -549,13 +600,13 @@ class EdgarService:
         try:
             # Get company object and extract ticker if available
             company = Company(filing.cik)
-            if hasattr(company, "ticker"):
-                ticker_attr = getattr(company, "ticker", None)
+            if hasattr(company, "get_ticker"):
+                ticker_attr = company.get_ticker()
                 if ticker_attr is not None:
                     ticker_value = str(ticker_attr)
         except Exception:
             # If we can't get company info, ticker remains None
-            pass
+            ticker_value = None
 
         return FilingData(
             accession_number=filing.accession_number,
@@ -618,6 +669,188 @@ class EdgarService:
 
         except Exception as e:
             raise ValueError(f"Failed to get filings: {str(e)}") from e
+
+    def search_all_filings(
+        self,
+        ticker: Ticker,
+        *,
+        filing_date: str | None = None,
+        limit: int | None = None,
+        amendments: bool = True,
+    ) -> list[FilingData]:
+        """Search all filings for a company with flexible parameters.
+
+        This method allows searching across all filing types for discovery purposes.
+
+        Args:
+            ticker: Company ticker symbol
+            filing_date: Date or date range filter. Format: 'YYYY-MM-DD' or 'YYYY-MM-DD:YYYY-MM-DD'
+            limit: Maximum number of filings to return
+            amendments: Whether to include amended filings
+
+        Returns:
+            List of filing data
+
+        Raises:
+            ValueError: If invalid parameters or search fails
+        """
+        try:
+            company = Company(ticker.value)
+
+            # Get all filings for the company
+            entity_filings = company.get_filings()
+
+            # Apply date filtering if specified
+            if filing_date:
+                entity_filings = self._apply_date_filter(entity_filings, filing_date)
+
+            # Apply amendments filter
+            if not amendments:
+                entity_filings = [
+                    f for f in entity_filings if not f.form.endswith("/A")
+                ]
+
+            # Convert EntityFilings to FilingData objects
+            # Apply limit during iteration to avoid PyArrow compatibility issues
+            filing_data_list = []
+            count = 0
+
+            try:
+                for filing in entity_filings:
+                    if limit and count >= limit:
+                        break
+                    filing_data = self._extract_filing_data_from_entity_filing(filing)
+                    filing_data_list.append(filing_data)
+                    count += 1
+            except Exception as iteration_error:
+                # If iteration fails due to PyArrow issues, try alternative approach
+                print(f"[EdgarService] Direct iteration failed: {iteration_error}")
+                print("[EdgarService] Attempting alternative filing extraction method")
+
+                # Try to access filings directly from company object without slicing
+                company = Company(ticker.value)
+                try:
+                    # Get filings using a different approach - convert to list first
+                    all_filings = list(company.get_filings())
+
+                    # Apply manual filtering
+                    filtered_filings = all_filings
+
+                    # Apply date filtering
+                    if filing_date:
+                        filtered_filings = self._apply_date_filter(
+                            filtered_filings, filing_date
+                        )
+
+                    # Apply amendments filter
+                    if not amendments:
+                        filtered_filings = [
+                            f for f in filtered_filings if not f.form.endswith("/A")
+                        ]
+
+                    # Apply limit
+                    if limit:
+                        filtered_filings = filtered_filings[:limit]
+
+                    # Convert to FilingData
+                    filing_data_list = []
+                    for filing in filtered_filings:
+                        try:
+                            filing_data = self._extract_filing_data(filing)
+                            filing_data_list.append(filing_data)
+                        except Exception as extract_error:
+                            print(
+                                f"[EdgarService] Failed to extract filing data: {extract_error}"
+                            )
+                            continue
+
+                except Exception as fallback_error:
+                    print(
+                        f"[EdgarService] Fallback approach also failed: {fallback_error}"
+                    )
+                    raise ValueError(
+                        f"Unable to extract filings due to PyArrow compatibility issue: {iteration_error}"
+                    ) from iteration_error
+
+            return filing_data_list
+
+        except Exception as e:
+            raise ValueError(f"Failed to search all filings: {str(e)}") from e
+
+    def _apply_date_filter(self, filings: list[Any], filing_date: str) -> list[Any]:
+        """Apply date filtering to entity filings."""
+        from datetime import datetime
+
+        if ":" in filing_date:
+            # Date range
+            start_date_str, end_date_str = filing_date.split(":")
+            start_date = (
+                datetime.strptime(start_date_str, "%Y-%m-%d").date()
+                if start_date_str
+                else None
+            )
+            end_date = (
+                datetime.strptime(end_date_str, "%Y-%m-%d").date()
+                if end_date_str
+                else None
+            )
+
+            if start_date and end_date:
+                return [f for f in filings if start_date <= f.filing_date <= end_date]
+            elif start_date:
+                return [f for f in filings if f.filing_date >= start_date]
+            elif end_date:
+                return [f for f in filings if f.filing_date <= end_date]
+        else:
+            # Single date
+            target_date = datetime.strptime(filing_date, "%Y-%m-%d").date()
+            return [f for f in filings if f.filing_date == target_date]
+
+        return filings
+
+    def _extract_filing_data_from_entity_filing(self, entity_filing: Any) -> FilingData:
+        """Extract FilingData from an EntityFiling object."""
+        from src.domain.value_objects.filing_type import FilingType
+
+        # Map the form to our FilingType enum, with fallback for unknown forms
+        try:
+            filing_type = FilingType(entity_filing.form)
+        except ValueError:
+            # For unknown forms, we'll use a generic approach
+            filing_type = None
+
+        # Convert filing_date to string if it's a date object
+        filing_date_str = entity_filing.filing_date
+        if hasattr(filing_date_str, "isoformat"):
+            filing_date_str = filing_date_str.isoformat()
+        else:
+            filing_date_str = str(filing_date_str)
+
+        # Extract ticker from company if available
+        ticker_value = None
+        if hasattr(entity_filing, "company") and entity_filing.company:
+            if hasattr(entity_filing.company, "ticker"):
+                ticker_value = (
+                    str(entity_filing.company.ticker)
+                    if entity_filing.company.ticker
+                    else None
+                )
+
+        return FilingData(
+            accession_number=entity_filing.accession_number,
+            filing_type=filing_type.value if filing_type else entity_filing.form,
+            filing_date=filing_date_str,
+            company_name=(
+                entity_filing.company.name
+                if hasattr(entity_filing, "company") and entity_filing.company
+                else "Unknown"
+            ),
+            cik=str(entity_filing.cik),
+            ticker=ticker_value,
+            content_text="",  # EntityFiling doesn't provide content text at search level
+            raw_html=None,  # EntityFiling doesn't provide raw HTML at search level
+            sections={},  # No sections extracted at search level
+        )
 
     def _get_filings_with_params(
         self, ticker: Ticker, filing_type: FilingType, query_params: FilingQueryParams

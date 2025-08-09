@@ -21,16 +21,16 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
+# Add project root to Python path for src imports
+project_root = Path(__file__).parent.parent
+if str(project_root) not in sys.path:
+    sys.path.insert(0, str(project_root))
+
 from src.domain.value_objects import FilingType, Ticker
 from src.infrastructure.edgar.schemas.company_data import CompanyData
 from src.infrastructure.edgar.service import EdgarService
 from src.infrastructure.llm.base import ComprehensiveAnalysisResponse
 from src.infrastructure.llm.openai_provider import OpenAIProvider
-
-# Add project root to Python path for src imports
-project_root = Path(__file__).parent.parent
-if str(project_root) not in sys.path:
-    sys.path.insert(0, str(project_root))
 
 
 class AnalysisSampleGenerator:
@@ -103,8 +103,8 @@ class AnalysisSampleGenerator:
             print(f"   ✗ Error extracting sections: {e}")
             return {}
 
-        # Step 4: Perform comprehensive analysis
-        print("\n4. Performing comprehensive LLM analysis...")
+        # Step 3: Perform comprehensive analysis
+        print("\n3. Performing comprehensive LLM analysis...")
         try:
             analysis_result: ComprehensiveAnalysisResponse = (
                 await self.llm_provider.analyze_filing(
@@ -316,9 +316,13 @@ async def main() -> None:
             sys.exit(0 if success else 1)
 
         if args.section:
-            await generator.generate_section_analysis_sample(args.ticker, args.section)
+            await generator.generate_section_analysis_sample(
+                Ticker(args.ticker), args.section
+            )
         else:
-            await generator.generate_comprehensive_analysis(args.ticker, form_type)
+            await generator.generate_comprehensive_analysis(
+                Ticker(args.ticker), form_type
+            )
 
         print("\n✓ Analysis sample generation completed successfully!")
 

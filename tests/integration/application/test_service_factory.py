@@ -1,24 +1,19 @@
 """Integration tests for ServiceFactory and Redis/Celery integration."""
 
-import pytest
-import pytest_asyncio
 from unittest.mock import AsyncMock, MagicMock, patch
-from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.application.factory import ServiceFactory
+import pytest
+
 from src.application.application_service import ApplicationService
-from src.application.services.cache_service import CacheService
-from src.application.services.task_service import TaskService
+from src.application.factory import ServiceFactory
 from src.application.services.background_task_coordinator import (
     BackgroundTaskCoordinator,
 )
+from src.application.services.cache_service import CacheService
+from src.application.services.task_service import TaskService
 from src.shared.config.settings import Settings
 
 # Import database fixtures
-from tests.integration.infrastructure.repositories.conftest import (
-    async_engine,
-    async_session,
-)
 
 
 @pytest.fixture
@@ -148,7 +143,9 @@ class TestServiceFactory:
         assert coordinator.use_celery is False
 
     @pytest.mark.asyncio
-    async def test_application_service_creation(self, in_memory_settings, async_session):
+    async def test_application_service_creation(
+        self, in_memory_settings, async_session
+    ):
         """Test ApplicationService is created with all dependencies."""
         factory = ServiceFactory(in_memory_settings)
         app_service = factory.create_application_service(async_session)
@@ -220,7 +217,9 @@ class TestServiceIntegration:
         assert mock_redis_service.call_count == 1
 
     @pytest.mark.asyncio
-    async def test_dependency_injection_consistency(self, in_memory_settings, async_session):
+    async def test_dependency_injection_consistency(
+        self, in_memory_settings, async_session
+    ):
         """Test dependency injection creates consistent service graph."""
         factory = ServiceFactory(in_memory_settings)
 

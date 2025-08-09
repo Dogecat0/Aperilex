@@ -1,15 +1,15 @@
 """Tests for CircuitBreaker pattern."""
 
-import pytest
 from datetime import UTC, datetime, timedelta
-from unittest.mock import AsyncMock, MagicMock, patch
-from typing import Any
+from unittest.mock import AsyncMock, patch
+
+import pytest
 
 from src.application.patterns.circuit_breaker import (
     CircuitBreaker,
+    CircuitBreakerError,
     CircuitBreakerManager,
     CircuitState,
-    CircuitBreakerError,
 )
 
 
@@ -34,7 +34,7 @@ class TestCircuitBreaker:
     def test_circuit_breaker_initialization(self) -> None:
         """Test circuit breaker initialization."""
         breaker = CircuitBreaker("test_service")
-        
+
         assert breaker.service_name == "test_service"
         assert breaker.state == CircuitState.CLOSED
         assert breaker.failure_count == 0
@@ -52,7 +52,7 @@ class TestCircuitBreaker:
             recovery_timeout=30,
             success_threshold=1,
         )
-        
+
         assert breaker.service_name == "custom_service"
         assert breaker.failure_threshold == 2
         assert breaker.recovery_timeout == 30
@@ -66,7 +66,7 @@ class TestCircuitBreaker:
     ) -> None:
         """Test successful call in CLOSED state."""
         result = await circuit_breaker.call(mock_function, "arg1", kwarg1="value1")
-        
+
         assert result == "success"
         assert circuit_breaker.state == CircuitState.CLOSED
         assert circuit_breaker.failure_count == 0
@@ -169,7 +169,7 @@ class TestCircuitBreaker:
         """Test transition from HALF_OPEN to OPEN on failure."""
         # Set to HALF_OPEN state
         circuit_breaker.state = CircuitState.HALF_OPEN
-        
+
         test_error = Exception("Still failing")
         mock_function.side_effect = test_error
 
@@ -188,7 +188,7 @@ class TestCircuitBreaker:
         """Test that success resets failure count in CLOSED state."""
         # Create some failures first
         circuit_breaker.failure_count = 2
-        
+
         result = await circuit_breaker.call(mock_function)
 
         assert result == "success"
@@ -201,7 +201,7 @@ class TestCircuitBreaker:
     ) -> None:
         """Test should_attempt_reset with no failure time."""
         circuit_breaker.last_failure_time = None
-        
+
         assert circuit_breaker._should_attempt_reset() is True
 
     def test_should_attempt_reset_timeout_not_reached(
@@ -210,7 +210,7 @@ class TestCircuitBreaker:
     ) -> None:
         """Test should_attempt_reset when timeout has not been reached."""
         circuit_breaker.last_failure_time = datetime.now(UTC) - timedelta(seconds=5)
-        
+
         assert circuit_breaker._should_attempt_reset() is False
 
     def test_should_attempt_reset_timeout_reached(
@@ -219,7 +219,7 @@ class TestCircuitBreaker:
     ) -> None:
         """Test should_attempt_reset when timeout has been reached."""
         circuit_breaker.last_failure_time = datetime.now(UTC) - timedelta(seconds=15)
-        
+
         assert circuit_breaker._should_attempt_reset() is True
 
     def test_get_status_closed_state(
@@ -257,7 +257,7 @@ class TestCircuitBreaker:
         circuit_breaker.state = CircuitState.OPEN
         circuit_breaker.failure_count = 3
         circuit_breaker.last_failure_time = datetime.now(UTC)
-        
+
         status = circuit_breaker.get_status()
 
         assert status["state"] == "open"
@@ -272,7 +272,7 @@ class TestCircuitBreaker:
         """Test get_status in HALF_OPEN state."""
         circuit_breaker.state = CircuitState.HALF_OPEN
         circuit_breaker.success_count = 1
-        
+
         status = circuit_breaker.get_status()
 
         assert status["state"] == "half_open"
@@ -289,7 +289,7 @@ class TestCircuitBreaker:
         circuit_breaker.state = CircuitState.OPEN
         circuit_breaker.failure_count = 5
         circuit_breaker.success_count = 0
-        
+
         circuit_breaker.reset()
 
         assert circuit_breaker.state == CircuitState.CLOSED
@@ -306,26 +306,34 @@ class TestCircuitBreaker:
         with patch('src.application.patterns.circuit_breaker.logger') as mock_logger:
             # Cause transition to OPEN
             mock_function.side_effect = Exception("Service failed")
-            
+
             for _ in range(3):  # Reach failure threshold
                 with pytest.raises(Exception):
                     await circuit_breaker.call(mock_function)
 
             # Check that open transition was logged
-            error_calls = [call for call in mock_logger.error.call_args_list 
-                          if "transitioning to OPEN" in str(call)]
+            error_calls = [
+                call
+                for call in mock_logger.error.call_args_list
+                if "transitioning to OPEN" in str(call)
+            ]
             assert len(error_calls) == 1
 
             # Reset and test half-open transition
-            circuit_breaker.last_failure_time = datetime.now(UTC) - timedelta(seconds=15)
+            circuit_breaker.last_failure_time = datetime.now(UTC) - timedelta(
+                seconds=15
+            )
             mock_function.side_effect = None
             mock_function.return_value = "success"
 
             await circuit_breaker.call(mock_function)
 
             # Check that half-open transition was logged
-            info_calls = [call for call in mock_logger.info.call_args_list 
-                         if "transitioning to HALF_OPEN" in str(call)]
+            info_calls = [
+                call
+                for call in mock_logger.info.call_args_list
+                if "transitioning to HALF_OPEN" in str(call)
+            ]
             assert len(info_calls) == 1
 
     @pytest.mark.asyncio
@@ -338,23 +346,23 @@ class TestCircuitBreaker:
         # Rapid failures to open circuit
         test_error = Exception("Rapid failure")
         mock_function.side_effect = test_error
-        
+
         for _ in range(3):
             with pytest.raises(Exception):
                 await circuit_breaker.call(mock_function)
-        
+
         assert circuit_breaker.state == CircuitState.OPEN
-        
+
         # Wait for recovery timeout and test recovery
         circuit_breaker.last_failure_time = datetime.now(UTC) - timedelta(seconds=15)
         mock_function.side_effect = None
         mock_function.return_value = "recovered"
-        
+
         # First call transitions to HALF_OPEN
         result1 = await circuit_breaker.call(mock_function)
         assert result1 == "recovered"
         assert circuit_breaker.state == CircuitState.HALF_OPEN
-        
+
         # Second call transitions to CLOSED
         result2 = await circuit_breaker.call(mock_function)
         assert result2 == "recovered"
@@ -369,11 +377,11 @@ class TestCircuitBreaker:
         """Test that circuit breaker maintains consistency under concurrent calls."""
         # This test simulates consecutive failures to test state consistency
         # Consecutive failures should trigger the circuit breaker
-        
+
         # Set up scenario where service fails consistently
         test_error = Exception("Service consistently failing")
         mock_function.side_effect = test_error
-        
+
         # Execute multiple failed calls
         results = []
         for i in range(3):  # 3 consecutive failures to trigger threshold
@@ -382,7 +390,7 @@ class TestCircuitBreaker:
                 results.append(("success", result))
             except Exception as e:
                 results.append(("failure", str(e)))
-        
+
         # Verify state is consistent (should be OPEN after 3 failures)
         assert circuit_breaker.state == CircuitState.OPEN
         assert circuit_breaker.failure_count == 3
@@ -393,6 +401,7 @@ class TestCircuitBreaker:
         circuit_breaker: CircuitBreaker,
     ) -> None:
         """Test that function arguments are preserved correctly."""
+
         async def test_function(arg1, arg2, kwarg1=None, kwarg2=None):
             return {
                 "arg1": arg1,
@@ -400,22 +409,18 @@ class TestCircuitBreaker:
                 "kwarg1": kwarg1,
                 "kwarg2": kwarg2,
             }
-        
+
         result = await circuit_breaker.call(
-            test_function,
-            "value1",
-            "value2", 
-            kwarg1="kwvalue1",
-            kwarg2="kwvalue2"
+            test_function, "value1", "value2", kwarg1="kwvalue1", kwarg2="kwvalue2"
         )
-        
+
         expected = {
             "arg1": "value1",
             "arg2": "value2",
             "kwarg1": "kwvalue1",
             "kwarg2": "kwvalue2",
         }
-        
+
         assert result == expected
 
 
@@ -430,7 +435,7 @@ class TestCircuitBreakerManager:
     def test_manager_initialization(self) -> None:
         """Test manager initialization."""
         manager = CircuitBreakerManager()
-        
+
         assert manager.breakers == {}
 
     def test_get_breaker_creates_new(
@@ -439,7 +444,7 @@ class TestCircuitBreakerManager:
     ) -> None:
         """Test that get_breaker creates new circuit breaker."""
         breaker = manager.get_breaker("test_service")
-        
+
         assert isinstance(breaker, CircuitBreaker)
         assert breaker.service_name == "test_service"
         assert "test_service" in manager.breakers
@@ -451,7 +456,7 @@ class TestCircuitBreakerManager:
         """Test that get_breaker returns existing circuit breaker."""
         breaker1 = manager.get_breaker("test_service")
         breaker2 = manager.get_breaker("test_service")
-        
+
         assert breaker1 is breaker2
 
     def test_get_breaker_with_custom_parameters(
@@ -465,7 +470,7 @@ class TestCircuitBreakerManager:
             recovery_timeout=30,
             success_threshold=1,
         )
-        
+
         assert breaker.service_name == "custom_service"
         assert breaker.failure_threshold == 2
         assert breaker.recovery_timeout == 30
@@ -477,7 +482,7 @@ class TestCircuitBreakerManager:
     ) -> None:
         """Test get_all_status with no breakers."""
         status = manager.get_all_status()
-        
+
         assert status == {}
 
     def test_get_all_status_multiple_breakers(
@@ -487,13 +492,13 @@ class TestCircuitBreakerManager:
         """Test get_all_status with multiple breakers."""
         breaker1 = manager.get_breaker("service1")
         breaker2 = manager.get_breaker("service2")
-        
+
         # Modify state for testing
         breaker1.failure_count = 1
         breaker2.failure_count = 2
-        
+
         status = manager.get_all_status()
-        
+
         assert "service1" in status
         assert "service2" in status
         assert status["service1"]["failure_count"] == 1
@@ -507,14 +512,14 @@ class TestCircuitBreakerManager:
         # Create breakers with failures
         breaker1 = manager.get_breaker("service1")
         breaker2 = manager.get_breaker("service2")
-        
+
         breaker1.state = CircuitState.OPEN
         breaker1.failure_count = 5
         breaker2.state = CircuitState.HALF_OPEN
         breaker2.success_count = 1
-        
+
         manager.reset_all()
-        
+
         assert breaker1.state == CircuitState.CLOSED
         assert breaker1.failure_count == 0
         assert breaker2.state == CircuitState.CLOSED
@@ -528,9 +533,9 @@ class TestCircuitBreakerManager:
         breaker = manager.get_breaker("test_service")
         breaker.state = CircuitState.OPEN
         breaker.failure_count = 3
-        
+
         result = manager.reset_service("test_service")
-        
+
         assert result is True
         assert breaker.state == CircuitState.CLOSED
         assert breaker.failure_count == 0
@@ -541,7 +546,7 @@ class TestCircuitBreakerManager:
     ) -> None:
         """Test reset_service for non-existent service."""
         result = manager.reset_service("nonexistent_service")
-        
+
         assert result is False
 
     def test_manager_multiple_services_independence(
@@ -551,11 +556,11 @@ class TestCircuitBreakerManager:
         """Test that different services have independent circuit breakers."""
         breaker1 = manager.get_breaker("service1", failure_threshold=2)
         breaker2 = manager.get_breaker("service2", failure_threshold=5)
-        
+
         # Modify one breaker
         breaker1.failure_count = 2
         breaker1.state = CircuitState.OPEN
-        
+
         # Other breaker should be unaffected
         assert breaker2.failure_count == 0
         assert breaker2.state == CircuitState.CLOSED
@@ -569,21 +574,21 @@ class TestCircuitBreakerManager:
         # Create breakers through manager
         edgar_breaker = manager.get_breaker("edgar", failure_threshold=3)
         llm_breaker = manager.get_breaker("llm", failure_threshold=5)
-        
+
         # Simulate some failures
         edgar_breaker.failure_count = 2
         llm_breaker.failure_count = 1
-        
+
         # Check status through manager
         all_status = manager.get_all_status()
         assert all_status["edgar"]["failure_count"] == 2
         assert all_status["llm"]["failure_count"] == 1
-        
+
         # Reset one service
         manager.reset_service("edgar")
         assert edgar_breaker.failure_count == 0
         assert llm_breaker.failure_count == 1  # Unaffected
-        
+
         # Reset all services
         manager.reset_all()
         assert edgar_breaker.failure_count == 0
@@ -612,13 +617,13 @@ class TestCircuitBreakerError:
     def test_circuit_breaker_error_creation(self) -> None:
         """Test CircuitBreakerError creation."""
         error = CircuitBreakerError("Circuit is open")
-        
+
         assert isinstance(error, Exception)
         assert str(error) == "Circuit is open"
 
     def test_circuit_breaker_error_inheritance(self) -> None:
         """Test CircuitBreakerError inheritance."""
         error = CircuitBreakerError("Test error")
-        
+
         assert isinstance(error, Exception)
         assert isinstance(error, CircuitBreakerError)

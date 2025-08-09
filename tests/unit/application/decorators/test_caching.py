@@ -1,14 +1,15 @@
 """Tests for caching decorators."""
 
-import pytest
 from datetime import UTC, datetime, timedelta
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, patch
 from uuid import UUID, uuid4
 
+import pytest
+
 from src.application.decorators.caching import (
-    cached_query,
-    cache_invalidation,
     _default_key_extractor,
+    cache_invalidation,
+    cached_query,
 )
 from src.application.services.cache_service import CacheService
 from src.domain.entities.analysis import AnalysisType
@@ -17,7 +18,7 @@ from src.domain.value_objects.cik import CIK
 
 class MockQuery:
     """Mock query class for testing."""
-    
+
     def __init__(self, **kwargs):
         for key, value in kwargs.items():
             setattr(self, key, value)
@@ -25,14 +26,14 @@ class MockQuery:
 
 class MockAnalysisResult:
     """Mock analysis result for testing."""
-    
+
     def __init__(self, analysis_id: UUID):
         self.id = analysis_id
 
 
 class MockHandler:
     """Mock handler class for decorator testing."""
-    
+
     def __init__(self, cache_service: CacheService = None):
         self.cache_service = cache_service
 
@@ -43,17 +44,17 @@ class TestDefaultKeyExtractor:
     def test_key_extractor_basic_query(self) -> None:
         """Test key extraction from basic query."""
         query = MockQuery(analysis_id="test-id-123")
-        
+
         result = _default_key_extractor("analysis", query)
-        
+
         assert result == "analysis:analysis_id:test-id-123"
 
     def test_key_extractor_filing_query(self) -> None:
         """Test key extraction from filing query."""
         query = MockQuery(filing_id=str(uuid4()), include_analyses=True)
-        
+
         result = _default_key_extractor("filing", query)
-        
+
         expected = f"filing:filing_id:{query.filing_id}:include_analyses:true"
         assert result == expected
 
@@ -62,51 +63,53 @@ class TestDefaultKeyExtractor:
         query = MockQuery(
             analysis_id="analysis-123",
             filing_id="filing-456",  # Should not be used
-            company_id="company-789"  # Should not be used
+            company_id="company-789",  # Should not be used
         )
-        
+
         result = _default_key_extractor("test", query)
-        
+
         assert result == "test:analysis_id:analysis-123"
 
     def test_key_extractor_no_id_attributes(self) -> None:
         """Test key extraction without ID attributes."""
         query = MockQuery(include_full_results=True)
-        
+
         result = _default_key_extractor("test", query)
-        
+
         assert result == "test:include_full_results:true"
 
     def test_key_extractor_pagination(self) -> None:
         """Test key extraction with pagination."""
         query = MockQuery(page=2, page_size=25)
-        
+
         result = _default_key_extractor("list", query)
-        
+
         assert result == "list:page:2:size:25"
 
     def test_key_extractor_company_filter(self) -> None:
         """Test key extraction with company filter."""
         query = MockQuery(company_cik=CIK("1234567890"))
-        
+
         result = _default_key_extractor("list", query)
-        
+
         assert result == "list:cik:1234567890"
 
     def test_key_extractor_analysis_types_filter(self) -> None:
         """Test key extraction with analysis types filter."""
         query = MockQuery(analysis_types=[AnalysisType.FILING_ANALYSIS])
-        
+
         result = _default_key_extractor("list", query)
-        
+
         assert result == "list:types:filing_analysis"
 
     def test_key_extractor_multiple_analysis_types(self) -> None:
         """Test key extraction with multiple analysis types (sorted)."""
-        query = MockQuery(analysis_types=[AnalysisType.FILING_ANALYSIS, AnalysisType.FILING_ANALYSIS])
-        
+        query = MockQuery(
+            analysis_types=[AnalysisType.FILING_ANALYSIS, AnalysisType.FILING_ANALYSIS]
+        )
+
         result = _default_key_extractor("list", query)
-        
+
         # Types should be sorted for consistent keys
         assert "types:" in result
         assert "filing_analysis" in result
@@ -115,25 +118,27 @@ class TestDefaultKeyExtractor:
         """Test key extraction with date filters."""
         created_from = datetime(2024, 1, 1, 10, 0, tzinfo=UTC)
         created_to = datetime(2024, 3, 31, 15, 30, tzinfo=UTC)
-        
+
         query = MockQuery(created_from=created_from, created_to=created_to)
-        
+
         result = _default_key_extractor("list", query)
-        
+
         assert "from:2024-01-01" in result
         assert "to:2024-03-31" in result
 
     def test_key_extractor_sorting(self) -> None:
         """Test key extraction with sorting parameters."""
-        from src.application.schemas.queries.list_analyses import AnalysisSortField, SortDirection
-        
-        query = MockQuery(
-            sort_by=AnalysisSortField.CREATED_AT,
-            sort_direction=SortDirection.DESC
+        from src.application.schemas.queries.list_analyses import (
+            AnalysisSortField,
+            SortDirection,
         )
-        
+
+        query = MockQuery(
+            sort_by=AnalysisSortField.CREATED_AT, sort_direction=SortDirection.DESC
+        )
+
         result = _default_key_extractor("list", query)
-        
+
         assert "sort:created_at:desc" in result
 
     def test_key_extractor_comprehensive_query(self) -> None:
@@ -146,21 +151,21 @@ class TestDefaultKeyExtractor:
             page_size=10,
             company_cik=CIK("1234567890"),
         )
-        
+
         result = _default_key_extractor("comprehensive", query)
-        
+
         expected_parts = [
             "comprehensive",
             "analysis_id:test-123",
             "include_full_results:true",
             "page:1",
             "size:10",
-            "cik:1234567890"
+            "cik:1234567890",
         ]
-        
+
         for part in expected_parts:
             assert part in result
-        
+
         # include_analyses should not appear since it's False
         assert "include_analyses" not in result
 
@@ -178,7 +183,7 @@ class TestCachedQueryDecorator:
         """Mock handler with cache service."""
         return MockHandler(cache_service=mock_cache_service)
 
-    @pytest.fixture  
+    @pytest.fixture
     def handler_without_cache(self) -> MockHandler:
         """Mock handler without cache service."""
         return MockHandler(cache_service=None)
@@ -224,9 +229,7 @@ class TestCachedQueryDecorator:
         assert result == fresh_result
         mock_cache_service.get.assert_called_once_with("test:analysis_id:test-123")
         mock_cache_service.set.assert_called_once_with(
-            "test:analysis_id:test-123",
-            fresh_result,
-            ttl=timedelta(minutes=30)
+            "test:analysis_id:test-123", fresh_result, ttl=timedelta(minutes=30)
         )
 
     @pytest.mark.asyncio
@@ -242,7 +245,7 @@ class TestCachedQueryDecorator:
             return fresh_result
 
         query = MockQuery(analysis_id="test-123")
-        
+
         with patch('src.application.decorators.caching.logger') as mock_logger:
             result = await mock_query_method(handler_without_cache, query)
 
@@ -275,7 +278,7 @@ class TestCachedQueryDecorator:
         mock_cache_service.set.assert_called_once_with(
             "test:custom_unique-123",
             fresh_result,
-            ttl=timedelta(minutes=60)  # Default TTL
+            ttl=timedelta(minutes=60),  # Default TTL
         )
 
     @pytest.mark.asyncio
@@ -293,7 +296,7 @@ class TestCachedQueryDecorator:
             return fresh_result
 
         query = MockQuery(analysis_id="test-123")
-        
+
         with patch('src.application.decorators.caching.logger') as mock_logger:
             result = await mock_query_method(handler_with_cache, query)
 
@@ -317,7 +320,7 @@ class TestCachedQueryDecorator:
             return fresh_result
 
         query = MockQuery(analysis_id="test-123")
-        
+
         with patch('src.application.decorators.caching.logger') as mock_logger:
             result = await mock_query_method(handler_with_cache, query)
 
@@ -327,6 +330,7 @@ class TestCachedQueryDecorator:
     @pytest.mark.asyncio
     async def test_cached_query_preserves_function_metadata(self) -> None:
         """Test that decorator preserves original function metadata."""
+
         @cached_query("test")
         async def original_function(self, query):
             """Original function docstring."""
@@ -348,6 +352,7 @@ class TestCachedQueryDecorator:
         ttl_values = [15, 60, 120, 1440]  # 15min, 1hr, 2hr, 1day
 
         for ttl_minutes in ttl_values:
+
             @cached_query("test", ttl_minutes=ttl_minutes)
             async def mock_query_method(self, query):
                 return result_data
@@ -383,13 +388,13 @@ class TestCachedQueryDecorator:
             page=2,
             page_size=50,
             include_full_results=True,
-            created_from=datetime(2024, 1, 1, tzinfo=UTC)
+            created_from=datetime(2024, 1, 1, tzinfo=UTC),
         )
 
         result = await mock_query_method(handler_with_cache, query)
 
         assert result == result_data
-        
+
         # Verify complex cache key was generated
         get_call = mock_cache_service.get.call_args[0][0]
         assert "cik:1234567890" in get_call
@@ -436,14 +441,13 @@ class TestCacheInvalidationDecorator:
         result = await mock_command_method(handler_with_cache, command)
 
         assert result == command_result
-        
+
         # Verify cache invalidation calls
-        expected_calls = [
-            f"analysis:{analysis_id}",
-            f"filing:{analysis_id}"
+        expected_calls = [f"analysis:{analysis_id}", f"filing:{analysis_id}"]
+
+        clear_calls = [
+            call[0][0] for call in mock_cache_service.clear_prefix.call_args_list
         ]
-        
-        clear_calls = [call[0][0] for call in mock_cache_service.clear_prefix.call_args_list]
         for expected_call in expected_calls:
             assert expected_call in clear_calls
 
@@ -487,10 +491,12 @@ class TestCacheInvalidationDecorator:
         result = await mock_command_method(handler_with_cache, command)
 
         assert result == command_result
-        
+
         # Should clear entire prefixes when no ID is found
         expected_calls = ["analysis", "filing"]
-        clear_calls = [call[0][0] for call in mock_cache_service.clear_prefix.call_args_list]
+        clear_calls = [
+            call[0][0] for call in mock_cache_service.clear_prefix.call_args_list
+        ]
         for expected_call in expected_calls:
             assert expected_call in clear_calls
 
@@ -527,7 +533,7 @@ class TestCacheInvalidationDecorator:
             return command_result
 
         command = MockQuery()
-        
+
         with patch('src.application.decorators.caching.logger') as mock_logger:
             result = await mock_command_method(handler_with_cache, command)
 
@@ -538,6 +544,7 @@ class TestCacheInvalidationDecorator:
     @pytest.mark.asyncio
     async def test_cache_invalidation_preserves_function_metadata(self) -> None:
         """Test that decorator preserves original function metadata."""
+
         @cache_invalidation(["test"])
         async def original_function(self, command):
             """Original command function docstring."""
@@ -555,7 +562,7 @@ class TestCacheInvalidationDecorator:
         """Test cache invalidation with multiple prefixes."""
         analysis_id = uuid4()
         command_result = MockAnalysisResult(analysis_id)
-        
+
         prefixes = ["analysis", "filing", "company", "list", "search"]
 
         @cache_invalidation(prefixes)
@@ -566,11 +573,13 @@ class TestCacheInvalidationDecorator:
         result = await mock_command_method(handler_with_cache, command)
 
         assert result == command_result
-        
+
         # Verify all prefixes were cleared with the ID
         assert mock_cache_service.clear_prefix.call_count == len(prefixes)
-        
-        clear_calls = [call[0][0] for call in mock_cache_service.clear_prefix.call_args_list]
+
+        clear_calls = [
+            call[0][0] for call in mock_cache_service.clear_prefix.call_args_list
+        ]
         for prefix in prefixes:
             expected_call = f"{prefix}:{analysis_id}"
             assert expected_call in clear_calls
@@ -582,12 +591,13 @@ class TestCacheInvalidationDecorator:
         mock_cache_service: AsyncMock,
     ) -> None:
         """Test that cache is not invalidated when command fails."""
+
         @cache_invalidation(["analysis"])
         async def mock_command_method(self, command):
             raise Exception("Command failed")
 
         command = MockQuery()
-        
+
         with pytest.raises(Exception, match="Command failed"):
             await mock_command_method(handler_with_cache, command)
 
@@ -602,7 +612,7 @@ class TestCacheInvalidationDecorator:
     ) -> None:
         """Test integration between cache invalidation and cached query decorators."""
         analysis_id = uuid4()
-        
+
         # Mock cached query method
         @cached_query("analysis")
         async def mock_query_method(self, query):
@@ -615,11 +625,11 @@ class TestCacheInvalidationDecorator:
 
         # Test cache miss, then cache invalidation
         mock_cache_service.get.return_value = None
-        
+
         # Execute query (should cache result)
         query = MockQuery(analysis_id=str(analysis_id))
         query_result = await mock_query_method(handler_with_cache, query)
-        
+
         # Execute command (should invalidate cache)
         command = MockQuery()
         command_result = await mock_command_method(handler_with_cache, command)
@@ -627,7 +637,9 @@ class TestCacheInvalidationDecorator:
         # Verify query was cached and then invalidated
         mock_cache_service.get.assert_called_once()
         mock_cache_service.set.assert_called_once()
-        mock_cache_service.clear_prefix.assert_called_once_with(f"analysis:{analysis_id}")
-        
+        mock_cache_service.clear_prefix.assert_called_once_with(
+            f"analysis:{analysis_id}"
+        )
+
         assert query_result == {"cached": "query_result"}
         assert command_result.id == analysis_id

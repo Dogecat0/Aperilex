@@ -1,0 +1,190 @@
+@import 'tailwindcss';
+
+/* Custom styles for analysis components */
+.sparkline .recharts-wrapper {
+  overflow: visible;
+}
+
+.sparkline .recharts-surface {
+  overflow: visible;
+}
+
+@theme {
+  /* Updated to use the new indigo primary palette */
+  --color-background: hsl(0 0% 100%);
+  --color-foreground: hsl(222.2 84% 4.9%);
+  --color-card: hsl(0 0% 100%);
+  --color-card-foreground: hsl(222.2 84% 4.9%);
+  --color-popover: hsl(0 0% 100%);
+  --color-popover-foreground: hsl(222.2 84% 4.9%);
+  --color-primary: hsl(243 75% 59%);
+  /* Updated to indigo-500 */
+  --color-primary-foreground: hsl(0 0% 100%);
+  --color-secondary: hsl(210 20% 57%);
+  /* Updated to slate-500 */
+  --color-secondary-foreground: hsl(222.2 47.4% 11.2%);
+  --color-muted: hsl(210 40% 96%);
+  /* Updated to slate-100 */
+  --color-muted-foreground: hsl(215.4 16.3% 46.9%);
+  --color-accent: hsl(240 27% 79%);
+  /* Updated to accent-400 (more muted) */
+  --color-accent-foreground: hsl(240 21% 15%);
+  /* Updated for better contrast */
+  --color-destructive: hsl(0 84.2% 60.2%);
+  --color-destructive-foreground: hsl(0 0% 100%);
+  --color-border: hsl(214.3 31.8% 91.4%);
+  --color-input: hsl(214.3 31.8% 91.4%);
+  --color-ring: hsl(243 75% 59%);
+  /* Updated to indigo-500 */
+
+  /* Financial semantic colors */
+  --color-success: hsl(158 64% 52%);
+  /* success-500 */
+  --color-success-foreground: hsl(0 0% 100%);
+  --color-warning: hsl(43 96% 56%);
+  /* warning-500 */
+  --color-warning-foreground: hsl(0 0% 100%);
+  --color-teal: hsl(173 58% 39%);
+  /* teal-600 */
+  --color-teal-foreground: hsl(0 0% 100%);
+
+  /* Chart colors */
+  --color-chart-1: hsl(243 75% 59%);
+  /* primary indigo */
+  --color-chart-2: hsl(173 58% 39%);
+  /* teal */
+  --color-chart-3: hsl(43 96% 56%);
+  /* warning amber */
+  --color-chart-4: hsl(0 84% 60%);
+  /* error red */
+  --color-chart-5: hsl(258 90% 66%);
+  /* violet */
+
+  /* Dark mode variants */
+  --color-background-dark: hsl(222.2 84% 4.9%);
+  --color-foreground-dark: hsl(0 0% 100%);
+  --color-card-dark: hsl(222.2 84% 4.9%);
+  --color-card-foreground-dark: hsl(0 0% 100%);
+  --color-popover-dark: hsl(222.2 84% 4.9%);
+  --color-popover-foreground-dark: hsl(0 0% 100%);
+  --color-primary-dark: hsl(243 75% 59%);
+  /* Same indigo primary */
+  --color-primary-foreground-dark: hsl(222.2 47.4% 11.2%);
+  --color-secondary-dark: hsl(215 25% 27%);
+  /* Updated to slate-700 */
+  --color-secondary-foreground-dark: hsl(0 0% 100%);
+  --color-muted-dark: hsl(215 25% 27%);
+  /* Updated to slate-700 */
+  --color-muted-foreground-dark: hsl(215 20.2% 65.1%);
+  --color-accent-dark: hsl(240 27% 79%);
+  /* Same muted accent for dark mode */
+  --color-accent-foreground-dark: hsl(240 21% 15%);
+  --color-destructive-dark: hsl(0 62.8% 30.6%);
+  --color-destructive-foreground-dark: hsl(0 0% 100%);
+  --color-border-dark: hsl(217.2 32.6% 17.5%);
+  --color-input-dark: hsl(217.2 32.6% 17.5%);
+  --color-ring-dark: hsl(243 75% 59%);
+  /* Same indigo ring */
+
+  /* Dark mode financial colors */
+  --color-success-dark: hsl(158 64% 52%);
+  --color-warning-dark: hsl(43 96% 56%);
+  --color-teal-dark: hsl(173 58% 39%);
+}
+
+@layer base {
+  * {
+    border-color: hsl(var(--color-border));
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-family: 'Inter', system-ui, sans-serif;
+  }
+
+  /* Dark theme overrides */
+  .dark {
+    --color-background: var(--color-background-dark);
+    --color-foreground: var(--color-foreground-dark);
+    --color-card: var(--color-card-dark);
+    --color-card-foreground: var(--color-card-foreground-dark);
+    --color-popover: var(--color-popover-dark);
+    --color-popover-foreground: var(--color-popover-foreground-dark);
+    --color-primary: var(--color-primary-dark);
+    --color-primary-foreground: var(--color-primary-foreground-dark);
+    --color-secondary: var(--color-secondary-dark);
+    --color-secondary-foreground: var(--color-secondary-foreground-dark);
+    --color-muted: var(--color-muted-dark);
+    --color-muted-foreground: var(--color-muted-foreground-dark);
+    --color-accent: var(--color-accent-dark);
+    --color-accent-foreground: var(--color-accent-foreground-dark);
+    --color-destructive: var(--color-destructive-dark);
+    --color-destructive-foreground: var(--color-destructive-foreground-dark);
+    --color-border: var(--color-border-dark);
+    --color-input: var(--color-input-dark);
+    --color-ring: var(--color-ring-dark);
+    --color-success: var(--color-success-dark);
+    --color-warning: var(--color-warning-dark);
+    --color-teal: var(--color-teal-dark);
+  }
+
+  /* Enhanced typography for financial data */
+  .financial-positive {
+    @apply text-success;
+  }
+
+  .financial-negative {
+    @apply text-destructive;
+  }
+
+  .financial-neutral {
+    @apply text-muted-foreground;
+  }
+}
+
+/* Custom scrollbar with updated colors */
+@layer utilities {
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-track {
+    @apply bg-muted/30;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    @apply bg-primary/40 rounded-md;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    @apply bg-primary/60;
+  }
+
+  /* Chart container styling */
+  .chart-container {
+    @apply bg-card border border-border rounded-lg p-4;
+  }
+
+  /* Status indicator utilities */
+  .status-online {
+    @apply text-success bg-success/10 border-success/20;
+  }
+
+  .status-processing {
+    @apply text-warning bg-warning/10 border-warning/20;
+  }
+
+  .status-failed {
+    @apply text-destructive bg-destructive/10 border-destructive/20;
+  }
+
+  /* Enhanced button variants */
+  .btn-accent {
+    @apply bg-accent text-accent-foreground hover:bg-accent/90;
+  }
+
+  .btn-teal {
+    @apply bg-teal text-teal-foreground hover:bg-teal/90;
+  }
+}
