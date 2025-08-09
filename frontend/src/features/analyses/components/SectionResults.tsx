@@ -144,7 +144,6 @@ export function SectionResults({ sections }: SectionResultsProps) {
 
                 {isExpanded && (
                   <div className="mt-6 ml-13 space-y-6">
-
                     {/* Critical Findings - Keep as high-level summary */}
                     {section.critical_findings && section.critical_findings.length > 0 && (
                       <div>
@@ -165,7 +164,9 @@ export function SectionResults({ sections }: SectionResultsProps) {
                     {/* Sub-Sections - Streamlined presentation */}
                     {section.sub_sections && section.sub_sections.length > 0 && (
                       <div>
-                        <h4 className="font-medium text-foreground mb-4">Detailed Sub-Section Analysis</h4>
+                        <h4 className="font-medium text-foreground mb-4">
+                          Detailed Sub-Section Analysis
+                        </h4>
                         <div className="space-y-6">
                           {section.sub_sections.map((subSection, subIndex) => (
                             <div

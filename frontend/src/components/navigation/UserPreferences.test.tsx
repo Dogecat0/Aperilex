@@ -52,7 +52,7 @@ describe('UserPreferences Component', () => {
       pageSize: 20,
       enableNotifications: true,
       navigationCollapsed: false,
-      }
+    }
   })
 
   afterEach(() => {
@@ -386,7 +386,6 @@ describe('UserPreferences Component', () => {
       await user.click(button)
     })
 
-
     it('renders notifications checkbox with correct state', () => {
       const notificationsCheckbox = screen.getByLabelText('Enable notifications')
       expect(notificationsCheckbox).toBeInTheDocument()
@@ -394,14 +393,11 @@ describe('UserPreferences Component', () => {
       expect(notificationsCheckbox).toBeChecked() // Default state is true
     })
 
-
     it('reflects preferences.enableNotifications state', async () => {
       // Default enableNotifications is true, so checkbox should be checked
       const notificationsCheckbox = screen.getByLabelText('Enable notifications')
       expect(notificationsCheckbox).toBeChecked() // Default state is true
     })
-
-
 
     it('calls updatePreferences when notifications are toggled off', async () => {
       const notificationsCheckbox = screen.getByLabelText('Enable notifications')
@@ -520,9 +516,7 @@ describe('UserPreferences Component', () => {
         screen.getByText('dark'),
         screen.getByText('system'),
       ]
-      const checkboxes = [
-        screen.getByLabelText('Enable notifications'),
-      ]
+      const checkboxes = [screen.getByLabelText('Enable notifications')]
 
       // All interactive elements should be focusable
       themeButtons.forEach((button) => {
