@@ -392,7 +392,7 @@ describe('ConfidenceIndicator Component', () => {
     it('memoizes effectively with same props', () => {
       const { rerender } = render(<ConfidenceIndicator score={0.85} />)
 
-      const initialText = screen.getByText('85%')
+      const _initialText = screen.getByText('85%')
 
       // Re-render with same props
       rerender(<ConfidenceIndicator score={0.85} />)

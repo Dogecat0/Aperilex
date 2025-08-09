@@ -1,6 +1,6 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { describe, it, expect, vi } from 'vitest'
-import { Download, Share, Settings } from 'lucide-react'
+import { Settings } from 'lucide-react'
 import { SectionHeader, getAnalysisType, extractSectionMetadata } from './SectionHeader'
 
 describe('SectionHeader', () => {

@@ -606,7 +606,9 @@ describe('Input Component', () => {
       render(<Input />)
 
       const input = screen.getByRole('textbox')
-      await user.type(input, longValue)
+      // Use paste instead of type for performance with very long values
+      await user.click(input)
+      await user.paste(longValue)
 
       expect(input).toHaveValue(longValue)
     })
@@ -667,7 +669,11 @@ describe('Input Component', () => {
       )
 
       const input2 = document.querySelector('input[name="field2"]') as HTMLInputElement
+      expect(input2).toBeTruthy()
+
       await user.type(input2, 'value2')
+      // Ensure input has the expected value before checking form data
+      expect(input2).toHaveValue('value2')
 
       const form = document.querySelector('form') as HTMLFormElement
       const formData = new FormData(form)

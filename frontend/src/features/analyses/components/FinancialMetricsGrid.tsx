@@ -583,7 +583,7 @@ export function FinancialMetricsGrid({
                               { name: 'Curr', value: metric.currentValue },
                             ]}
                             chartType="line"
-                            dataType={metric.type}
+                            dataType={metric.type === 'text' ? 'number' : metric.type}
                             height={32}
                             compact={true}
                             showLegend={false}

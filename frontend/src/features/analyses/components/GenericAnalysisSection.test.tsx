@@ -146,7 +146,7 @@ vi.mock('@/utils/analysisHelpers', () => ({
       categories,
     }
   }),
-  getFilteredContent: vi.fn((processedData, activeTab, activeFilter) => {
+  getFilteredContent: vi.fn((processedData, activeTab, _activeFilter) => {
     // Return empty array if no data in processedData (happens when search term is 'nonexistentcontent')
     if (processedData.totalSections === 0) {
       return []

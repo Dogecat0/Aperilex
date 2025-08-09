@@ -1,13 +1,13 @@
 import React from 'react'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, screen, fireEvent } from '@testing-library/react'
+import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { SectionResults } from './SectionResults'
 import type { SectionAnalysisResponse } from '@/api/types'
 
 // Mock child components
 vi.mock('@/components/analysis/SubSectionRenderer', () => ({
-  SubSectionRenderer: ({ schemaType, analysis, subSectionName }: any) => (
+  SubSectionRenderer: ({ schemaType, analysis: _analysis, subSectionName }: any) => (
     <div data-testid="sub-section-renderer">
       <h4>{subSectionName}</h4>
       <div>Schema Type: {schemaType}</div>
@@ -182,7 +182,7 @@ describe('SectionResults Component', () => {
 
       expect(screen.getByText('No Section Analysis Available')).toBeInTheDocument()
       expect(
-        screen.getByText(/This analysis doesn\'t contain detailed section-by-section results/)
+        screen.getByText(/This analysis doesn't contain detailed section-by-section results/)
       ).toBeInTheDocument()
     })
 
@@ -514,7 +514,7 @@ describe('SectionResults Component', () => {
       await user.click(sectionButton!)
 
       const h2 = screen.getByText('Comprehensive Section Analysis')
-      const h3 = screen.getByText('Business Operations').closest('h3')
+      const _h3 = screen.getByText('Business Operations').closest('h3')
       const h4 = screen.getByText('Critical Findings')
 
       expect(h2.tagName).toBe('H2')

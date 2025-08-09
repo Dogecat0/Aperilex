@@ -197,8 +197,8 @@ describe('FilingsList', () => {
       fireEvent.click(databaseButton)
 
       // Note: We can't easily test the active state change without more complex mocking
-      // but we can test that the button was clicked
-      expect(databaseButton).toHaveBeenCalledOnce || true
+      // but we can test that the button exists and is clickable
+      expect(databaseButton).toBeInTheDocument()
     })
 
     it('handles popular ticker clicks for Edgar search', async () => {

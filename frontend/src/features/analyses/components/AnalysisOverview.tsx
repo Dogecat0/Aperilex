@@ -56,14 +56,14 @@ export function AnalysisOverview({
         processing_time_seconds: comprehensiveData?.total_processing_time_ms
           ? Math.round(comprehensiveData.total_processing_time_ms / 1000)
           : null,
-        sections_analyzed: comprehensiveData?.total_sections_analyzed || null,
+        sections_analyzed: comprehensiveData?.total_sections_analyzed || undefined,
         key_insights: comprehensiveData?.key_insights || [],
         risk_factors: comprehensiveData?.risk_factors || [],
         opportunities: comprehensiveData?.opportunities || [],
         financial_highlights: comprehensiveData?.financial_highlights || [],
         executive_summary: comprehensiveData?.executive_summary,
         filing_summary: comprehensiveData?.filing_summary,
-        full_results: comprehensiveData,
+        full_results: comprehensiveData as any,
       }
     : (analysis as AnalysisResponse)
 
