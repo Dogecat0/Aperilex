@@ -165,7 +165,8 @@ class BackgroundTaskCoordinator:
             )
 
             # accession_number is guaranteed to be not None after validation
-            assert command.accession_number is not None
+            if command.accession_number is None:
+                raise ValueError("Accession number is required after validation")
             is_accessible = await self.analysis_orchestrator.validate_filing_access(
                 command.accession_number
             )
