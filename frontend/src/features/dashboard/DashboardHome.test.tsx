@@ -21,7 +21,6 @@ vi.mock('./RecentAnalyses', () => ({
   RecentAnalyses: () => <div data-testid="recent-analyses">RecentAnalyses Component</div>,
 }))
 
-
 vi.mock('./SystemHealth', () => ({
   SystemHealth: () => <div data-testid="system-health">SystemHealth Component</div>,
 }))
@@ -175,7 +174,6 @@ describe('DashboardHome Component', () => {
       expect(recentAnalyses).toBeInTheDocument()
       expect(recentAnalyses).toHaveTextContent('RecentAnalyses Component')
     })
-
 
     it('renders SystemHealth component', () => {
       render(<DashboardHome />)

@@ -754,7 +754,6 @@ describe('AnalysisDetails Component', () => {
       expect(analysesLink).toHaveAttribute('href', '/analyses')
     })
 
-
     it('handles export button click', async () => {
       const TestWrapper = createTestWrapper()
       render(<AnalysisDetails />, { wrapper: TestWrapper })
@@ -968,7 +967,6 @@ describe('AnalysisDetails Component', () => {
   })
 
   describe('Action Button Functionality', () => {
-
     it('renders export button with correct attributes', () => {
       const TestWrapper = createTestWrapper()
       render(<AnalysisDetails />, { wrapper: TestWrapper })
@@ -977,7 +975,6 @@ describe('AnalysisDetails Component', () => {
       expect(exportButton.closest('button')).toHaveAttribute('data-variant', 'outline')
       expect(exportButton.closest('button')).toHaveAttribute('data-size', 'sm')
     })
-
 
     it('handles export button interaction', async () => {
       const TestWrapper = createTestWrapper()

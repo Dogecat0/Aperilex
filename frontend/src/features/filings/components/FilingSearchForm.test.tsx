@@ -343,8 +343,8 @@ describe('FilingSearchForm', () => {
       fireEvent.click(filtersButton)
 
       // Set some filters first
-      let filingTypeSelect = screen.getByLabelText('Filing Type')
-      let startDateInput = screen.getByLabelText('From Date')
+      const filingTypeSelect = screen.getByLabelText('Filing Type')
+      const startDateInput = screen.getByLabelText('From Date')
 
       fireEvent.change(filingTypeSelect, { target: { value: '10-K' } })
       fireEvent.change(startDateInput, { target: { value: '2024-01-01' } })

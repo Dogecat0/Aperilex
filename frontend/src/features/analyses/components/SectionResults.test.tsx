@@ -45,7 +45,6 @@ vi.mock('@/components/analysis/SubSectionRenderer', () => ({
   ),
 }))
 
-
 // Mock data for testing
 const mockSectionAnalysis: SectionAnalysisResponse[] = [
   {
@@ -175,8 +174,6 @@ describe('SectionResults Component', () => {
         screen.getByText(/Detailed analysis of 3 filing sections with 6 sub-sections/)
       ).toBeInTheDocument()
     })
-
-
   })
 
   describe('Empty State', () => {
@@ -217,11 +214,7 @@ describe('SectionResults Component', () => {
       )
 
       const neutralSentiment = screen.getByText('Neutral')
-      expect(neutralSentiment).toHaveClass(
-        'text-warning',
-        'bg-warning/10',
-        'border-warning/20'
-      )
+      expect(neutralSentiment).toHaveClass('text-warning', 'bg-warning/10', 'border-warning/20')
 
       // There are two "Very Positive" sentiments (Business Operations with 0.8 and Financial Results with 0.9)
       expect(veryPositiveSentiments).toHaveLength(2)
@@ -233,7 +226,6 @@ describe('SectionResults Component', () => {
       expect(screen.getByText('3 sub-sections')).toBeInTheDocument()
       expect(screen.getByText('2 sub-sections')).toBeInTheDocument()
     })
-
 
     it('displays appropriate icons for different section types', () => {
       render(<SectionResults sections={mockSectionAnalysis} />)
@@ -301,8 +293,6 @@ describe('SectionResults Component', () => {
       const sectionButton = screen.getByText('Business Operations').closest('button')
       await user.click(sectionButton!)
     })
-
-
 
     it('displays critical findings when available', () => {
       expect(screen.getByText('Critical Findings')).toBeInTheDocument()

@@ -9,7 +9,7 @@ vi.mock('@/hooks/useFilingAnalysisStatus', () => ({
   useFilingHasAnalysis: () => ({
     data: { hasAnalysis: false },
     isLoading: false,
-  })
+  }),
 }))
 
 describe('FilingCard', () => {

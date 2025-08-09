@@ -300,7 +300,12 @@ describe('AnalysisCard Component', () => {
       )
 
       const summaryText = screen.getByText(/comprehensive insights into the company/)
-      expect(summaryText).toHaveClass('text-foreground/80', 'text-sm', 'leading-relaxed', 'line-clamp-3')
+      expect(summaryText).toHaveClass(
+        'text-foreground/80',
+        'text-sm',
+        'leading-relaxed',
+        'line-clamp-3'
+      )
     })
   })
 
@@ -395,7 +400,12 @@ describe('AnalysisCard Component', () => {
 
       const insightText = screen.getByText(/Revenue growth of 15%/)
       expect(insightText).toHaveClass('line-clamp-1')
-      expect(insightText.parentElement).toHaveClass('flex', 'gap-2', 'text-xs', 'text-muted-foreground')
+      expect(insightText.parentElement).toHaveClass(
+        'flex',
+        'gap-2',
+        'text-xs',
+        'text-muted-foreground'
+      )
     })
 
     it('does not render insights section when no insights available', () => {
