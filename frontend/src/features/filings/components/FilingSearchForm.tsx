@@ -215,13 +215,17 @@ export function FilingSearchForm({
                 <Calendar className="w-4 h-4 mr-2" />
                 From Date
               </label>
-              <Input
-                id="start-date"
-                type="date"
-                value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
-                max={endDate || undefined}
-              />
+              <div className="relative">
+                <Calendar className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+                <Input
+                  id="start-date"
+                  type="date"
+                  value={startDate}
+                  onChange={(e) => setStartDate(e.target.value)}
+                  max={endDate || undefined}
+                  className="pr-10"
+                />
+              </div>
             </div>
 
             {/* End Date Filter */}
@@ -230,14 +234,18 @@ export function FilingSearchForm({
                 <Calendar className="w-4 h-4 mr-2" />
                 To Date
               </label>
-              <Input
-                id="end-date"
-                type="date"
-                value={endDate}
-                onChange={(e) => setEndDate(e.target.value)}
-                min={startDate || undefined}
-                max={new Date().toISOString().split('T')[0]}
-              />
+              <div className="relative">
+                <Calendar className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+                <Input
+                  id="end-date"
+                  type="date"
+                  value={endDate}
+                  onChange={(e) => setEndDate(e.target.value)}
+                  min={startDate || undefined}
+                  max={new Date().toISOString().split('T')[0]}
+                  className="pr-10"
+                />
+              </div>
             </div>
           </div>
 
