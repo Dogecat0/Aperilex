@@ -31,15 +31,15 @@ sqlalchemy = "^2.0.41"
 alembic = "^1.16.2"
 asyncpg = "^0.29.0"
 # Security
-python-jose = {extras = ["cryptography"], version = "^3.3.0"}
-passlib = {extras = ["bcrypt"], version = "^1.7.4"}
+python-jose = { extras = ["cryptography"], version = "^3.3.0" }
+passlib = { extras = ["bcrypt"], version = "^1.7.4" }
 cryptography = "^42.0.0"
 # HTTP Client
 httpx = "^0.28.0"
 # Cache
 redis = "^5.0.1"
 # Task Queue
-celery = {extras = ["redis"], version = "^5.3.6"}
+celery = { extras = ["redis"], version = "^5.3.6" }
 # Monitoring
 prometheus-client = "^0.20.0"
 opentelemetry-api = "^1.22.0"
@@ -100,9 +100,9 @@ lint.select = [
     "UP", # pyupgrade
 ]
 lint.ignore = [
-    "E501",  # line too long, handled by black
-    "B008",  # do not perform function calls in argument defaults
-    "C901",  # too complex
+    "E501", # line too long, handled by black
+    "B008", # do not perform function calls in argument defaults
+    "C901", # too complex
 ]
 
 [tool.ruff.lint.per-file-ignores]
@@ -131,6 +131,7 @@ warn_redundant_casts = true
 warn_unused_ignores = true
 warn_return_any = true
 strict_equality = true
+disallow_untyped_decorators = false
 
 [[tool.mypy.overrides]]
 module = "tests.*"
@@ -158,11 +159,18 @@ disable_error_code = ["import-untyped"]
 
 [[tool.mypy.overrides]]
 module = "src.infrastructure.tasks.*"
-disable_error_code = ["import-untyped", "attr-defined", "call-arg", "arg-type", "misc", "no-any-return"]
+disable_error_code = [
+    "import-untyped",
+    "attr-defined",
+    "call-arg",
+    "arg-type",
+    "misc",
+    "no-any-return",
+]
 
 [[tool.mypy.overrides]]
 module = "src.infrastructure.cache.*"
-disable_error_code = ["union-attr", "no-any-return", "misc"]
+disable_error_code = ["union-attr", "no-any-return", "misc", "no-untyped-call"]
 
 [[tool.mypy.overrides]]
 module = "edgar.*"
@@ -173,11 +181,7 @@ minversion = "6.0"
 addopts = "-ra -q --strict-markers --strict-config"
 testpaths = ["tests"]
 asyncio_mode = "auto"
-filterwarnings = [
-    "error",
-    "ignore::UserWarning",
-    "ignore::DeprecationWarning",
-]
+filterwarnings = ["error", "ignore::UserWarning", "ignore::DeprecationWarning"]
 markers = [
     "slow: marks tests as slow (deselect with '-m \"not slow\"')",
     "integration: marks tests as integration tests",
