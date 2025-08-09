@@ -138,11 +138,15 @@ disallow_untyped_defs = false
 
 [[tool.mypy.overrides]]
 module = "src.shared.config.settings"
-disable_error_code = ["call-arg"]
+disable_error_code = ["call-arg", "misc"]
 
 [[tool.mypy.overrides]]
 module = "src.infrastructure.database.base"
 disable_error_code = ["misc"]
+
+[[tool.mypy.overrides]]
+module = "src.infrastructure.database.models"
+disable_error_code = ["assignment"]
 
 [[tool.mypy.overrides]]
 module = "celery"

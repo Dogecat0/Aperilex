@@ -12,6 +12,8 @@ from src.infrastructure.database.base import Base
 class Company(Base):
     """Company model for storing company reference data."""
 
+    __tablename__: str = "companies"
+
     id: Mapped[UUID] = mapped_column(
         PostgresUUID(as_uuid=True),
         primary_key=True,
@@ -44,6 +46,8 @@ class Company(Base):
 
 class Filing(Base):
     """Filing model for tracking SEC filing processing status."""
+
+    __tablename__: str = "filings"
 
     id: Mapped[UUID] = mapped_column(
         PostgresUUID(as_uuid=True),
@@ -103,6 +107,8 @@ class Filing(Base):
 
 class Analysis(Base):
     """Analysis model for storing LLM analysis results."""
+
+    __tablename__: str = "analyses"
 
     id: Mapped[UUID] = mapped_column(
         PostgresUUID(as_uuid=True),
