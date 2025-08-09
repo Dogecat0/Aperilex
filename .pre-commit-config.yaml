@@ -44,7 +44,6 @@ repos:
           celery,
           redis
         ]
-        args: [--strict, --ignore-missing-imports]
 
   - repo: https://github.com/PyCQA/bandit
     rev: 1.7.7
