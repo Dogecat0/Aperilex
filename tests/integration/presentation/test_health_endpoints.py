@@ -7,6 +7,7 @@ from fastapi.testclient import TestClient
 
 from src.application.factory import ServiceFactory
 from src.presentation.api.app import app
+from src.presentation.api.dependencies import get_service_factory
 
 
 @pytest.fixture

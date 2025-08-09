@@ -1,7 +1,7 @@
 """Paginated Response DTO for paginated result sets."""
 
 from dataclasses import dataclass
-from typing import TypeVar
+from typing import Generic, TypeVar
 from uuid import UUID
 
 # Generic type for the items in the paginated response
@@ -67,7 +67,7 @@ class PaginationMetadata:
 
 
 @dataclass(frozen=True)
-class PaginatedResponse[T]:
+class PaginatedResponse(Generic[T]):
     """Generic paginated response DTO.
 
     This DTO wraps a list of items with pagination metadata, providing

@@ -119,7 +119,7 @@ class TestCIK:
 
         # CIK should be immutable in design (no public setters)
         # The value should only be settable during initialization
-        assert hasattr(cik, '_value')
+        assert hasattr(cik, "_value")
         assert cik.value == "320193"
 
     def test_comparison_with_different_formats(self):

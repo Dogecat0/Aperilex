@@ -185,7 +185,7 @@ Return the extracted text without any additional commentary or formatting."""
                 temperature=0.1,  # Low temperature for consistent extraction
             )
 
-            extracted_text = response.choices[0].message.content
+            extracted_text: str | None = response.choices[0].message.content
             if not extracted_text:
                 # Fallback to full section text if extraction fails
                 return section_text

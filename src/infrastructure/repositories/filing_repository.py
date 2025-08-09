@@ -6,9 +6,10 @@ from uuid import UUID
 from sqlalchemy import and_, desc, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.domain.entities.filing import Filing, ProcessingStatus
+from src.domain.entities.filing import Filing
 from src.domain.value_objects.accession_number import AccessionNumber
 from src.domain.value_objects.filing_type import FilingType
+from src.domain.value_objects.processing_status import ProcessingStatus
 from src.domain.value_objects.ticker import Ticker
 from src.infrastructure.database.models import Company as CompanyModel
 from src.infrastructure.database.models import Filing as FilingModel
