@@ -417,12 +417,12 @@ Based on comprehensive code review and testing:
 ### ⚠️ **Critical Gaps for Production Deployment**
 
 #### **MUST HAVE Before Production (Essential)**:
-1. **Simple Gmail OAuth for Email Notifications**
-   - Gmail OAuth login for email capture only
-   - Send analysis completion notifications via email
-   - No complex user management system
-   - No user profiles or saved preferences at launch
-   - **Estimate**: 1-2 days to implement
+1. **Google Analytics 4 Integration**
+   - Add GA4 tracking script to React application
+   - Track unique visitors and user engagement
+   - Monitor which companies/filings are most viewed
+   - No authentication or user accounts needed
+   - **Estimate**: 2-3 hours to implement
 
 2. **Production Configuration**
    - No production Docker Compose file
@@ -450,22 +450,22 @@ Based on comprehensive code review and testing:
 
 **Current State**: The application is **functionally complete** and could be deployed to a development/staging environment TODAY. The core value proposition - "making SEC filings accessible through AI-powered analysis" - is fully implemented and working.
 
-**Production Readiness**: **5-7 days** of work required for production deployment:
-- Days 1-2: Gmail OAuth for email notifications
-- Days 3-4: Production configuration and SSL
-- Days 5-6: CI/CD pipeline setup
-- Day 7: Security hardening and testing
+**Production Readiness**: **4-5 days** of work required for production deployment:
+- Day 1 (Morning): Google Analytics 4 setup (2-3 hours)
+- Days 1-2: Production configuration and SSL
+- Days 3-4: CI/CD pipeline setup
+- Day 5: Security hardening and testing
 
 **Recommendation**: Aperilex has exceeded Phase 5 goals with a robust, well-architected implementation. The codebase demonstrates professional-grade engineering with clean architecture, comprehensive testing, and modern best practices.
 
 ## Next Steps
 
 ### Immediate Priority (Before Production):
-1. **Phase 5.5**: Gmail OAuth & Email Notifications (2 days)
-   - Implement Gmail OAuth for email capture
-   - Add email notification service
-   - Send analysis completion emails
-   - No user management system needed at launch
+1. **Phase 5.5**: Google Analytics Integration (2-3 hours)
+   - Create GA4 property and get measurement ID
+   - Add GA4 tracking script to React app
+   - Configure custom events for key user actions
+   - Track company/filing views and analysis requests
 
 2. **Phase 5.6**: Production Setup (2 days)
    - Create production Docker configuration
@@ -478,9 +478,10 @@ Based on comprehensive code review and testing:
    - Container registry integration
 
 ### Future Enhancements (Phase 6):
+- User authentication and accounts (when needed for premium features)
 - Personal dashboards and preferences
 - Advanced analytics and insights
 - Collaboration features
-- API usage monitoring
-- Premium feature tiers
+- API usage monitoring and rate limiting
+- Premium feature tiers with authentication
 - WebSocket real-time updates
