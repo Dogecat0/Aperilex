@@ -276,6 +276,104 @@ describe('AnalysesList Component', () => {
       expect(screen.getByText('Error loading analyses')).toBeInTheDocument()
       expect(screen.getByText('An unexpected error occurred')).toBeInTheDocument()
     })
+
+    it('handles analysis template validation errors from API', () => {
+      const templateError = new Error('Invalid analysis template: unsupported_template')
+      mockUseAnalyses.mockReturnValue({
+        data: null,
+        isLoading: false,
+        error: templateError,
+      })
+
+      const TestWrapper = createTestWrapper()
+      render(<AnalysesList />, { wrapper: TestWrapper })
+
+      expect(screen.getByText('Error loading analyses')).toBeInTheDocument()
+      expect(screen.getByText('Invalid analysis template: unsupported_template')).toBeInTheDocument()
+    })
+
+    it('handles 422 validation errors for template parameters', () => {
+      const validationError = new Error('Unprocessable Entity: analysis_template must be one of: comprehensive, financial_focused, risk_focused, business_focused')
+      mockUseAnalyses.mockReturnValue({
+        data: null,
+        isLoading: false,
+        error: validationError,
+      })
+
+      const TestWrapper = createTestWrapper()
+      render(<AnalysesList />, { wrapper: TestWrapper })
+
+      expect(screen.getByText('Error loading analyses')).toBeInTheDocument()
+      expect(screen.getByText(/analysis_template must be one of/)).toBeInTheDocument()
+    })
+
+    it('handles backward compatibility errors gracefully', () => {
+      const compatibilityError = new Error('Parameter analysis_type is deprecated, use analysis_template instead')
+      mockUseAnalyses.mockReturnValue({
+        data: null,
+        isLoading: false,
+        error: compatibilityError,
+      })
+
+      const TestWrapper = createTestWrapper()
+      render(<AnalysesList />, { wrapper: TestWrapper })
+
+      expect(screen.getByText('Error loading analyses')).toBeInTheDocument()
+      expect(screen.getByText(/analysis_type is deprecated/)).toBeInTheDocument()
+    })
+
+    it('recovers gracefully when template filter causes errors', async () => {
+      const TestWrapper = createTestWrapper()
+      render(<AnalysesList />, { wrapper: TestWrapper })
+
+      // Initially successful
+      expect(screen.getByTestId('analysis-card-1')).toBeInTheDocument()
+
+      // Show filters and select a template
+      const filtersButton = screen.getByText('Filters')
+      await user.click(filtersButton)
+
+      // Mock an error response when template filter is applied
+      mockUseAnalyses.mockReturnValue({
+        data: null,
+        isLoading: false,
+        error: new Error('Analysis template filter failed'),
+      })
+
+      const analysisTypeSelect = screen.getByDisplayValue('All Types')
+      await user.selectOptions(analysisTypeSelect, 'financial_focused')
+
+      await waitFor(() => {
+        expect(screen.getByText('Error loading analyses')).toBeInTheDocument()
+        expect(screen.getByText('Analysis template filter failed')).toBeInTheDocument()
+      })
+
+      // Previous content should be replaced with error message
+      expect(screen.queryByTestId('analysis-card-1')).not.toBeInTheDocument()
+    })
+
+    it('handles network errors during template filtering', async () => {
+      const TestWrapper = createTestWrapper()
+      render(<AnalysesList />, { wrapper: TestWrapper })
+
+      const filtersButton = screen.getByText('Filters')
+      await user.click(filtersButton)
+
+      // Mock network error
+      mockUseAnalyses.mockReturnValue({
+        data: null,
+        isLoading: false,
+        error: new Error('Network Error: Failed to connect to server'),
+      })
+
+      const analysisTypeSelect = screen.getByDisplayValue('All Types')
+      await user.selectOptions(analysisTypeSelect, 'comprehensive')
+
+      await waitFor(() => {
+        expect(screen.getByText('Error loading analyses')).toBeInTheDocument()
+        expect(screen.getByText(/Network Error/)).toBeInTheDocument()
+      })
+    })
   })
 
   describe('Search Functionality', () => {
@@ -415,10 +513,154 @@ describe('AnalysesList Component', () => {
       await user.click(filtersButton)
 
       expect(screen.getByText('All Types')).toBeInTheDocument()
-      expect(screen.getByText('Comprehensive')).toBeInTheDocument()
+      expect(screen.getByText('Comprehensive Analysis')).toBeInTheDocument()
       expect(screen.getByText('Financial Focused')).toBeInTheDocument()
       expect(screen.getByText('Risk Focused')).toBeInTheDocument()
       expect(screen.getByText('Business Focused')).toBeInTheDocument()
+    })
+
+    it('sends correct lowercase template values in API calls', async () => {
+      const TestWrapper = createTestWrapper()
+      render(<AnalysesList />, { wrapper: TestWrapper })
+
+      const filtersButton = screen.getByText('Filters')
+      await user.click(filtersButton)
+
+      const analysisTypeSelect = screen.getByDisplayValue('All Types')
+
+      // Test each template value
+      const templateTests = [
+        { displayValue: 'Comprehensive Analysis', expectedApiValue: 'comprehensive' },
+        { displayValue: 'Financial Focused', expectedApiValue: 'financial_focused' },
+        { displayValue: 'Risk Focused', expectedApiValue: 'risk_focused' },
+        { displayValue: 'Business Focused', expectedApiValue: 'business_focused' },
+      ]
+
+      for (const { displayValue, expectedApiValue } of templateTests) {
+        await user.selectOptions(analysisTypeSelect, expectedApiValue)
+
+        await waitFor(() => {
+          expect(mockUseAnalyses).toHaveBeenCalledWith(
+            expect.objectContaining({
+              analysis_template: expectedApiValue,
+              page: 1,
+            })
+          )
+        })
+
+        // Verify the display value is shown correctly
+        expect(screen.getByDisplayValue(displayValue)).toBeInTheDocument()
+      }
+    })
+
+    it('never sends uppercase values in API requests', async () => {
+      const TestWrapper = createTestWrapper()
+      render(<AnalysesList />, { wrapper: TestWrapper })
+
+      const filtersButton = screen.getByText('Filters')
+      await user.click(filtersButton)
+
+      const analysisTypeSelect = screen.getByDisplayValue('All Types')
+
+      // Test that we never send uppercase values that might have existed in old system
+      await user.selectOptions(analysisTypeSelect, 'comprehensive')
+
+      await waitFor(() => {
+        expect(mockUseAnalyses).toHaveBeenCalledWith(
+          expect.objectContaining({
+            analysis_template: 'comprehensive', // lowercase
+            page: 1,
+          })
+        )
+      })
+
+      // Ensure we never call with uppercase values from old system
+      expect(mockUseAnalyses).not.toHaveBeenCalledWith(
+        expect.objectContaining({
+          analysis_template: 'COMPREHENSIVE', // uppercase - should not happen
+        })
+      )
+      expect(mockUseAnalyses).not.toHaveBeenCalledWith(
+        expect.objectContaining({
+          analysis_template: 'FINANCIAL_FOCUSED', // uppercase - should not happen
+        })
+      )
+    })
+
+    it('uses correct default value behavior', async () => {
+      const TestWrapper = createTestWrapper()
+      render(<AnalysesList />, { wrapper: TestWrapper })
+
+      // Initially, no analysis_template should be sent (undefined)
+      expect(mockUseAnalyses).toHaveBeenCalledWith({
+        page: 1,
+        page_size: 20,
+      })
+
+      // When filters are opened and closed without selection, still no template
+      const filtersButton = screen.getByText('Filters')
+      await user.click(filtersButton)
+      await user.click(filtersButton) // Close filters
+
+      expect(mockUseAnalyses).toHaveBeenCalledWith(
+        expect.objectContaining({
+          page: 1,
+          page_size: 20,
+        })
+      )
+
+      // analysis_template should not be present in the call
+      const lastCall = mockUseAnalyses.mock.calls[mockUseAnalyses.mock.calls.length - 1][0]
+      expect(lastCall).not.toHaveProperty('analysis_template')
+    })
+
+    it('renders filter dropdown options with correct new template values', async () => {
+      const TestWrapper = createTestWrapper()
+      render(<AnalysesList />, { wrapper: TestWrapper })
+
+      const filtersButton = screen.getByText('Filters')
+      await user.click(filtersButton)
+
+      // Verify all option elements have correct values (lowercase)
+      const selectElement = screen.getByDisplayValue('All Types')
+      const options = selectElement.querySelectorAll('option')
+
+      const expectedOptions = [
+        { value: '', text: 'All Types' },
+        { value: 'comprehensive', text: 'Comprehensive Analysis' },
+        { value: 'financial_focused', text: 'Financial Focused' },
+        { value: 'risk_focused', text: 'Risk Focused' },
+        { value: 'business_focused', text: 'Business Focused' },
+      ]
+
+      expectedOptions.forEach((expected, index) => {
+        expect(options[index]).toHaveValue(expected.value)
+        expect(options[index]).toHaveTextContent(expected.text)
+      })
+
+      // Verify no uppercase values are present in options
+      const allOptionValues = Array.from(options).map(option => option.value)
+      expect(allOptionValues).not.toContain('COMPREHENSIVE')
+      expect(allOptionValues).not.toContain('FINANCIAL_FOCUSED')
+      expect(allOptionValues).not.toContain('RISK_FOCUSED')
+      expect(allOptionValues).not.toContain('BUSINESS_FOCUSED')
+    })
+
+    it('correctly renders analysis cards with new template values', () => {
+      const TestWrapper = createTestWrapper()
+      render(<AnalysesList />, { wrapper: TestWrapper })
+
+      // Verify that analysis cards are rendered with the new template values
+      const card1 = screen.getByTestId('analysis-card-1')
+      const card2 = screen.getByTestId('analysis-card-2')
+
+      // The mock data uses lowercase template values
+      expect(card1).toHaveTextContent('comprehensive')
+      expect(card2).toHaveTextContent('financial_focused')
+
+      // Verify cards exist and are properly rendered
+      expect(card1).toBeInTheDocument()
+      expect(card2).toBeInTheDocument()
     })
   })
 

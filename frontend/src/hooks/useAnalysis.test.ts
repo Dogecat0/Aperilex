@@ -93,6 +93,33 @@ describe('useAnalysis hooks', () => {
       expect(mockApi.listAnalyses).toHaveBeenCalledWith(params)
     })
 
+    it('should pass analysis template parameters with correct lowercase values', async () => {
+      const testCases = [
+        { analysis_template: 'comprehensive' },
+        { analysis_template: 'financial_focused' },
+        { analysis_template: 'risk_focused' },
+        { analysis_template: 'business_focused' },
+      ]
+
+      for (const params of testCases) {
+        mockApi.listAnalyses.mockClear()
+        mockApi.listAnalyses.mockResolvedValue([])
+
+        const { result } = renderHook(() => useAnalyses(params), { wrapper: createWrapper })
+
+        await waitFor(() => {
+          expect(result.current.isSuccess).toBe(true)
+        })
+
+        expect(mockApi.listAnalyses).toHaveBeenCalledWith(params)
+
+        // Verify the template value is lowercase
+        const callArg = mockApi.listAnalyses.mock.calls[0][0]
+        expect(callArg.analysis_template).toBe(params.analysis_template)
+        expect(callArg.analysis_template).toBe(callArg.analysis_template?.toLowerCase())
+      }
+    })
+
     it('should handle API errors gracefully', async () => {
       const error = new Error('Failed to fetch analyses')
       mockApi.listAnalyses.mockRejectedValue(error)
@@ -104,6 +131,35 @@ describe('useAnalysis hooks', () => {
       })
 
       expect(result.current.error).toEqual(error)
+    })
+
+    it('should handle analysis template validation errors from API', async () => {
+      const templateError = new Error('422 Unprocessable Entity: Invalid analysis_template value')
+      mockApi.listAnalyses.mockRejectedValue(templateError)
+
+      const params = { analysis_template: 'invalid_template' as any }
+      const { result } = renderHook(() => useAnalyses(params), { wrapper: createWrapper })
+
+      await waitFor(() => {
+        expect(result.current.isError).toBe(true)
+      })
+
+      expect(result.current.error).toEqual(templateError)
+      expect(mockApi.listAnalyses).toHaveBeenCalledWith(params)
+    })
+
+    it('should handle backward compatibility errors gracefully', async () => {
+      const compatibilityError = new Error('Parameter analysis_type is deprecated, use analysis_template instead')
+      mockApi.listAnalyses.mockRejectedValue(compatibilityError)
+
+      const params = { analysis_template: 'comprehensive' as const }
+      const { result } = renderHook(() => useAnalyses(params), { wrapper: createWrapper })
+
+      await waitFor(() => {
+        expect(result.current.isError).toBe(true)
+      })
+
+      expect(result.current.error).toEqual(compatibilityError)
     })
 
     it('should show loading state initially', () => {
@@ -551,6 +607,46 @@ describe('useAnalysis hooks', () => {
       expect(invalidateQueriesSpy).toHaveBeenCalledWith({
         queryKey: ['filing', accessionNumber, 'analysis'],
       })
+    })
+
+    it('should handle analysis template validation errors during filing analysis', async () => {
+      const accessionNumber = '0000320193-24-000001'
+      const templateError = new Error('Invalid analysis_template: unsupported_value')
+
+      mockFilingsApi.analyzeFiling.mockRejectedValue(templateError)
+
+      const { result } = renderHook(() => useAnalyzeFiling(), { wrapper: createWrapper })
+
+      result.current.mutate({
+        accessionNumber,
+        request: { analysis_template: 'invalid_template' as any }
+      })
+
+      await waitFor(() => {
+        expect(result.current.isError).toBe(true)
+      })
+
+      expect(result.current.error).toEqual(templateError)
+    })
+
+    it('should handle template parameter errors gracefully', async () => {
+      const accessionNumber = '0000320193-24-000001'
+      const parameterError = new Error('422 Validation Error: analysis_template must be one of: comprehensive, financial_focused, risk_focused, business_focused')
+
+      mockFilingsApi.analyzeFiling.mockRejectedValue(parameterError)
+
+      const { result } = renderHook(() => useAnalyzeFiling(), { wrapper: createWrapper })
+
+      result.current.mutate({
+        accessionNumber,
+        request: { analysis_template: 'comprehensive' }
+      })
+
+      await waitFor(() => {
+        expect(result.current.isError).toBe(true)
+      })
+
+      expect(result.current.error).toEqual(parameterError)
     })
   })
 })
