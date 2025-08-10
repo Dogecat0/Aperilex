@@ -1,9 +1,10 @@
-import { useState } from 'react'
-import { Search, Filter, ChevronDown, TrendingUp, Calendar } from 'lucide-react'
+import { useState, useCallback, useEffect, useRef } from 'react'
+import { Search, Filter, ChevronDown, TrendingUp, Calendar, AlertCircle } from 'lucide-react'
 import { useAnalyses } from '@/hooks/useAnalysis'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { AnalysisCard } from './components/AnalysisCard'
+import { companyService } from '@/services/CompanyService'
 import type { AnalysisTemplate, ListAnalysesParams } from '@/api/types'
 
 export function AnalysesList() {
@@ -13,20 +14,92 @@ export function AnalysesList() {
     page_size: 20,
   })
   const [showFilters, setShowFilters] = useState(false)
+  const [isLookingUpCompany, setIsLookingUpCompany] = useState(false)
+  const [searchError, setSearchError] = useState<string | null>(null)
+  const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
   const { data, isLoading, error } = useAnalyses(filters)
 
-  const handleSearch = (term: string) => {
-    setSearchTerm(term)
-    setFilters((prev) => ({
-      ...prev,
-      page: 1,
-      // Note: The API doesn't have a search parameter, but we could filter by ticker
-      ticker: term.length > 0 ? term.toUpperCase() : undefined,
-    }))
-  }
+  // Perform the actual search logic
+  const performSearch = useCallback(async (term: string) => {
+    setSearchError(null)
 
-  const handleFilterChange = (key: keyof ListAnalysesParams, value: string | undefined) => {
+    if (term.length === 0) {
+      setFilters((prev) => ({
+        ...prev,
+        page: 1,
+        company_cik: undefined,
+      }))
+      return
+    }
+
+    const normalizedTerm = term.trim().toUpperCase()
+
+    // Check if input is already a CIK (all digits, up to 10 characters)
+    const isCIK = /^\d{1,10}$/.test(normalizedTerm)
+
+    if (isCIK) {
+      // Use as CIK directly
+      setFilters((prev) => ({
+        ...prev,
+        page: 1,
+        company_cik: normalizedTerm,
+      }))
+    } else {
+      // Assume it's a ticker, try to convert to CIK
+      setIsLookingUpCompany(true)
+      try {
+        const company = await companyService.getCompany(normalizedTerm)
+        setFilters((prev) => ({
+          ...prev,
+          page: 1,
+          company_cik: company.cik,
+        }))
+      } catch (error) {
+        console.error('Company lookup failed:', error)
+        setSearchError(`Company "${normalizedTerm}" not found. Please check the ticker symbol.`)
+        setFilters((prev) => ({
+          ...prev,
+          page: 1,
+          company_cik: undefined,
+        }))
+      } finally {
+        setIsLookingUpCompany(false)
+      }
+    }
+  }, [])
+
+  // Handle search input with debouncing
+  const handleSearchInput = useCallback(
+    (term: string) => {
+      setSearchTerm(term)
+
+      // Clear existing timeout
+      if (searchTimeoutRef.current) {
+        clearTimeout(searchTimeoutRef.current)
+      }
+
+      // Set new timeout for debounced search
+      searchTimeoutRef.current = setTimeout(() => {
+        performSearch(term)
+      }, 500) // Wait 500ms after user stops typing
+    },
+    [performSearch]
+  )
+
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (searchTimeoutRef.current) {
+        clearTimeout(searchTimeoutRef.current)
+      }
+    }
+  }, [])
+
+  const handleFilterChange = (
+    key: keyof ListAnalysesParams,
+    value: string | number | undefined
+  ) => {
     setFilters((prev) => ({
       ...prev,
       page: 1,
@@ -80,11 +153,17 @@ export function AnalysesList() {
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
             <Input
-              placeholder="Search by company ticker (e.g., AAPL, MSFT)..."
+              placeholder="Search by ticker (AAPL) or CIK (320193)..."
               value={searchTerm}
-              onChange={(e) => handleSearch(e.target.value)}
-              className="pl-10"
+              onChange={(e) => handleSearchInput(e.target.value)}
+              className={`pl-10 ${isLookingUpCompany ? 'opacity-75' : ''}`}
+              disabled={isLookingUpCompany}
             />
+            {isLookingUpCompany && (
+              <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                <div className="animate-spin h-4 w-4 border-2 border-muted-foreground border-t-transparent rounded-full" />
+              </div>
+            )}
           </div>
           <Button
             variant="outline"
@@ -99,17 +178,27 @@ export function AnalysesList() {
           </Button>
         </div>
 
+        {/* Search Error */}
+        {searchError && (
+          <div className="mt-2 p-3 bg-error-50 border border-error-200 rounded-lg flex items-center gap-2">
+            <AlertCircle className="h-4 w-4 text-error-600 flex-shrink-0" />
+            <p className="text-error-700 text-sm">{searchError}</p>
+          </div>
+        )}
+
         {/* Expandable Filters */}
         {showFilters && (
           <div className="mt-4 p-4 bg-muted/30 rounded-lg border border-input">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
               <div>
                 <label className="block text-sm font-medium text-foreground mb-2">
                   Analysis Type
                 </label>
                 <select
                   value={filters.analysis_template || ''}
-                  onChange={(e) => handleFilterChange('analysis_template', e.target.value || undefined)}
+                  onChange={(e) =>
+                    handleFilterChange('analysis_template', e.target.value || undefined)
+                  }
                   className="w-full px-3 py-2 border border-input rounded-md bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
                 >
                   <option value="">All Types</option>
@@ -121,28 +210,52 @@ export function AnalysesList() {
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium text-foreground mb-2">Start Date</label>
+                <label className="block text-sm font-medium text-foreground mb-2">
+                  Created From
+                </label>
                 <div className="relative">
                   <Calendar className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
                   <Input
                     type="date"
-                    value={filters.start_date || ''}
-                    onChange={(e) => handleFilterChange('start_date', e.target.value || undefined)}
+                    value={filters.created_from || ''}
+                    onChange={(e) =>
+                      handleFilterChange('created_from', e.target.value || undefined)
+                    }
                     className="pr-10"
                   />
                 </div>
               </div>
               <div>
-                <label className="block text-sm font-medium text-foreground mb-2">End Date</label>
+                <label className="block text-sm font-medium text-foreground mb-2">Created To</label>
                 <div className="relative">
                   <Calendar className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
                   <Input
                     type="date"
-                    value={filters.end_date || ''}
-                    onChange={(e) => handleFilterChange('end_date', e.target.value || undefined)}
+                    value={filters.created_to || ''}
+                    onChange={(e) => handleFilterChange('created_to', e.target.value || undefined)}
                     className="pr-10"
                   />
                 </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-2">
+                  Min Confidence
+                </label>
+                <Input
+                  type="number"
+                  min="0"
+                  max="100"
+                  step="5"
+                  placeholder="0-100"
+                  value={filters.min_confidence_score || ''}
+                  onChange={(e) =>
+                    handleFilterChange(
+                      'min_confidence_score',
+                      e.target.value ? Number(e.target.value) : undefined
+                    )
+                  }
+                  className=""
+                />
               </div>
             </div>
             <div className="mt-4 flex gap-2">
@@ -150,8 +263,14 @@ export function AnalysesList() {
                 variant="outline"
                 size="sm"
                 onClick={() => {
+                  // Clear any pending search timeout
+                  if (searchTimeoutRef.current) {
+                    clearTimeout(searchTimeoutRef.current)
+                    searchTimeoutRef.current = null
+                  }
                   setFilters({ page: 1, page_size: 20 })
                   setSearchTerm('')
+                  setSearchError(null)
                 }}
               >
                 Clear Filters

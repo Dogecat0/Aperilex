@@ -1,5 +1,11 @@
 import { api } from './client'
-import type { CompanyResponse, AnalysisResponse, PaginatedResponse, FilingResponse, AnalysisTemplate } from './types'
+import type {
+  CompanyResponse,
+  AnalysisResponse,
+  PaginatedResponse,
+  FilingResponse,
+  AnalysisTemplate,
+} from './types'
 
 export interface CompanyAnalysesFilters {
   page?: number

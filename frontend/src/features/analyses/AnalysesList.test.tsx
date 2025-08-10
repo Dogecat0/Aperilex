@@ -289,11 +289,15 @@ describe('AnalysesList Component', () => {
       render(<AnalysesList />, { wrapper: TestWrapper })
 
       expect(screen.getByText('Error loading analyses')).toBeInTheDocument()
-      expect(screen.getByText('Invalid analysis template: unsupported_template')).toBeInTheDocument()
+      expect(
+        screen.getByText('Invalid analysis template: unsupported_template')
+      ).toBeInTheDocument()
     })
 
     it('handles 422 validation errors for template parameters', () => {
-      const validationError = new Error('Unprocessable Entity: analysis_template must be one of: comprehensive, financial_focused, risk_focused, business_focused')
+      const validationError = new Error(
+        'Unprocessable Entity: analysis_template must be one of: comprehensive, financial_focused, risk_focused, business_focused'
+      )
       mockUseAnalyses.mockReturnValue({
         data: null,
         isLoading: false,
@@ -308,7 +312,9 @@ describe('AnalysesList Component', () => {
     })
 
     it('handles backward compatibility errors gracefully', () => {
-      const compatibilityError = new Error('Parameter analysis_type is deprecated, use analysis_template instead')
+      const compatibilityError = new Error(
+        'Parameter analysis_type is deprecated, use analysis_template instead'
+      )
       mockUseAnalyses.mockReturnValue({
         data: null,
         isLoading: false,
@@ -639,7 +645,7 @@ describe('AnalysesList Component', () => {
       })
 
       // Verify no uppercase values are present in options
-      const allOptionValues = Array.from(options).map(option => option.value)
+      const allOptionValues = Array.from(options).map((option) => option.value)
       expect(allOptionValues).not.toContain('COMPREHENSIVE')
       expect(allOptionValues).not.toContain('FINANCIAL_FOCUSED')
       expect(allOptionValues).not.toContain('RISK_FOCUSED')

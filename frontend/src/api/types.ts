@@ -169,10 +169,11 @@ export interface AnalyzeFilingRequest {
 export interface ListAnalysesParams {
   page?: number
   page_size?: number
-  ticker?: string
+  company_cik?: string
   analysis_template?: AnalysisTemplate
-  start_date?: string
-  end_date?: string
+  created_from?: string
+  created_to?: string
+  min_confidence_score?: number
 }
 
 // Health Types

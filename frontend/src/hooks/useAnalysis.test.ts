@@ -81,7 +81,14 @@ describe('useAnalysis hooks', () => {
     })
 
     it('should pass query parameters correctly', async () => {
-      const params = { page: 1, page_size: 10, ticker: 'AAPL' }
+      const params = {
+        page: 1,
+        page_size: 10,
+        company_cik: '320193',
+        created_from: '2024-01-01',
+        created_to: '2024-12-31',
+        min_confidence_score: 80,
+      }
       mockApi.listAnalyses.mockResolvedValue([])
 
       const { result } = renderHook(() => useAnalyses(params), { wrapper: createWrapper })
@@ -149,7 +156,9 @@ describe('useAnalysis hooks', () => {
     })
 
     it('should handle backward compatibility errors gracefully', async () => {
-      const compatibilityError = new Error('Parameter analysis_type is deprecated, use analysis_template instead')
+      const compatibilityError = new Error(
+        'Parameter analysis_type is deprecated, use analysis_template instead'
+      )
       mockApi.listAnalyses.mockRejectedValue(compatibilityError)
 
       const params = { analysis_template: 'comprehensive' as const }
@@ -619,7 +628,7 @@ describe('useAnalysis hooks', () => {
 
       result.current.mutate({
         accessionNumber,
-        request: { analysis_template: 'invalid_template' as any }
+        request: { analysis_template: 'invalid_template' as any },
       })
 
       await waitFor(() => {
@@ -631,7 +640,9 @@ describe('useAnalysis hooks', () => {
 
     it('should handle template parameter errors gracefully', async () => {
       const accessionNumber = '0000320193-24-000001'
-      const parameterError = new Error('422 Validation Error: analysis_template must be one of: comprehensive, financial_focused, risk_focused, business_focused')
+      const parameterError = new Error(
+        '422 Validation Error: analysis_template must be one of: comprehensive, financial_focused, risk_focused, business_focused'
+      )
 
       mockFilingsApi.analyzeFiling.mockRejectedValue(parameterError)
 
@@ -639,7 +650,7 @@ describe('useAnalysis hooks', () => {
 
       result.current.mutate({
         accessionNumber,
-        request: { analysis_template: 'comprehensive' }
+        request: { analysis_template: 'comprehensive' },
       })
 
       await waitFor(() => {
