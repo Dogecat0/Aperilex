@@ -33,4 +33,6 @@ If there are things you are not sure about, use parallel subagents to do some on
 
 If there are things you still do not understand or questions you have for the user, pause here to ask them before continuing.
 
+Once you're done with the plan, stop.
+
 $ARGUMENTS
