@@ -61,7 +61,7 @@ export function FilingDetails() {
 
     try {
       // Use the progressive analysis system which handles progress tracking automatically
-      await startAnalysis(accessionNumber, options || { analysis_type: 'COMPREHENSIVE' })
+      await startAnalysis(accessionNumber, options || { analysis_template: 'comprehensive' })
     } catch (error) {
       console.error('Analysis failed:', error)
       // Error state is already handled by the progressive analysis hook

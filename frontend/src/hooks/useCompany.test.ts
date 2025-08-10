@@ -93,7 +93,7 @@ describe('useCompany hooks', () => {
         recent_analyses: [
           {
             analysis_id: 'analysis-123',
-            analysis_type: 'COMPREHENSIVE',
+            analysis_template: 'comprehensive',
             created_at: '2024-01-15T10:00:00Z',
             confidence_score: 0.95,
           },
@@ -177,7 +177,7 @@ describe('useCompany hooks', () => {
         {
           analysis_id: '1',
           filing_id: 'filing1',
-          analysis_type: 'COMPREHENSIVE',
+          analysis_template: 'comprehensive',
           created_by: 'system',
           created_at: '2024-01-01T00:00:00Z',
           confidence_score: 0.95,
@@ -211,7 +211,7 @@ describe('useCompany hooks', () => {
       const filters = {
         page: 1,
         page_size: 10,
-        analysis_type: 'FINANCIAL_FOCUSED' as const,
+        analysis_template: 'financial_focused' as const,
         start_date: '2024-01-01',
         end_date: '2024-12-31',
       }
@@ -275,7 +275,7 @@ describe('useCompany hooks', () => {
 
     it('should use correct query key with filters for caching', () => {
       const ticker = 'AAPL'
-      const filters = { analysis_type: 'COMPREHENSIVE' as const, page: 1 }
+      const filters = { analysis_template: 'comprehensive' as const, page: 1 }
       mockApi.getCompanyAnalyses.mockResolvedValue([])
 
       renderHook(() => useCompanyAnalyses(ticker, filters), { wrapper: createWrapper })

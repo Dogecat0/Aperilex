@@ -79,7 +79,7 @@ describe('exportUtils', () => {
   const mockAnalysisResponse: AnalysisResponse = {
     analysis_id: 'test-analysis-1',
     filing_id: 'filing-123',
-    analysis_type: 'COMPREHENSIVE',
+    analysis_template: 'comprehensive',
     created_by: 'test-user',
     created_at: '2024-01-15T10:30:00Z',
     confidence_score: 0.85,

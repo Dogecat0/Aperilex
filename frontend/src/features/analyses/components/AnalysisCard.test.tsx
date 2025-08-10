@@ -16,7 +16,7 @@ vi.mock('./ConfidenceIndicator', () => ({
 }))
 
 // Mock data for different analysis types
-const baseAnalysis: Omit<AnalysisResponse, 'analysis_type'> = {
+const baseAnalysis: Omit<AnalysisResponse, 'analysis_template'> = {
   analysis_id: 'analysis-123',
   filing_id: 'filing-456',
   created_by: 'user@example.com',
@@ -42,12 +42,12 @@ const baseAnalysis: Omit<AnalysisResponse, 'analysis_type'> = {
 
 const comprehensiveAnalysis: AnalysisResponse = {
   ...baseAnalysis,
-  analysis_type: 'COMPREHENSIVE',
+  analysis_template: 'comprehensive',
 }
 
 const financialAnalysis: AnalysisResponse = {
   ...baseAnalysis,
-  analysis_type: 'FINANCIAL_FOCUSED',
+  analysis_template: 'financial_focused',
   analysis_id: 'analysis-456',
   sections_analyzed: 3,
   key_insights: ['Profit margins improved', 'Strong quarterly results'],
@@ -55,7 +55,7 @@ const financialAnalysis: AnalysisResponse = {
 
 const riskAnalysis: AnalysisResponse = {
   ...baseAnalysis,
-  analysis_type: 'RISK_FOCUSED',
+  analysis_template: 'risk_focused',
   analysis_id: 'analysis-789',
   confidence_score: 0.92,
   sections_analyzed: 2,
@@ -64,7 +64,7 @@ const riskAnalysis: AnalysisResponse = {
 
 const businessAnalysis: AnalysisResponse = {
   ...baseAnalysis,
-  analysis_type: 'BUSINESS_FOCUSED',
+  analysis_template: 'business_focused',
   analysis_id: 'analysis-012',
   confidence_score: 0.76,
   sections_analyzed: 4,
@@ -74,7 +74,7 @@ const businessAnalysis: AnalysisResponse = {
 // Analysis with minimal data
 const minimalAnalysis: AnalysisResponse = {
   ...baseAnalysis,
-  analysis_type: 'COMPREHENSIVE',
+  analysis_template: 'comprehensive',
   analysis_id: 'minimal-123',
   executive_summary: undefined,
   key_insights: undefined,

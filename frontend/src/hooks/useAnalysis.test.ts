@@ -58,7 +58,7 @@ describe('useAnalysis hooks', () => {
         {
           analysis_id: '1',
           filing_id: 'filing1',
-          analysis_type: 'COMPREHENSIVE' as const,
+          analysis_template: 'comprehensive' as const,
           created_by: 'system',
           created_at: '2024-01-01T00:00:00Z',
           confidence_score: 0.95,
@@ -122,7 +122,7 @@ describe('useAnalysis hooks', () => {
       const mockAnalysis: AnalysisResponse = {
         analysis_id: analysisId,
         filing_id: 'filing1',
-        analysis_type: 'COMPREHENSIVE',
+        analysis_template: 'comprehensive',
         created_by: 'system',
         created_at: '2024-01-01T00:00:00Z',
         confidence_score: 0.95,
@@ -187,12 +187,12 @@ describe('useAnalysis hooks', () => {
       const mockTemplates: TemplatesResponse = {
         templates: [
           {
-            name: 'COMPREHENSIVE',
+            name: 'comprehensive',
             description: 'Complete analysis of all sections',
             sections: ['business', 'financial', 'risk'],
           },
           {
-            name: 'FINANCIAL_FOCUSED',
+            name: 'financial_focused',
             description: 'Focus on financial statements',
             sections: ['financial'],
           },
@@ -250,7 +250,7 @@ describe('useAnalysis hooks', () => {
 
     it('should start filing analysis and poll for completion', async () => {
       const accessionNumber = '0000320193-24-000001'
-      const request = { analysis_type: 'COMPREHENSIVE' as const }
+      const request = { analysis_template: 'comprehensive' as const }
 
       // Mock the initial task response
       const mockTask: TaskResponse = {
@@ -272,7 +272,7 @@ describe('useAnalysis hooks', () => {
           analysis: {
             analysis_id: 'analysis-123',
             filing_id: 'filing1',
-            analysis_type: 'COMPREHENSIVE',
+            analysis_template: 'comprehensive',
             created_by: 'system',
             created_at: '2024-01-01T00:00:00Z',
             confidence_score: 0.95,
@@ -335,7 +335,7 @@ describe('useAnalysis hooks', () => {
           analysis: {
             analysis_id: 'analysis-123',
             filing_id: 'filing1',
-            analysis_type: 'COMPREHENSIVE',
+            analysis_template: 'comprehensive',
             created_by: 'system',
             created_at: '2024-01-01T00:00:00Z',
             confidence_score: 0.95,
@@ -522,7 +522,7 @@ describe('useAnalysis hooks', () => {
           analysis: {
             analysis_id: 'analysis-123',
             filing_id: 'filing1',
-            analysis_type: 'COMPREHENSIVE',
+            analysis_template: 'comprehensive',
             created_by: 'system',
             created_at: '2024-01-01T00:00:00Z',
             confidence_score: 0.95,

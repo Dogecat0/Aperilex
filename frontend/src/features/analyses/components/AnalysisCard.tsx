@@ -26,35 +26,35 @@ export function AnalysisCard({ analysis }: AnalysisCardProps) {
 
   const getAnalysisTypeConfig = (type: string) => {
     const configs = {
-      COMPREHENSIVE: {
+      comprehensive: {
         label: 'Comprehensive',
         color:
           'bg-primary/10 text-primary border-primary/20 dark:bg-primary/20 dark:text-primary dark:border-primary/30',
         icon: Target,
       },
-      FINANCIAL_FOCUSED: {
+      financial_focused: {
         label: 'Financial',
         color:
           'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-500/20 dark:text-emerald-400 dark:border-emerald-500/30',
         icon: TrendingUp,
       },
-      RISK_FOCUSED: {
+      risk_focused: {
         label: 'Risk',
         color:
           'bg-red-50 text-red-700 border-red-200 dark:bg-red-500/20 dark:text-red-400 dark:border-red-500/30',
         icon: AlertTriangle,
       },
-      BUSINESS_FOCUSED: {
+      business_focused: {
         label: 'Business',
         color:
           'bg-teal-50 text-teal-700 border-teal-200 dark:bg-teal-500/20 dark:text-teal-400 dark:border-teal-500/30',
         icon: Brain,
       },
     }
-    return configs[type as keyof typeof configs] || configs.COMPREHENSIVE
+    return configs[type as keyof typeof configs] || configs.comprehensive
   }
 
-  const typeConfig = getAnalysisTypeConfig(analysis.analysis_type)
+  const typeConfig = getAnalysisTypeConfig(analysis.analysis_template)
   const TypeIcon = typeConfig.icon
 
   return (

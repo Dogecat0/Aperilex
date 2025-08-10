@@ -379,7 +379,7 @@ export const FilingAnalysisSection: React.FC<FilingAnalysisSectionProps> = ({
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
             <div>
               <p className="text-muted-foreground">Analysis Type</p>
-              <p className="font-medium">{analysis.analysis_type}</p>
+              <p className="font-medium">{analysis.analysis_template}</p>
             </div>
             {analysis.confidence_score && (
               <div>

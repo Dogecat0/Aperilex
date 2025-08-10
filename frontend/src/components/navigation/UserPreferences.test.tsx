@@ -12,7 +12,7 @@ const mockStoreState = {
   theme: 'light' as const,
   setTheme: mockSetTheme,
   preferences: {
-    defaultAnalysisType: 'COMPREHENSIVE',
+    defaultAnalysisType: 'comprehensive',
     pageSize: 20,
     enableNotifications: true,
     navigationCollapsed: false,
@@ -48,7 +48,7 @@ describe('UserPreferences Component', () => {
     // Reset mock store state
     mockStoreState.theme = 'light'
     mockStoreState.preferences = {
-      defaultAnalysisType: 'COMPREHENSIVE',
+      defaultAnalysisType: 'comprehensive',
       pageSize: 20,
       enableNotifications: true,
       navigationCollapsed: false,

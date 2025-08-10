@@ -167,7 +167,7 @@ const mockComprehensiveAnalysis: ComprehensiveAnalysisResponse = {
 const mockAnalysisResponse: AnalysisResponse = {
   analysis_id: 'analysis-123',
   filing_id: 'filing-456',
-  analysis_type: 'COMPREHENSIVE',
+  analysis_template: 'comprehensive',
   created_by: 'user@example.com',
   created_at: '2024-01-15T10:00:00Z',
   confidence_score: 0.95,

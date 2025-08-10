@@ -4,7 +4,7 @@ import { useAnalyses } from '@/hooks/useAnalysis'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { AnalysisCard } from './components/AnalysisCard'
-import type { AnalysisType, ListAnalysesParams } from '@/api/types'
+import type { AnalysisTemplate, ListAnalysesParams } from '@/api/types'
 
 export function AnalysesList() {
   const [searchTerm, setSearchTerm] = useState('')
@@ -38,11 +38,11 @@ export function AnalysesList() {
     setFilters((prev) => ({ ...prev, page }))
   }
 
-  const analysisTypes: { value: AnalysisType; label: string }[] = [
-    { value: 'COMPREHENSIVE', label: 'Comprehensive' },
-    { value: 'FINANCIAL_FOCUSED', label: 'Financial Focused' },
-    { value: 'RISK_FOCUSED', label: 'Risk Focused' },
-    { value: 'BUSINESS_FOCUSED', label: 'Business Focused' },
+  const analysisTypes: { value: AnalysisTemplate; label: string }[] = [
+    { value: 'comprehensive', label: 'Comprehensive Analysis' },
+    { value: 'financial_focused', label: 'Financial Focused' },
+    { value: 'risk_focused', label: 'Risk Focused' },
+    { value: 'business_focused', label: 'Business Focused' },
   ]
 
   if (error) {
@@ -108,8 +108,8 @@ export function AnalysesList() {
                   Analysis Type
                 </label>
                 <select
-                  value={filters.analysis_type || ''}
-                  onChange={(e) => handleFilterChange('analysis_type', e.target.value || undefined)}
+                  value={filters.analysis_template || ''}
+                  onChange={(e) => handleFilterChange('analysis_template', e.target.value || undefined)}
                   className="w-full px-3 py-2 border border-input rounded-md bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
                 >
                   <option value="">All Types</option>

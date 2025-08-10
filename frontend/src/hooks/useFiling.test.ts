@@ -295,7 +295,7 @@ describe('useFiling hooks', () => {
       const mockAnalysis: AnalysisResponse = {
         analysis_id: 'analysis-123',
         filing_id: 'filing-1',
-        analysis_type: 'COMPREHENSIVE',
+        analysis_template: 'comprehensive',
         created_by: 'system',
         created_at: '2024-01-15T10:00:00Z',
         confidence_score: 0.95,
@@ -455,7 +455,7 @@ describe('useFiling hooks', () => {
   describe('useFilingAnalyzeMutation', () => {
     it('should analyze filing and invalidate cache', async () => {
       const accessionNumber = '0000320193-24-000001'
-      const options = { analysis_type: 'COMPREHENSIVE' as const }
+      const options = { analysis_template: 'comprehensive' as const }
       const mockTask: TaskResponse = {
         task_id: 'task-123',
         status: 'pending',
@@ -551,7 +551,7 @@ describe('useFiling hooks', () => {
 
     it('should handle complete analysis flow with progress updates', async () => {
       const accessionNumber = '0000320193-24-000001'
-      const options = { analysis_type: 'COMPREHENSIVE' as const }
+      const options = { analysis_template: 'comprehensive' as const }
 
       // Mock the initial task response
       const mockTask: TaskResponse = {
@@ -573,7 +573,7 @@ describe('useFiling hooks', () => {
           analysis: {
             analysis_id: 'analysis-123',
             filing_id: 'filing-1',
-            analysis_type: 'COMPREHENSIVE',
+            analysis_template: 'comprehensive',
             created_by: 'system',
             created_at: '2024-01-15T10:00:00Z',
             confidence_score: 0.95,

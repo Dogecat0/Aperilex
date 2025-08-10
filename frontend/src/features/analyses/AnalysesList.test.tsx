@@ -19,7 +19,7 @@ const mockUseAnalyses = vi.mocked(useAnalyses)
 vi.mock('./components/AnalysisCard', () => ({
   AnalysisCard: ({ analysis }: { analysis: AnalysisResponse }) => (
     <div data-testid={`analysis-card-${analysis.analysis_id}`}>
-      <h3>{analysis.analysis_type}</h3>
+      <h3>{analysis.analysis_template}</h3>
       <p>{analysis.executive_summary || 'No summary'}</p>
       <span>{analysis.created_at}</span>
     </div>
@@ -76,7 +76,7 @@ const mockAnalyses: AnalysisResponse[] = [
   {
     analysis_id: '1',
     filing_id: 'filing-1',
-    analysis_type: 'COMPREHENSIVE',
+    analysis_template: 'comprehensive',
     created_by: 'user1',
     created_at: '2024-01-15T10:00:00Z',
     confidence_score: 0.95,
@@ -95,7 +95,7 @@ const mockAnalyses: AnalysisResponse[] = [
   {
     analysis_id: '2',
     filing_id: 'filing-2',
-    analysis_type: 'FINANCIAL_FOCUSED',
+    analysis_template: 'financial_focused',
     created_by: 'user2',
     created_at: '2024-01-14T14:30:00Z',
     confidence_score: 0.88,
@@ -369,12 +369,12 @@ describe('AnalysesList Component', () => {
       await user.click(filtersButton)
 
       const analysisTypeSelect = screen.getByDisplayValue('All Types')
-      await user.selectOptions(analysisTypeSelect, 'FINANCIAL_FOCUSED')
+      await user.selectOptions(analysisTypeSelect, 'financial_focused')
 
       await waitFor(() => {
         expect(mockUseAnalyses).toHaveBeenCalledWith(
           expect.objectContaining({
-            analysis_type: 'FINANCIAL_FOCUSED',
+            analysis_template: 'financial_focused',
             page: 1,
           })
         )
@@ -573,13 +573,13 @@ describe('AnalysesList Component', () => {
       await user.click(filtersButton)
 
       const analysisTypeSelect = screen.getByDisplayValue('All Types')
-      await user.selectOptions(analysisTypeSelect, 'COMPREHENSIVE')
+      await user.selectOptions(analysisTypeSelect, 'comprehensive')
 
       await waitFor(() => {
         expect(mockUseAnalyses).toHaveBeenCalledWith(
           expect.objectContaining({
             page: 1,
-            analysis_type: 'COMPREHENSIVE',
+            analysis_template: 'comprehensive',
           })
         )
       })
@@ -643,14 +643,14 @@ describe('AnalysesList Component', () => {
       const startDateInput = dateInputs.find((input) => input.getAttribute('type') === 'date')
       const endDateInput = dateInputs.filter((input) => input.getAttribute('type') === 'date')[1]
 
-      await user.selectOptions(analysisTypeSelect, 'FINANCIAL_FOCUSED')
+      await user.selectOptions(analysisTypeSelect, 'financial_focused')
       if (startDateInput) await user.type(startDateInput, '2024-01-01')
       if (endDateInput) await user.type(endDateInput, '2024-12-31')
 
       await waitFor(() => {
         expect(mockUseAnalyses).toHaveBeenCalledWith(
           expect.objectContaining({
-            analysis_type: 'FINANCIAL_FOCUSED',
+            analysis_template: 'financial_focused',
             start_date: '2024-01-01',
             end_date: '2024-12-31',
             page: 1,
@@ -683,7 +683,7 @@ describe('AnalysesList Component', () => {
 
     it('persists filters when reopening filter panel', async () => {
       const analysisTypeSelect = screen.getByDisplayValue('All Types')
-      await user.selectOptions(analysisTypeSelect, 'RISK_FOCUSED')
+      await user.selectOptions(analysisTypeSelect, 'risk_focused')
 
       // Close and reopen filters
       const filtersButton = screen.getByText('Filters')
@@ -712,8 +712,8 @@ describe('AnalysesList Component', () => {
       expect(screen.getByTestId('analysis-card-2')).toBeInTheDocument()
 
       // Check analysis types are displayed
-      expect(screen.getByText('COMPREHENSIVE')).toBeInTheDocument()
-      expect(screen.getByText('FINANCIAL_FOCUSED')).toBeInTheDocument()
+      expect(screen.getByText('comprehensive')).toBeInTheDocument()
+      expect(screen.getByText('financial_focused')).toBeInTheDocument()
     })
 
     it('handles analysis cards with missing data', () => {
