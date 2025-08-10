@@ -149,7 +149,7 @@ describe('HTTP Methods Integration', () => {
   it('should successfully call analysis endpoints', async () => {
     // Test create analysis
     const analysisRequest = {
-      analysis_type: 'COMPREHENSIVE' as const,
+      analysis_template: 'comprehensive' as const,
       sections: ['business', 'financial'],
       force_reanalysis: false,
     }
@@ -161,7 +161,7 @@ describe('HTTP Methods Integration', () => {
 
     expect(createResponse.data).toMatchObject({
       filing_id: 'AAPL-10-K',
-      analysis_type: 'COMPREHENSIVE',
+      analysis_template: 'comprehensive',
       llm_provider: 'openai',
       confidence_score: 0.95,
     })
@@ -171,7 +171,7 @@ describe('HTTP Methods Integration', () => {
     expect(analysisResponse.data).toMatchObject({
       analysis_id: '1',
       filing_id: '1',
-      analysis_type: 'COMPREHENSIVE',
+      analysis_template: 'comprehensive',
       llm_provider: 'openai',
     })
 
