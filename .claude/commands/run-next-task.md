@@ -2,7 +2,7 @@
 
 2. Find the first "[ ]" line.
 
-3. Ask Claude to use commands/code-test.md to implement the task described in that line. If you cannot follow what's in code-test.md to perform a task, stop and ask user.
+3. Ask Claude to implement that task only.
 
 4. On success replace "[ ]" with "[X]" for that line.
 
