@@ -79,99 +79,11 @@ The previous version used edgartools (Context7 Library ID: `/dgunning/edgartools
    # NOT parsed into structured numeric values
    ```
 
-### Example Implementation Patterns
-
-```python
-# Aperilex pattern - Financial data via LLM analysis
-from edgar import *
-from infrastructure.edgar.service import EdgarService
-from infrastructure.llm.openai_provider import OpenAIProvider
-
-set_identity("aperilex@company.com")
-
-# Get filing through EdgarService
-edgar_service = EdgarService()
-filing_data = edgar_service.extract_filing_sections(
-    ticker="AAPL",
-    form_type="10-K"
-)
-
-# Financial statements are extracted as text sections
-# The LLM provider analyzes these for insights
-llm_provider = OpenAIProvider()
-analysis = llm_provider.analyze_filing(
-    filing_data=filing_data,
-    analysis_sections=["balance_sheet", "income_statement"]
-)
-
-# Results include AI-generated insights, not raw numbers
-```
-
-### Aperilex Enhancement Opportunities
-
-#### User-Focused Features
-1. **Interactive Visualizations**: Charts and graphs for financial trends, ratios, and comparisons
-2. **Smart Alerts**: Notify users of significant changes in filings or financial metrics
-3. **Company Comparison Tools**: Side-by-side analysis of multiple companies
-4. **Portfolio Tracking**: Monitor holdings and get insights on owned companies
-5. **Educational Content**: Explanations and tutorials for financial concepts
-6. **Export & Sharing**: Generate reports, PDFs, and shareable insights
-7. **Mobile Experience**: Responsive design for mobile financial research
-
-#### Technical Infrastructure
-1. **Caching Layer**: Redis caching for frequently accessed filings and financial data
-2. **Advanced LLM Integration**: Multi-provider AI for intelligent filing analysis and summarization
-3. **Real-time Processing**: WebSocket updates for live analysis and notifications
-4. **Data Pipeline**: ETL pipeline for continuous filing updates and analysis
-5. **Advanced Analytics**: Peer comparison, trend detection, and anomaly detection algorithms
-6. **Performance Monitoring**: Metrics for API usage, edgartools performance, and user experience
-7. **Background Processing**: Celery for large-scale analysis operations
-
 ## Development Workflow
 
-For complex development tasks, you must try to use specialized sub-agents that understand Aperilex's architecture and requirements, and each sub-agent has a specific focus area and each sub-agent should use `explore-review-code-test.md` working pattern. Also use `Context7` accordingly based on tech stack to search for latest doc if you have any questions or encountering any issues you are not sure about, not other ways like direct url/web search. Here are the key sub-agents and their responsibilities:
+**IMPORTANT**: Please work through the tasks in docs/tasks/tasks.md one at a time and mark each finished task with X.
 
-### Environment Setup
-Use **aperilex-environment-setup** subagent for:
-- Complete development environment initialization
-- Docker service management and health checks
-- Environment variable configuration
-- Troubleshooting setup issues
-
-### Code Quality
-Use **aperilex-code-quality** subagent for:
-- Comprehensive quality checks (MyPy, Ruff, Black, isort)
-- Automated fix recommendations and implementation
-- Architecture compliance validation
-- Security scanning with Bandit and Safety
-
-### Testing Strategy
-Use **aperilex-test-strategy** subagent for:
-- Intelligent test execution based on changes
-- Cost optimization for external API tests
-- Coverage analysis and improvement suggestions
-- Test data management and fixture generation
-
-### Backend Development
-Use **aperilex-backend-architect** subagent for:
-- Clean architecture design and implementation
-- Domain modeling and CQRS patterns
-- Infrastructure integrations (Edgar, LLM, Database)
-- API endpoint design and validation schemas
-
-### Frontend Development
-Use **aperilex-frontend-developer** subagent for:
-- React TypeScript component implementation
-- Financial data visualization and charts
-- User interface design for complex financial data
-- API integration and state management
-
-### Financial Analysis
-Use **aperilex-financial-analysis** subagent for:
-- Edgar → LLM → Analysis pipeline orchestration
-- SEC filing processing and optimization
-- LLM prompt engineering and schema management
-- Analysis quality validation and performance monitoring
+For complex development tasks, you must try to use specialized sub-agents that understand Aperilex's architecture and requirements, and each sub-agent has a specific focus area and each sub-agent should use `explore-review-code-test.md` working pattern. Also use `Context7` accordingly based on tech stack to search for latest doc if you have any questions or encountering any issues you are not sure about, not other ways like direct url/web search.
 
 ### Quick Command Reference
 ```bash
@@ -187,17 +99,6 @@ pytest tests/unit/ -m "not external_api" --cov=src
 # Full quality suite (use code-quality agent for detailed analysis)
 poetry run ruff check src/ && poetry run mypy src/ && poetry run black --check src/ && poetry run isort --check-only src/
 ```
-
-## Architecture Notes
-
-Aperilex uses clean architecture principles to enable both powerful user features and robust technical capabilities:
-
-- **Domain Layer**: Core business entities and logic (Filing, Company, Analysis) that represent real-world financial concepts
-- **Application Layer**: Use cases and commands (AnalyzeFilingCommand, SearchFilingsQuery) that orchestrate user workflows
-- **Infrastructure Layer**: External integrations (SEC API, LLM providers, Database) that power data access and AI insights
-- **Presentation Layer**: Both REST API endpoints for developers AND web UI for end users
-
-**For architectural guidance**: Use the **aperilex-backend-architect** subagent for domain modeling, clean architecture patterns, and infrastructure design decisions.
 
 ## Git Integration
 Before any code changes or implementation, ensure we are in the correct Git branch that follows the best git practice and the development plan in `docs/phases/PHASE_*_DETAILED_PLAN.md`:
@@ -231,8 +132,8 @@ git checkout feature/existing-feature
 - **Pydantic v2**: Use `validation_alias` instead of deprecated `env` parameter
 - **SQLAlchemy**: Use `async_sessionmaker` for async database sessions
 
-### Development Workflow
-**IMPORTANT**: Use specialized subagents for complex development tasks. For quick checks:
+### Code quality check Workflow
+**IMPORTANT**: For quick checks:
 ```bash
 # Before starting development (or use aperilex-code-quality agent)
 poetry run mypy src/ && poetry run ruff check src/
@@ -243,11 +144,6 @@ poetry run black src/ && poetry run isort src/ && poetry run mypy src/
 # Use aperilex-test-strategy agent for intelligent test execution
 poetry run pytest
 ```
-
-#### MyPy Configuration
-The following overrides are configured in `pyproject.toml`:
-- `src.shared.config.settings`: Disabled `call-arg` errors for Settings instantiation
-- `src.infrastructure.database.base`: Disabled `misc` errors for DeclarativeBase overrides
 
 ## LLM Integration
 
@@ -268,23 +164,9 @@ Aperilex currently uses OpenAI as the sole LLM provider (`infrastructure.llm.ope
 - Risk Factors Analysis
 - Management Discussion & Analysis (MD&A)
 
-**Analysis Templates**:
-- COMPREHENSIVE: All available analysis schemas
-- FINANCIAL_FOCUSED: Financial statements only
-- RISK_FOCUSED: Risk factors and MD&A
-- BUSINESS_FOCUSED: Business operations and MD&A
+### LLM powered analysis implementation Requirements
 
-### Implementation Requirements
-
-When implementing ANY feature that involves understanding, summarizing, or extracting insights from filings:
-
-**Use the aperilex-financial-analysis subagent** for:
-- Edgar filing processing workflows
-- LLM integration and prompt optimization
-- Analysis quality validation
-- Pipeline orchestration and debugging
-
-**Key Principles**:
+**IMPORTANT**: When implementing ANY feature that involves understanding, summarizing, or extracting insights from filings:
 1. **Always Use LLM for Insights**: Never implement hardcoded analysis logic
 2. **Follow Existing Patterns**: Check `infrastructure/llm/` for current capabilities
 3. **Extend Properly**: Add new analysis methods and Pydantic schemas when needed
@@ -312,3 +194,5 @@ The system is designed for multi-provider support. Future providers should imple
 **Detailed Plan**: See `docs/phases/PHASE_*_DETAILED_PLAN.md`.
 
 **Phase Notes**: When creating new phase plans, no need to add timeline information, no need to provide example code.
+
+**Current Tasks**: See `docs/tasks/tasks.md`.
