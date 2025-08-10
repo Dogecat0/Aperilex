@@ -94,7 +94,7 @@ describe('CompanyService', () => {
         {
           analysis_id: '1',
           filing_id: 'filing1',
-          analysis_type: 'COMPREHENSIVE' as const,
+          analysis_template: 'comprehensive' as const,
           created_by: 'system',
           created_at: '2023-01-01T00:00:00Z',
           confidence_score: 0.95,
@@ -148,7 +148,7 @@ describe('CompanyService', () => {
         {
           analysis_id: '1',
           filing_id: 'filing1',
-          analysis_type: 'COMPREHENSIVE' as const,
+          analysis_template: 'comprehensive' as const,
           created_by: 'system',
           created_at: '2023-01-01T00:00:00Z',
           confidence_score: 0.95,
@@ -171,7 +171,7 @@ describe('CompanyService', () => {
           {
             analysis_id: '1',
             filing_id: 'filing1',
-            analysis_type: 'COMPREHENSIVE' as const,
+            analysis_template: 'comprehensive' as const,
             created_by: 'system',
             created_at: '2023-01-01T00:00:00Z',
             confidence_score: 0.95,

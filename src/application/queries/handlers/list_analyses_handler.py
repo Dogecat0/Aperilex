@@ -58,6 +58,9 @@ class ListAnalysesQueryHandler(
                     if query.analysis_types
                     else None
                 ),
+                "analysis_template": (
+                    query.analysis_template.value if query.analysis_template else None
+                ),
                 "created_from": (
                     query.created_from.isoformat() if query.created_from else None
                 ),
@@ -73,6 +76,14 @@ class ListAnalysesQueryHandler(
         )
 
         try:
+            # Determine which analysis types to filter by
+            # Priority: explicit analysis_types > template mapping > no filter
+            filter_analysis_types = query.analysis_types
+
+            # If no explicit analysis_types but template is provided, use template mapping
+            if not filter_analysis_types and query.has_template_filter:
+                filter_analysis_types = query.get_analysis_types_for_template()
+
             # Build filter summary for response
             filter_parts = []
 
@@ -82,6 +93,15 @@ class ListAnalysesQueryHandler(
             if query.has_type_filter and query.analysis_types:
                 types_str = ", ".join([t.value for t in query.analysis_types])
                 filter_parts.append(f"types: {types_str}")
+
+            if query.has_template_filter and query.analysis_template:
+                filter_parts.append(f"template: {query.analysis_template.value}")
+                # If template is used for filtering (no explicit types), show mapped types
+                if not query.has_type_filter and filter_analysis_types:
+                    mapped_types_str = ", ".join(
+                        [t.value for t in filter_analysis_types]
+                    )
+                    filter_parts.append(f"mapped_to_types: {mapped_types_str}")
 
             if query.has_date_range_filter:
                 if query.created_from and query.created_to:
@@ -98,10 +118,10 @@ class ListAnalysesQueryHandler(
 
             filters_applied = ", ".join(filter_parts) if filter_parts else "none"
 
-            # Get total count for pagination
+            # Get total count for pagination using determined analysis types
             total_count = await self.analysis_repository.count_with_filters(
                 company_cik=query.company_cik,
-                analysis_types=query.analysis_types,
+                analysis_types=filter_analysis_types,
                 created_from=query.created_from,
                 created_to=query.created_to,
                 min_confidence_score=query.min_confidence_score,
@@ -116,10 +136,10 @@ class ListAnalysesQueryHandler(
                     filters_applied=filters_applied,
                 )
 
-            # Get paginated results
+            # Get paginated results using determined analysis types
             analyses = await self.analysis_repository.find_with_filters(
                 company_cik=query.company_cik,
-                analysis_types=query.analysis_types,
+                analysis_types=filter_analysis_types,
                 created_from=query.created_from,
                 created_to=query.created_to,
                 min_confidence_score=query.min_confidence_score,

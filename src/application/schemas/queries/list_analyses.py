@@ -5,6 +5,7 @@ from datetime import datetime
 from enum import Enum
 
 from src.application.base.query import BaseQuery
+from src.application.schemas.commands.analyze_filing import AnalysisTemplate
 from src.domain.entities.analysis import AnalysisType
 from src.domain.value_objects.cik import CIK
 
@@ -35,6 +36,7 @@ class ListAnalysesQuery(BaseQuery):
     Attributes:
         company_cik: Filter by specific company CIK (optional)
         analysis_types: Filter by analysis types (optional)
+        analysis_template: Filter by analysis template (optional)
         created_from: Filter analyses created from this date (inclusive, optional)
         created_to: Filter analyses created to this date (inclusive, optional)
         min_confidence_score: Filter by minimum confidence score (optional)
@@ -46,6 +48,7 @@ class ListAnalysesQuery(BaseQuery):
 
     company_cik: CIK | None = None
     analysis_types: list[AnalysisType] | None = None
+    analysis_template: AnalysisTemplate | None = None
     created_from: datetime | None = None
     created_to: datetime | None = None
     min_confidence_score: float | None = None
@@ -107,3 +110,59 @@ class ListAnalysesQuery(BaseQuery):
             True if analysis_types filter is applied
         """
         return self.analysis_types is not None
+
+    @property
+    def has_template_filter(self) -> bool:
+        """Check if query filters by analysis template.
+
+        Returns:
+            True if analysis_template filter is applied
+        """
+        return self.analysis_template is not None
+
+    def get_analysis_types_for_template(self) -> list[AnalysisType] | None:
+        """Map analysis template to corresponding analysis types.
+
+        This method provides intelligent mapping between analysis templates and database analysis types.
+        Templates are logical groupings that can map to multiple database analysis types.
+
+        Returns:
+            List of analysis types that correspond to the template, or None if no template filter
+        """
+        if not self.has_template_filter:
+            return None
+
+        # Map analysis templates to database analysis types
+        # Each template can potentially match multiple analysis types stored in the database
+        template_to_types_mapping = {
+            # Comprehensive template includes all types of analysis
+            AnalysisTemplate.COMPREHENSIVE: [
+                AnalysisType.FILING_ANALYSIS,
+                AnalysisType.COMPREHENSIVE,
+                AnalysisType.CUSTOM_QUERY,  # May include comprehensive custom queries
+            ],
+            # Financial focused template should match analyses focused on financial data
+            AnalysisTemplate.FINANCIAL_FOCUSED: [
+                AnalysisType.FILING_ANALYSIS,  # Filing analysis includes financial sections
+                AnalysisType.COMPREHENSIVE,  # Comprehensive analysis includes financial data
+                AnalysisType.CUSTOM_QUERY,  # Custom queries may be financial-focused
+            ],
+            # Risk focused template for risk assessment analyses
+            AnalysisTemplate.RISK_FOCUSED: [
+                AnalysisType.FILING_ANALYSIS,  # Filing analysis includes risk sections
+                AnalysisType.COMPREHENSIVE,  # Comprehensive analysis includes risk analysis
+                AnalysisType.CUSTOM_QUERY,  # Custom queries may be risk-focused
+            ],
+            # Business focused template for strategic and operational analyses
+            AnalysisTemplate.BUSINESS_FOCUSED: [
+                AnalysisType.FILING_ANALYSIS,  # Filing analysis includes business sections
+                AnalysisType.COMPREHENSIVE,  # Comprehensive analysis includes business analysis
+                AnalysisType.CUSTOM_QUERY,  # Custom queries may be business-focused
+            ],
+        }
+
+        return (
+            template_to_types_mapping.get(self.analysis_template)
+            if self.analysis_template
+            else None
+        )
