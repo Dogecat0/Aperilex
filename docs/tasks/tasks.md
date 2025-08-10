@@ -27,30 +27,30 @@ Generated from: plan-v001.md
   - [X] Update display labels for better user experience
   - [X] Ensure selected state handling works with new values
 - [X] Review and update any other components that reference analysis types
-- [ ] Test dropdown functionality with new values
+- [X] Test dropdown functionality with new values
 
 ## Phase 2: Backend Updates (Minimal Risk)
 
 ### Update API Endpoints
-- [ ] Add `analysis_template` parameter to analyses endpoints for filtering
-  - [ ] Update endpoint parameter definitions
-  - [ ] Add parameter validation
-  - [ ] Update API documentation/schemas
-- [ ] Map AnalysisTemplate values to appropriate database queries
-  - [ ] Implement mapping logic between templates and database types
-  - [ ] Add validation for supported template values
-- [ ] Keep existing `analysis_type` for backward compatibility during transition
-  - [ ] Ensure both parameters work during transition period
-  - [ ] Add deprecation warnings for old parameter
+- [X] Add `analysis_template` parameter to analyses endpoints for filtering
+  - [X] Update endpoint parameter definitions
+  - [X] Add parameter validation
+  - [X] Update API documentation/schemas
+- [X] Map AnalysisTemplate values to appropriate database queries
+  - [X] Implement mapping logic between templates and database types
+  - [X] Add validation for supported template values
+- [X] Keep existing `analysis_type` for backward compatibility during transition
+  - [X] Ensure both parameters work during transition period
+  - [X] Add deprecation warnings for old parameter
 
 ### Query Logic Updates
-- [ ] Update filtering logic to handle AnalysisTemplate values
-  - [ ] Modify query builders to accept template parameters
-  - [ ] Test query performance with new filtering
-- [ ] Map template filtering to appropriate AnalysisType database queries
-  - [ ] Create mapping between templates and internal types
-  - [ ] Ensure mapping covers all template values
-  - [ ] Add unit tests for mapping logic
+- [X] Update filtering logic to handle AnalysisTemplate values
+  - [X] Modify query builders to accept template parameters
+  - [X] Test query performance with new filtering
+- [X] Map template filtering to appropriate AnalysisType database queries
+  - [X] Create mapping between templates and internal types
+  - [X] Ensure mapping covers all template values
+  - [X] Add unit tests for mapping logic
 
 ## Phase 3: Testing
 
