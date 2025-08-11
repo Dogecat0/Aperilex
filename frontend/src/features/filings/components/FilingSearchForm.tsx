@@ -34,6 +34,8 @@ export function FilingSearchForm({
   const [filingType, setFilingType] = useState(initialValues.filing_type || '')
   const [startDate, setStartDate] = useState(initialValues.start_date || '')
   const [endDate, setEndDate] = useState(initialValues.end_date || '')
+  const startDateInputRef = React.useRef<HTMLInputElement>(null)
+  const endDateInputRef = React.useRef<HTMLInputElement>(null)
   const [showAdvanced, setShowAdvanced] = useState(
     !!(initialValues.filing_type || initialValues.start_date || initialValues.end_date)
   )
@@ -216,14 +218,25 @@ export function FilingSearchForm({
                 From Date
               </label>
               <div className="relative">
-                <Calendar className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+                <Calendar
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground cursor-pointer hover:text-foreground transition-colors"
+                  onClick={() => {
+                    if (startDateInputRef.current && startDateInputRef.current.showPicker) {
+                      startDateInputRef.current.showPicker()
+                    } else if (startDateInputRef.current) {
+                      startDateInputRef.current.focus()
+                      startDateInputRef.current.click()
+                    }
+                  }}
+                />
                 <Input
+                  ref={startDateInputRef}
                   id="start-date"
                   type="date"
                   value={startDate}
                   onChange={(e) => setStartDate(e.target.value)}
                   max={endDate || undefined}
-                  className="pr-10"
+                  className="pr-10 date-input-hide-native-calendar"
                 />
               </div>
             </div>
@@ -235,15 +248,26 @@ export function FilingSearchForm({
                 To Date
               </label>
               <div className="relative">
-                <Calendar className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+                <Calendar
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground cursor-pointer hover:text-foreground transition-colors"
+                  onClick={() => {
+                    if (endDateInputRef.current && endDateInputRef.current.showPicker) {
+                      endDateInputRef.current.showPicker()
+                    } else if (endDateInputRef.current) {
+                      endDateInputRef.current.focus()
+                      endDateInputRef.current.click()
+                    }
+                  }}
+                />
                 <Input
+                  ref={endDateInputRef}
                   id="end-date"
                   type="date"
                   value={endDate}
                   onChange={(e) => setEndDate(e.target.value)}
                   min={startDate || undefined}
                   max={new Date().toISOString().split('T')[0]}
-                  className="pr-10"
+                  className="pr-10 date-input-hide-native-calendar"
                 />
               </div>
             </div>
