@@ -107,6 +107,239 @@ class TestListAnalysesEndpoint:
         query = call_args[0]
         assert query.analysis_types == [AnalysisType.COMPREHENSIVE]
 
+    def test_list_analyses_with_analysis_template_filter_comprehensive(
+        self,
+        test_client,
+        mock_service_factory,
+        sample_analysis_response,
+        sample_paginated_response,
+    ):
+        """Test listing analyses filtered by analysis template 'comprehensive'."""
+        factory, mock_dispatcher = mock_service_factory
+
+        paginated_response = sample_paginated_response
+        mock_dispatcher.dispatch_query.return_value = paginated_response
+
+        # Test with 'comprehensive' template
+        response = test_client.get("/api/analyses?analysis_template=comprehensive")
+
+        assert response.status_code == 200
+        data = response.json()
+
+        assert isinstance(data, dict)
+        assert "items" in data
+        assert "pagination" in data
+        assert len(data["items"]) == 1
+        assert data["pagination"]["page"] == 1
+        assert data["pagination"]["total_items"] == 1
+
+        # Verify dispatcher was called with correct query
+        mock_dispatcher.dispatch_query.assert_called_once()
+        call_args = mock_dispatcher.dispatch_query.call_args[0]
+        query = call_args[0]
+
+        # Import AnalysisTemplate for comparison
+        from src.application.schemas.commands.analyze_filing import AnalysisTemplate
+
+        assert query.analysis_template == AnalysisTemplate.COMPREHENSIVE
+
+    def test_list_analyses_with_analysis_template_filter_financial(
+        self,
+        test_client,
+        mock_service_factory,
+        sample_analysis_response,
+        sample_paginated_response,
+    ):
+        """Test listing analyses filtered by analysis template 'financial_focused'."""
+        factory, mock_dispatcher = mock_service_factory
+
+        paginated_response = sample_paginated_response
+        mock_dispatcher.dispatch_query.return_value = paginated_response
+
+        # Test with 'financial_focused' template
+        response = test_client.get("/api/analyses?analysis_template=financial_focused")
+
+        assert response.status_code == 200
+        data = response.json()
+
+        assert isinstance(data, dict)
+        assert "items" in data
+        assert "pagination" in data
+
+        # Verify dispatcher was called with correct query
+        mock_dispatcher.dispatch_query.assert_called_once()
+        call_args = mock_dispatcher.dispatch_query.call_args[0]
+        query = call_args[0]
+
+        from src.application.schemas.commands.analyze_filing import AnalysisTemplate
+
+        assert query.analysis_template == AnalysisTemplate.FINANCIAL_FOCUSED
+
+    def test_list_analyses_with_analysis_template_filter_risk(
+        self,
+        test_client,
+        mock_service_factory,
+        sample_analysis_response,
+        sample_paginated_response,
+    ):
+        """Test listing analyses filtered by analysis template 'risk_focused'."""
+        factory, mock_dispatcher = mock_service_factory
+
+        paginated_response = sample_paginated_response
+        mock_dispatcher.dispatch_query.return_value = paginated_response
+
+        # Test with 'risk_focused' template
+        response = test_client.get("/api/analyses?analysis_template=risk_focused")
+
+        assert response.status_code == 200
+        data = response.json()
+
+        assert isinstance(data, dict)
+        assert "items" in data
+        assert "pagination" in data
+
+        # Verify dispatcher was called with correct query
+        mock_dispatcher.dispatch_query.assert_called_once()
+        call_args = mock_dispatcher.dispatch_query.call_args[0]
+        query = call_args[0]
+
+        from src.application.schemas.commands.analyze_filing import AnalysisTemplate
+
+        assert query.analysis_template == AnalysisTemplate.RISK_FOCUSED
+
+    def test_list_analyses_with_analysis_template_filter_business(
+        self,
+        test_client,
+        mock_service_factory,
+        sample_analysis_response,
+        sample_paginated_response,
+    ):
+        """Test listing analyses filtered by analysis template 'business_focused'."""
+        factory, mock_dispatcher = mock_service_factory
+
+        paginated_response = sample_paginated_response
+        mock_dispatcher.dispatch_query.return_value = paginated_response
+
+        # Test with 'business_focused' template
+        response = test_client.get("/api/analyses?analysis_template=business_focused")
+
+        assert response.status_code == 200
+        data = response.json()
+
+        assert isinstance(data, dict)
+        assert "items" in data
+        assert "pagination" in data
+
+        # Verify dispatcher was called with correct query
+        mock_dispatcher.dispatch_query.assert_called_once()
+        call_args = mock_dispatcher.dispatch_query.call_args[0]
+        query = call_args[0]
+
+        from src.application.schemas.commands.analyze_filing import AnalysisTemplate
+
+        assert query.analysis_template == AnalysisTemplate.BUSINESS_FOCUSED
+
+    def test_list_analyses_with_invalid_analysis_template(
+        self,
+        test_client,
+        mock_service_factory,
+    ):
+        """Test listing analyses with invalid analysis template value."""
+        factory, mock_dispatcher = mock_service_factory
+
+        # Test with invalid template value
+        response = test_client.get("/api/analyses?analysis_template=invalid_template")
+
+        assert response.status_code == 422
+        data = response.json()
+        assert "detail" in data
+
+    def test_list_analyses_with_analysis_template_and_backward_compatibility(
+        self,
+        test_client,
+        mock_service_factory,
+        sample_analysis_response,
+        sample_paginated_response,
+    ):
+        """Test that both analysis_template and analysis_type parameters work."""
+        factory, mock_dispatcher = mock_service_factory
+
+        paginated_response = sample_paginated_response
+        mock_dispatcher.dispatch_query.return_value = paginated_response
+
+        # Test with both parameters - template should take precedence
+        response = test_client.get(
+            f"/api/analyses?analysis_template=comprehensive&analysis_type={AnalysisType.COMPREHENSIVE.value}"
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+
+        assert isinstance(data, dict)
+        assert "items" in data
+        assert "pagination" in data
+
+        # Verify dispatcher was called with both parameters
+        mock_dispatcher.dispatch_query.assert_called_once()
+        call_args = mock_dispatcher.dispatch_query.call_args[0]
+        query = call_args[0]
+
+        from src.application.schemas.commands.analyze_filing import AnalysisTemplate
+
+        assert query.analysis_template == AnalysisTemplate.COMPREHENSIVE
+        assert query.analysis_types == [AnalysisType.COMPREHENSIVE]
+
+    def test_all_supported_analysis_template_values(
+        self,
+        test_client,
+        mock_service_factory,
+        sample_analysis_response,
+        sample_paginated_response,
+    ):
+        """Test all supported analysis template values work correctly."""
+        factory, mock_dispatcher = mock_service_factory
+
+        # Import AnalysisTemplate for testing all values
+        from src.application.schemas.commands.analyze_filing import AnalysisTemplate
+
+        # List of all supported template values
+        supported_templates = [
+            ("comprehensive", AnalysisTemplate.COMPREHENSIVE),
+            ("financial_focused", AnalysisTemplate.FINANCIAL_FOCUSED),
+            ("risk_focused", AnalysisTemplate.RISK_FOCUSED),
+            ("business_focused", AnalysisTemplate.BUSINESS_FOCUSED),
+        ]
+
+        # Test each supported template value
+        for template_value, expected_enum in supported_templates:
+            # Reset mock to track individual calls
+            mock_dispatcher.reset_mock()
+
+            paginated_response = sample_paginated_response
+            mock_dispatcher.dispatch_query.return_value = paginated_response
+
+            # Make API call with template value
+            response = test_client.get(
+                f"/api/analyses?analysis_template={template_value}"
+            )
+
+            # Verify successful response
+            assert response.status_code == 200, f"Failed for template: {template_value}"
+            data = response.json()
+
+            assert isinstance(data, dict)
+            assert "items" in data
+            assert "pagination" in data
+
+            # Verify dispatcher was called with correct template
+            mock_dispatcher.dispatch_query.assert_called_once()
+            call_args = mock_dispatcher.dispatch_query.call_args[0]
+            query = call_args[0]
+
+            assert (
+                query.analysis_template == expected_enum
+            ), f"Template mismatch for: {template_value}"
+
     def test_list_analyses_with_pagination(
         self,
         test_client,

@@ -187,4 +187,16 @@
   .btn-teal {
     @apply bg-teal text-teal-foreground hover:bg-teal/90;
   }
+
+  /* Hide native calendar picker icons to avoid duplicates with our custom SVG icons */
+  .date-input-hide-native-calendar::-webkit-calendar-picker-indicator {
+    display: none;
+    -webkit-appearance: none;
+  }
+
+  .date-input-hide-native-calendar::-webkit-inner-spin-button,
+  .date-input-hide-native-calendar::-webkit-outer-spin-button {
+    display: none;
+    -webkit-appearance: none;
+  }
 }

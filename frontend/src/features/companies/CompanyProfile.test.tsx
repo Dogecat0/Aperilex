@@ -103,13 +103,13 @@ const mockCompany: CompanyResponse = {
   recent_analyses: [
     {
       analysis_id: '1',
-      analysis_type: 'COMPREHENSIVE',
+      analysis_template: 'comprehensive',
       created_at: '2024-01-16T10:00:00Z',
       confidence_score: 0.95,
     },
     {
       analysis_id: '2',
-      analysis_type: 'FINANCIAL_FOCUSED',
+      analysis_template: 'financial_focused',
       created_at: '2024-01-15T10:00:00Z',
       confidence_score: 0.88,
     },
@@ -120,7 +120,7 @@ const mockAnalyses: AnalysisResponse[] = [
   {
     analysis_id: '1',
     filing_id: 'filing-1',
-    analysis_type: 'COMPREHENSIVE',
+    analysis_template: 'comprehensive',
     created_by: 'test-user',
     created_at: '2024-01-16T10:00:00Z',
     confidence_score: 0.95,
@@ -135,7 +135,7 @@ const mockAnalyses: AnalysisResponse[] = [
   {
     analysis_id: '2',
     filing_id: 'filing-2',
-    analysis_type: 'FINANCIAL_FOCUSED',
+    analysis_template: 'financial_focused',
     created_by: 'test-user',
     created_at: '2024-01-15T10:00:00Z',
     confidence_score: 0.88,

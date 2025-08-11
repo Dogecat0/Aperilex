@@ -9,6 +9,7 @@ import pytest
 from src.application.queries.handlers.list_analyses_handler import (
     ListAnalysesQueryHandler,
 )
+from src.application.schemas.commands.analyze_filing import AnalysisTemplate
 from src.application.schemas.queries.list_analyses import (
     AnalysisSortField,
     ListAnalysesQuery,
@@ -515,7 +516,7 @@ class TestListAnalysesQueryHandler:
             ) as mock_create,
         ):
 
-            result = await handler.handle(query)
+            await handler.handle(query)
 
         # Verify analysis types were passed correctly
         count_call = mock_analysis_repository.count_with_filters.call_args[1]
@@ -715,7 +716,7 @@ class TestListAnalysesQueryHandler:
             ),
         ):
 
-            result = await handler.handle(basic_query)
+            await handler.handle(basic_query)
 
         # Verify summary_from_domain was called for each analysis
         assert mock_summary.call_count == len(mock_analyses)
@@ -825,3 +826,392 @@ class TestListAnalysesQueryHandler:
         assert "company: 320193" in filters_applied
         assert "types: filing_analysis" in filters_applied
         assert "date: 2024-01-01 to 2024-06-30" in filters_applied
+
+    @pytest.mark.asyncio
+    async def test_template_mapping_to_analysis_types(
+        self,
+        handler: ListAnalysesQueryHandler,
+        mock_analysis_repository: AsyncMock,
+        mock_analyses: list[Analysis],
+        mock_analysis_responses: list[AnalysisResponse],
+    ) -> None:
+        """Test that analysis templates are properly mapped to database analysis types."""
+        template_test_cases = [
+            # (template, expected_analysis_types)
+            (
+                AnalysisTemplate.COMPREHENSIVE,
+                [
+                    AnalysisType.FILING_ANALYSIS,
+                    AnalysisType.COMPREHENSIVE,
+                    AnalysisType.CUSTOM_QUERY,
+                ],
+            ),
+            (
+                AnalysisTemplate.FINANCIAL_FOCUSED,
+                [
+                    AnalysisType.FILING_ANALYSIS,
+                    AnalysisType.COMPREHENSIVE,
+                    AnalysisType.CUSTOM_QUERY,
+                ],
+            ),
+            (
+                AnalysisTemplate.RISK_FOCUSED,
+                [
+                    AnalysisType.FILING_ANALYSIS,
+                    AnalysisType.COMPREHENSIVE,
+                    AnalysisType.CUSTOM_QUERY,
+                ],
+            ),
+            (
+                AnalysisTemplate.BUSINESS_FOCUSED,
+                [
+                    AnalysisType.FILING_ANALYSIS,
+                    AnalysisType.COMPREHENSIVE,
+                    AnalysisType.CUSTOM_QUERY,
+                ],
+            ),
+        ]
+
+        for template, expected_types in template_test_cases:
+            query = ListAnalysesQuery(
+                user_id="test_user",
+                analysis_template=template,
+                page=1,
+                page_size=10,
+            )
+
+            # Setup mocks
+            mock_analysis_repository.count_with_filters.return_value = 5
+            mock_analysis_repository.find_with_filters.return_value = mock_analyses
+
+            mock_paginated_response = MagicMock(spec=PaginatedResponse)
+
+            with (
+                patch.object(
+                    AnalysisResponse,
+                    'summary_from_domain',
+                    side_effect=mock_analysis_responses,
+                ),
+                patch.object(
+                    PaginatedResponse, 'create', return_value=mock_paginated_response
+                ),
+            ):
+
+                result = await handler.handle(query)
+
+            assert result == mock_paginated_response
+
+            # Verify repository was called with mapped analysis types
+            count_call = mock_analysis_repository.count_with_filters.call_args[1]
+            find_call = mock_analysis_repository.find_with_filters.call_args[1]
+
+            assert count_call["analysis_types"] == expected_types
+            assert find_call["analysis_types"] == expected_types
+
+            # Reset mocks for next iteration
+            mock_analysis_repository.reset_mock()
+
+    @pytest.mark.asyncio
+    async def test_template_priority_over_explicit_types(
+        self,
+        handler: ListAnalysesQueryHandler,
+        mock_analysis_repository: AsyncMock,
+        mock_analyses: list[Analysis],
+        mock_analysis_responses: list[AnalysisResponse],
+    ) -> None:
+        """Test that explicit analysis_types take precedence over template mapping."""
+        # Query with both explicit types AND template - explicit should win
+        explicit_types = [AnalysisType.CUSTOM_QUERY, AnalysisType.COMPARISON]
+        query = ListAnalysesQuery(
+            user_id="test_user",
+            analysis_types=explicit_types,
+            analysis_template=AnalysisTemplate.FINANCIAL_FOCUSED,  # Should be ignored
+            page=1,
+            page_size=10,
+        )
+
+        # Setup mocks
+        mock_analysis_repository.count_with_filters.return_value = 3
+        mock_analysis_repository.find_with_filters.return_value = mock_analyses
+
+        mock_paginated_response = MagicMock(spec=PaginatedResponse)
+
+        with (
+            patch.object(
+                AnalysisResponse,
+                'summary_from_domain',
+                side_effect=mock_analysis_responses,
+            ),
+            patch.object(
+                PaginatedResponse, 'create', return_value=mock_paginated_response
+            ),
+        ):
+
+            result = await handler.handle(query)
+
+        assert result == mock_paginated_response
+
+        # Verify repository was called with explicit types, not template mapping
+        count_call = mock_analysis_repository.count_with_filters.call_args[1]
+        find_call = mock_analysis_repository.find_with_filters.call_args[1]
+
+        assert count_call["analysis_types"] == explicit_types
+        assert find_call["analysis_types"] == explicit_types
+
+    @pytest.mark.asyncio
+    async def test_template_filter_summary_includes_mapped_types(
+        self,
+        handler: ListAnalysesQueryHandler,
+        mock_analysis_repository: AsyncMock,
+    ) -> None:
+        """Test that filter summary includes mapped analysis types when using template."""
+        query = ListAnalysesQuery(
+            user_id="test_user",
+            analysis_template=AnalysisTemplate.RISK_FOCUSED,
+            page=1,
+            page_size=10,
+        )
+
+        # Setup mocks for empty result to focus on filter summary
+        mock_analysis_repository.count_with_filters.return_value = 0
+        mock_empty_response = MagicMock(spec=PaginatedResponse)
+
+        with patch.object(
+            PaginatedResponse, 'empty', return_value=mock_empty_response
+        ) as mock_empty:
+            await handler.handle(query)
+
+        # Verify filter summary includes template and mapped types
+        call_kwargs = mock_empty.call_args[1]
+        filters_applied = call_kwargs["filters_applied"]
+
+        assert "template: risk_focused" in filters_applied
+        assert "mapped_to_types:" in filters_applied
+        assert "filing_analysis" in filters_applied
+        assert "comprehensive" in filters_applied
+        assert "custom_query" in filters_applied
+
+    @pytest.mark.asyncio
+    async def test_template_filter_summary_without_mapped_types(
+        self,
+        handler: ListAnalysesQueryHandler,
+        mock_analysis_repository: AsyncMock,
+    ) -> None:
+        """Test that filter summary doesn't include mapped types when explicit types are provided."""
+        query = ListAnalysesQuery(
+            user_id="test_user",
+            analysis_types=[AnalysisType.FILING_ANALYSIS],
+            analysis_template=AnalysisTemplate.COMPREHENSIVE,
+            page=1,
+            page_size=10,
+        )
+
+        # Setup mocks for empty result to focus on filter summary
+        mock_analysis_repository.count_with_filters.return_value = 0
+        mock_empty_response = MagicMock(spec=PaginatedResponse)
+
+        with patch.object(
+            PaginatedResponse, 'empty', return_value=mock_empty_response
+        ) as mock_empty:
+            await handler.handle(query)
+
+        # Verify filter summary includes template but NOT mapped types
+        call_kwargs = mock_empty.call_args[1]
+        filters_applied = call_kwargs["filters_applied"]
+
+        assert "template: comprehensive" in filters_applied
+        assert "types: filing_analysis" in filters_applied
+        assert "mapped_to_types:" not in filters_applied  # Should not appear
+
+    @pytest.mark.asyncio
+    async def test_no_template_no_types_filter(
+        self,
+        handler: ListAnalysesQueryHandler,
+        mock_analysis_repository: AsyncMock,
+        mock_analyses: list[Analysis],
+        mock_analysis_responses: list[AnalysisResponse],
+    ) -> None:
+        """Test that when neither template nor types are specified, no analysis type filtering occurs."""
+        query = ListAnalysesQuery(
+            user_id="test_user",
+            page=1,
+            page_size=10,
+        )
+
+        # Setup mocks
+        mock_analysis_repository.count_with_filters.return_value = 10
+        mock_analysis_repository.find_with_filters.return_value = mock_analyses
+
+        mock_paginated_response = MagicMock(spec=PaginatedResponse)
+
+        with (
+            patch.object(
+                AnalysisResponse,
+                'summary_from_domain',
+                side_effect=mock_analysis_responses,
+            ),
+            patch.object(
+                PaginatedResponse, 'create', return_value=mock_paginated_response
+            ),
+        ):
+
+            result = await handler.handle(query)
+
+        assert result == mock_paginated_response
+
+        # Verify repository was called with None for analysis_types
+        count_call = mock_analysis_repository.count_with_filters.call_args[1]
+        find_call = mock_analysis_repository.find_with_filters.call_args[1]
+
+        assert count_call["analysis_types"] is None
+        assert find_call["analysis_types"] is None
+
+
+class TestListAnalysesQueryTemplateMapping:
+    """Test template mapping functionality in ListAnalysesQuery."""
+
+    def test_get_analysis_types_for_template_comprehensive(self) -> None:
+        """Test comprehensive template mapping to analysis types."""
+        query = ListAnalysesQuery(
+            user_id="test_user",
+            analysis_template=AnalysisTemplate.COMPREHENSIVE,
+        )
+
+        result = query.get_analysis_types_for_template()
+
+        expected = [
+            AnalysisType.FILING_ANALYSIS,
+            AnalysisType.COMPREHENSIVE,
+            AnalysisType.CUSTOM_QUERY,
+        ]
+        assert result == expected
+
+    def test_get_analysis_types_for_template_financial_focused(self) -> None:
+        """Test financial focused template mapping to analysis types."""
+        query = ListAnalysesQuery(
+            user_id="test_user",
+            analysis_template=AnalysisTemplate.FINANCIAL_FOCUSED,
+        )
+
+        result = query.get_analysis_types_for_template()
+
+        expected = [
+            AnalysisType.FILING_ANALYSIS,
+            AnalysisType.COMPREHENSIVE,
+            AnalysisType.CUSTOM_QUERY,
+        ]
+        assert result == expected
+
+    def test_get_analysis_types_for_template_risk_focused(self) -> None:
+        """Test risk focused template mapping to analysis types."""
+        query = ListAnalysesQuery(
+            user_id="test_user",
+            analysis_template=AnalysisTemplate.RISK_FOCUSED,
+        )
+
+        result = query.get_analysis_types_for_template()
+
+        expected = [
+            AnalysisType.FILING_ANALYSIS,
+            AnalysisType.COMPREHENSIVE,
+            AnalysisType.CUSTOM_QUERY,
+        ]
+        assert result == expected
+
+    def test_get_analysis_types_for_template_business_focused(self) -> None:
+        """Test business focused template mapping to analysis types."""
+        query = ListAnalysesQuery(
+            user_id="test_user",
+            analysis_template=AnalysisTemplate.BUSINESS_FOCUSED,
+        )
+
+        result = query.get_analysis_types_for_template()
+
+        expected = [
+            AnalysisType.FILING_ANALYSIS,
+            AnalysisType.COMPREHENSIVE,
+            AnalysisType.CUSTOM_QUERY,
+        ]
+        assert result == expected
+
+    def test_get_analysis_types_for_template_no_template(self) -> None:
+        """Test that None is returned when no template is specified."""
+        query = ListAnalysesQuery(user_id="test_user")
+
+        result = query.get_analysis_types_for_template()
+
+        assert result is None
+
+    def test_has_template_filter_true(self) -> None:
+        """Test has_template_filter returns True when template is set."""
+        query = ListAnalysesQuery(
+            user_id="test_user",
+            analysis_template=AnalysisTemplate.COMPREHENSIVE,
+        )
+
+        assert query.has_template_filter is True
+
+    def test_has_template_filter_false(self) -> None:
+        """Test has_template_filter returns False when no template is set."""
+        query = ListAnalysesQuery(user_id="test_user")
+
+        assert query.has_template_filter is False
+
+    def test_template_mapping_consistency(self) -> None:
+        """Test that all templates map to valid analysis types."""
+        all_templates = [
+            AnalysisTemplate.COMPREHENSIVE,
+            AnalysisTemplate.FINANCIAL_FOCUSED,
+            AnalysisTemplate.RISK_FOCUSED,
+            AnalysisTemplate.BUSINESS_FOCUSED,
+        ]
+
+        for template in all_templates:
+            query = ListAnalysesQuery(
+                user_id="test_user",
+                analysis_template=template,
+            )
+
+            result = query.get_analysis_types_for_template()
+
+            # Should not be None or empty
+            assert result is not None
+            assert len(result) > 0
+
+            # All mapped types should be valid AnalysisType values
+            for analysis_type in result:
+                assert isinstance(analysis_type, AnalysisType)
+
+    def test_template_mapping_includes_expected_core_types(self) -> None:
+        """Test that all templates include the core analysis types relevant to their purpose."""
+        test_cases = [
+            (AnalysisTemplate.COMPREHENSIVE, "should include all main types"),
+            (
+                AnalysisTemplate.FINANCIAL_FOCUSED,
+                "should include financial-relevant types",
+            ),
+            (AnalysisTemplate.RISK_FOCUSED, "should include risk-relevant types"),
+            (
+                AnalysisTemplate.BUSINESS_FOCUSED,
+                "should include business-relevant types",
+            ),
+        ]
+
+        for template, description in test_cases:
+            query = ListAnalysesQuery(
+                user_id="test_user",
+                analysis_template=template,
+            )
+
+            result = query.get_analysis_types_for_template()
+            assert result is not None, f"Template {template.value} {description}"
+
+            # All templates should include FILING_ANALYSIS as it's the primary analysis type
+            assert (
+                AnalysisType.FILING_ANALYSIS in result
+            ), f"Template {template.value} should include FILING_ANALYSIS"
+
+            # All templates should include COMPREHENSIVE as it contains all sections
+            assert (
+                AnalysisType.COMPREHENSIVE in result
+            ), f"Template {template.value} should include COMPREHENSIVE"

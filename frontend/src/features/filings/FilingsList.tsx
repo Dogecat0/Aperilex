@@ -95,7 +95,7 @@ export function FilingsList(_props: FilingsListProps) {
     try {
       await analyzeFiling.mutateAsync({
         accessionNumber,
-        // No need to specify options since API defaults to COMPREHENSIVE
+        // No need to specify options since API defaults to comprehensive
       })
       // The mutation will handle cache invalidation and show success feedback
     } catch (error) {

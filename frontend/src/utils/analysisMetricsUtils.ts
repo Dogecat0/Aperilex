@@ -22,10 +22,10 @@ export function formatProcessingTime(seconds?: number | null): string {
  */
 export function getAnalysisTypeColor(type: string): string {
   const colors: Record<string, string> = {
-    COMPREHENSIVE: 'text-primary-600 bg-primary-50',
-    FINANCIAL_FOCUSED: 'text-success-600 bg-success-50',
-    RISK_FOCUSED: 'text-error-600 bg-error-50',
-    BUSINESS_FOCUSED: 'text-teal-600 bg-teal-50',
+    comprehensive: 'text-primary-600 bg-primary-50',
+    financial_focused: 'text-success-600 bg-success-50',
+    risk_focused: 'text-error-600 bg-error-50',
+    business_focused: 'text-teal-600 bg-teal-50',
   }
   return colors[type] || 'text-gray-600 bg-gray-50'
 }

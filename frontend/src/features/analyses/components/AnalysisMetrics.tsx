@@ -17,10 +17,10 @@ export function AnalysisMetrics({ analysis }: AnalysisMetricsProps) {
 
   const getAnalysisTypeColor = (type: string) => {
     const colors = {
-      COMPREHENSIVE: 'text-primary-600 bg-primary-50',
-      FINANCIAL_FOCUSED: 'text-success-600 bg-success-50',
-      RISK_FOCUSED: 'text-error-600 bg-error-50',
-      BUSINESS_FOCUSED: 'text-teal-600 bg-teal-50',
+      comprehensive: 'text-primary-600 bg-primary-50',
+      financial_focused: 'text-success-600 bg-success-50',
+      risk_focused: 'text-error-600 bg-error-50',
+      business_focused: 'text-teal-600 bg-teal-50',
     }
     return colors[type as keyof typeof colors] || 'text-gray-600 bg-gray-50'
   }
@@ -62,9 +62,9 @@ export function AnalysisMetrics({ analysis }: AnalysisMetricsProps) {
           <div className="flex items-center justify-between">
             <span className="text-sm font-medium text-gray-700">Analysis Type</span>
             <div
-              className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${getAnalysisTypeColor(analysis.analysis_type)}`}
+              className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${getAnalysisTypeColor(analysis.analysis_template)}`}
             >
-              {analysis.analysis_type
+              {analysis.analysis_template
                 .replace('_', ' ')
                 .toLowerCase()
                 .replace(/\b\w/g, (l) => l.toUpperCase())}

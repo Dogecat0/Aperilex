@@ -58,7 +58,7 @@ describe('useAnalysis hooks', () => {
         {
           analysis_id: '1',
           filing_id: 'filing1',
-          analysis_type: 'COMPREHENSIVE' as const,
+          analysis_template: 'comprehensive' as const,
           created_by: 'system',
           created_at: '2024-01-01T00:00:00Z',
           confidence_score: 0.95,
@@ -81,7 +81,14 @@ describe('useAnalysis hooks', () => {
     })
 
     it('should pass query parameters correctly', async () => {
-      const params = { page: 1, page_size: 10, ticker: 'AAPL' }
+      const params = {
+        page: 1,
+        page_size: 10,
+        company_cik: '320193',
+        created_from: '2024-01-01',
+        created_to: '2024-12-31',
+        min_confidence_score: 80,
+      }
       mockApi.listAnalyses.mockResolvedValue([])
 
       const { result } = renderHook(() => useAnalyses(params), { wrapper: createWrapper })
@@ -91,6 +98,33 @@ describe('useAnalysis hooks', () => {
       })
 
       expect(mockApi.listAnalyses).toHaveBeenCalledWith(params)
+    })
+
+    it('should pass analysis template parameters with correct lowercase values', async () => {
+      const testCases = [
+        { analysis_template: 'comprehensive' },
+        { analysis_template: 'financial_focused' },
+        { analysis_template: 'risk_focused' },
+        { analysis_template: 'business_focused' },
+      ]
+
+      for (const params of testCases) {
+        mockApi.listAnalyses.mockClear()
+        mockApi.listAnalyses.mockResolvedValue([])
+
+        const { result } = renderHook(() => useAnalyses(params), { wrapper: createWrapper })
+
+        await waitFor(() => {
+          expect(result.current.isSuccess).toBe(true)
+        })
+
+        expect(mockApi.listAnalyses).toHaveBeenCalledWith(params)
+
+        // Verify the template value is lowercase
+        const callArg = mockApi.listAnalyses.mock.calls[0][0]
+        expect(callArg.analysis_template).toBe(params.analysis_template)
+        expect(callArg.analysis_template).toBe(callArg.analysis_template?.toLowerCase())
+      }
     })
 
     it('should handle API errors gracefully', async () => {
@@ -104,6 +138,37 @@ describe('useAnalysis hooks', () => {
       })
 
       expect(result.current.error).toEqual(error)
+    })
+
+    it('should handle analysis template validation errors from API', async () => {
+      const templateError = new Error('422 Unprocessable Entity: Invalid analysis_template value')
+      mockApi.listAnalyses.mockRejectedValue(templateError)
+
+      const params = { analysis_template: 'invalid_template' as any }
+      const { result } = renderHook(() => useAnalyses(params), { wrapper: createWrapper })
+
+      await waitFor(() => {
+        expect(result.current.isError).toBe(true)
+      })
+
+      expect(result.current.error).toEqual(templateError)
+      expect(mockApi.listAnalyses).toHaveBeenCalledWith(params)
+    })
+
+    it('should handle backward compatibility errors gracefully', async () => {
+      const compatibilityError = new Error(
+        'Parameter analysis_type is deprecated, use analysis_template instead'
+      )
+      mockApi.listAnalyses.mockRejectedValue(compatibilityError)
+
+      const params = { analysis_template: 'comprehensive' as const }
+      const { result } = renderHook(() => useAnalyses(params), { wrapper: createWrapper })
+
+      await waitFor(() => {
+        expect(result.current.isError).toBe(true)
+      })
+
+      expect(result.current.error).toEqual(compatibilityError)
     })
 
     it('should show loading state initially', () => {
@@ -122,7 +187,7 @@ describe('useAnalysis hooks', () => {
       const mockAnalysis: AnalysisResponse = {
         analysis_id: analysisId,
         filing_id: 'filing1',
-        analysis_type: 'COMPREHENSIVE',
+        analysis_template: 'comprehensive',
         created_by: 'system',
         created_at: '2024-01-01T00:00:00Z',
         confidence_score: 0.95,
@@ -187,12 +252,12 @@ describe('useAnalysis hooks', () => {
       const mockTemplates: TemplatesResponse = {
         templates: [
           {
-            name: 'COMPREHENSIVE',
+            name: 'comprehensive',
             description: 'Complete analysis of all sections',
             sections: ['business', 'financial', 'risk'],
           },
           {
-            name: 'FINANCIAL_FOCUSED',
+            name: 'financial_focused',
             description: 'Focus on financial statements',
             sections: ['financial'],
           },
@@ -250,7 +315,7 @@ describe('useAnalysis hooks', () => {
 
     it('should start filing analysis and poll for completion', async () => {
       const accessionNumber = '0000320193-24-000001'
-      const request = { analysis_type: 'COMPREHENSIVE' as const }
+      const request = { analysis_template: 'comprehensive' as const }
 
       // Mock the initial task response
       const mockTask: TaskResponse = {
@@ -272,7 +337,7 @@ describe('useAnalysis hooks', () => {
           analysis: {
             analysis_id: 'analysis-123',
             filing_id: 'filing1',
-            analysis_type: 'COMPREHENSIVE',
+            analysis_template: 'comprehensive',
             created_by: 'system',
             created_at: '2024-01-01T00:00:00Z',
             confidence_score: 0.95,
@@ -335,7 +400,7 @@ describe('useAnalysis hooks', () => {
           analysis: {
             analysis_id: 'analysis-123',
             filing_id: 'filing1',
-            analysis_type: 'COMPREHENSIVE',
+            analysis_template: 'comprehensive',
             created_by: 'system',
             created_at: '2024-01-01T00:00:00Z',
             confidence_score: 0.95,
@@ -522,7 +587,7 @@ describe('useAnalysis hooks', () => {
           analysis: {
             analysis_id: 'analysis-123',
             filing_id: 'filing1',
-            analysis_type: 'COMPREHENSIVE',
+            analysis_template: 'comprehensive',
             created_by: 'system',
             created_at: '2024-01-01T00:00:00Z',
             confidence_score: 0.95,
@@ -551,6 +616,48 @@ describe('useAnalysis hooks', () => {
       expect(invalidateQueriesSpy).toHaveBeenCalledWith({
         queryKey: ['filing', accessionNumber, 'analysis'],
       })
+    })
+
+    it('should handle analysis template validation errors during filing analysis', async () => {
+      const accessionNumber = '0000320193-24-000001'
+      const templateError = new Error('Invalid analysis_template: unsupported_value')
+
+      mockFilingsApi.analyzeFiling.mockRejectedValue(templateError)
+
+      const { result } = renderHook(() => useAnalyzeFiling(), { wrapper: createWrapper })
+
+      result.current.mutate({
+        accessionNumber,
+        request: { analysis_template: 'invalid_template' as any },
+      })
+
+      await waitFor(() => {
+        expect(result.current.isError).toBe(true)
+      })
+
+      expect(result.current.error).toEqual(templateError)
+    })
+
+    it('should handle template parameter errors gracefully', async () => {
+      const accessionNumber = '0000320193-24-000001'
+      const parameterError = new Error(
+        '422 Validation Error: analysis_template must be one of: comprehensive, financial_focused, risk_focused, business_focused'
+      )
+
+      mockFilingsApi.analyzeFiling.mockRejectedValue(parameterError)
+
+      const { result } = renderHook(() => useAnalyzeFiling(), { wrapper: createWrapper })
+
+      result.current.mutate({
+        accessionNumber,
+        request: { analysis_template: 'comprehensive' },
+      })
+
+      await waitFor(() => {
+        expect(result.current.isError).toBe(true)
+      })
+
+      expect(result.current.error).toEqual(parameterError)
     })
   })
 })

@@ -130,7 +130,7 @@ export const CompanyHeader = React.forwardRef<HTMLDivElement, CompanyHeaderProps
                   <div className="space-y-1">
                     <div className="flex items-center space-x-2">
                       <div className="w-2 h-2 bg-primary rounded-full" />
-                      <span className="text-sm font-medium">{analysis.analysis_type}</span>
+                      <span className="text-sm font-medium">{analysis.analysis_template}</span>
                     </div>
                     {analysis.confidence_score !== undefined && (
                       <span className="text-xs text-muted-foreground">

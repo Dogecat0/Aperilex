@@ -94,9 +94,9 @@ export const filingsApi = {
     accessionNumber: string,
     request?: AnalyzeFilingRequest
   ): Promise<TaskResponse> => {
-    // Default to COMPREHENSIVE analysis if no request provided or no analysis_type specified
+    // Default to comprehensive analysis if no request provided or no analysis_template specified
     const defaultRequest: AnalyzeFilingRequest = {
-      analysis_type: 'COMPREHENSIVE',
+      analysis_template: 'comprehensive',
       ...request,
     }
 

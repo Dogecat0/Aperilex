@@ -16,7 +16,7 @@ vi.mock('./ConfidenceIndicator', () => ({
 }))
 
 // Mock data for different analysis types
-const baseAnalysis: Omit<AnalysisResponse, 'analysis_type'> = {
+const baseAnalysis: Omit<AnalysisResponse, 'analysis_template'> = {
   analysis_id: 'analysis-123',
   filing_id: 'filing-456',
   created_by: 'user@example.com',
@@ -42,12 +42,12 @@ const baseAnalysis: Omit<AnalysisResponse, 'analysis_type'> = {
 
 const comprehensiveAnalysis: AnalysisResponse = {
   ...baseAnalysis,
-  analysis_type: 'COMPREHENSIVE',
+  analysis_template: 'comprehensive',
 }
 
 const financialAnalysis: AnalysisResponse = {
   ...baseAnalysis,
-  analysis_type: 'FINANCIAL_FOCUSED',
+  analysis_template: 'financial_focused',
   analysis_id: 'analysis-456',
   sections_analyzed: 3,
   key_insights: ['Profit margins improved', 'Strong quarterly results'],
@@ -55,7 +55,7 @@ const financialAnalysis: AnalysisResponse = {
 
 const riskAnalysis: AnalysisResponse = {
   ...baseAnalysis,
-  analysis_type: 'RISK_FOCUSED',
+  analysis_template: 'risk_focused',
   analysis_id: 'analysis-789',
   confidence_score: 0.92,
   sections_analyzed: 2,
@@ -64,7 +64,7 @@ const riskAnalysis: AnalysisResponse = {
 
 const businessAnalysis: AnalysisResponse = {
   ...baseAnalysis,
-  analysis_type: 'BUSINESS_FOCUSED',
+  analysis_template: 'business_focused',
   analysis_id: 'analysis-012',
   confidence_score: 0.76,
   sections_analyzed: 4,
@@ -74,7 +74,7 @@ const businessAnalysis: AnalysisResponse = {
 // Analysis with minimal data
 const minimalAnalysis: AnalysisResponse = {
   ...baseAnalysis,
-  analysis_type: 'COMPREHENSIVE',
+  analysis_template: 'comprehensive',
   analysis_id: 'minimal-123',
   executive_summary: undefined,
   key_insights: undefined,
@@ -236,6 +236,88 @@ describe('AnalysisCard Component', () => {
         'font-medium',
         'border'
       )
+    })
+
+    it('correctly maps lowercase template values to display configurations', () => {
+      const templateMappingTests = [
+        {
+          analysis: { ...baseAnalysis, analysis_template: 'comprehensive' as const },
+          expectedLabel: 'Comprehensive',
+          expectedColor: 'bg-primary/10',
+        },
+        {
+          analysis: { ...baseAnalysis, analysis_template: 'financial_focused' as const },
+          expectedLabel: 'Financial',
+          expectedColor: 'bg-emerald-50',
+        },
+        {
+          analysis: { ...baseAnalysis, analysis_template: 'risk_focused' as const },
+          expectedLabel: 'Risk',
+          expectedColor: 'bg-red-50',
+        },
+        {
+          analysis: { ...baseAnalysis, analysis_template: 'business_focused' as const },
+          expectedLabel: 'Business',
+          expectedColor: 'bg-teal-50',
+        },
+      ]
+
+      templateMappingTests.forEach(({ analysis, expectedLabel, expectedColor }) => {
+        const { unmount } = render(
+          <TestWrapper>
+            <AnalysisCard analysis={analysis} />
+          </TestWrapper>
+        )
+
+        // Verify the correct label is displayed
+        expect(screen.getByText(expectedLabel)).toBeInTheDocument()
+
+        // Verify the correct styling is applied
+        const badge = screen.getByText(expectedLabel)
+        expect(badge).toHaveClass(expectedColor)
+
+        unmount()
+      })
+    })
+
+    it('handles template values consistently with new lowercase format', () => {
+      // Test that all new template values render without errors
+      const newTemplateValues = [
+        'comprehensive',
+        'financial_focused',
+        'risk_focused',
+        'business_focused',
+      ] as const
+
+      newTemplateValues.forEach((template) => {
+        const analysis = { ...baseAnalysis, analysis_template: template }
+
+        expect(() => {
+          const { unmount } = render(
+            <TestWrapper>
+              <AnalysisCard analysis={analysis} />
+            </TestWrapper>
+          )
+          unmount()
+        }).not.toThrow()
+      })
+    })
+
+    it('falls back to comprehensive styling for unknown template values', () => {
+      const analysisWithUnknownTemplate = {
+        ...baseAnalysis,
+        analysis_template: 'unknown_template' as any,
+      }
+
+      render(
+        <TestWrapper>
+          <AnalysisCard analysis={analysisWithUnknownTemplate} />
+        </TestWrapper>
+      )
+
+      // Should fall back to comprehensive styling
+      const badge = screen.getByText('Comprehensive')
+      expect(badge).toHaveClass('bg-primary/10', 'text-primary', 'border-primary/20')
     })
   })
 

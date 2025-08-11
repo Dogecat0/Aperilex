@@ -31,7 +31,7 @@ const mockCompany: CompanyResponse = {
   recent_analyses: [
     {
       analysis_id: '1',
-      analysis_type: 'COMPREHENSIVE',
+      analysis_template: 'comprehensive',
       created_at: '2024-01-16T10:00:00Z',
       confidence_score: 0.95,
     },
@@ -213,7 +213,7 @@ const mockComprehensiveAnalysis: ComprehensiveAnalysisResponse = {
 const mockAnalysis: AnalysisResponse = {
   analysis_id: '1',
   filing_id: '1',
-  analysis_type: 'COMPREHENSIVE',
+  analysis_template: 'comprehensive',
   created_by: 'test-user',
   created_at: '2024-01-16T10:00:00Z',
   confidence_score: 0.95,
@@ -251,7 +251,7 @@ const mockAnalysis: AnalysisResponse = {
 const mockFinancialAnalysis: AnalysisResponse = {
   analysis_id: '2',
   filing_id: '2',
-  analysis_type: 'FINANCIAL_FOCUSED',
+  analysis_template: 'financial_focused',
   created_by: 'test-user-2',
   created_at: '2024-01-14T14:30:00Z',
   confidence_score: 0.88,
@@ -584,14 +584,14 @@ export const handlers = [
     return HttpResponse.json({
       ...mockAnalysis,
       filing_id: `${params.ticker}-${params.formType}`,
-      analysis_type: 'COMPREHENSIVE' as const,
+      analysis_template: 'comprehensive' as const,
     })
   }),
   http.post('http://localhost:8000/api/filings/:ticker/:formType/analyze', ({ params }) => {
     return HttpResponse.json({
       ...mockAnalysis,
       filing_id: `${params.ticker}-${params.formType}`,
-      analysis_type: 'COMPREHENSIVE' as const,
+      analysis_template: 'comprehensive' as const,
     })
   }),
 
@@ -614,7 +614,7 @@ export const handlers = [
     const page = parseInt(url.searchParams.get('page') || '1')
     const pageSize = parseInt(url.searchParams.get('page_size') || '20')
     const ticker = url.searchParams.get('ticker')
-    const analysisType = url.searchParams.get('analysis_type')
+    const analysisType = url.searchParams.get('analysis_template')
 
     // Create a list of analyses for testing
     const allAnalyses = [mockAnalysis, mockFinancialAnalysis]
@@ -626,7 +626,7 @@ export const handlers = [
       filteredAnalyses = allAnalyses.filter((a) => a.filing_id.includes(ticker.toLowerCase()))
     }
     if (analysisType) {
-      filteredAnalyses = filteredAnalyses.filter((a) => a.analysis_type === analysisType)
+      filteredAnalyses = filteredAnalyses.filter((a) => a.analysis_template === analysisType)
     }
 
     const paginatedResponse: PaginatedResponse<AnalysisResponse> = {
@@ -650,7 +650,7 @@ export const handlers = [
     const page = parseInt(url.searchParams.get('page') || '1')
     const pageSize = parseInt(url.searchParams.get('page_size') || '20')
     const ticker = url.searchParams.get('ticker')
-    const analysisType = url.searchParams.get('analysis_type')
+    const analysisType = url.searchParams.get('analysis_template')
 
     // Create a list of analyses for testing
     const allAnalyses = [mockAnalysis, mockFinancialAnalysis]
@@ -662,7 +662,7 @@ export const handlers = [
       filteredAnalyses = allAnalyses.filter((a) => a.filing_id.includes(ticker.toLowerCase()))
     }
     if (analysisType) {
-      filteredAnalyses = filteredAnalyses.filter((a) => a.analysis_type === analysisType)
+      filteredAnalyses = filteredAnalyses.filter((a) => a.analysis_template === analysisType)
     }
 
     const paginatedResponse: PaginatedResponse<AnalysisResponse> = {

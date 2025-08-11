@@ -93,7 +93,7 @@ export const CompanyCard = React.forwardRef<HTMLDivElement, CompanyCardProps>(
                 >
                   <div className="flex items-center space-x-2">
                     <div className="w-2 h-2 bg-primary rounded-full" />
-                    <span className="text-muted-foreground">{analysis.analysis_type}</span>
+                    <span className="text-muted-foreground">{analysis.analysis_template}</span>
                   </div>
                   <span className="text-xs text-muted-foreground">
                     {new Date(analysis.created_at).toLocaleDateString()}

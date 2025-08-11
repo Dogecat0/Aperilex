@@ -9,6 +9,7 @@ from fastapi import APIRouter, Depends, HTTPException, Path, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.application.factory import ServiceFactory
+from src.application.schemas.commands.analyze_filing import AnalysisTemplate
 from src.application.schemas.queries.get_analysis import GetAnalysisQuery
 from src.application.schemas.queries.get_templates import GetTemplatesQuery
 from src.application.schemas.queries.list_analyses import ListAnalysesQuery
@@ -46,8 +47,10 @@ AnalysisIdPath = Annotated[UUID, Path(description="Analysis ID")]
     description="""
     List analyses with optional filtering and pagination.
 
-    Supports filtering by company CIK, analysis type, date range, and confidence score.
+    Supports filtering by company CIK, analysis type, analysis template, date range, and confidence score.
     Results are ordered by creation date (newest first) and support pagination.
+
+    Note: analysis_template and analysis_type filters can be used independently or together.
     """,
 )
 async def list_analyses(
@@ -59,6 +62,12 @@ async def list_analyses(
     ] = None,
     analysis_type: Annotated[
         AnalysisType | None, Query(description="Filter by analysis type")
+    ] = None,
+    analysis_template: Annotated[
+        AnalysisTemplate | None,
+        Query(
+            description="Filter by analysis template (comprehensive, financial_focused, risk_focused, business_focused)"
+        ),
     ] = None,
     min_confidence_score: Annotated[
         float | None,
@@ -83,7 +92,10 @@ async def list_analyses(
         factory: Service factory for dependency injection
         company_cik: Optional CIK to filter by specific company
         analysis_type: Optional analysis type filter
-        min_confidence: Optional minimum confidence score filter
+        analysis_template: Optional analysis template filter
+        min_confidence_score: Optional minimum confidence score filter
+        created_from: Optional start date filter
+        created_to: Optional end date filter
         page: Page number for pagination (1-based)
         page_size: Number of results per page
 
@@ -99,6 +111,7 @@ async def list_analyses(
         extra={
             "company_cik": company_cik,
             "analysis_type": analysis_type.value if analysis_type else None,
+            "analysis_template": analysis_template.value if analysis_template else None,
             "min_confidence_score": min_confidence_score,
             "page": page,
             "page_size": page_size,
@@ -124,10 +137,13 @@ async def list_analyses(
         # Convert single analysis_type to list for schema compatibility
         analysis_types = [analysis_type] if analysis_type else None
 
+        # Remove the hardcoded template mapping logic - let the query schema handle this
+
         query = ListAnalysesQuery(
             user_id=None,  # TODO: Extract from auth context
             company_cik=cik_obj,
             analysis_types=analysis_types,
+            analysis_template=analysis_template,
             created_from=created_from,
             created_to=created_to,
             min_confidence_score=min_confidence_score,
@@ -165,6 +181,9 @@ async def list_analyses(
             extra={
                 "company_cik": company_cik,
                 "analysis_type": analysis_type.value if analysis_type else None,
+                "analysis_template": (
+                    analysis_template.value if analysis_template else None
+                ),
             },
             exc_info=True,
         )

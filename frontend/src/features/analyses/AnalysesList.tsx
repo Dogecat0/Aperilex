@@ -1,48 +1,231 @@
-import { useState } from 'react'
-import { Search, Filter, ChevronDown, TrendingUp, Calendar } from 'lucide-react'
+import { useState, useCallback, useEffect, useRef, useMemo } from 'react'
+import {
+  Search,
+  Filter,
+  ChevronDown,
+  TrendingUp,
+  Calendar,
+  AlertCircle,
+  X,
+  RefreshCcw,
+} from 'lucide-react'
 import { useAnalyses } from '@/hooks/useAnalysis'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { AnalysisCard } from './components/AnalysisCard'
-import type { AnalysisType, ListAnalysesParams } from '@/api/types'
+import { companyService } from '@/services/CompanyService'
+import type { AnalysisTemplate, ListAnalysesParams } from '@/api/types'
 
 export function AnalysesList() {
   const [searchTerm, setSearchTerm] = useState('')
+  const [confidenceInput, setConfidenceInput] = useState('')
   const [filters, setFilters] = useState<ListAnalysesParams>({
     page: 1,
     page_size: 20,
   })
   const [showFilters, setShowFilters] = useState(false)
+  const [isLookingUpCompany, setIsLookingUpCompany] = useState(false)
+  const [searchError, setSearchError] = useState<string | null>(null)
+  const [dateValidationError, setDateValidationError] = useState<string | null>(null)
+  const [isApplyingFilters, setIsApplyingFilters] = useState(false)
+  const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const confidenceTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const createdFromInputRef = useRef<HTMLInputElement>(null)
+  const createdToInputRef = useRef<HTMLInputElement>(null)
 
-  const { data, isLoading, error } = useAnalyses(filters)
+  const { data, isLoading, error, isFetching } = useAnalyses(filters)
 
-  const handleSearch = (term: string) => {
-    setSearchTerm(term)
+  // Determine if we're currently applying filters (initial load vs filter change)
+  const isFiltering = isApplyingFilters || (isFetching && !isLoading)
+
+  // Date validation logic
+  const dateValidation = useMemo(() => {
+    if (!filters.created_from || !filters.created_to) {
+      return { isValid: true, error: null }
+    }
+
+    const fromDate = new Date(filters.created_from)
+    const toDate = new Date(filters.created_to)
+
+    if (fromDate > toDate) {
+      return {
+        isValid: false,
+        error: 'Start date must be before or equal to end date',
+      }
+    }
+
+    return { isValid: true, error: null }
+  }, [filters.created_from, filters.created_to])
+
+  // Update date validation error when dates change
+  useEffect(() => {
+    setDateValidationError(dateValidation.error)
+  }, [dateValidation.error])
+
+  // Perform the actual search logic
+  const performSearch = useCallback(async (term: string) => {
+    setSearchError(null)
+    setIsApplyingFilters(true)
+
+    if (term.length === 0) {
+      setFilters((prev) => ({
+        ...prev,
+        page: 1,
+        company_cik: undefined,
+      }))
+      setIsApplyingFilters(false)
+      return
+    }
+
+    const normalizedTerm = term.trim().toUpperCase()
+
+    // Check if input is already a CIK (all digits, up to 10 characters)
+    const isCIK = /^\d{1,10}$/.test(normalizedTerm)
+
+    if (isCIK) {
+      // Use as CIK directly
+      setFilters((prev) => ({
+        ...prev,
+        page: 1,
+        company_cik: normalizedTerm,
+      }))
+      setIsApplyingFilters(false)
+    } else {
+      // Assume it's a ticker, try to convert to CIK
+      setIsLookingUpCompany(true)
+      try {
+        const company = await companyService.getCompany(normalizedTerm)
+        setFilters((prev) => ({
+          ...prev,
+          page: 1,
+          company_cik: company.cik,
+        }))
+      } catch (error) {
+        console.error('Company lookup failed:', error)
+        setSearchError(
+          `Company "${normalizedTerm}" not found. Please check the ticker symbol and try again.`
+        )
+        setFilters((prev) => ({
+          ...prev,
+          page: 1,
+          company_cik: undefined,
+        }))
+      } finally {
+        setIsLookingUpCompany(false)
+        setIsApplyingFilters(false)
+      }
+    }
+  }, [])
+
+  // Handle search input with debouncing
+  const handleSearchInput = useCallback(
+    (term: string) => {
+      setSearchTerm(term)
+
+      // Clear existing timeout
+      if (searchTimeoutRef.current) {
+        clearTimeout(searchTimeoutRef.current)
+      }
+
+      // Set new timeout for debounced search
+      searchTimeoutRef.current = setTimeout(() => {
+        performSearch(term)
+      }, 500) // Wait 500ms after user stops typing
+    },
+    [performSearch]
+  )
+
+  // Handle confidence input with debouncing
+  const handleConfidenceInput = useCallback((value: string) => {
+    // Immediately update the input display value
+    setConfidenceInput(value)
+
+    // Clear existing timeout
+    if (confidenceTimeoutRef.current) {
+      clearTimeout(confidenceTimeoutRef.current)
+    }
+
+    // Set new timeout for debounced confidence filter
+    confidenceTimeoutRef.current = setTimeout(() => {
+      handleFilterChange(
+        'min_confidence_score',
+        value ? Number(value) : undefined
+      )
+    }, 500) // Wait 500ms after user stops typing
+  }, [])
+
+  // Initialize confidence input from filter value
+  useEffect(() => {
+    const currentConfidence = filters.min_confidence_score
+    if (currentConfidence !== undefined) {
+      setConfidenceInput(Math.round(currentConfidence * 100).toString())
+    } else {
+      setConfidenceInput('')
+    }
+  }, [filters.min_confidence_score])
+
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (searchTimeoutRef.current) {
+        clearTimeout(searchTimeoutRef.current)
+      }
+      if (confidenceTimeoutRef.current) {
+        clearTimeout(confidenceTimeoutRef.current)
+      }
+    }
+  }, [])
+
+  const handleFilterChange = (
+    key: keyof ListAnalysesParams,
+    value: string | number | undefined
+  ) => {
+    setIsApplyingFilters(true)
+
+    // Convert min_confidence_score from 0-100 scale to 0.0-1.0 scale for backend
+    const processedValue =
+      key === 'min_confidence_score' && typeof value === 'number'
+        ? value / 100 // Convert from 0-100 to 0.0-1.0
+        : value
+
     setFilters((prev) => ({
       ...prev,
       page: 1,
-      // Note: The API doesn't have a search parameter, but we could filter by ticker
-      ticker: term.length > 0 ? term.toUpperCase() : undefined,
+      [key]: processedValue,
     }))
+
+    // Reset applying filters state after a brief delay to show feedback
+    setTimeout(() => setIsApplyingFilters(false), 200)
   }
 
-  const handleFilterChange = (key: keyof ListAnalysesParams, value: string | undefined) => {
-    setFilters((prev) => ({
-      ...prev,
-      page: 1,
-      [key]: value,
-    }))
-  }
+  const retryCompanySearch = useCallback(() => {
+    if (searchTerm) {
+      setSearchError(null)
+      performSearch(searchTerm)
+    }
+  }, [searchTerm, performSearch])
+
+  // Check if any filters are active
+  const hasActiveFilters = useMemo(() => {
+    return Boolean(
+      filters.company_cik ||
+      filters.analysis_template ||
+      filters.created_from ||
+      filters.created_to ||
+      filters.min_confidence_score
+    )
+  }, [filters])
 
   const handlePageChange = (page: number) => {
     setFilters((prev) => ({ ...prev, page }))
   }
 
-  const analysisTypes: { value: AnalysisType; label: string }[] = [
-    { value: 'COMPREHENSIVE', label: 'Comprehensive' },
-    { value: 'FINANCIAL_FOCUSED', label: 'Financial Focused' },
-    { value: 'RISK_FOCUSED', label: 'Risk Focused' },
-    { value: 'BUSINESS_FOCUSED', label: 'Business Focused' },
+  const analysisTypes: { value: AnalysisTemplate; label: string }[] = [
+    { value: 'comprehensive', label: 'Comprehensive Analysis' },
+    // Temporarily commented out due to current focus on comprehensive analysis.
+    // { value: 'financial_focused', label: 'Financial Focused' },
+    // { value: 'risk_focused', label: 'Risk Focused' },
+    // { value: 'business_focused', label: 'Business Focused' },
   ]
 
   if (error) {
@@ -80,11 +263,17 @@ export function AnalysesList() {
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
             <Input
-              placeholder="Search by company ticker (e.g., AAPL, MSFT)..."
+              placeholder="Search by ticker (AAPL) or CIK (320193)..."
               value={searchTerm}
-              onChange={(e) => handleSearch(e.target.value)}
-              className="pl-10"
+              onChange={(e) => handleSearchInput(e.target.value)}
+              className={`pl-10 ${isLookingUpCompany ? 'opacity-75' : ''}`}
+              disabled={isLookingUpCompany}
             />
+            {isLookingUpCompany && (
+              <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                <div className="animate-spin h-4 w-4 border-2 border-muted-foreground border-t-transparent rounded-full" />
+              </div>
+            )}
           </div>
           <Button
             variant="outline"
@@ -99,18 +288,83 @@ export function AnalysesList() {
           </Button>
         </div>
 
+        {/* Search Error */}
+        {searchError && (
+          <div className="mt-2 p-3 bg-error-50 border border-error-200 rounded-lg">
+            <div className="flex items-center gap-2 mb-2">
+              <AlertCircle className="h-4 w-4 text-error-600 flex-shrink-0" />
+              <p className="text-error-700 text-sm flex-1">{searchError}</p>
+            </div>
+            <div className="flex gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={retryCompanySearch}
+                disabled={isLookingUpCompany}
+                className="text-xs"
+              >
+                {isLookingUpCompany ? (
+                  <>
+                    <div className="animate-spin h-3 w-3 border border-current border-t-transparent rounded-full mr-1" />
+                    Retrying...
+                  </>
+                ) : (
+                  <>
+                    <RefreshCcw className="h-3 w-3 mr-1" />
+                    Retry
+                  </>
+                )}
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => {
+                  setSearchError(null)
+                  setSearchTerm('')
+                  handleFilterChange('company_cik', undefined)
+                }}
+                className="text-xs"
+              >
+                <X className="h-3 w-3 mr-1" />
+                Clear
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {/* Date Validation Error */}
+        {dateValidationError && (
+          <div className="mt-2 p-3 bg-error-50 border border-error-200 rounded-lg flex items-center gap-2">
+            <AlertCircle className="h-4 w-4 text-error-600 flex-shrink-0" />
+            <p className="text-error-700 text-sm">{dateValidationError}</p>
+          </div>
+        )}
+
+        {/* Filter Loading Indicator */}
+        {isFiltering && (
+          <div className="mt-2 flex items-center gap-2 text-sm text-muted-foreground">
+            <div className="animate-spin h-4 w-4 border-2 border-muted-foreground border-t-transparent rounded-full" />
+            <span>Applying filters...</span>
+          </div>
+        )}
+
         {/* Expandable Filters */}
         {showFilters && (
-          <div className="mt-4 p-4 bg-muted/30 rounded-lg border border-input">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div
+            className={`mt-4 p-4 bg-muted/30 rounded-lg border border-input ${isFiltering ? 'opacity-75' : ''}`}
+          >
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
               <div>
                 <label className="block text-sm font-medium text-foreground mb-2">
                   Analysis Type
                 </label>
                 <select
-                  value={filters.analysis_type || ''}
-                  onChange={(e) => handleFilterChange('analysis_type', e.target.value || undefined)}
-                  className="w-full px-3 py-2 border border-input rounded-md bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                  value={filters.analysis_template || ''}
+                  onChange={(e) =>
+                    handleFilterChange('analysis_template', e.target.value || undefined)
+                  }
+                  disabled={isFiltering}
+                  className="w-full px-3 py-2 border border-input rounded-md bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <option value="">All Types</option>
                   {analysisTypes.map((type) => (
@@ -121,41 +375,122 @@ export function AnalysesList() {
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium text-foreground mb-2">Start Date</label>
+                <label className="block text-sm font-medium text-foreground mb-2">
+                  Created From
+                </label>
                 <div className="relative">
-                  <Calendar className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+                  <Calendar
+                    className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground cursor-pointer hover:text-foreground transition-colors"
+                    onClick={() => {
+                      if (createdFromInputRef.current && createdFromInputRef.current.showPicker) {
+                        createdFromInputRef.current.showPicker()
+                      } else if (createdFromInputRef.current) {
+                        createdFromInputRef.current.focus()
+                        createdFromInputRef.current.click()
+                      }
+                    }}
+                  />
                   <Input
+                    ref={createdFromInputRef}
                     type="date"
-                    value={filters.start_date || ''}
-                    onChange={(e) => handleFilterChange('start_date', e.target.value || undefined)}
-                    className="pr-10"
+                    value={filters.created_from || ''}
+                    onChange={(e) =>
+                      handleFilterChange('created_from', e.target.value || undefined)
+                    }
+                    disabled={isFiltering}
+                    className={`pr-10 date-input-hide-native-calendar ${dateValidationError ? 'border-error-300 focus:border-error-500 focus:ring-error-200' : ''}`}
                   />
                 </div>
               </div>
               <div>
-                <label className="block text-sm font-medium text-foreground mb-2">End Date</label>
+                <label className="block text-sm font-medium text-foreground mb-2">Created To</label>
                 <div className="relative">
-                  <Calendar className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+                  <Calendar
+                    className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground cursor-pointer hover:text-foreground transition-colors"
+                    onClick={() => {
+                      if (createdToInputRef.current && createdToInputRef.current.showPicker) {
+                        createdToInputRef.current.showPicker()
+                      } else if (createdToInputRef.current) {
+                        createdToInputRef.current.focus()
+                        createdToInputRef.current.click()
+                      }
+                    }}
+                  />
                   <Input
+                    ref={createdToInputRef}
                     type="date"
-                    value={filters.end_date || ''}
-                    onChange={(e) => handleFilterChange('end_date', e.target.value || undefined)}
-                    className="pr-10"
+                    value={filters.created_to || ''}
+                    onChange={(e) => handleFilterChange('created_to', e.target.value || undefined)}
+                    disabled={isFiltering}
+                    className={`pr-10 date-input-hide-native-calendar ${dateValidationError ? 'border-error-300 focus:border-error-500 focus:ring-error-200' : ''}`}
                   />
                 </div>
               </div>
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-2">
+                  Min Confidence
+                </label>
+                <Input
+                  type="number"
+                  min="0"
+                  max="100"
+                  step="5"
+                  placeholder="0-100"
+                  value={confidenceInput}
+                  onChange={(e) => handleConfidenceInput(e.target.value)}
+                  disabled={isFiltering}
+                  className=""
+                />
+              </div>
             </div>
-            <div className="mt-4 flex gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  setFilters({ page: 1, page_size: 20 })
-                  setSearchTerm('')
-                }}
-              >
-                Clear Filters
-              </Button>
+            <div className="mt-4 flex justify-between items-center">
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    // Clear any pending search timeout
+                    if (searchTimeoutRef.current) {
+                      clearTimeout(searchTimeoutRef.current)
+                      searchTimeoutRef.current = null
+                    }
+                    // Clear any pending confidence timeout
+                    if (confidenceTimeoutRef.current) {
+                      clearTimeout(confidenceTimeoutRef.current)
+                      confidenceTimeoutRef.current = null
+                    }
+                    setIsApplyingFilters(true)
+                    setFilters({ page: 1, page_size: 20 })
+                    setSearchTerm('')
+                    setConfidenceInput('')
+                    setSearchError(null)
+                    setDateValidationError(null)
+                    setTimeout(() => setIsApplyingFilters(false), 200)
+                  }}
+                  disabled={isFiltering || !hasActiveFilters}
+                >
+                  {isFiltering ? (
+                    <div className="animate-spin h-3 w-3 border border-current border-t-transparent rounded-full mr-1" />
+                  ) : (
+                    <X className="h-3 w-3 mr-1" />
+                  )}
+                  Clear Filters
+                </Button>
+              </div>
+
+              {hasActiveFilters && (
+                <div className="text-xs text-muted-foreground">
+                  {
+                    Object.keys(filters).filter(
+                      (key) =>
+                        key !== 'page' &&
+                        key !== 'page_size' &&
+                        filters[key as keyof ListAnalysesParams]
+                    ).length
+                  }{' '}
+                  filter(s) active
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -194,10 +529,47 @@ export function AnalysesList() {
               <div className="bg-muted/50 rounded-full p-3 w-16 h-16 mx-auto mb-4 flex items-center justify-center">
                 <TrendingUp className="h-8 w-8 text-muted-foreground" />
               </div>
-              <h3 className="text-lg font-medium text-foreground mb-2">No analyses found</h3>
-              <p className="text-muted-foreground mb-4">
-                Try adjusting your search criteria or filters to find more analyses.
+              <h3 className="text-lg font-medium text-foreground mb-2">
+                {hasActiveFilters ? 'No analyses match your filters' : 'No analyses found'}
+              </h3>
+              <p className="text-muted-foreground mb-4 max-w-md mx-auto">
+                {hasActiveFilters ? (
+                  <>Try adjusting your search criteria or clearing filters to see more results.</>
+                ) : (
+                  <>
+                    No financial analyses are available yet. Check back later or browse companies to
+                    create new analyses.
+                  </>
+                )}
               </p>
+              {hasActiveFilters && (
+                <div className="flex gap-2 justify-center">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      if (searchTimeoutRef.current) {
+                        clearTimeout(searchTimeoutRef.current)
+                        searchTimeoutRef.current = null
+                      }
+                      if (confidenceTimeoutRef.current) {
+                        clearTimeout(confidenceTimeoutRef.current)
+                        confidenceTimeoutRef.current = null
+                      }
+                      setIsApplyingFilters(true)
+                      setFilters({ page: 1, page_size: 20 })
+                      setSearchTerm('')
+                      setConfidenceInput('')
+                      setSearchError(null)
+                      setDateValidationError(null)
+                      setTimeout(() => setIsApplyingFilters(false), 200)
+                    }}
+                  >
+                    <X className="h-4 w-4 mr-1" />
+                    Clear All Filters
+                  </Button>
+                </div>
+              )}
             </div>
           )}
 

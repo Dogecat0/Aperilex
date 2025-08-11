@@ -47,7 +47,7 @@ describe('FilingDetails', () => {
   const mockAnalysis = {
     analysis_id: '1',
     filing_id: '1',
-    analysis_type: 'COMPREHENSIVE' as const,
+    analysis_template: 'comprehensive' as const,
     created_by: 'test-user',
     created_at: '2024-01-16T10:00:00Z',
     confidence_score: 0.95,

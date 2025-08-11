@@ -41,13 +41,13 @@ const mockCompany: CompanyResponse = {
   recent_analyses: [
     {
       analysis_id: '1',
-      analysis_type: 'COMPREHENSIVE',
+      analysis_template: 'comprehensive',
       created_at: '2024-01-16T10:00:00Z',
       confidence_score: 0.95,
     },
     {
       analysis_id: '2',
-      analysis_type: 'FINANCIAL_FOCUSED',
+      analysis_template: 'financial_focused',
       created_at: '2024-01-15T10:00:00Z',
       confidence_score: 0.88,
     },
@@ -297,8 +297,8 @@ describe('CompanyHeader', () => {
     it('shows individual analysis cards', () => {
       render(<CompanyHeader company={mockCompany} />)
 
-      expect(screen.getByText('COMPREHENSIVE')).toBeInTheDocument()
-      expect(screen.getByText('FINANCIAL_FOCUSED')).toBeInTheDocument()
+      expect(screen.getByText('comprehensive')).toBeInTheDocument()
+      expect(screen.getByText('financial_focused')).toBeInTheDocument()
     })
 
     it('displays confidence scores when available', () => {
@@ -323,13 +323,13 @@ describe('CompanyHeader', () => {
           ...mockCompany.recent_analyses!,
           {
             analysis_id: '3',
-            analysis_type: 'RISK_FOCUSED',
+            analysis_template: 'risk_focused',
             created_at: '2024-01-14T10:00:00Z',
             confidence_score: 0.92,
           },
           {
             analysis_id: '4',
-            analysis_type: 'BUSINESS_FOCUSED',
+            analysis_template: 'business_focused',
             created_at: '2024-01-13T10:00:00Z',
             confidence_score: 0.85,
           },
@@ -338,10 +338,10 @@ describe('CompanyHeader', () => {
 
       render(<CompanyHeader company={companyManyAnalyses} />)
 
-      expect(screen.getByText('COMPREHENSIVE')).toBeInTheDocument()
-      expect(screen.getByText('FINANCIAL_FOCUSED')).toBeInTheDocument()
-      expect(screen.getByText('RISK_FOCUSED')).toBeInTheDocument()
-      expect(screen.queryByText('BUSINESS_FOCUSED')).not.toBeInTheDocument()
+      expect(screen.getByText('comprehensive')).toBeInTheDocument()
+      expect(screen.getByText('financial_focused')).toBeInTheDocument()
+      expect(screen.getByText('risk_focused')).toBeInTheDocument()
+      expect(screen.queryByText('business_focused')).not.toBeInTheDocument()
     })
 
     it('uses correct singular/plural for analyses count', () => {
@@ -525,7 +525,7 @@ describe('CompanyHeader', () => {
         recent_analyses: [
           {
             analysis_id: '1',
-            analysis_type: 'COMPREHENSIVE',
+            analysis_template: 'comprehensive',
             created_at: '2024-01-16T10:00:00Z',
             confidence_score: undefined,
           },
@@ -534,7 +534,7 @@ describe('CompanyHeader', () => {
 
       render(<CompanyHeader company={companyNoConfidence} />)
 
-      expect(screen.getByText('COMPREHENSIVE')).toBeInTheDocument()
+      expect(screen.getByText('comprehensive')).toBeInTheDocument()
       expect(screen.queryByText(/Confidence:/)).not.toBeInTheDocument()
     })
 

@@ -41,7 +41,7 @@ export interface CompanyResponse {
   business_address: CompanyAddress | null
   recent_analyses?: Array<{
     analysis_id: string
-    analysis_type: AnalysisType
+    analysis_template: AnalysisTemplate
     created_at: string
     confidence_score?: number
   }>
@@ -64,11 +64,11 @@ export interface FilingResponse {
 }
 
 // Analysis Types
-export type AnalysisType =
-  | 'COMPREHENSIVE'
-  | 'FINANCIAL_FOCUSED'
-  | 'RISK_FOCUSED'
-  | 'BUSINESS_FOCUSED'
+export type AnalysisTemplate =
+  | 'comprehensive'
+  | 'financial_focused'
+  | 'risk_focused'
+  | 'business_focused'
 
 // Analysis Result Types
 export interface AnalysisSectionResult {
@@ -88,7 +88,7 @@ export interface AnalysisFullResults {
 export interface AnalysisResponse {
   analysis_id: string
   filing_id: string
-  analysis_type: AnalysisType
+  analysis_template: AnalysisTemplate
   created_by: string | null
   created_at: string
   confidence_score: number | null
@@ -149,19 +149,19 @@ export interface AnalysisProgress {
 }
 
 // Template Types
-export interface AnalysisTemplate {
-  name: AnalysisType
+export interface AnalysisTemplateConfig {
+  name: AnalysisTemplate
   description: string
   sections: string[]
 }
 
 export interface TemplatesResponse {
-  templates: AnalysisTemplate[]
+  templates: AnalysisTemplateConfig[]
 }
 
 // Request Types
 export interface AnalyzeFilingRequest {
-  analysis_type?: AnalysisType
+  analysis_template?: AnalysisTemplate
   sections?: string[]
   force_reanalysis?: boolean
 }
@@ -169,10 +169,11 @@ export interface AnalyzeFilingRequest {
 export interface ListAnalysesParams {
   page?: number
   page_size?: number
-  ticker?: string
-  analysis_type?: AnalysisType
-  start_date?: string
-  end_date?: string
+  company_cik?: string
+  analysis_template?: AnalysisTemplate
+  created_from?: string
+  created_to?: string
+  min_confidence_score?: number
 }
 
 // Health Types

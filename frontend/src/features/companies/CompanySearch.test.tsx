@@ -102,7 +102,7 @@ const mockCompany: CompanyResponse = {
   recent_analyses: [
     {
       analysis_id: '1',
-      analysis_type: 'COMPREHENSIVE',
+      analysis_template: 'comprehensive',
       created_at: '2024-01-16T10:00:00Z',
       confidence_score: 0.95,
     },

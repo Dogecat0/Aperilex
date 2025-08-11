@@ -252,6 +252,130 @@ describe('FilingSearchForm', () => {
       expect(screen.getByLabelText('To Date')).toBeInTheDocument()
     })
 
+    it('renders calendar icons for date inputs', () => {
+      render(<FilingSearchForm onSearch={mockOnSearch} />)
+
+      const filtersButton = screen.getByRole('button', { name: /Filters/ })
+      fireEvent.click(filtersButton)
+
+      // Check that calendar icons are rendered
+      const calendarIcons = document.querySelectorAll('svg')
+      const clickableCalendarIcons = Array.from(calendarIcons).filter(
+        (svg) =>
+          svg.className.baseVal.includes('cursor-pointer') &&
+          svg.className.baseVal.includes('lucide-calendar')
+      )
+      expect(clickableCalendarIcons.length).toBe(2) // 2 clickable calendar icons
+
+      // Check that date inputs have the correct CSS class
+      const startDateInput = screen.getByLabelText('From Date')
+      const endDateInput = screen.getByLabelText('To Date')
+
+      expect(startDateInput).toHaveClass('date-input-hide-native-calendar')
+      expect(endDateInput).toHaveClass('date-input-hide-native-calendar')
+    })
+
+    it('calendar icons are clickable and trigger date picker', () => {
+      render(<FilingSearchForm onSearch={mockOnSearch} />)
+
+      const filtersButton = screen.getByRole('button', { name: /Filters/ })
+      fireEvent.click(filtersButton)
+
+      const startDateInput = screen.getByLabelText('From Date') as HTMLInputElement
+      const endDateInput = screen.getByLabelText('To Date') as HTMLInputElement
+
+      // Mock the showPicker method
+      const mockShowPicker = vi.fn()
+      startDateInput.showPicker = mockShowPicker
+      endDateInput.showPicker = mockShowPicker
+
+      // Find and click the calendar icons (they should be the clickable ones in the relative containers)
+      const allSvgs = document.querySelectorAll('svg')
+      const calendarClickableIcons = Array.from(allSvgs).filter(
+        (svg) =>
+          svg.className.baseVal.includes('cursor-pointer') &&
+          svg.className.baseVal.includes('lucide-calendar')
+      )
+      expect(calendarClickableIcons.length).toBe(2)
+
+      // Click first calendar icon (start date)
+      fireEvent.click(calendarClickableIcons[0])
+      expect(mockShowPicker).toHaveBeenCalled()
+
+      // Reset mock
+      mockShowPicker.mockClear()
+
+      // Click second calendar icon (end date)
+      fireEvent.click(calendarClickableIcons[1])
+      expect(mockShowPicker).toHaveBeenCalled()
+    })
+
+    it('calendar icons fallback to focus and click when showPicker is not available', () => {
+      render(<FilingSearchForm onSearch={mockOnSearch} />)
+
+      const filtersButton = screen.getByRole('button', { name: /Filters/ })
+      fireEvent.click(filtersButton)
+
+      const startDateInput = screen.getByLabelText('From Date') as HTMLInputElement
+      const endDateInput = screen.getByLabelText('To Date') as HTMLInputElement
+
+      // Mock focus and click methods (showPicker is undefined)
+      const mockFocus = vi.fn()
+      const mockClick = vi.fn()
+      startDateInput.focus = mockFocus
+      startDateInput.click = mockClick
+      endDateInput.focus = mockFocus
+      endDateInput.click = mockClick
+
+      // Ensure showPicker is undefined
+      startDateInput.showPicker = undefined as any
+      endDateInput.showPicker = undefined as any
+
+      // Find and click the calendar icons
+      const allSvgs = document.querySelectorAll('svg')
+      const calendarClickableIcons = Array.from(allSvgs).filter(
+        (svg) =>
+          svg.className.baseVal.includes('cursor-pointer') &&
+          svg.className.baseVal.includes('lucide-calendar')
+      )
+
+      // Click first calendar icon
+      fireEvent.click(calendarClickableIcons[0])
+      expect(mockFocus).toHaveBeenCalled()
+      expect(mockClick).toHaveBeenCalled()
+
+      // Reset mocks
+      mockFocus.mockClear()
+      mockClick.mockClear()
+
+      // Click second calendar icon
+      fireEvent.click(calendarClickableIcons[1])
+      expect(mockFocus).toHaveBeenCalled()
+      expect(mockClick).toHaveBeenCalled()
+    })
+
+    it('calendar icons have proper styling and hover effects', () => {
+      render(<FilingSearchForm onSearch={mockOnSearch} />)
+
+      const filtersButton = screen.getByRole('button', { name: /Filters/ })
+      fireEvent.click(filtersButton)
+
+      // Find clickable calendar icons
+      const allSvgs = document.querySelectorAll('svg')
+      const clickableCalendarIcons = Array.from(allSvgs).filter(
+        (svg) =>
+          svg.className.baseVal.includes('cursor-pointer') &&
+          svg.className.baseVal.includes('lucide-calendar')
+      )
+
+      clickableCalendarIcons.forEach((icon) => {
+        expect(icon.className.baseVal).toContain('cursor-pointer')
+        expect(icon.className.baseVal).toContain('hover:text-foreground')
+        expect(icon.className.baseVal).toContain('transition-colors')
+        expect(icon.className.baseVal).toContain('text-muted-foreground')
+      })
+    })
+
     it('applies date constraints correctly', () => {
       render(<FilingSearchForm onSearch={mockOnSearch} />)
 
@@ -260,6 +384,10 @@ describe('FilingSearchForm', () => {
 
       const startDateInput = screen.getByLabelText('From Date')
       const endDateInput = screen.getByLabelText('To Date')
+
+      // Verify both inputs have the CSS class for hiding native calendar icons
+      expect(startDateInput).toHaveClass('date-input-hide-native-calendar')
+      expect(endDateInput).toHaveClass('date-input-hide-native-calendar')
 
       fireEvent.change(startDateInput, { target: { value: '2024-01-01' } })
 

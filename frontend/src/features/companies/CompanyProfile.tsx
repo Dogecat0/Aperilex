@@ -27,7 +27,7 @@ const CompanyAnalysisCard = React.forwardRef<HTMLDivElement, CompanyAnalysisCard
           <div className="space-y-2">
             <div className="flex items-center space-x-2">
               <BarChart3 className="w-4 h-4 text-primary" />
-              <span className="font-medium text-sm">{analysis.analysis_type}</span>
+              <span className="font-medium text-sm">{analysis.analysis_template}</span>
             </div>
             <div className="text-xs text-muted-foreground">
               Analysis ID: {analysis.analysis_id.slice(0, 8)}...
