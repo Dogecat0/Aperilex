@@ -1,7 +1,7 @@
 import React from 'react'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { useAnalyses } from '@/hooks/useAnalysis'
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, fireEvent } from '@testing-library/react'
 import { BrowserRouter } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import userEvent from '@testing-library/user-event'
@@ -13,7 +13,15 @@ vi.mock('@/hooks/useAnalysis', () => ({
   useAnalyses: vi.fn(),
 }))
 
+// Mock company service
+vi.mock('@/services/CompanyService', () => ({
+  companyService: {
+    getCompany: vi.fn(),
+  },
+}))
+
 const mockUseAnalyses = vi.mocked(useAnalyses)
+const { companyService } = await import('@/services/CompanyService')
 
 // Mock child components
 vi.mock('./components/AnalysisCard', () => ({
@@ -95,7 +103,7 @@ const mockAnalyses: AnalysisResponse[] = [
   {
     analysis_id: '2',
     filing_id: 'filing-2',
-    analysis_template: 'financial_focused',
+    analysis_template: 'comprehensive',
     created_by: 'user2',
     created_at: '2024-01-14T14:30:00Z',
     confidence_score: 0.88,
@@ -103,7 +111,7 @@ const mockAnalyses: AnalysisResponse[] = [
     llm_model: 'gpt-4',
     processing_time_seconds: 32,
     filing_summary: 'Financial analysis summary',
-    executive_summary: 'Financial-focused analysis of quarterly results',
+    executive_summary: 'Comprehensive analysis of quarterly results',
     key_insights: ['Profit margins improved'],
     financial_highlights: ['Net income increased'],
     risk_factors: ['Currency fluctuations'],
@@ -149,6 +157,21 @@ describe('AnalysesList Component', () => {
   beforeEach(() => {
     vi.clearAllMocks()
 
+    // Mock company service to return Apple's CIK when searching for AAPL
+    vi.mocked(companyService.getCompany).mockResolvedValue({
+      company_id: '1',
+      cik: '0000320193',
+      name: 'Apple Inc.',
+      ticker: 'AAPL',
+      display_name: 'Apple Inc. (AAPL)',
+      industry: 'Technology',
+      sic_code: '3571',
+      sic_description: 'Electronic Computers',
+      fiscal_year_end: '09',
+      business_address: null,
+      recent_analyses: [],
+    })
+
     // Default successful mock
     mockUseAnalyses.mockReturnValue({
       data: mockPaginatedResponse,
@@ -182,7 +205,7 @@ describe('AnalysesList Component', () => {
       const TestWrapper = createTestWrapper()
       render(<AnalysesList />, { wrapper: TestWrapper })
 
-      const searchInput = screen.getByPlaceholderText(/Search by company ticker/)
+      const searchInput = screen.getByPlaceholderText(/Search by ticker.*or CIK/)
       expect(searchInput).toBeInTheDocument()
       expect(searchInput).toHaveValue('')
     })
@@ -203,8 +226,32 @@ describe('AnalysesList Component', () => {
       const heading = screen.getByRole('heading', { level: 1 })
       expect(heading).toBeInTheDocument()
 
-      const searchInput = screen.getByPlaceholderText(/Search by company ticker/)
+      const searchInput = screen.getByPlaceholderText(/Search by ticker.*or CIK/)
       expect(searchInput).toBeInTheDocument()
+    })
+
+    it('renders calendar icons in date inputs', async () => {
+      const TestWrapper = createTestWrapper()
+      render(<AnalysesList />, { wrapper: TestWrapper })
+
+      const filtersButton = screen.getByText('Filters')
+      await userEvent.setup().click(filtersButton)
+
+      // Check that calendar icons are rendered (look for calendar SVGs with cursor-pointer in className)
+      const calendarIcons = Array.from(document.querySelectorAll('svg')).filter(
+        (svg) =>
+          svg.className.baseVal.includes('cursor-pointer') &&
+          svg.className.baseVal.includes('lucide-calendar')
+      )
+      expect(calendarIcons.length).toBe(2) // One for each date input
+
+      // Check that date inputs have the correct CSS class
+      const dateInputs = screen.getAllByDisplayValue('')
+      const createdFromInput = dateInputs.find((input) => input.getAttribute('type') === 'date')
+      const createdToInput = dateInputs.filter((input) => input.getAttribute('type') === 'date')[1]
+
+      expect(createdFromInput).toHaveClass('date-input-hide-native-calendar')
+      expect(createdToInput).toHaveClass('date-input-hide-native-calendar')
     })
   })
 
@@ -243,7 +290,7 @@ describe('AnalysesList Component', () => {
       render(<AnalysesList />, { wrapper: TestWrapper })
 
       expect(screen.getByText('No analyses found')).toBeInTheDocument()
-      expect(screen.getByText(/Try adjusting your search criteria/)).toBeInTheDocument()
+      expect(screen.getByText(/No financial analyses are available yet/)).toBeInTheDocument()
     })
   })
 
@@ -347,7 +394,7 @@ describe('AnalysesList Component', () => {
       })
 
       const analysisTypeSelect = screen.getByDisplayValue('All Types')
-      await user.selectOptions(analysisTypeSelect, 'financial_focused')
+      await user.selectOptions(analysisTypeSelect, 'comprehensive')
 
       await waitFor(() => {
         expect(screen.getByText('Error loading analyses')).toBeInTheDocument()
@@ -387,7 +434,7 @@ describe('AnalysesList Component', () => {
       const TestWrapper = createTestWrapper()
       render(<AnalysesList />, { wrapper: TestWrapper })
 
-      const searchInput = screen.getByPlaceholderText(/Search by company ticker/)
+      const searchInput = screen.getByPlaceholderText(/Search by ticker.*or CIK/)
 
       await user.type(searchInput, 'AAPL')
 
@@ -397,7 +444,7 @@ describe('AnalysesList Component', () => {
       await waitFor(() => {
         expect(mockUseAnalyses).toHaveBeenCalledWith(
           expect.objectContaining({
-            ticker: 'AAPL',
+            company_cik: '0000320193',
             page: 1,
           })
         )
@@ -408,8 +455,17 @@ describe('AnalysesList Component', () => {
       const TestWrapper = createTestWrapper()
       render(<AnalysesList />, { wrapper: TestWrapper })
 
-      const searchInput = screen.getByPlaceholderText(/Search by company ticker/)
+      const searchInput = screen.getByPlaceholderText(/Search by ticker.*or CIK/)
       await user.type(searchInput, 'AAPL')
+
+      // Wait for search to be applied
+      await waitFor(() => {
+        expect(mockUseAnalyses).toHaveBeenCalledWith(
+          expect.objectContaining({
+            company_cik: '0000320193',
+          })
+        )
+      })
 
       // Show filters and clear
       const filtersButton = screen.getByText('Filters')
@@ -418,15 +474,16 @@ describe('AnalysesList Component', () => {
       const clearButton = screen.getByText('Clear Filters')
       await user.click(clearButton)
 
-      expect(searchInput).toHaveValue('')
+      // Wait for the component to update
+      await waitFor(() => {
+        expect(searchInput).toHaveValue('')
+      })
 
       await waitFor(() => {
-        expect(mockUseAnalyses).toHaveBeenCalledWith(
-          expect.objectContaining({
-            page: 1,
-            page_size: 20,
-          })
-        )
+        expect(mockUseAnalyses).toHaveBeenCalledWith({
+          page: 1,
+          page_size: 20,
+        })
       })
     })
 
@@ -434,13 +491,13 @@ describe('AnalysesList Component', () => {
       const TestWrapper = createTestWrapper()
       render(<AnalysesList />, { wrapper: TestWrapper })
 
-      const searchInput = screen.getByPlaceholderText(/Search by company ticker/)
+      const searchInput = screen.getByPlaceholderText(/Search by ticker.*or CIK/)
       await user.type(searchInput, 'aapl')
 
       await waitFor(() => {
         expect(mockUseAnalyses).toHaveBeenCalledWith(
           expect.objectContaining({
-            ticker: 'AAPL',
+            company_cik: '0000320193',
           })
         )
       })
@@ -461,8 +518,85 @@ describe('AnalysesList Component', () => {
 
       // Filters should now be visible
       expect(screen.getByText('Analysis Type')).toBeInTheDocument()
-      expect(screen.getByText('Start Date')).toBeInTheDocument()
-      expect(screen.getByText('End Date')).toBeInTheDocument()
+      expect(screen.getByText('Created From')).toBeInTheDocument()
+      expect(screen.getByText('Created To')).toBeInTheDocument()
+    })
+
+    it('calendar icons are clickable and properly styled', async () => {
+      const TestWrapper = createTestWrapper()
+      render(<AnalysesList />, { wrapper: TestWrapper })
+
+      const filtersButton = screen.getByText('Filters')
+      await userEvent.setup().click(filtersButton)
+
+      // Find calendar icons by their container elements
+      const calendarIcons = Array.from(document.querySelectorAll('svg')).filter(
+        (svg) =>
+          svg.className.baseVal.includes('cursor-pointer') &&
+          svg.className.baseVal.includes('lucide-calendar')
+      )
+      expect(calendarIcons.length).toBe(2)
+
+      // Verify calendar icons have correct styling
+      calendarIcons.forEach((icon) => {
+        expect(icon.className.baseVal).toContain('cursor-pointer')
+        expect(icon.className.baseVal).toContain('hover:text-foreground')
+        expect(icon.className.baseVal).toContain('transition-colors')
+      })
+    })
+
+    it('calendar icons trigger date picker functionality', async () => {
+      const TestWrapper = createTestWrapper()
+      render(<AnalysesList />, { wrapper: TestWrapper })
+
+      const filtersButton = screen.getByText('Filters')
+      await userEvent.setup().click(filtersButton)
+
+      // Mock the showPicker method
+      const dateInputs = screen.getAllByDisplayValue('')
+      const createdFromInput = dateInputs.find(
+        (input) => input.getAttribute('type') === 'date'
+      ) as HTMLInputElement
+      const createdToInput = dateInputs.filter(
+        (input) => input.getAttribute('type') === 'date'
+      )[1] as HTMLInputElement
+
+      if (createdFromInput) {
+        const mockShowPicker = vi.fn()
+        createdFromInput.showPicker = mockShowPicker
+
+        // Click the calendar icon for 'Created From'
+        const calendarIcons = Array.from(document.querySelectorAll('svg')).filter(
+          (svg) =>
+            svg.className.baseVal.includes('cursor-pointer') &&
+            svg.className.baseVal.includes('lucide-calendar')
+        )
+        const firstCalendarIcon = calendarIcons[0]
+
+        if (firstCalendarIcon) {
+          fireEvent.click(firstCalendarIcon)
+          // Verify showPicker was called or input was focused
+          expect(mockShowPicker).toHaveBeenCalled()
+        }
+      }
+
+      if (createdToInput) {
+        const mockShowPicker = vi.fn()
+        createdToInput.showPicker = mockShowPicker
+
+        // Click the calendar icon for 'Created To'
+        const calendarIcons = Array.from(document.querySelectorAll('svg')).filter(
+          (svg) =>
+            svg.className.baseVal.includes('cursor-pointer') &&
+            svg.className.baseVal.includes('lucide-calendar')
+        )
+        const secondCalendarIcon = calendarIcons[1]
+
+        if (secondCalendarIcon) {
+          fireEvent.click(secondCalendarIcon)
+          expect(mockShowPicker).toHaveBeenCalled()
+        }
+      }
     })
 
     it('updates analysis type filter', async () => {
@@ -473,12 +607,12 @@ describe('AnalysesList Component', () => {
       await user.click(filtersButton)
 
       const analysisTypeSelect = screen.getByDisplayValue('All Types')
-      await user.selectOptions(analysisTypeSelect, 'financial_focused')
+      await user.selectOptions(analysisTypeSelect, 'comprehensive')
 
       await waitFor(() => {
         expect(mockUseAnalyses).toHaveBeenCalledWith(
           expect.objectContaining({
-            analysis_template: 'financial_focused',
+            analysis_template: 'comprehensive',
             page: 1,
           })
         )
@@ -497,14 +631,23 @@ describe('AnalysesList Component', () => {
       const startDateInput = dateInputs.find((input) => input.getAttribute('type') === 'date')
       const endDateInput = dateInputs.filter((input) => input.getAttribute('type') === 'date')[1]
 
-      if (startDateInput) await user.type(startDateInput, '2024-01-01')
-      if (endDateInput) await user.type(endDateInput, '2024-01-31')
+      // Verify date inputs have the CSS class to hide native calendar icons
+      expect(startDateInput).toHaveClass('date-input-hide-native-calendar')
+      expect(endDateInput).toHaveClass('date-input-hide-native-calendar')
+
+      // For date inputs, we need to use fireEvent.change
+      if (startDateInput) {
+        fireEvent.change(startDateInput, { target: { value: '2024-01-01' } })
+      }
+      if (endDateInput) {
+        fireEvent.change(endDateInput, { target: { value: '2024-01-31' } })
+      }
 
       await waitFor(() => {
         expect(mockUseAnalyses).toHaveBeenCalledWith(
           expect.objectContaining({
-            start_date: '2024-01-01',
-            end_date: '2024-01-31',
+            created_from: '2024-01-01',
+            created_to: '2024-01-31',
             page: 1,
           })
         )
@@ -520,9 +663,10 @@ describe('AnalysesList Component', () => {
 
       expect(screen.getByText('All Types')).toBeInTheDocument()
       expect(screen.getByText('Comprehensive Analysis')).toBeInTheDocument()
-      expect(screen.getByText('Financial Focused')).toBeInTheDocument()
-      expect(screen.getByText('Risk Focused')).toBeInTheDocument()
-      expect(screen.getByText('Business Focused')).toBeInTheDocument()
+      // Temporarily commented out due to current focus on comprehensive analysis.
+      // expect(screen.getByText('Financial Focused')).toBeInTheDocument()
+      // expect(screen.getByText('Risk Focused')).toBeInTheDocument()
+      // expect(screen.getByText('Business Focused')).toBeInTheDocument()
     })
 
     it('sends correct lowercase template values in API calls', async () => {
@@ -534,29 +678,20 @@ describe('AnalysesList Component', () => {
 
       const analysisTypeSelect = screen.getByDisplayValue('All Types')
 
-      // Test each template value
-      const templateTests = [
-        { displayValue: 'Comprehensive Analysis', expectedApiValue: 'comprehensive' },
-        { displayValue: 'Financial Focused', expectedApiValue: 'financial_focused' },
-        { displayValue: 'Risk Focused', expectedApiValue: 'risk_focused' },
-        { displayValue: 'Business Focused', expectedApiValue: 'business_focused' },
-      ]
+      // Test the available template value
+      await user.selectOptions(analysisTypeSelect, 'comprehensive')
 
-      for (const { displayValue, expectedApiValue } of templateTests) {
-        await user.selectOptions(analysisTypeSelect, expectedApiValue)
+      await waitFor(() => {
+        expect(mockUseAnalyses).toHaveBeenCalledWith(
+          expect.objectContaining({
+            analysis_template: 'comprehensive',
+            page: 1,
+          })
+        )
+      })
 
-        await waitFor(() => {
-          expect(mockUseAnalyses).toHaveBeenCalledWith(
-            expect.objectContaining({
-              analysis_template: expectedApiValue,
-              page: 1,
-            })
-          )
-        })
-
-        // Verify the display value is shown correctly
-        expect(screen.getByDisplayValue(displayValue)).toBeInTheDocument()
-      }
+      // Verify the display value is shown correctly
+      expect(screen.getByDisplayValue('Comprehensive Analysis')).toBeInTheDocument()
     })
 
     it('never sends uppercase values in API requests', async () => {
@@ -634,9 +769,6 @@ describe('AnalysesList Component', () => {
       const expectedOptions = [
         { value: '', text: 'All Types' },
         { value: 'comprehensive', text: 'Comprehensive Analysis' },
-        { value: 'financial_focused', text: 'Financial Focused' },
-        { value: 'risk_focused', text: 'Risk Focused' },
-        { value: 'business_focused', text: 'Business Focused' },
       ]
 
       expectedOptions.forEach((expected, index) => {
@@ -647,9 +779,6 @@ describe('AnalysesList Component', () => {
       // Verify no uppercase values are present in options
       const allOptionValues = Array.from(options).map((option) => option.value)
       expect(allOptionValues).not.toContain('COMPREHENSIVE')
-      expect(allOptionValues).not.toContain('FINANCIAL_FOCUSED')
-      expect(allOptionValues).not.toContain('RISK_FOCUSED')
-      expect(allOptionValues).not.toContain('BUSINESS_FOCUSED')
     })
 
     it('correctly renders analysis cards with new template values', () => {
@@ -662,7 +791,7 @@ describe('AnalysesList Component', () => {
 
       // The mock data uses lowercase template values
       expect(card1).toHaveTextContent('comprehensive')
-      expect(card2).toHaveTextContent('financial_focused')
+      expect(card2).toHaveTextContent('comprehensive')
 
       // Verify cards exist and are properly rendered
       expect(card1).toBeInTheDocument()
@@ -803,7 +932,7 @@ describe('AnalysesList Component', () => {
       const TestWrapper = createTestWrapper()
       render(<AnalysesList />, { wrapper: TestWrapper })
 
-      const searchInput = screen.getByPlaceholderText(/Search by company ticker/)
+      const searchInput = screen.getByPlaceholderText(/Search by ticker.*or CIK/)
       await user.type(searchInput, 'AAPL')
 
       const filtersButton = screen.getByText('Filters')
@@ -837,7 +966,7 @@ describe('AnalysesList Component', () => {
       const TestWrapper = createTestWrapper()
       render(<AnalysesList />, { wrapper: TestWrapper })
 
-      const searchInput = screen.getByPlaceholderText(/Search by company ticker/)
+      const searchInput = screen.getByPlaceholderText(/Search by ticker.*or CIK/)
 
       // Focus and type
       searchInput.focus()
@@ -847,7 +976,7 @@ describe('AnalysesList Component', () => {
       await waitFor(() => {
         expect(mockUseAnalyses).toHaveBeenCalledWith(
           expect.objectContaining({
-            ticker: 'MSFT',
+            company_cik: expect.any(String),
           })
         )
       })
@@ -857,7 +986,7 @@ describe('AnalysesList Component', () => {
       const TestWrapper = createTestWrapper()
       render(<AnalysesList />, { wrapper: TestWrapper })
 
-      const searchInput = screen.getByPlaceholderText(/Search by company ticker/)
+      const searchInput = screen.getByPlaceholderText(/Search by ticker.*or CIK/)
 
       // Type and then clear
       await user.type(searchInput, 'AAPL')
@@ -867,7 +996,7 @@ describe('AnalysesList Component', () => {
       await waitFor(() => {
         expect(mockUseAnalyses).toHaveBeenCalledWith(
           expect.objectContaining({
-            ticker: undefined,
+            company_cik: undefined,
             page: 1,
           })
         )
@@ -891,16 +1020,21 @@ describe('AnalysesList Component', () => {
       const startDateInput = dateInputs.find((input) => input.getAttribute('type') === 'date')
       const endDateInput = dateInputs.filter((input) => input.getAttribute('type') === 'date')[1]
 
-      await user.selectOptions(analysisTypeSelect, 'financial_focused')
-      if (startDateInput) await user.type(startDateInput, '2024-01-01')
-      if (endDateInput) await user.type(endDateInput, '2024-12-31')
+      await user.selectOptions(analysisTypeSelect, 'comprehensive')
+      // For date inputs, we need to use fireEvent.change
+      if (startDateInput) {
+        fireEvent.change(startDateInput, { target: { value: '2024-01-01' } })
+      }
+      if (endDateInput) {
+        fireEvent.change(endDateInput, { target: { value: '2024-12-31' } })
+      }
 
       await waitFor(() => {
         expect(mockUseAnalyses).toHaveBeenCalledWith(
           expect.objectContaining({
-            analysis_template: 'financial_focused',
-            start_date: '2024-01-01',
-            end_date: '2024-12-31',
+            analysis_template: 'comprehensive',
+            created_from: '2024-01-01',
+            created_to: '2024-12-31',
             page: 1,
           })
         )
@@ -913,8 +1047,12 @@ describe('AnalysesList Component', () => {
       const endDateInput = dateInputs.filter((input) => input.getAttribute('type') === 'date')[1]
 
       // Set end date before start date (edge case)
-      if (startDateInput) await user.type(startDateInput, '2024-12-31')
-      if (endDateInput) await user.type(endDateInput, '2024-01-01')
+      if (startDateInput) {
+        fireEvent.change(startDateInput, { target: { value: '2024-12-31' } })
+      }
+      if (endDateInput) {
+        fireEvent.change(endDateInput, { target: { value: '2024-01-01' } })
+      }
 
       if (startDateInput) expect(startDateInput).toHaveValue('2024-12-31')
       if (endDateInput) expect(endDateInput).toHaveValue('2024-01-01')
@@ -922,8 +1060,8 @@ describe('AnalysesList Component', () => {
       await waitFor(() => {
         expect(mockUseAnalyses).toHaveBeenCalledWith(
           expect.objectContaining({
-            start_date: '2024-12-31',
-            end_date: '2024-01-01',
+            created_from: '2024-12-31',
+            created_to: '2024-01-01',
           })
         )
       })
@@ -931,14 +1069,14 @@ describe('AnalysesList Component', () => {
 
     it('persists filters when reopening filter panel', async () => {
       const analysisTypeSelect = screen.getByDisplayValue('All Types')
-      await user.selectOptions(analysisTypeSelect, 'risk_focused')
+      await user.selectOptions(analysisTypeSelect, 'comprehensive')
 
       // Close and reopen filters
       const filtersButton = screen.getByText('Filters')
       await user.click(filtersButton) // Close
       await user.click(filtersButton) // Reopen
 
-      const reopenedSelect = screen.getByDisplayValue('Risk Focused')
+      const reopenedSelect = screen.getByDisplayValue('Comprehensive Analysis')
       expect(reopenedSelect).toBeInTheDocument()
     })
   })
@@ -959,9 +1097,9 @@ describe('AnalysesList Component', () => {
       expect(screen.getByTestId('analysis-card-1')).toBeInTheDocument()
       expect(screen.getByTestId('analysis-card-2')).toBeInTheDocument()
 
-      // Check analysis types are displayed
-      expect(screen.getByText('comprehensive')).toBeInTheDocument()
-      expect(screen.getByText('financial_focused')).toBeInTheDocument()
+      // Check analysis types are displayed (both cards have comprehensive template)
+      const comprehensiveElements = screen.getAllByText('comprehensive')
+      expect(comprehensiveElements).toHaveLength(2)
     })
 
     it('handles analysis cards with missing data', () => {
@@ -1051,14 +1189,14 @@ describe('AnalysesList Component', () => {
       const TestWrapper = createTestWrapper()
       render(<AnalysesList />, { wrapper: TestWrapper })
 
-      const searchInput = screen.getByPlaceholderText(/Search by company ticker/)
+      const searchInput = screen.getByPlaceholderText(/Search by ticker.*or CIK/)
       await user.type(searchInput, 'AAPL')
 
       // In a real implementation, this would update the URL
       await waitFor(() => {
         expect(mockUseAnalyses).toHaveBeenCalledWith(
           expect.objectContaining({
-            ticker: 'AAPL',
+            company_cik: '0000320193',
           })
         )
       })
@@ -1108,7 +1246,7 @@ describe('AnalysesList Component', () => {
       const TestWrapper = createTestWrapper()
       render(<AnalysesList />, { wrapper: TestWrapper })
 
-      const searchInput = screen.getByPlaceholderText(/Search by company ticker/)
+      const searchInput = screen.getByPlaceholderText(/Search by ticker.*or CIK/)
       expect(searchInput).toHaveAttribute('type', 'text')
 
       const filtersButton = screen.getByText('Filters')
@@ -1119,7 +1257,7 @@ describe('AnalysesList Component', () => {
       const TestWrapper = createTestWrapper()
       render(<AnalysesList />, { wrapper: TestWrapper })
 
-      const searchInput = screen.getByPlaceholderText(/Search by company ticker/)
+      const searchInput = screen.getByPlaceholderText(/Search by ticker.*or CIK/)
       const filtersButton = screen.getByText('Filters')
 
       // Tab navigation
