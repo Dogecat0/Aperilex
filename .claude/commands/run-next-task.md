@@ -2,7 +2,7 @@
 
 2. Find the first "[ ]" line.
 
-3. Ask Claude to implement that task only.
+3. Ask Claude to implement that task only, use subagents if necessary.
 
 4. On success replace "[ ]" with "[X]" for that line.
 
