@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAppStore } from '@/lib/store'
-import { useFilingSearch, useEdgarSearch, useFilingAnalyzeMutation } from '@/hooks/useFiling'
+import { useFilingSearch, useFilingAnalyzeMutation } from '@/hooks/useFiling'
 import { FilingSearchForm, FilingSearchResults } from './components'
 import { Search } from 'lucide-react'
 import type { FilingSearchParams } from '@/api/filings'
-import type { CompanyResponse, EdgarSearchParams } from '@/api/types'
+import type { CompanyResponse } from '@/api/types'
 
 interface FilingsListProps {
   // Legacy props for backward compatibility (unused in new implementation)
@@ -24,22 +24,13 @@ export function FilingsList(_props: FilingsListProps) {
   const analyzeFiling = useFilingAnalyzeMutation()
 
   // Search state
-  const [searchType, setSearchType] = useState<'database' | 'edgar'>('edgar')
   const [searchParams, setSearchParams] = useState<FilingSearchParams | null>(null)
-  const [edgarSearchParams, setEdgarSearchParams] = useState<EdgarSearchParams | null>(null)
   const [companyData, setCompanyData] = useState<CompanyResponse | null>(null)
 
   // Search hooks - only enabled when we have search params
   const databaseSearchQuery = useFilingSearch(searchParams!, {
-    enabled: !!searchParams && searchType === 'database',
+    enabled: !!searchParams,
   })
-
-  const edgarSearchQuery = useEdgarSearch(edgarSearchParams!, {
-    enabled: !!edgarSearchParams && searchType === 'edgar',
-  })
-
-  // Use the appropriate query based on search type
-  const activeSearchQuery = searchType === 'edgar' ? edgarSearchQuery : databaseSearchQuery
 
   useEffect(() => {
     // Set breadcrumbs for the filings page
@@ -50,39 +41,15 @@ export function FilingsList(_props: FilingsListProps) {
   }, [setBreadcrumbs])
 
   const handleSearch = (params: FilingSearchParams) => {
-    if (searchType === 'database') {
-      setSearchParams(params)
-      setEdgarSearchParams(null)
-    }
+    setSearchParams(params)
     // Reset company data when searching for a new company
     if (!companyData || companyData.ticker !== params.ticker) {
       setCompanyData(null)
     }
-  }
-
-  const handleEdgarSearch = (params: EdgarSearchParams) => {
-    if (searchType === 'edgar') {
-      setEdgarSearchParams(params)
-      setSearchParams(null)
-    }
-    // Reset company data when searching for a new company
-    if (!companyData || companyData.ticker !== params.ticker) {
-      setCompanyData(null)
-    }
-  }
-
-  const handleSearchTypeChange = (newType: 'database' | 'edgar') => {
-    setSearchType(newType)
-    // Clear search params when switching types
-    setSearchParams(null)
-    setEdgarSearchParams(null)
-    setCompanyData(null)
   }
 
   const handlePageChange = (page: number) => {
-    if (searchType === 'edgar' && edgarSearchParams) {
-      setEdgarSearchParams({ ...edgarSearchParams, page })
-    } else if (searchType === 'database' && searchParams) {
+    if (searchParams) {
       setSearchParams({ ...searchParams, page })
     }
   }
@@ -118,16 +85,10 @@ export function FilingsList(_props: FilingsListProps) {
       </div>
 
       {/* Search Form */}
-      <FilingSearchForm
-        onSearch={handleSearch}
-        onEdgarSearch={handleEdgarSearch}
-        isLoading={activeSearchQuery.isLoading}
-        searchType={searchType}
-        onSearchTypeChange={handleSearchTypeChange}
-      />
+      <FilingSearchForm onSearch={handleSearch} isLoading={databaseSearchQuery.isLoading} />
 
       {/* Welcome State (No Search Yet) */}
-      {!searchParams && !edgarSearchParams && (
+      {!searchParams && (
         <div className="text-center py-16">
           <div className="mx-auto w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mb-4">
             <Search className="w-8 h-8 text-primary" />
@@ -144,11 +105,7 @@ export function FilingsList(_props: FilingsListProps) {
                 <button
                   key={ticker}
                   onClick={() => {
-                    if (searchType === 'edgar') {
-                      handleEdgarSearch({ ticker, page: 1, page_size: 20 })
-                    } else {
-                      handleSearch({ ticker, page: 1, page_size: 20 })
-                    }
+                    handleSearch({ ticker, page: 1, page_size: 20 })
                   }}
                   className="px-3 py-1 text-xs bg-muted hover:bg-muted/80 rounded-full transition-colors"
                 >
@@ -161,17 +118,16 @@ export function FilingsList(_props: FilingsListProps) {
       )}
 
       {/* Search Results */}
-      {(searchParams || edgarSearchParams) && (
+      {searchParams && (
         <FilingSearchResults
-          data={activeSearchQuery.data}
-          isLoading={activeSearchQuery.isLoading}
-          error={activeSearchQuery.error as any}
+          data={databaseSearchQuery.data}
+          isLoading={databaseSearchQuery.isLoading}
+          error={databaseSearchQuery.error as any}
           onViewDetails={handleViewDetails}
           onAnalyze={handleAnalyze}
           onPageChange={handlePageChange}
           companyName={companyData?.display_name}
-          searchTicker={searchType === 'edgar' ? edgarSearchParams?.ticker : searchParams?.ticker}
-          resultType={searchType}
+          searchTicker={searchParams?.ticker}
         />
       )}
     </div>

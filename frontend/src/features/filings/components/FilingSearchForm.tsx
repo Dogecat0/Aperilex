@@ -1,19 +1,13 @@
 import React, { useState } from 'react'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
-import { Search, Filter, Calendar, FileText, X, Database, Globe } from 'lucide-react'
+import { Search, Filter, Calendar, FileText, X } from 'lucide-react'
 import type { FilingSearchParams } from '@/api/filings'
-import type { EdgarSearchParams } from '@/api/types'
-
-type SearchType = 'database' | 'edgar'
 
 interface FilingSearchFormProps {
   onSearch: (params: FilingSearchParams) => void
-  onEdgarSearch?: (params: EdgarSearchParams) => void
   isLoading?: boolean
   initialValues?: Partial<FilingSearchParams>
-  searchType?: SearchType
-  onSearchTypeChange?: (type: SearchType) => void
 }
 
 const FILING_TYPES = [
@@ -24,11 +18,8 @@ const FILING_TYPES = [
 
 export function FilingSearchForm({
   onSearch,
-  onEdgarSearch,
   isLoading = false,
   initialValues = {},
-  searchType = 'edgar',
-  onSearchTypeChange,
 }: FilingSearchFormProps) {
   const [ticker, setTicker] = useState(initialValues.ticker || '')
   const [filingType, setFilingType] = useState(initialValues.filing_type || '')
@@ -47,47 +38,25 @@ export function FilingSearchForm({
       return
     }
 
-    if (searchType === 'edgar' && onEdgarSearch) {
-      const params: EdgarSearchParams = {
-        ticker: ticker.trim().toUpperCase(),
-        page: 1,
-        page_size: 20,
-      }
-
-      if (filingType) {
-        params.form_type = filingType
-      }
-
-      if (startDate) {
-        params.date_from = startDate
-      }
-
-      if (endDate) {
-        params.date_to = endDate
-      }
-
-      onEdgarSearch(params)
-    } else {
-      const params: FilingSearchParams = {
-        ticker: ticker.trim().toUpperCase(),
-        page: 1,
-        page_size: 20,
-      }
-
-      if (filingType) {
-        params.filing_type = filingType
-      }
-
-      if (startDate) {
-        params.start_date = startDate
-      }
-
-      if (endDate) {
-        params.end_date = endDate
-      }
-
-      onSearch(params)
+    const params: FilingSearchParams = {
+      ticker: ticker.trim().toUpperCase(),
+      page: 1,
+      page_size: 20,
     }
+
+    if (filingType) {
+      params.filing_type = filingType
+    }
+
+    if (startDate) {
+      params.start_date = startDate
+    }
+
+    if (endDate) {
+      params.end_date = endDate
+    }
+
+    onSearch(params)
   }
 
   const handleClear = () => {
@@ -102,35 +71,6 @@ export function FilingSearchForm({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      {/* Search Type Selector */}
-      {onSearchTypeChange && (
-        <div className="flex items-center gap-4 p-3 bg-muted/30 rounded-lg border">
-          <span className="text-sm font-medium">Search in:</span>
-          <div className="flex gap-2">
-            <Button
-              type="button"
-              variant={searchType === 'edgar' ? 'primary' : 'outline'}
-              size="sm"
-              onClick={() => onSearchTypeChange('edgar')}
-              className="text-xs"
-            >
-              <Globe className="w-3 h-3 mr-1" />
-              SEC Edgar (All Filings)
-            </Button>
-            <Button
-              type="button"
-              variant={searchType === 'database' ? 'primary' : 'outline'}
-              size="sm"
-              onClick={() => onSearchTypeChange('database')}
-              className="text-xs"
-            >
-              <Database className="w-3 h-3 mr-1" />
-              Our Database (Processed)
-            </Button>
-          </div>
-        </div>
-      )}
-
       {/* Main Search Row */}
       <div className="flex flex-col sm:flex-row gap-4">
         <div className="flex-1">

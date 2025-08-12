@@ -2,13 +2,9 @@ import React from 'react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@/test/utils'
 import { FilingSearchForm } from './FilingSearchForm'
-// import type { FilingSearchParams } from '@/api/filings'
-// import type { EdgarSearchParams } from '@/api/types'
 
 describe('FilingSearchForm', () => {
   const mockOnSearch = vi.fn()
-  const mockOnEdgarSearch = vi.fn()
-  const mockOnSearchTypeChange = vi.fn()
 
   beforeEach(() => {
     vi.clearAllMocks()
@@ -41,82 +37,9 @@ describe('FilingSearchForm', () => {
     })
   })
 
-  describe('Search Type Selector', () => {
-    it('renders search type selector when onSearchTypeChange provided', () => {
-      render(
-        <FilingSearchForm
-          onSearch={mockOnSearch}
-          onEdgarSearch={mockOnEdgarSearch}
-          onSearchTypeChange={mockOnSearchTypeChange}
-        />
-      )
-
-      expect(screen.getByText('Search in:')).toBeInTheDocument()
-      expect(screen.getByText(/SEC Edgar/)).toBeInTheDocument()
-      expect(screen.getByText(/Our Database/)).toBeInTheDocument()
-    })
-
-    it('does not render search type selector when onSearchTypeChange not provided', () => {
-      render(<FilingSearchForm onSearch={mockOnSearch} />)
-
-      expect(screen.queryByText('Search in:')).not.toBeInTheDocument()
-    })
-
-    it('handles search type change to Edgar', () => {
-      render(
-        <FilingSearchForm
-          onSearch={mockOnSearch}
-          onEdgarSearch={mockOnEdgarSearch}
-          onSearchTypeChange={mockOnSearchTypeChange}
-          searchType="database"
-        />
-      )
-
-      const edgarButton = screen.getByText(/SEC Edgar/)
-      fireEvent.click(edgarButton)
-
-      expect(mockOnSearchTypeChange).toHaveBeenCalledWith('edgar')
-    })
-
-    it('handles search type change to database', () => {
-      render(
-        <FilingSearchForm
-          onSearch={mockOnSearch}
-          onEdgarSearch={mockOnEdgarSearch}
-          onSearchTypeChange={mockOnSearchTypeChange}
-          searchType="edgar"
-        />
-      )
-
-      const databaseButton = screen.getByText(/Our Database/)
-      fireEvent.click(databaseButton)
-
-      expect(mockOnSearchTypeChange).toHaveBeenCalledWith('database')
-    })
-
-    it('shows correct active state for search type buttons', () => {
-      render(
-        <FilingSearchForm
-          onSearch={mockOnSearch}
-          onEdgarSearch={mockOnEdgarSearch}
-          onSearchTypeChange={mockOnSearchTypeChange}
-          searchType="edgar"
-        />
-      )
-
-      const edgarButton = screen.getByText(/SEC Edgar/)
-      const databaseButton = screen.getByText(/Our Database/)
-
-      // Check the button classes or other indicators of active state
-      // Since variant is a React prop, not an HTML attribute, we check classes instead
-      expect(edgarButton).toHaveClass('bg-primary', 'text-primary-foreground')
-      expect(databaseButton).toHaveClass('border', 'border-input')
-    })
-  })
-
   describe('Basic Search Functionality', () => {
-    it('calls onSearch with correct params for database search', async () => {
-      render(<FilingSearchForm onSearch={mockOnSearch} searchType="database" />)
+    it('calls onSearch with correct params', async () => {
+      render(<FilingSearchForm onSearch={mockOnSearch} />)
 
       const searchInput = screen.getByPlaceholderText(/Enter company ticker/)
       const searchButton = screen.getByRole('button', { name: /Search/ })
@@ -133,32 +56,8 @@ describe('FilingSearchForm', () => {
       })
     })
 
-    it('calls onEdgarSearch with correct params for Edgar search', async () => {
-      render(
-        <FilingSearchForm
-          onSearch={mockOnSearch}
-          onEdgarSearch={mockOnEdgarSearch}
-          searchType="edgar"
-        />
-      )
-
-      const searchInput = screen.getByPlaceholderText(/Enter company ticker/)
-      const searchButton = screen.getByRole('button', { name: /Search/ })
-
-      fireEvent.change(searchInput, { target: { value: 'MSFT' } })
-      fireEvent.click(searchButton)
-
-      await waitFor(() => {
-        expect(mockOnEdgarSearch).toHaveBeenCalledWith({
-          ticker: 'MSFT',
-          page: 1,
-          page_size: 20,
-        })
-      })
-    })
-
     it('converts ticker to uppercase', async () => {
-      render(<FilingSearchForm onSearch={mockOnSearch} searchType="database" />)
+      render(<FilingSearchForm onSearch={mockOnSearch} />)
 
       const searchInput = screen.getByPlaceholderText(/Enter company ticker/)
       const searchButton = screen.getByRole('button', { name: /Search/ })
@@ -184,7 +83,7 @@ describe('FilingSearchForm', () => {
     })
 
     it('trims whitespace from ticker', async () => {
-      render(<FilingSearchForm onSearch={mockOnSearch} searchType="database" />)
+      render(<FilingSearchForm onSearch={mockOnSearch} />)
 
       const searchInput = screen.getByPlaceholderText(/Enter company ticker/)
       const searchButton = screen.getByRole('button', { name: /Search/ })
@@ -403,7 +302,7 @@ describe('FilingSearchForm', () => {
 
   describe('Filter Management', () => {
     it('includes filters in search params', async () => {
-      render(<FilingSearchForm onSearch={mockOnSearch} searchType="database" />)
+      render(<FilingSearchForm onSearch={mockOnSearch} />)
 
       const filtersButton = screen.getByRole('button', { name: /Filters/ })
       fireEvent.click(filtersButton)
@@ -424,40 +323,6 @@ describe('FilingSearchForm', () => {
           ticker: 'AAPL',
           filing_type: '10-K',
           start_date: '2024-01-01',
-          page: 1,
-          page_size: 20,
-        })
-      })
-    })
-
-    it('includes Edgar-specific filter names', async () => {
-      render(
-        <FilingSearchForm
-          onSearch={mockOnSearch}
-          onEdgarSearch={mockOnEdgarSearch}
-          searchType="edgar"
-        />
-      )
-
-      const filtersButton = screen.getByRole('button', { name: /Filters/ })
-      fireEvent.click(filtersButton)
-
-      // Set filters
-      const filingTypeSelect = screen.getByLabelText('Filing Type')
-      const startDateInput = screen.getByLabelText('From Date')
-      const tickerInput = screen.getByPlaceholderText(/Enter company ticker/)
-      const searchButton = screen.getByRole('button', { name: /Search/ })
-
-      fireEvent.change(filingTypeSelect, { target: { value: '10-Q' } })
-      fireEvent.change(startDateInput, { target: { value: '2024-01-01' } })
-      fireEvent.change(tickerInput, { target: { value: 'MSFT' } })
-      fireEvent.click(searchButton)
-
-      await waitFor(() => {
-        expect(mockOnEdgarSearch).toHaveBeenCalledWith({
-          ticker: 'MSFT',
-          form_type: '10-Q', // Edgar uses form_type
-          date_from: '2024-01-01', // Edgar uses date_from
           page: 1,
           page_size: 20,
         })
@@ -646,9 +511,7 @@ describe('FilingSearchForm', () => {
     })
 
     it('has accessible button labels', () => {
-      render(
-        <FilingSearchForm onSearch={mockOnSearch} onSearchTypeChange={mockOnSearchTypeChange} />
-      )
+      render(<FilingSearchForm onSearch={mockOnSearch} />)
 
       expect(screen.getByRole('button', { name: /Filters/ })).toHaveAccessibleName()
       expect(screen.getByRole('button', { name: /Search/ })).toHaveAccessibleName()

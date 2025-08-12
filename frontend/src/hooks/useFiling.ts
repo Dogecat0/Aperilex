@@ -4,7 +4,6 @@ import { filingService } from '@/api/services/FilingService'
 import { tasksApi } from '@/api/tasks'
 import type {
   AnalyzeFilingRequest,
-  EdgarSearchParams,
   AnalysisProgress,
   AnalysisProgressState,
   TaskResponse,
@@ -34,20 +33,6 @@ export const useFilingSearch = (params: FilingSearchParams, options: UseFilingOp
   })
 }
 
-/**
- * Hook to search Edgar filings directly from SEC API
- */
-export const useEdgarSearch = (params: EdgarSearchParams, options: UseFilingOptions = {}) => {
-  const { enabled = true } = options
-
-  return useQuery({
-    queryKey: ['filings', 'edgar-search', params],
-    queryFn: () => filingService.searchEdgarFilings(params),
-    enabled: enabled && !!params.ticker,
-    placeholderData: (previousData) => previousData, // Keep previous results while loading new ones
-    staleTime: 5 * 60 * 1000, // Edgar results are relatively stable for 5 minutes
-  })
-}
 
 /**
  * Hook to fetch filing data by accession number

@@ -6,16 +6,11 @@ import {
   ChevronLeft,
   ChevronRight,
   FileText,
-  ExternalLink,
-  Database,
-  Zap,
-  BarChart3,
 } from 'lucide-react'
-import { useFilingHasAnalysisByAccession } from '@/hooks/useFilingAnalysisStatus'
-import type { FilingResponse, FilingSearchResult, PaginatedResponse } from '@/api/types'
+import type { FilingResponse, PaginatedResponse } from '@/api/types'
 
 interface FilingSearchResultsProps {
-  data?: PaginatedResponse<FilingResponse> | PaginatedResponse<FilingSearchResult>
+  data?: PaginatedResponse<FilingResponse>
   isLoading?: boolean
   error?: any
   onViewDetails?: (accessionNumber: string) => void
@@ -23,83 +18,8 @@ interface FilingSearchResultsProps {
   onPageChange?: (page: number) => void
   companyName?: string
   searchTicker?: string
-  resultType?: 'database' | 'edgar'
 }
 
-// Component for rendering Edgar search result cards
-const EdgarFilingCard: FC<{
-  filing: FilingSearchResult
-  onViewDetails?: (accessionNumber: string) => void
-  onAnalyze?: (accessionNumber: string) => void
-}> = ({ filing, onViewDetails, onAnalyze }) => {
-  // Check if analysis exists for this filing
-  const { data: analysisStatus } = useFilingHasAnalysisByAccession(filing.accession_number)
-  const hasAnalysis = analysisStatus?.hasAnalysis || false
-  const formattedDate = new Date(filing.filing_date).toLocaleDateString('en-US', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-  })
-
-  return (
-    <div className="border rounded-lg p-4 hover:shadow-md transition-shadow">
-      <div className="flex justify-between items-start">
-        <div className="flex-1">
-          <div className="flex items-center gap-2 mb-2">
-            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-primary/10 text-primary">
-              {filing.filing_type}
-            </span>
-            <span className="text-sm text-muted-foreground">{formattedDate}</span>
-            {filing.has_content && (
-              <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                <Database className="w-3 h-3 mr-1" />
-                Content Available
-              </span>
-            )}
-            {hasAnalysis && (
-              <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                <BarChart3 className="w-3 h-3 mr-1" />
-                Analysis Available
-              </span>
-            )}
-          </div>
-
-          <h3 className="font-medium text-lg mb-1">
-            {filing.company_name}
-            {filing.ticker && (
-              <span className="text-sm text-muted-foreground ml-2">({filing.ticker})</span>
-            )}
-          </h3>
-
-          <div className="text-sm text-muted-foreground space-y-1">
-            <div>Accession: {filing.accession_number}</div>
-            <div>CIK: {filing.cik}</div>
-            {filing.sections_count > 0 && <div>{filing.sections_count} sections available</div>}
-          </div>
-        </div>
-
-        <div className="flex gap-2 ml-4">
-          {onViewDetails && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => onViewDetails(filing.accession_number)}
-            >
-              <ExternalLink className="w-4 h-4 mr-1" />
-              View
-            </Button>
-          )}
-          {onAnalyze && filing.has_content && !hasAnalysis && (
-            <Button size="sm" onClick={() => onAnalyze(filing.accession_number)}>
-              <Zap className="w-4 h-4 mr-1" />
-              Analyze
-            </Button>
-          )}
-        </div>
-      </div>
-    </div>
-  )
-}
 
 export const FilingSearchResults: FC<FilingSearchResultsProps> = ({
   data,
@@ -110,7 +30,6 @@ export const FilingSearchResults: FC<FilingSearchResultsProps> = ({
   onPageChange,
   companyName,
   searchTicker,
-  resultType = 'database',
 }) => {
   if (error) {
     return (
@@ -188,28 +107,19 @@ export const FilingSearchResults: FC<FilingSearchResultsProps> = ({
 
       {/* Filing Cards */}
       <div className="space-y-4">
-        {resultType === 'edgar'
-          ? (filings as FilingSearchResult[]).map((filing) => (
-              <EdgarFilingCard
-                key={filing.accession_number}
-                filing={filing}
-                onViewDetails={onViewDetails}
-                onAnalyze={onAnalyze}
-              />
-            ))
-          : (filings as FilingResponse[]).map((filing) => (
-              <FilingCard
-                key={filing.filing_id}
-                filing={{
-                  ...filing,
-                  company_name: companyName,
-                  company_ticker: searchTicker,
-                }}
-                onViewDetails={onViewDetails}
-                onAnalyze={onAnalyze}
-                showCompanyInfo={false} // Hide company info since we're searching for a specific company
-              />
-            ))}
+        {(filings as FilingResponse[]).map((filing) => (
+          <FilingCard
+            key={filing.filing_id}
+            filing={{
+              ...filing,
+              company_name: companyName,
+              company_ticker: searchTicker,
+            }}
+            onViewDetails={onViewDetails}
+            onAnalyze={onAnalyze}
+            showCompanyInfo={false} // Hide company info since we're searching for a specific company
+          />
+        ))}
       </div>
 
       {/* Pagination */}

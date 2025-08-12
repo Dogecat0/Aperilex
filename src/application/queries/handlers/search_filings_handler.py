@@ -1,13 +1,16 @@
-"""Handler for SearchFilingsQuery - searches SEC filings through Edgar service."""
+"""Handler for SearchFilingsQuery - searches SEC filings from database."""
 
 import logging
+from typing import Any
 from uuid import uuid4
 
 from src.application.base.handlers import QueryHandler
 from src.application.schemas.queries.search_filings import SearchFilingsQuery
 from src.application.schemas.responses.filing_search_response import FilingSearchResult
 from src.application.schemas.responses.paginated_response import PaginatedResponse
-from src.infrastructure.edgar.service import EdgarService
+from src.domain.entities.filing import Filing
+from src.domain.value_objects.ticker import Ticker
+from src.infrastructure.repositories.filing_repository import FilingRepository
 
 logger = logging.getLogger(__name__)
 
@@ -15,26 +18,26 @@ logger = logging.getLogger(__name__)
 class SearchFilingsHandler(
     QueryHandler[SearchFilingsQuery, PaginatedResponse[FilingSearchResult]]
 ):
-    """Handler for searching SEC filings through Edgar service.
+    """Handler for searching SEC filings from database.
 
     This handler processes SearchFilingsQuery by:
-    - Using EdgarService to query SEC filings directly
+    - Querying filings from the database repository
     - Applying date and form type filters
-    - Converting Edgar results to search result DTOs
+    - Converting database results to search result DTOs
     - Implementing pagination and sorting
     - Providing search summary for client consumption
 
-    The handler focuses on discovery of filings rather than database lookups,
-    making it suitable for exploring available SEC data.
+    The handler queries locally stored filings for improved performance
+    and reduced external API dependencies.
     """
 
-    def __init__(self, edgar_service: EdgarService) -> None:
+    def __init__(self, filing_repository: FilingRepository) -> None:
         """Initialize the handler with required dependencies.
 
         Args:
-            edgar_service: Service for Edgar/SEC data access
+            filing_repository: Repository for database filing access
         """
-        self.edgar_service = edgar_service
+        self.filing_repository = filing_repository
 
     async def handle(
         self, query: SearchFilingsQuery
@@ -67,57 +70,39 @@ class SearchFilingsHandler(
         )
 
         try:
-            # Build search parameters for Edgar service
-            search_params = self._build_edgar_search_params(query)
+            # Create ticker value object (ticker is required and validated by query)
+            if not query.ticker:
+                raise ValueError("Ticker is required")
+            ticker_vo = Ticker(query.ticker)
 
-            # Get filings from Edgar service
-            if query.has_form_type_filter and query.form_type:
-                # Use specific filing type search
-                filing_date = search_params.get("filing_date")
-                limit = search_params.get("limit")
-                amendments = search_params.get("amendments", True)
+            # Get total count for pagination
+            total_count = await self.filing_repository.count_by_ticker_with_filters(
+                ticker=ticker_vo,
+                filing_type=query.form_type,
+                start_date=query.date_from,
+                end_date=query.date_to,
+            )
 
-                edgar_filings = self.edgar_service.get_filings(
-                    ticker=query.ticker_value_object,
+            # Get filings from database with pagination and company info
+            filings_with_company = (
+                await self.filing_repository.get_by_ticker_with_filters_and_company(
+                    ticker=ticker_vo,
                     filing_type=query.form_type,
-                    filing_date=filing_date if isinstance(filing_date, str) else None,
-                    limit=limit if isinstance(limit, int) else None,
-                    amendments=bool(amendments),
+                    start_date=query.date_from,
+                    end_date=query.date_to,
+                    sort_field=query.sort_by.value,
+                    sort_direction=query.sort_direction.value,
+                    page=query.page,
+                    page_size=query.page_size,
                 )
-            else:
-                # Use general search across all filing types
-                filing_date = search_params.get("filing_date")
-                limit = search_params.get("limit")
-                amendments = search_params.get("amendments", True)
+            )
 
-                edgar_filings = self.edgar_service.search_all_filings(
-                    ticker=query.ticker_value_object,
-                    filing_date=filing_date if isinstance(filing_date, str) else None,
-                    limit=limit if isinstance(limit, int) else None,
-                    amendments=bool(amendments),
-                )
-
-            # Convert Edgar results to search results
-            search_results = [
-                FilingSearchResult.from_edgar_data(filing_data)
-                for filing_data in edgar_filings
-            ]
-
-            # Apply additional filtering if needed
-            filtered_results = self._apply_additional_filters(search_results, query)
-
-            # Apply sorting
-            sorted_results = self._apply_sorting(filtered_results, query)
-
-            # Apply pagination
-            paginated_results = self._apply_pagination(sorted_results, query)
-
-            # Calculate total count for pagination info
-            total_count = len(filtered_results)
+            # Convert to search results
+            search_results = self._convert_to_search_results(filings_with_company)
 
             # Create paginated response
             response = PaginatedResponse.create(
-                items=paginated_results,
+                items=search_results,
                 page=query.page,
                 page_size=query.page_size,
                 total_items=total_count,
@@ -129,11 +114,10 @@ class SearchFilingsHandler(
                 "Successfully searched filings",
                 extra={
                     "ticker": query.ticker,
-                    "total_found": len(edgar_filings),
-                    "total_after_filters": total_count,
+                    "total_found": total_count,
                     "page": query.page,
                     "page_size": query.page_size,
-                    "returned_count": len(paginated_results),
+                    "returned_count": len(search_results),
                     "search_summary": query.search_summary,
                 },
             )
@@ -153,94 +137,34 @@ class SearchFilingsHandler(
             )
             raise
 
-    def _build_edgar_search_params(
-        self, query: SearchFilingsQuery
-    ) -> dict[str, str | int | bool]:
-        """Build parameters for Edgar service based on query.
-
-        Args:
-            query: Search query with filters
-
-        Returns:
-            Dictionary of parameters for Edgar service
-        """
-        params: dict[str, str | int | bool] = {
-            "amendments": True,  # Include amendments by default
-            "limit": (
-                query.effective_limit if query.limit else 50
-            ),  # Default reasonable limit
-        }
-
-        # Add date filtering if specified
-        if query.has_date_range_filter:
-            if query.date_from and query.date_to:
-                # Format as date range for Edgar service
-                params["filing_date"] = f"{query.date_from}:{query.date_to}"
-            elif query.date_from:
-                params["filing_date"] = f"{query.date_from}:"
-            elif query.date_to:
-                params["filing_date"] = f":{query.date_to}"
-
-        return params
-
-    def _apply_additional_filters(
-        self, results: list[FilingSearchResult], query: SearchFilingsQuery
+    def _convert_to_search_results(
+        self, filings_with_company: list[tuple[Filing, dict[str, Any]]]
     ) -> list[FilingSearchResult]:
-        """Apply additional client-side filters that Edgar service doesn't support.
+        """Convert database filings with company info to search result DTOs.
 
         Args:
-            results: List of search results
-            query: Search query with filters
+            filings_with_company: List of tuples (Filing entity, company_info dict)
 
         Returns:
-            Filtered list of search results
+            List of FilingSearchResult DTOs
         """
-        filtered = results
+        results = []
 
-        # Additional filtering could be added here if needed
-        # For now, Edgar service handles the main filtering
+        for filing, company_info in filings_with_company:
+            # Create search result using filing and company info
+            result = FilingSearchResult(
+                accession_number=str(filing.accession_number),
+                filing_type=filing.filing_type.value,
+                filing_date=filing.filing_date,
+                company_name=company_info["name"],
+                cik=company_info["cik"],
+                ticker=company_info["ticker"],
+                has_content=filing.processing_status.value == "COMPLETED",
+                sections_count=0,  # Can be enhanced later to count actual sections
+            )
+            results.append(result)
 
-        return filtered
-
-    def _apply_sorting(
-        self, results: list[FilingSearchResult], query: SearchFilingsQuery
-    ) -> list[FilingSearchResult]:
-        """Apply sorting to search results.
-
-        Args:
-            results: List of search results to sort
-            query: Search query with sort criteria
-
-        Returns:
-            Sorted list of search results
-        """
-        reverse = query.sort_direction.value == "desc"
-
-        if query.sort_by.value == "filing_date":
-            return sorted(results, key=lambda x: x.filing_date, reverse=reverse)
-        elif query.sort_by.value == "filing_type":
-            return sorted(results, key=lambda x: x.filing_type, reverse=reverse)
-        elif query.sort_by.value == "company_name":
-            return sorted(results, key=lambda x: x.company_name, reverse=reverse)
-        else:
-            # Default to filing date
-            return sorted(results, key=lambda x: x.filing_date, reverse=reverse)
-
-    def _apply_pagination(
-        self, results: list[FilingSearchResult], query: SearchFilingsQuery
-    ) -> list[FilingSearchResult]:
-        """Apply pagination to search results.
-
-        Args:
-            results: List of search results to paginate
-            query: Search query with pagination info
-
-        Returns:
-            Paginated slice of search results
-        """
-        start_index = (query.page - 1) * query.page_size
-        end_index = start_index + query.page_size
-        return results[start_index:end_index]
+        return results
 
     @classmethod
     def query_type(cls) -> type[SearchFilingsQuery]:
