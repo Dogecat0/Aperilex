@@ -7,8 +7,6 @@ import type {
   ComprehensiveAnalysisResponse,
   PaginatedResponse,
   APIError,
-  FilingSearchResult,
-  EdgarSearchParams,
 } from '../types'
 
 /**
@@ -17,6 +15,8 @@ import type {
  * Provides higher-level business logic and error handling around filing operations.
  * Wraps the basic API calls with additional functionality like status polling,
  * validation, and comprehensive error handling.
+ *
+ * Uses database-only search for filings - EDGAR direct search has been removed.
  */
 export class FilingService {
   /**
@@ -36,28 +36,6 @@ export class FilingService {
     }
   }
 
-  /**
-   * Search Edgar filings directly from SEC API
-   *
-   * This method queries the SEC Edgar database directly through our backend proxy,
-   * providing access to all available filings for a company, not just those
-   * previously processed by our system.
-   *
-   * @param params - Edgar search parameters including ticker and optional filters
-   * @returns Promise resolving to paginated Edgar filing search results
-   * @throws APIError when search fails or ticker not found
-   */
-  async searchEdgarFilings(
-    params: EdgarSearchParams
-  ): Promise<PaginatedResponse<FilingSearchResult>> {
-    this.validateEdgarSearchParams(params)
-
-    try {
-      return await filingsApi.searchEdgarFilings(params)
-    } catch (error) {
-      throw this.handleFilingError(error, 'searching Edgar filings for ticker', params.ticker)
-    }
-  }
 
   /**
    * Get filing information by accession number
@@ -368,104 +346,6 @@ export class FilingService {
     }
   }
 
-  /**
-   * Validate Edgar search parameters
-   */
-  private validateEdgarSearchParams(params: EdgarSearchParams): void {
-    if (!params.ticker || typeof params.ticker !== 'string') {
-      const error: APIError = {
-        detail: 'Ticker is required and must be a string',
-        status_code: 400,
-        error_code: 'INVALID_TICKER',
-      }
-      throw error
-    }
-
-    // Validate ticker format (basic check)
-    const tickerRegex = /^[A-Z0-9.-]+$/i
-    if (!tickerRegex.test(params.ticker)) {
-      const error: APIError = {
-        detail:
-          'Invalid ticker format. Must contain only alphanumeric characters, dots, and hyphens',
-        status_code: 400,
-        error_code: 'INVALID_TICKER_FORMAT',
-      }
-      throw error
-    }
-
-    // Validate date formats if provided
-    if (params.date_from && !/^\d{4}-\d{2}-\d{2}$/.test(params.date_from)) {
-      const error: APIError = {
-        detail: 'Invalid date_from format. Expected format: YYYY-MM-DD',
-        status_code: 400,
-        error_code: 'INVALID_DATE_FORMAT',
-      }
-      throw error
-    }
-
-    if (params.date_to && !/^\d{4}-\d{2}-\d{2}$/.test(params.date_to)) {
-      const error: APIError = {
-        detail: 'Invalid date_to format. Expected format: YYYY-MM-DD',
-        status_code: 400,
-        error_code: 'INVALID_DATE_FORMAT',
-      }
-      throw error
-    }
-
-    // Validate date range
-    if (params.date_from && params.date_to && params.date_from > params.date_to) {
-      const error: APIError = {
-        detail: 'date_from cannot be later than date_to',
-        status_code: 400,
-        error_code: 'INVALID_DATE_RANGE',
-      }
-      throw error
-    }
-
-    // Validate pagination parameters
-    if (params.page !== undefined && (params.page < 1 || !Number.isInteger(params.page))) {
-      const error: APIError = {
-        detail: 'Page must be a positive integer',
-        status_code: 400,
-        error_code: 'INVALID_PAGE',
-      }
-      throw error
-    }
-
-    if (
-      params.page_size !== undefined &&
-      (params.page_size < 1 || params.page_size > 100 || !Number.isInteger(params.page_size))
-    ) {
-      const error: APIError = {
-        detail: 'Page size must be an integer between 1 and 100',
-        status_code: 400,
-        error_code: 'INVALID_PAGE_SIZE',
-      }
-      throw error
-    }
-
-    // Validate sort parameters
-    if (
-      params.sort_by &&
-      !['filing_date', 'filing_type', 'company_name'].includes(params.sort_by)
-    ) {
-      const error: APIError = {
-        detail: 'Invalid sort_by field. Must be one of: filing_date, filing_type, company_name',
-        status_code: 400,
-        error_code: 'INVALID_SORT_FIELD',
-      }
-      throw error
-    }
-
-    if (params.sort_direction && !['asc', 'desc'].includes(params.sort_direction)) {
-      const error: APIError = {
-        detail: 'Invalid sort_direction. Must be one of: asc, desc',
-        status_code: 400,
-        error_code: 'INVALID_SORT_DIRECTION',
-      }
-      throw error
-    }
-  }
 
   /**
    * Validate accession number format
