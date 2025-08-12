@@ -1,6 +1,7 @@
 """Repository for Filing entities."""
 
 from datetime import date
+from typing import Any
 from uuid import UUID
 
 from sqlalchemy import and_, desc, func, select
@@ -269,6 +270,80 @@ class FilingRepository(BaseRepository[FilingModel, Filing]):
         result = await self.session.execute(stmt)
         models = result.scalars().all()
         return [self.to_entity(model) for model in models]
+
+    async def get_by_ticker_with_filters_and_company(
+        self,
+        ticker: Ticker,
+        filing_type: FilingType | None = None,
+        start_date: date | None = None,
+        end_date: date | None = None,
+        sort_field: str = "filing_date",
+        sort_direction: str = "desc",
+        page: int = 1,
+        page_size: int = 20,
+    ) -> list[tuple[Filing, dict[str, Any]]]:
+        """Get filings by ticker with company information.
+
+        Args:
+            ticker: Company ticker symbol
+            filing_type: Optional filing type filter
+            start_date: Optional start date filter
+            end_date: Optional end date filter
+            sort_field: Field to sort by
+            sort_direction: Sort direction ("asc" or "desc")
+            page: Page number (1-based)
+            page_size: Number of items per page
+
+        Returns:
+            List of tuples containing (Filing entity, company_info dict)
+        """
+        # Join with Company table to filter by ticker in meta_data JSON field
+        conditions = [CompanyModel.meta_data["ticker"].as_string() == str(ticker)]
+
+        if filing_type:
+            conditions.append(FilingModel.filing_type == filing_type.value)
+
+        if start_date:
+            conditions.append(FilingModel.filing_date >= start_date)
+
+        if end_date:
+            conditions.append(FilingModel.filing_date <= end_date)
+
+        # Determine sort column
+        sort_column = getattr(FilingModel, sort_field)
+        if sort_direction.lower() == "desc":
+            sort_column = desc(sort_column)
+
+        # Calculate offset
+        offset = (page - 1) * page_size
+
+        stmt = (
+            select(FilingModel)
+            .join(CompanyModel, FilingModel.company_id == CompanyModel.id)
+            .where(and_(*conditions))
+            .order_by(sort_column)
+            .offset(offset)
+            .limit(page_size)
+        )
+
+        result = await self.session.execute(stmt)
+        models = result.scalars().all()
+
+        results = []
+        for model in models:
+            filing = self.to_entity(model)
+            company_info = {
+                "name": model.company.name,
+                "cik": model.company.cik,
+                "ticker": (
+                    model.company.meta_data.get("ticker")
+                    if model.company.meta_data
+                    else None
+                ),
+            }
+            results.append((filing, company_info))
+
+        return results
 
     async def count_by_ticker_with_filters(
         self,

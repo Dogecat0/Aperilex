@@ -56,13 +56,13 @@ FilingIdPath = Annotated[UUID, Path(description="Filing UUID identifier")]
 @router.get(
     "/search",
     response_model=PaginatedResponse[FilingSearchResult],
-    summary="Search SEC filings",
+    summary="Search SEC filings from database",
     description="""
-    Search for SEC filings using various criteria.
+    Search for SEC filings from the local database.
 
-    This endpoint queries the SEC Edgar database directly to find filings
-    matching the specified criteria. Results include filing metadata
-    suitable for display in search interfaces.
+    This endpoint queries locally stored SEC filings that have been
+    previously imported. It provides fast, reliable access to filing
+    metadata without external API dependencies.
 
     Required parameter:
     - ticker: Company ticker symbol (e.g., "AAPL", "MSFT")
