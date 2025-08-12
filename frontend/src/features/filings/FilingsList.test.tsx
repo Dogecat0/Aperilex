@@ -50,32 +50,6 @@ describe('FilingsList', () => {
     error: null,
   }
 
-  const mockEdgarSearchResult = {
-    data: {
-      items: [
-        {
-          accession_number: '0000320193-24-000002',
-          filing_type: '10-Q',
-          filing_date: '2024-02-15',
-          company_name: 'Apple Inc.',
-          company_ticker: 'AAPL',
-        },
-      ],
-      pagination: {
-        page: 1,
-        page_size: 20,
-        total_items: 1,
-        total_pages: 1,
-        has_next: false,
-        has_previous: false,
-        next_page: null,
-        previous_page: null,
-      },
-    },
-    isLoading: false,
-    error: null,
-  }
-
   beforeEach(() => {
     vi.clearAllMocks()
 
@@ -86,7 +60,6 @@ describe('FilingsList', () => {
 
     // Setup filing hooks mock
     vi.mocked(useFiling.useFilingSearch).mockReturnValue(mockFilingSearchResult as any)
-    vi.mocked(useFiling.useEdgarSearch).mockReturnValue(mockEdgarSearchResult as any)
     vi.mocked(useFiling.useFilingAnalyzeMutation).mockReturnValue({
       mutateAsync: mockAnalyzeFiling,
       isPending: false,
@@ -137,33 +110,8 @@ describe('FilingsList', () => {
   })
 
   describe('Search Functionality', () => {
-    it('handles Edgar search by default', async () => {
+    it('handles database search', async () => {
       render(<FilingsList />)
-
-      const searchInput = screen.getByPlaceholderText(/Enter company ticker/)
-      const searchButton = screen.getByRole('button', { name: /Search/ })
-
-      fireEvent.change(searchInput, { target: { value: 'AAPL' } })
-      fireEvent.click(searchButton)
-
-      await waitFor(() => {
-        expect(useFiling.useEdgarSearch).toHaveBeenCalledWith(
-          expect.objectContaining({
-            ticker: 'AAPL',
-            page: 1,
-            page_size: 20,
-          }),
-          expect.any(Object)
-        )
-      })
-    })
-
-    it('handles database search when search type is database', async () => {
-      render(<FilingsList />)
-
-      // Switch to database search
-      const databaseButton = screen.getByText(/Our Database/)
-      fireEvent.click(databaseButton)
 
       const searchInput = screen.getByPlaceholderText(/Enter company ticker/)
       const searchButton = screen.getByRole('button', { name: /Search/ })
@@ -183,32 +131,14 @@ describe('FilingsList', () => {
       })
     })
 
-    it('handles search type switching', () => {
-      render(<FilingsList />)
-
-      const edgarButton = screen.getByText(/SEC Edgar/)
-      const databaseButton = screen.getByText(/Our Database/)
-
-      // Check the button classes or other indicators of active state
-      // Since variant is a React prop, not an HTML attribute, we check classes instead
-      expect(edgarButton).toHaveClass('bg-primary', 'text-primary-foreground')
-      expect(databaseButton).toHaveClass('border', 'border-input')
-
-      fireEvent.click(databaseButton)
-
-      // Note: We can't easily test the active state change without more complex mocking
-      // but we can test that the button exists and is clickable
-      expect(databaseButton).toBeInTheDocument()
-    })
-
-    it('handles popular ticker clicks for Edgar search', async () => {
+    it('handles popular ticker clicks for database search', async () => {
       render(<FilingsList />)
 
       const appleTicker = screen.getByText('AAPL')
       fireEvent.click(appleTicker)
 
       await waitFor(() => {
-        expect(useFiling.useEdgarSearch).toHaveBeenCalledWith(
+        expect(useFiling.useFilingSearch).toHaveBeenCalledWith(
           expect.objectContaining({
             ticker: 'AAPL',
             page: 1,
@@ -224,22 +154,26 @@ describe('FilingsList', () => {
     it('displays search results when available', () => {
       // Mock with search params to trigger results display
       const mockWithSearch = {
-        ...mockEdgarSearchResult,
+        ...mockFilingSearchResult,
         data: {
-          ...mockEdgarSearchResult.data,
+          ...mockFilingSearchResult.data,
           items: [
             {
+              filing_id: '1',
               accession_number: '0000320193-24-000001',
               filing_type: '10-K',
               filing_date: '2024-01-15',
-              company_name: 'Apple Inc.',
-              company_ticker: 'AAPL',
+              processing_status: 'completed' as const,
+              processing_error: null,
+              company_id: '320193',
+              metadata: {},
+              analyses_count: 1,
             },
           ],
         },
       }
 
-      vi.mocked(useFiling.useEdgarSearch).mockReturnValue(mockWithSearch as any)
+      vi.mocked(useFiling.useFilingSearch).mockReturnValue(mockWithSearch as any)
 
       render(<FilingsList />)
 
@@ -253,8 +187,8 @@ describe('FilingsList', () => {
     })
 
     it('shows loading state during search', () => {
-      vi.mocked(useFiling.useEdgarSearch).mockReturnValue({
-        ...mockEdgarSearchResult,
+      vi.mocked(useFiling.useFilingSearch).mockReturnValue({
+        ...mockFilingSearchResult,
         isLoading: true,
       } as any)
 
@@ -292,8 +226,8 @@ describe('FilingsList', () => {
 
   describe('Error Handling', () => {
     it('handles search errors gracefully', () => {
-      vi.mocked(useFiling.useEdgarSearch).mockReturnValue({
-        ...mockEdgarSearchResult,
+      vi.mocked(useFiling.useFilingSearch).mockReturnValue({
+        ...mockFilingSearchResult,
         error: { message: 'Search failed' },
       } as any)
 
@@ -310,47 +244,22 @@ describe('FilingsList', () => {
   })
 
   describe('Pagination', () => {
-    it('handles page changes for Edgar search', () => {
+    it('handles page changes for database search', () => {
       render(<FilingsList />)
 
       // Component should set up page change handlers
       // Actual pagination interaction would be tested via FilingSearchResults
-      expect(useFiling.useEdgarSearch).toHaveBeenCalled()
-    })
-
-    it('handles page changes for database search', () => {
-      render(<FilingsList />)
-
-      // Switch to database search
-      const databaseButton = screen.getByText(/Our Database/)
-      fireEvent.click(databaseButton)
-
       expect(useFiling.useFilingSearch).toHaveBeenCalled()
     })
   })
 
   describe('State Management', () => {
-    it('resets company data when switching search types', () => {
-      render(<FilingsList />)
-
-      // Switch between search types
-      const databaseButton = screen.getByText(/Our Database/)
-      const edgarButton = screen.getByText(/SEC Edgar/)
-
-      fireEvent.click(databaseButton)
-      fireEvent.click(edgarButton)
-
-      // State resets should be handled internally
-      expect(useFiling.useEdgarSearch).toHaveBeenCalled()
-      expect(useFiling.useFilingSearch).toHaveBeenCalled()
-    })
-
     it('maintains search state during pagination', () => {
       render(<FilingsList />)
 
       // Search and pagination state management is tested implicitly
       // through the hook calls and their parameters
-      expect(useFiling.useEdgarSearch).toHaveBeenCalledWith(
+      expect(useFiling.useFilingSearch).toHaveBeenCalledWith(
         expect.any(Object),
         expect.objectContaining({ enabled: false })
       )
