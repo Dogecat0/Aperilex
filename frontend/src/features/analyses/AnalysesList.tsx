@@ -147,10 +147,7 @@ export function AnalysesList() {
 
     // Set new timeout for debounced confidence filter
     confidenceTimeoutRef.current = setTimeout(() => {
-      handleFilterChange(
-        'min_confidence_score',
-        value ? Number(value) : undefined
-      )
+      handleFilterChange('min_confidence_score', value ? Number(value) : undefined)
     }, 500) // Wait 500ms after user stops typing
   }, [])
 
@@ -209,10 +206,10 @@ export function AnalysesList() {
   const hasActiveFilters = useMemo(() => {
     return Boolean(
       filters.company_cik ||
-      filters.analysis_template ||
-      filters.created_from ||
-      filters.created_to ||
-      filters.min_confidence_score
+        filters.analysis_template ||
+        filters.created_from ||
+        filters.created_to ||
+        filters.min_confidence_score
     )
   }, [filters])
 
