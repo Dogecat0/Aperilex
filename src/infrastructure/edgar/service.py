@@ -558,10 +558,32 @@ class EdgarService:
         """Extract company data from edgartools Company object."""
         # Safely extract ticker with fallback to None
         ticker_value = None
-        if hasattr(company, "ticker"):
+
+        # First try the get_ticker() method (most reliable)
+        if hasattr(company, "get_ticker"):
+            try:
+                ticker_result = company.get_ticker()
+                if ticker_result is not None:
+                    ticker_value = str(ticker_result)
+            except (AttributeError, TypeError, ValueError):
+                # Expected exceptions when ticker is not available or conversion fails
+                ticker_value = None
+
+        # If still None, try the ticker attribute as fallback
+        if ticker_value is None and hasattr(company, "ticker"):
             ticker_attr = getattr(company, "ticker", None)
             if ticker_attr is not None:
                 ticker_value = str(ticker_attr)
+
+        # If still None, try the tickers list attribute
+        if ticker_value is None and hasattr(company, "tickers"):
+            tickers_list = getattr(company, "tickers", None)
+            if (
+                tickers_list
+                and isinstance(tickers_list, list)
+                and len(tickers_list) > 0
+            ):
+                ticker_value = str(tickers_list[0])
 
         return CompanyData(
             cik=str(company.cik),

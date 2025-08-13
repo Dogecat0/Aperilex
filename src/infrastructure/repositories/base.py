@@ -1,7 +1,7 @@
 """Base repository with common database operations."""
 
 from abc import ABC, abstractmethod
-from typing import Generic, TypeVar
+from typing import TypeVar
 from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -12,7 +12,7 @@ ModelType = TypeVar("ModelType", bound=Base)
 EntityType = TypeVar("EntityType")
 
 
-class BaseRepository(Generic[ModelType, EntityType], ABC):
+class BaseRepository[ModelType: Base, EntityType](ABC):
     """Base repository with common CRUD operations."""
 
     def __init__(self, session: AsyncSession, model_class: type[ModelType]) -> None:

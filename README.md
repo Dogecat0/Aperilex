@@ -399,7 +399,7 @@ GET /api/companies/{ticker}/analyses
 - ✅ **REST API** with 13+ endpoints supporting full web application
 - ✅ **EdgarTools Integration** - Complete SEC filing access with compliance
 - ✅ **AI-Powered Analysis** - OpenAI GPT-4 with structured financial insights
-- ✅ **1,438+ tests PASSED** - 86%+ backend test coverage
+- ✅ **1,578+ tests PASSED** - 86%+ backend test coverage
 - ✅ **Background Processing** - Celery task queues for scalable analysis operations
 - ✅ **Multi-Level Caching** - Redis caching with intelligent TTL strategies
 
@@ -407,7 +407,7 @@ GET /api/companies/{ticker}/analyses
 1. **Complete Web Application**: Visit the React interface for intuitive financial analysis
 2. **Company Research**: Search any public company and get AI-powered insights
 3. **SEC Filing Analysis**: Analyze 10-K, 10-Q, and 8-K filings with plain-English summaries
-4. **Interactive Dashboards**: Real-time progress tracking and analysis results visualization
+4. **Batch Filing Import**: Import filings for multiple companies with flexible filtering and background processing
 5. **Export Capabilities**: Generate PDF reports and Excel spreadsheets
 6. **Developer API**: Full REST API with OpenAPI documentation for integrations
 
