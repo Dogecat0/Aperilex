@@ -30,6 +30,8 @@ class TestEdgarService:
             "stateOrCountry": "CA",
             "zipCode": "95014",
         }
+        # Add get_ticker() method that the service expects
+        mock_company.get_ticker = Mock(return_value="AAPL")
         return mock_company
 
     @pytest.fixture
@@ -48,6 +50,8 @@ class TestEdgarService:
             "stateOrCountry": "WA",
             "zipCode": "98052-6399",
         }
+        # Add get_ticker() method that the service expects
+        mock_company.get_ticker = Mock(return_value="MSFT")
         return mock_company
 
     @pytest.fixture
@@ -1166,19 +1170,9 @@ class TestEdgarService:
     def test_extract_company_data_with_missing_attributes(self, service):
         """Test company data extraction with missing optional attributes."""
         # Mock company with minimal attributes
-        mock_company = Mock()
+        mock_company = Mock(spec=['cik', 'name'])  # Spec limits available attributes
         mock_company.cik = 123456
         mock_company.name = None  # Missing name
-        # Remove ticker attribute entirely
-        if hasattr(mock_company, 'ticker'):
-            delattr(mock_company, 'ticker')
-        # Remove SIC attributes
-        if hasattr(mock_company, 'sic'):
-            delattr(mock_company, 'sic')
-        if hasattr(mock_company, 'sic_description'):
-            delattr(mock_company, 'sic_description')
-        if hasattr(mock_company, 'address'):
-            delattr(mock_company, 'address')
 
         # Execute
         result = service._extract_company_data(mock_company)

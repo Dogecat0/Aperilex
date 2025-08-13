@@ -45,7 +45,7 @@ async def fetch_company_filings_task(
     Fetch and store SEC filings for a company.
 
     Args:
-        cik: Company CIK identifier
+        cik: Company CIK identifier or ticker symbol
         form_types: List of form types to fetch (e.g., ['10-K', '10-Q'])
         limit: Maximum number of filings to fetch
 
@@ -53,7 +53,7 @@ async def fetch_company_filings_task(
         Task result with summary information
     """
     task_id = self.request.id
-    logger.info(f"Starting filing fetch task {task_id} for CIK {cik}")
+    logger.info(f"Starting filing fetch task {task_id} for company {cik}")
 
     try:
         async with async_session_maker() as session:
@@ -61,19 +61,61 @@ async def fetch_company_filings_task(
             filing_repo = FilingRepository(session)
             edgar_service = EdgarService()
 
-            # Get or create company
-            company = await company_repo.get_by_cik(cik)
-            if not company:
-                # Fetch company info from Edgar
-                company_data = await edgar_service.get_company_info(cik)
-                company = await company_repo.create(company_data)
-                await company_repo.commit()
-                logger.info(f"Created new company: {company.name} ({company.cik})")
+            # Determine if input is a CIK or ticker
+            from edgar import Company
 
-            # Fetch filings from Edgar
-            filing_data_list = await edgar_service.get_filings(
-                cik=str(company.cik), form_types=form_types, limit=limit
-            )
+            from src.domain.value_objects.cik import CIK
+            from src.domain.value_objects.ticker import Ticker
+
+            is_numeric_cik = cik.isdigit()
+
+            # Get or create company
+            if is_numeric_cik:
+                # Input is a CIK
+                company = await company_repo.get_by_cik(cik)
+                if not company:
+                    # Fetch company info from Edgar using CIK
+                    company_data = await edgar_service.get_company_by_cik_async(
+                        CIK(cik)
+                    )
+                    company = await company_repo.create(company_data)
+                    await company_repo.commit()
+                    logger.info(f"Created new company: {company.name} ({company.cik})")
+
+                # Create Edgar company object using CIK
+                edgar_company = Company(int(cik))
+            else:
+                # Input is a ticker symbol
+                # First try to get company data from Edgar using ticker
+                company_data = edgar_service.get_company_by_ticker(Ticker(cik))
+
+                # Check if company exists in our database
+                company = await company_repo.get_by_cik(company_data.cik)
+                if not company:
+                    company = await company_repo.create(company_data)
+                    await company_repo.commit()
+                    logger.info(f"Created new company: {company.name} ({company.cik})")
+
+                # Create Edgar company object using ticker
+                edgar_company = Company(cik)
+
+            # Fetch filings from Edgar directly using Company object
+            filing_data_list = []
+            if form_types:
+                for form_type in form_types:
+                    filings = edgar_company.get_filings(form=form_type)
+                    # Convert to list and limit
+                    filings_iter = list(filings)[:limit]
+                    for filing in filings_iter:
+                        filing_data_list.append(
+                            edgar_service._extract_filing_data(filing)
+                        )
+            else:
+                # Get all filings if no specific form types
+                filings = edgar_company.get_filings()
+                filings_iter = list(filings)[:limit]
+                for filing in filings_iter:
+                    filing_data_list.append(edgar_service._extract_filing_data(filing))
 
             created_count = 0
             updated_count = 0

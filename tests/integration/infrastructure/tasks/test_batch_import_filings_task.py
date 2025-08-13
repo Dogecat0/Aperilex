@@ -410,11 +410,27 @@ class TestBatchImportFilingsTaskIntegration:
             # Verify all tasks were created
             assert len(task_creation_times) == 5
 
-            # Verify tasks were created with delays (jitter)
-            for i in range(1, len(task_creation_times)):
-                time_diff = task_creation_times[i] - task_creation_times[i - 1]
-                # Should have some delay due to jitter (0.05-0.15s range)
-                assert time_diff >= 0.0  # At least some minimal delay
+            # Note: Tasks are created immediately but with countdown delays for execution.
+            # The creation times will be very close together (within the same chunk),
+            # but tasks in different chunks should show larger time gaps.
+            # We verify chunking behavior rather than individual task timing.
+
+            # Group creation times by chunk
+            chunk_times = []
+            for i in range(0, len(task_creation_times), chunk_size):
+                chunk_end = min(i + chunk_size, len(task_creation_times))
+                chunk_times.append(task_creation_times[i:chunk_end])
+
+            # Verify we have the expected number of chunks
+            assert len(chunk_times) == 3  # ceil(5/2) = 3 chunks
+
+            # Tasks within the same chunk should be created very close together
+            for chunk in chunk_times:
+                if len(chunk) > 1:
+                    for j in range(1, len(chunk)):
+                        within_chunk_diff = chunk[j] - chunk[j - 1]
+                        # Within a chunk, tasks are created almost simultaneously
+                        assert within_chunk_diff < 0.1  # Should be very fast
 
     @pytest.mark.asyncio
     async def test_batch_import_partial_failures(self, mock_task_context):
