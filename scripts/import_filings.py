@@ -145,6 +145,7 @@ import logging
 import sys
 from datetime import datetime
 from pathlib import Path
+from typing import Any
 
 # Add project root to Python path for src imports
 project_root = Path(__file__).parent.parent
@@ -174,11 +175,6 @@ class FilingImportManager:
     async def initialize_services(self) -> None:
         """Initialize required services for filing import."""
         try:
-            # Note: In a full implementation, we would properly initialize
-            # the BackgroundTaskCoordinator with its dependencies
-            # For now, this is a placeholder structure
-            logger.info("Initializing background task coordinator...")
-            # self.background_task_coordinator = BackgroundTaskCoordinator(...)
             logger.info("Services initialized successfully")
         except Exception as e:
             logger.error(f"Failed to initialize services: {e}")
@@ -199,17 +195,280 @@ class FilingImportManager:
             # Display import parameters
             self._display_import_summary(command)
 
-            # Note: In a full implementation, we would:
-            # 1. Create an ImportFilingsHandler instance
-            # 2. Pass the command to the handler
-            # 3. Track and display progress
+            # Execute the actual batch import using direct filing operations
+            logger.info("Starting batch filing import...")
 
-            logger.info("Import command would be executed here")
-            logger.info("(Handler implementation needed)")
+            import secrets
+            import time
+            from datetime import datetime
+            from uuid import uuid4
 
-            # For now, just display what would be done
-            params = command.get_import_parameters()
-            logger.info(f"Import parameters: {params}")
+            from edgar import Company
+
+            from src.domain.entities.company import Company as CompanyEntity
+            from src.domain.entities.filing import Filing
+            from src.domain.value_objects.accession_number import AccessionNumber
+            from src.domain.value_objects.cik import CIK
+            from src.domain.value_objects.filing_type import FilingType as FilingTypeVO
+            from src.domain.value_objects.ticker import Ticker
+
+            # Import required modules for direct execution
+            from src.infrastructure.database.base import async_session_maker
+            from src.infrastructure.edgar.service import EdgarService
+            from src.infrastructure.repositories.company_repository import (
+                CompanyRepository,
+            )
+            from src.infrastructure.repositories.filing_repository import (
+                FilingRepository,
+            )
+
+            task_id = f"script-task-{secrets.token_hex(8)}"
+            start_time = time.time()
+
+            # Initialize counters
+            total_companies = len(command.companies or [])
+            processed_companies = 0
+            failed_companies = 0
+            total_filings_created = 0
+            total_filings_existing = 0
+            failed_companies_details = []
+
+            logger.info(f"Processing {total_companies} companies")
+
+            # Process each company
+            for company_identifier in command.companies or []:
+                try:
+                    logger.info(f"Processing company: {company_identifier}")
+
+                    # Execute the filing fetch logic directly
+                    async with async_session_maker() as session:
+                        company_repo = CompanyRepository(session)
+                        filing_repo = FilingRepository(session)
+                        edgar_service = EdgarService()
+
+                        # Determine if input is a CIK or ticker
+                        is_numeric_cik = company_identifier.isdigit()
+
+                        # Get or create company
+                        if is_numeric_cik:
+                            # Input is a CIK
+                            company = await company_repo.get_by_cik(
+                                CIK(company_identifier)
+                            )
+                            if not company:
+                                # Fetch company info from Edgar using CIK
+                                company_data = (
+                                    await edgar_service.get_company_by_cik_async(
+                                        CIK(company_identifier)
+                                    )
+                                )
+                                # Create Company entity from CompanyData
+                                company_entity = CompanyEntity(
+                                    id=uuid4(),
+                                    cik=CIK(company_data.cik),
+                                    name=company_data.name,
+                                    metadata={
+                                        "ticker": company_data.ticker,
+                                        "sic_code": company_data.sic_code,
+                                        "sic_description": company_data.sic_description,
+                                        "address": company_data.address,
+                                    },
+                                )
+                                company = await company_repo.create(company_entity)
+                                await company_repo.commit()
+                                logger.info(
+                                    f"Created new company: {company.name} ({company.cik})"
+                                )
+
+                            # Create Edgar company object using CIK
+                            edgar_company = Company(int(company_identifier))
+                        else:
+                            # Input is a ticker symbol
+                            # First try to get company data from Edgar using ticker
+                            company_data = edgar_service.get_company_by_ticker(
+                                Ticker(company_identifier)
+                            )
+
+                            # Check if company exists in our database
+                            company = await company_repo.get_by_cik(
+                                CIK(company_data.cik)
+                            )
+                            if not company:
+                                # Create Company entity from CompanyData
+                                company_entity = CompanyEntity(
+                                    id=uuid4(),
+                                    cik=CIK(company_data.cik),
+                                    name=company_data.name,
+                                    metadata={
+                                        "ticker": company_data.ticker,
+                                        "sic_code": company_data.sic_code,
+                                        "sic_description": company_data.sic_description,
+                                        "address": company_data.address,
+                                    },
+                                )
+                                company = await company_repo.create(company_entity)
+                                await company_repo.commit()
+                                logger.info(
+                                    f"Created new company: {company.name} ({company.cik})"
+                                )
+
+                            # Create Edgar company object using ticker
+                            edgar_company = Company(company_identifier)
+
+                        # Fetch filings from Edgar
+                        filing_data_list = []
+                        if command.filing_types:
+                            for form_type in command.filing_types:
+                                filings = edgar_company.get_filings(form=form_type)
+                                # Convert to list and limit
+                                filings_iter = list(filings)[
+                                    : command.limit_per_company
+                                ]
+                                for filing in filings_iter:
+                                    filing_data_list.append(
+                                        edgar_service._extract_filing_data(filing)
+                                    )
+                        else:
+                            # Get all filings if no specific form types
+                            filings = edgar_company.get_filings()
+                            filings_iter = list(filings)[: command.limit_per_company]
+                            for filing in filings_iter:
+                                filing_data_list.append(
+                                    edgar_service._extract_filing_data(filing)
+                                )
+
+                        created_count = 0
+                        existing_count = 0
+
+                        for filing_data in filing_data_list:
+                            # Check if filing already exists
+                            existing_filing = await filing_repo.get_by_accession_number(
+                                AccessionNumber(filing_data.accession_number)
+                            )
+
+                            if existing_filing:
+                                existing_count += 1
+                                logger.debug(
+                                    f"Filing {filing_data.accession_number} already exists"
+                                )
+                                continue
+
+                            # Create new filing
+                            # Build metadata from available filing data fields
+                            metadata = {
+                                "company_name": filing_data.company_name,
+                                "cik": filing_data.cik,
+                                "ticker": filing_data.ticker,
+                                "content_length": (
+                                    len(filing_data.content_text)
+                                    if filing_data.content_text
+                                    else 0
+                                ),
+                                "has_sections": bool(filing_data.sections),
+                                "section_count": (
+                                    len(filing_data.sections)
+                                    if filing_data.sections
+                                    else 0
+                                ),
+                            }
+
+                            # Parse filing date string to date object
+                            # FilingData returns date as string, Filing entity expects date object
+                            filing_date = datetime.strptime(
+                                filing_data.filing_date, "%Y-%m-%d"
+                            ).date()
+
+                            filing = Filing(
+                                id=uuid4(),
+                                company_id=company.id,
+                                accession_number=AccessionNumber(
+                                    filing_data.accession_number
+                                ),
+                                filing_type=FilingTypeVO(filing_data.filing_type),
+                                filing_date=filing_date,
+                                metadata=metadata,
+                            )
+
+                            await filing_repo.create(filing)
+                            created_count += 1
+                            logger.debug(
+                                f"Created filing {filing_data.accession_number}"
+                            )
+
+                        await filing_repo.commit()
+
+                        company_result = {
+                            "status": "completed",
+                            "created_count": created_count,
+                            "updated_count": existing_count,
+                            "company_name": company.name,
+                        }
+
+                    if company_result.get("status") == "completed":
+                        processed_companies += 1
+                        created = company_result.get("created_count", 0)
+                        existing = company_result.get("updated_count", 0)
+                        total_filings_created += (
+                            created if isinstance(created, int) else 0
+                        )
+                        total_filings_existing += (
+                            existing if isinstance(existing, int) else 0
+                        )
+                        logger.info(
+                            f"Successfully processed {company_identifier}: {company_result.get('created_count', 0)} created, {company_result.get('updated_count', 0)} existing"
+                        )
+                    else:
+                        failed_companies += 1
+                        error_msg = company_result.get("error", "Unknown error")
+                        failed_companies_details.append(
+                            {"company": company_identifier, "error": error_msg}
+                        )
+                        logger.error(
+                            f"Failed to process {company_identifier}: {error_msg}"
+                        )
+
+                except Exception as e:
+                    failed_companies += 1
+                    error_msg = str(e)
+                    failed_companies_details.append(
+                        {
+                            "company": company_identifier,
+                            "error": error_msg,
+                            "error_type": type(e).__name__,
+                        }
+                    )
+                    logger.error(
+                        f"Exception processing {company_identifier}: {error_msg}"
+                    )
+
+            # Calculate results
+            processing_time = time.time() - start_time
+            success_rate = (
+                processed_companies / total_companies if total_companies > 0 else 0
+            )
+
+            result = {
+                "task_id": task_id,
+                "total_companies": total_companies,
+                "processed_companies": processed_companies,
+                "failed_companies": failed_companies,
+                "total_filings_created": total_filings_created,
+                "total_filings_existing": total_filings_existing,
+                "processing_time_seconds": round(processing_time, 2),
+                "chunks_processed": 1,
+                "success_rate": round(success_rate, 3),
+                "average_time_per_company": (
+                    round(processing_time / total_companies, 2)
+                    if total_companies > 0
+                    else 0
+                ),
+                "failed_companies_details": failed_companies_details,
+                "status": "completed",
+            }
+
+            # Display results
+            logger.info("Batch import completed!")
+            self._display_import_results(result)
 
         except ValueError as e:
             logger.error(f"Command validation failed: {e}")
@@ -247,6 +506,45 @@ class FilingImportManager:
             expected_count = command.expected_filings_count
             if expected_count > 0:
                 print(f"Expected Filings: ~{expected_count}")
+
+        print("=" * 60)
+        print()
+
+    def _display_import_results(self, result: dict[str, Any]) -> None:
+        """Display the results of the import operation.
+
+        Args:
+            result: The result dictionary from batch_import_filings_task
+        """
+        print("\n" + "=" * 60)
+        print("BATCH FILING IMPORT RESULTS")
+        print("=" * 60)
+
+        print(f"Task ID: {result.get('task_id', 'N/A')}")
+        print(f"Status: {result.get('status', 'unknown')}")
+        print(f"Total Companies: {result.get('total_companies', 0)}")
+        print(f"Successfully Processed: {result.get('processed_companies', 0)}")
+        print(f"Failed Companies: {result.get('failed_companies', 0)}")
+        print(f"New Filings Created: {result.get('total_filings_created', 0)}")
+        print(f"Existing Filings Found: {result.get('total_filings_existing', 0)}")
+        print(
+            f"Processing Time: {result.get('processing_time_seconds', 0):.2f} seconds"
+        )
+        print(f"Success Rate: {result.get('success_rate', 0):.1%}")
+        print(f"Chunks Processed: {result.get('chunks_processed', 0)}")
+
+        # Show failed companies details if any
+        failed_details = result.get("failed_companies_details", [])
+        if failed_details:
+            print("\nFailed Companies:")
+            for detail in failed_details:
+                print(
+                    f"  - {detail.get('company', 'Unknown')}: {detail.get('error', 'Unknown error')}"
+                )
+
+        # Show error if task failed
+        if result.get("error"):
+            print(f"\nTask Error: {result.get('error')}")
 
         print("=" * 60)
         print()
