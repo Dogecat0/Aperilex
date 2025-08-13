@@ -6,6 +6,10 @@ from src.application.schemas.commands.analyze_filing import (
     AnalysisTemplate,
     AnalyzeFilingCommand,
 )
+from src.application.schemas.commands.import_filings import (
+    ImportFilingsCommand,
+    ImportStrategy,
+)
 from src.domain.value_objects.accession_number import AccessionNumber
 from src.domain.value_objects.cik import CIK
 
@@ -179,3 +183,37 @@ class TestAnalysisTemplate:
         """Test creating template with invalid value raises ValueError."""
         with pytest.raises(ValueError):
             AnalysisTemplate("invalid_template")
+
+
+class TestImportFilingsCommand:
+    """Test suite for ImportFilingsCommand basic functionality."""
+
+    def test_create_basic_command(self):
+        """Test creating basic import filings command."""
+        command = ImportFilingsCommand(
+            companies=["AAPL", "MSFT"],
+        )
+
+        assert command.companies == ["AAPL", "MSFT"]
+        assert command.filing_types == ["10-K", "10-Q"]  # Default values
+        assert command.limit_per_company == 4
+        assert command.import_strategy == ImportStrategy.BY_COMPANIES
+
+    def test_command_validation_success(self):
+        """Test that valid command passes validation."""
+        command = ImportFilingsCommand(
+            companies=["AAPL", "0000320193"],
+            filing_types=["10-K"],
+            limit_per_company=5,
+        )
+
+        # Validation occurs in __post_init__, so if we get here, validation passed
+        assert command.companies == ["AAPL", "0000320193"]
+
+    def test_command_validation_failure(self):
+        """Test that invalid command fails validation."""
+        with pytest.raises(ValueError, match="companies list is required"):
+            ImportFilingsCommand(
+                companies=None,
+                import_strategy=ImportStrategy.BY_COMPANIES,
+            )
