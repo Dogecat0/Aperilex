@@ -34,7 +34,58 @@ python scripts/generate_analysis_samples.py --validate-only
 - `OPENAI_API_KEY` (required): Your OpenAI API key
 - `OPENAI_BASE_URL` (optional): OpenAI base URL (defaults to https://api.openai.com/v1)
 
-### 2. `validate_api_integration.py`
+### 2. `import_filings.py`
+Management command for batch importing SEC filings using the ImportFilingsCommand and background task system.
+
+**Features:**
+- Batch import SEC filings by ticker or CIK
+- Support for multiple filing types (10-K, 10-Q, 8-K, etc.)
+- Date range filtering for targeted imports
+- Configurable limits per company
+- Dry-run mode for testing
+- Verbose logging and progress tracking
+- Command validation and error handling
+
+**Usage:**
+```bash
+# Import recent filings for specific companies
+poetry run python scripts/import_filings.py --tickers AAPL,MSFT,GOOGL
+
+# Import using CIK numbers instead of tickers
+poetry run python scripts/import_filings.py --ciks 320193,789019,1652044
+
+# Import specific filing types with custom limits
+poetry run python scripts/import_filings.py --tickers AAPL --filing-types 10-K,10-Q --limit 2
+
+# Import filings within specific date range
+poetry run python scripts/import_filings.py --tickers TSLA --start-date 2023-01-01 --end-date 2023-12-31
+
+# Test import parameters without actually importing (dry run)
+poetry run python scripts/import_filings.py --tickers AAPL --dry-run --verbose
+
+# Get help and see all options
+poetry run python scripts/import_filings.py --help
+```
+
+**Command Line Arguments:**
+- `--tickers`: Comma-separated list of ticker symbols
+- `--ciks`: Comma-separated list of CIK numbers (alternative to tickers)
+- `--filing-types`: Filing types to import (default: 10-K,10-Q)
+- `--limit`: Maximum filings per company (default: 4)
+- `--start-date`: Start date filter (YYYY-MM-DD format)
+- `--end-date`: End date filter (YYYY-MM-DD format)
+- `--dry-run`: Show what would be imported without importing
+- `--verbose`: Enable detailed logging
+
+**Supported Filing Types:**
+- 10-K, 10-K/A: Annual reports
+- 10-Q, 10-Q/A: Quarterly reports
+- 8-K, 8-K/A: Current reports
+- DEF 14A, DEFA14A: Proxy statements
+- S-1, S-3, S-4: Registration statements
+- 13F, 3, 4, 5: Ownership reports
+
+### 3. `validate_api_integration.py`
 Lightweight validation of API integration and schema compatibility without expensive analysis operations.
 
 **Features:**
