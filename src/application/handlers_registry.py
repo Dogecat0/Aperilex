@@ -6,6 +6,9 @@ from src.application.base.dispatcher import Dispatcher
 from src.application.commands.handlers.analyze_filing_handler import (
     AnalyzeFilingCommandHandler,
 )
+from src.application.commands.handlers.import_filings_handler import (
+    ImportFilingsCommandHandler,
+)
 from src.application.queries.handlers.get_analysis_by_accession_handler import (
     GetAnalysisByAccessionQueryHandler,
 )
@@ -45,6 +48,7 @@ def register_handlers(dispatcher: Dispatcher) -> None:
     # Register command handlers
     logger.info("Registering command handlers")
     dispatcher.register_command_handler(AnalyzeFilingCommandHandler)
+    dispatcher.register_command_handler(ImportFilingsCommandHandler)
 
     # Register query handlers
     logger.info("Registering query handlers")

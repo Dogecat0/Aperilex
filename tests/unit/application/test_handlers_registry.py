@@ -8,6 +8,9 @@ from src.application.base.dispatcher import Dispatcher
 from src.application.commands.handlers.analyze_filing_handler import (
     AnalyzeFilingCommandHandler,
 )
+from src.application.commands.handlers.import_filings_handler import (
+    ImportFilingsCommandHandler,
+)
 from src.application.handlers_registry import (
     get_configured_dispatcher,
     register_handlers,
@@ -53,10 +56,22 @@ class TestRegisterHandlers:
         with patch('src.application.handlers_registry.logger') as mock_logger:
             register_handlers(mock_dispatcher)
 
-        # Verify command handler registration
-        mock_dispatcher.register_command_handler.assert_called_once_with(
-            AnalyzeFilingCommandHandler
-        )
+        # Verify command handler registrations
+        expected_command_handlers = [
+            AnalyzeFilingCommandHandler,
+            ImportFilingsCommandHandler,
+        ]
+
+        assert mock_dispatcher.register_command_handler.call_count == 2
+
+        # Extract actual command handler classes from calls
+        command_handler_calls = [
+            call[0][0]
+            for call in mock_dispatcher.register_command_handler.call_args_list
+        ]
+
+        for expected_handler in expected_command_handlers:
+            assert expected_handler in command_handler_calls
 
         # Verify query handler registrations
         expected_query_handlers = [
@@ -107,12 +122,14 @@ class TestRegisterHandlers:
             if call[0] in ['register_command_handler', 'register_query_handler']
         ]
 
-        # First call should be command handler
+        # First two calls should be command handlers
         assert registration_calls[0][0] == 'register_command_handler'
         assert registration_calls[0][1][0] == AnalyzeFilingCommandHandler
+        assert registration_calls[1][0] == 'register_command_handler'
+        assert registration_calls[1][1][0] == ImportFilingsCommandHandler
 
         # Rest should be query handlers
-        query_calls = registration_calls[1:]
+        query_calls = registration_calls[2:]
         assert all(call[0] == 'register_query_handler' for call in query_calls)
 
     def test_register_handlers_with_dispatcher_error(
@@ -143,10 +160,8 @@ class TestRegisterHandlers:
         with pytest.raises(Exception, match="Query registration failed"):
             register_handlers(mock_dispatcher)
 
-        # Command handler should have been registered successfully
-        mock_dispatcher.register_command_handler.assert_called_once_with(
-            AnalyzeFilingCommandHandler
-        )
+        # Command handlers should have been registered successfully
+        assert mock_dispatcher.register_command_handler.call_count == 2
 
         # Query handler registration should have been attempted
         mock_dispatcher.register_query_handler.assert_called_once()
@@ -251,6 +266,7 @@ class TestHandlerRegistrationIntegration:
 
         # Command handlers
         assert issubclass(AnalyzeFilingCommandHandler, CommandHandler)
+        assert issubclass(ImportFilingsCommandHandler, CommandHandler)
 
         # Query handlers
         assert issubclass(GetAnalysisQueryHandler, QueryHandler)
@@ -266,6 +282,8 @@ class TestHandlerRegistrationIntegration:
         # Command handlers should have command_type method
         assert hasattr(AnalyzeFilingCommandHandler, 'command_type')
         assert callable(AnalyzeFilingCommandHandler.command_type)
+        assert hasattr(ImportFilingsCommandHandler, 'command_type')
+        assert callable(ImportFilingsCommandHandler.command_type)
 
         # Query handlers should have query_type method
         query_handlers = [
@@ -288,6 +306,7 @@ class TestHandlerRegistrationIntegration:
             GetTemplatesQuery,
         )
         from src.application.schemas.commands.analyze_filing import AnalyzeFilingCommand
+        from src.application.schemas.commands.import_filings import ImportFilingsCommand
         from src.application.schemas.queries.get_analysis import GetAnalysisQuery
         from src.application.schemas.queries.get_analysis_by_accession import (
             GetAnalysisByAccessionQuery,
@@ -299,8 +318,9 @@ class TestHandlerRegistrationIntegration:
         )
         from src.application.schemas.queries.list_analyses import ListAnalysesQuery
 
-        # Test command type
+        # Test command types
         assert AnalyzeFilingCommandHandler.command_type() == AnalyzeFilingCommand
+        assert ImportFilingsCommandHandler.command_type() == ImportFilingsCommand
 
         # Test query types
         assert GetAnalysisQueryHandler.query_type() == GetAnalysisQuery
@@ -324,6 +344,12 @@ class TestHandlerRegistrationIntegration:
         try:
             # Command handlers
             AnalyzeFilingCommandHandler(background_task_coordinator=Mock())
+            ImportFilingsCommandHandler(
+                background_task_coordinator=Mock(),
+                filing_repository=Mock(),
+                company_repository=Mock(),
+                edgar_service=Mock(),
+            )
 
             # Query handlers
             GetAnalysisQueryHandler(analysis_repository=Mock())
@@ -355,7 +381,9 @@ class TestHandlerRegistrationIntegration:
         register_handlers(dispatcher)
 
         # Verify that all expected handlers are registered
-        assert len(dispatcher._command_handlers) == 1  # AnalyzeFilingCommandHandler
+        assert (
+            len(dispatcher._command_handlers) == 2
+        )  # AnalyzeFilingCommandHandler + ImportFilingsCommandHandler
         assert len(dispatcher._query_handlers) == 9  # 9 query handlers
 
         # Verify specific handlers are registered with correct command/query types
@@ -363,6 +391,7 @@ class TestHandlerRegistrationIntegration:
             GetTemplatesQuery,
         )
         from src.application.schemas.commands.analyze_filing import AnalyzeFilingCommand
+        from src.application.schemas.commands.import_filings import ImportFilingsCommand
         from src.application.schemas.queries.get_analysis import GetAnalysisQuery
         from src.application.schemas.queries.get_analysis_by_accession import (
             GetAnalysisByAccessionQuery,
@@ -374,11 +403,16 @@ class TestHandlerRegistrationIntegration:
         )
         from src.application.schemas.queries.list_analyses import ListAnalysesQuery
 
-        # Check command handler registration
+        # Check command handler registrations
         assert AnalyzeFilingCommand in dispatcher._command_handlers
         assert (
             dispatcher._command_handlers[AnalyzeFilingCommand]
             == AnalyzeFilingCommandHandler
+        )
+        assert ImportFilingsCommand in dispatcher._command_handlers
+        assert (
+            dispatcher._command_handlers[ImportFilingsCommand]
+            == ImportFilingsCommandHandler
         )
 
         from src.application.schemas.queries.list_company_filings import (
