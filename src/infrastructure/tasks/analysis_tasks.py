@@ -2,6 +2,7 @@
 
 import asyncio
 import logging
+import threading
 from datetime import date
 from typing import Any
 from uuid import UUID, uuid4
@@ -51,34 +52,261 @@ def get_llm_provider(llm_provider: str = "openai") -> BaseLLMProvider:
 
 
 class AsyncTask(Task):
-    """Base task class that supports async operations."""
+    """Base task class that supports async operations with persistent event loop management.
+
+    This class implements a thread-safe persistent event loop strategy to handle async operations
+    efficiently in Celery worker processes. The key features include:
+
+    - Thread-local event loop persistence across task executions
+    - Automatic loop creation and recovery for closed/corrupted loops
+    - Thread-safe loop management for concurrent Celery workers
+    - Comprehensive error handling and logging for debugging
+    - Backward compatibility with synchronous tasks
+    - Proper handling of nested event loop scenarios
+
+    The persistent event loop approach prevents "Event loop is closed" errors
+    that occur when loops are created and destroyed for each task execution,
+    which is particularly problematic in long-running Celery worker processes.
+    """
+
+    # Thread-local storage for event loops to ensure thread safety
+    _local = threading.local()
+    _creation_lock = threading.Lock()
+
+    @classmethod
+    def _cleanup_corrupted_loop(cls, thread_id: int) -> None:
+        """Clean up a corrupted event loop with proper error handling and logging.
+
+        Args:
+            thread_id: Thread identifier for logging purposes
+        """
+        if hasattr(cls._local, 'loop') and cls._local.loop is not None:
+            try:
+                if not cls._local.loop.is_closed():
+                    logger.debug(f"Closing corrupted event loop in thread {thread_id}")
+                    cls._local.loop.close()
+                    logger.info(
+                        f"Successfully closed corrupted event loop in thread {thread_id}"
+                    )
+            except Exception as cleanup_e:
+                logger.warning(
+                    f"Error closing event loop during cleanup in thread {thread_id}: {cleanup_e}"
+                )
+            finally:
+                cls._local.loop = None
+                logger.debug(
+                    f"Cleared corrupted event loop reference in thread {thread_id}"
+                )
+
+    @classmethod
+    def get_or_create_loop(cls) -> asyncio.AbstractEventLoop:
+        """Get existing event loop or create a new one if needed.
+
+        This method implements the core persistent loop strategy while being compatible
+        with test mocking:
+        1. Return existing thread-local loop if it's valid (not closed, not None)
+        2. Check current event loop via asyncio.get_event_loop() for test compatibility
+        3. Create new loop if none exists or current is closed
+        4. Handle RuntimeError and other exceptions gracefully
+        5. Use thread-safe patterns for Celery workers
+        6. Handle nested event loop scenarios properly
+
+        Returns:
+            A valid, ready-to-use event loop
+
+        Raises:
+            RuntimeError: If event loop creation fails after multiple attempts
+        """
+        thread_id = threading.get_ident()
+
+        # Check if we have a valid existing loop for this thread
+        # (this preserves persistence across calls)
+        if hasattr(cls._local, 'loop') and cls._local.loop is not None:
+            try:
+                if not cls._local.loop.is_closed():
+                    logger.debug(
+                        f"Reusing existing persistent event loop for AsyncTask execution in thread {thread_id}"
+                    )
+                    return cls._local.loop
+                else:
+                    logger.warning(
+                        f"Existing persistent event loop is closed in thread {thread_id}, will create new one"
+                    )
+                    # Clear the closed loop
+                    cls._local.loop = None
+            except Exception as e:
+                logger.warning(
+                    f"Error checking existing event loop status in thread {thread_id}: {str(e)}, will create new one"
+                )
+                cls._local.loop = None
+
+        # Thread-safe loop creation
+        with cls._creation_lock:
+            # Double-check pattern - another thread might have created a loop
+            if hasattr(cls._local, 'loop') and cls._local.loop is not None:
+                try:
+                    if not cls._local.loop.is_closed():
+                        return cls._local.loop
+                except Exception:
+                    cls._local.loop = None  # Clear invalid loop
+
+            # Need to create a new event loop for this thread
+            try:
+                # Always try to get the current event loop first (for test compatibility)
+                current_loop = None
+                try:
+                    current_loop = asyncio.get_event_loop()
+                    logger.debug(
+                        f"Retrieved current event loop in thread {thread_id}: {id(current_loop)}"
+                    )
+
+                    # Check if it's in a usable state
+                    if current_loop.is_running():
+                        logger.debug(
+                            f"Current event loop is running in thread {thread_id}, will create separate loop"
+                        )
+                        current_loop = None
+                    elif current_loop.is_closed():
+                        logger.warning(
+                            f"Current event loop is closed in thread {thread_id}, will create new one"
+                        )
+                        current_loop = None
+
+                except RuntimeError as e:
+                    logger.debug(
+                        f"No current event loop available in thread {thread_id} ({str(e)}), creating new one"
+                    )
+                    current_loop = None
+
+                if current_loop is not None:
+                    # Use the existing valid loop and make it persistent
+                    cls._local.loop = current_loop
+                    logger.debug(
+                        f"Using existing event loop as persistent AsyncTask loop in thread {thread_id}: {id(current_loop)}"
+                    )
+                    return cls._local.loop
+                else:
+                    # Create a new event loop
+                    new_loop = asyncio.new_event_loop()
+                    asyncio.set_event_loop(new_loop)
+                    cls._local.loop = new_loop
+
+                    logger.info(
+                        f"Created new persistent event loop for AsyncTask execution in thread {thread_id}: {id(new_loop)}"
+                    )
+                    return cls._local.loop
+
+            except Exception as e:
+                logger.error(
+                    f"Failed to create event loop for AsyncTask in thread {thread_id}: {str(e)}",
+                    exc_info=True,
+                )
+                raise RuntimeError(
+                    f"Unable to create event loop for async task execution in thread {thread_id}: {str(e)}"
+                ) from e
 
     def __call__(self, *args: Any, **kwargs: Any) -> Any:
-        """Run the task with async support."""
-        if asyncio.iscoroutinefunction(self.run):
-            # Get or create event loop for async operations
-            try:
-                loop = asyncio.get_event_loop()
-            except RuntimeError:
-                loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop)
+        """Run the task with async support using persistent event loop.
 
-            try:
-                return loop.run_until_complete(self.run(*args, **kwargs))
-            finally:
-                # Don't close the loop in case it's being reused
-                if loop.is_running():
-                    pass  # Loop is still running, don't close
-                else:
-                    # Only close if we created a new loop
-                    try:
-                        if not loop.is_closed():
-                            loop.close()
-                    except Exception as e:
-                        logger.warning(
-                            f"Error closing event loop during cleanup: {str(e)}"
+        This method handles both synchronous and asynchronous tasks:
+        - For sync tasks: calls run() directly without event loop overhead
+        - For async tasks: uses the persistent event loop from get_or_create_loop()
+
+        The persistent loop strategy ensures that:
+        - Event loops are reused across multiple task calls within the same thread
+        - Closed or corrupted loops are automatically replaced
+        - Errors are handled gracefully with comprehensive logging
+        - Thread safety is maintained in Celery worker processes
+        - Nested event loop scenarios are handled properly
+
+        Args:
+            *args: Positional arguments to pass to the task's run method
+            **kwargs: Keyword arguments to pass to the task's run method
+
+        Returns:
+            The result of the task execution
+
+        Raises:
+            Exception: Any exception raised by the task's run method or loop management
+        """
+        if asyncio.iscoroutinefunction(self.run):
+            # Handle async task execution with persistent event loop
+            max_attempts = 3
+            last_exception = None
+            thread_id = threading.get_ident()
+
+            for attempt in range(max_attempts):
+                try:
+                    # Get or create the persistent event loop
+                    loop = self.get_or_create_loop()
+
+                    logger.debug(
+                        f"Executing async task (attempt {attempt + 1}/{max_attempts}) "
+                        f"using event loop: {id(loop)} in thread {thread_id}"
+                    )
+
+                    # Check if the loop is currently running (nested scenario)
+                    if loop.is_running():
+                        # Handle nested event loop scenario with thread pool
+                        logger.debug(
+                            f"Event loop is running in thread {thread_id}, using thread pool approach"
                         )
+                        # Use a thread pool to run the async operation
+                        import concurrent.futures
+
+                        with concurrent.futures.ThreadPoolExecutor() as executor:
+                            future = executor.submit(
+                                lambda: asyncio.run(self.run(*args, **kwargs))
+                            )
+                            result = future.result()
+                    else:
+                        # Normal case - run the coroutine directly
+                        result = loop.run_until_complete(self.run(*args, **kwargs))
+
+                    logger.debug(
+                        f"Successfully completed async task using event loop: {id(loop)} in thread {thread_id}"
+                    )
+
+                    return result
+
+                except Exception as e:
+                    last_exception = e
+                    logger.warning(
+                        f"Async task execution failed (attempt {attempt + 1}/{max_attempts}) in thread {thread_id}: {str(e)}"
+                    )
+
+                    # Check if this is an event loop related error
+                    error_str = str(e).lower()
+                    if any(
+                        keyword in error_str
+                        for keyword in ["event loop", "loop", "running"]
+                    ):
+                        logger.warning(
+                            f"Event loop error detected in thread {thread_id}, clearing persistent loop for retry"
+                        )
+                        # Clear the corrupted loop to force recreation
+                        self._cleanup_corrupted_loop(thread_id)
+
+                        if attempt < max_attempts - 1:
+                            logger.info(
+                                f"Retrying async task execution (attempt {attempt + 2}) in thread {thread_id}"
+                            )
+                            continue
+
+                    # For non-loop errors or final attempt, re-raise
+                    if attempt == max_attempts - 1:
+                        logger.error(
+                            f"Async task execution failed after {max_attempts} attempts in thread {thread_id}: {str(e)}",
+                            exc_info=True,
+                        )
+                        raise
+
+            # This should never be reached, but included for completeness
+            if last_exception:
+                raise last_exception
         else:
+            # Handle synchronous task execution (no event loop needed)
+            logger.debug("Executing synchronous task")
             return self.run(*args, **kwargs)
 
 
