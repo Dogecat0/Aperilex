@@ -36,7 +36,6 @@ export const filingsApi = {
     return data
   },
 
-
   /**
    * Get filing by accession number
    */

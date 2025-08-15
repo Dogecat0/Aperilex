@@ -33,7 +33,6 @@ export const useFilingSearch = (params: FilingSearchParams, options: UseFilingOp
   })
 }
 
-
 /**
  * Hook to fetch filing data by accession number
  */

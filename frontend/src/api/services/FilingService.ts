@@ -36,7 +36,6 @@ export class FilingService {
     }
   }
 
-
   /**
    * Get filing information by accession number
    *
@@ -345,7 +344,6 @@ export class FilingService {
       throw error
     }
   }
-
 
   /**
    * Validate accession number format

@@ -242,7 +242,6 @@ export interface FilingSearchResult {
   sections_count: number
 }
 
-
 // ===== COMPREHENSIVE ANALYSIS TYPES =====
 
 // Type-safe constants for business segment values
