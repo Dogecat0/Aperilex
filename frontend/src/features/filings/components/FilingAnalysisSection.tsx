@@ -173,7 +173,7 @@ export const FilingAnalysisSection: React.FC<FilingAnalysisSectionProps> = ({
     )
   }
 
-  if (error && !analysis) {
+  if (error && !analysis && error.status_code !== 404) {
     return (
       <div className="rounded-lg border bg-card p-6">
         <h3 className="text-lg font-semibold mb-4 flex items-center space-x-2">

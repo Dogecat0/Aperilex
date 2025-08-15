@@ -2,6 +2,7 @@
 
 import logging
 
+from src.application.base.exceptions import ResourceNotFoundError
 from src.application.base.handlers import QueryHandler
 from src.application.schemas.queries.get_filing_by_accession import (
     GetFilingByAccessionQuery,
@@ -71,9 +72,7 @@ class GetFilingByAccessionQueryHandler(
             )
 
             if not filing:
-                raise ValueError(
-                    f"Filing with accession number {query.accession_number} not found"
-                )
+                raise ResourceNotFoundError("Filing", str(query.accession_number))
 
             # Optionally get analysis information
             analyses_count = None

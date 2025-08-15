@@ -6,6 +6,7 @@ from uuid import uuid4
 
 import pytest
 
+from src.application.base.exceptions import ResourceNotFoundError
 from src.application.queries.handlers.get_filing_handler import GetFilingQueryHandler
 from src.application.schemas.queries.get_filing import GetFilingQuery
 from src.application.schemas.responses.filing_response import FilingResponse
@@ -153,7 +154,7 @@ class TestGetFilingQueryHandler:
         mock_filing_repository.get_by_id.return_value = mock_filing
 
         with patch.object(
-            FilingResponse, 'from_domain', return_value=mock_filing_response
+            FilingResponse, "from_domain", return_value=mock_filing_response
         ) as mock_from_domain:
             result = await handler.handle(query)
 
@@ -190,7 +191,7 @@ class TestGetFilingQueryHandler:
         mock_analysis_repository.find_by_filing_id.return_value = mock_analyses
 
         with patch.object(
-            FilingResponse, 'from_domain', return_value=mock_filing_response
+            FilingResponse, "from_domain", return_value=mock_filing_response
         ) as mock_from_domain:
             result = await handler.handle(sample_query)
 
@@ -228,7 +229,7 @@ class TestGetFilingQueryHandler:
         mock_analysis_repository.find_by_filing_id.return_value = []  # Empty list
 
         with patch.object(
-            FilingResponse, 'from_domain', return_value=mock_filing_response
+            FilingResponse, "from_domain", return_value=mock_filing_response
         ) as mock_from_domain:
             result = await handler.handle(sample_query)
 
@@ -258,7 +259,7 @@ class TestGetFilingQueryHandler:
         mock_analysis_repository.find_by_filing_id.return_value = None
 
         with patch.object(
-            FilingResponse, 'from_domain', return_value=mock_filing_response
+            FilingResponse, "from_domain", return_value=mock_filing_response
         ) as mock_from_domain:
             result = await handler.handle(sample_query)
 
@@ -284,7 +285,8 @@ class TestGetFilingQueryHandler:
         mock_filing_repository.get_by_id.return_value = None
 
         with pytest.raises(
-            ValueError, match=f"Filing with ID {sample_query.filing_id} not found"
+            ResourceNotFoundError,
+            match=f"Filing with identifier '{sample_query.filing_id}' not found",
         ):
             await handler.handle(sample_query)
 
@@ -380,9 +382,9 @@ class TestGetFilingQueryHandler:
         mock_analysis_repository.find_by_filing_id.return_value = analyses
 
         with patch.object(
-            FilingResponse, 'from_domain', return_value=mock_filing_response
+            FilingResponse, "from_domain", return_value=mock_filing_response
         ) as mock_from_domain:
-            result = await handler.handle(sample_query)
+            _ = await handler.handle(sample_query)
 
         # Verify latest analysis date is correct (2024-03-25)
         expected_latest_date = date(2024, 3, 25)
@@ -423,7 +425,7 @@ class TestGetFilingQueryHandler:
             mock_analysis_repository.find_by_filing_id.return_value = []
 
             with patch.object(
-                FilingResponse, 'from_domain', return_value=mock_filing_response
+                FilingResponse, "from_domain", return_value=mock_filing_response
             ):
                 result = await handler.handle(query)
 
@@ -457,13 +459,12 @@ class TestGetFilingQueryHandler:
 
         with (
             patch.object(
-                FilingResponse, 'from_domain', return_value=mock_filing_response
+                FilingResponse, "from_domain", return_value=mock_filing_response
             ),
             patch(
-                'src.application.queries.handlers.get_filing_handler.logger'
+                "src.application.queries.handlers.get_filing_handler.logger"
             ) as mock_logger,
         ):
-
             result = await handler.handle(sample_query)
 
         assert result == mock_filing_response
@@ -504,7 +505,7 @@ class TestGetFilingQueryHandler:
         mock_filing_repository.get_by_id.side_effect = repository_error
 
         with patch(
-            'src.application.queries.handlers.get_filing_handler.logger'
+            "src.application.queries.handlers.get_filing_handler.logger"
         ) as mock_logger:
             with pytest.raises(Exception, match="Database error"):
                 await handler.handle(sample_query)
@@ -533,7 +534,7 @@ class TestGetFilingQueryHandler:
     ) -> None:
         """Test handler type annotations and generic typing."""
         # Verify handler is properly typed
-        assert hasattr(handler, 'handle')
+        assert hasattr(handler, "handle")
 
         # The handler should be a QueryHandler with proper generics
         from src.application.base.handlers import QueryHandler
@@ -613,7 +614,7 @@ class TestGetFilingQueryHandler:
         )
 
         with patch.object(
-            FilingResponse, 'from_domain', return_value=realistic_response
+            FilingResponse, "from_domain", return_value=realistic_response
         ) as mock_from_domain:
             result = await handler.handle(realistic_query)
 

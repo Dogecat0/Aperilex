@@ -2,6 +2,7 @@
 
 import logging
 
+from src.application.base.exceptions import ResourceNotFoundError
 from src.application.base.handlers import QueryHandler
 from src.application.schemas.queries.get_analysis import GetAnalysisQuery
 from src.application.schemas.responses.analysis_response import AnalysisResponse
@@ -61,7 +62,7 @@ class GetAnalysisQueryHandler(QueryHandler[GetAnalysisQuery, AnalysisResponse]):
             analysis = await self.analysis_repository.get_by_id(query.analysis_id)
 
             if not analysis:
-                raise ValueError(f"Analysis with ID {query.analysis_id} not found")
+                raise ResourceNotFoundError("Analysis", str(query.analysis_id))
 
             # Convert to response DTO based on requested detail level
             if query.include_full_results:

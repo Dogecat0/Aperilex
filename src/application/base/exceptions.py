@@ -26,3 +26,12 @@ class DependencyError(ApplicationError):
             message = f"Failed to resolve dependency: {dependency_name}"
         super().__init__(message)
         self.dependency_name = dependency_name
+
+
+class ResourceNotFoundError(ApplicationError):
+    """Raised when a requested resource is not found."""
+
+    def __init__(self, resource_type: str, identifier: str) -> None:
+        super().__init__(f"{resource_type} with identifier '{identifier}' not found")
+        self.resource_type = resource_type
+        self.identifier = identifier

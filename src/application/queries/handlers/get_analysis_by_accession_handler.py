@@ -2,6 +2,7 @@
 
 import logging
 
+from src.application.base.exceptions import ResourceNotFoundError
 from src.application.base.handlers import QueryHandler
 from src.application.schemas.queries.get_analysis_by_accession import (
     GetAnalysisByAccessionQuery,
@@ -82,9 +83,7 @@ class GetAnalysisByAccessionQueryHandler(
             )
 
             if not analysis:
-                raise ValueError(
-                    f"No analysis found for filing {query.accession_number}"
-                )
+                raise ResourceNotFoundError("Analysis", query.accession_number)
 
             # Convert to response DTO based on requested detail level
             if query.include_full_results:
