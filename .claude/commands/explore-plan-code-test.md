@@ -35,6 +35,8 @@ If there are things you still do not understand or questions you have for the us
 
 Once you're done with the plan, move to code stage.
 
+**IMPORTANT: Do not code or let your agents code directly in the plan stage. Only start implementing after the plan is done.**
+
 # Code
 When you have a thorough implementation plan, you are ready to start writing code. Follow the style of the existing codebase (e.g. we prefer clearly named variables and methods to extensive comments).
 
