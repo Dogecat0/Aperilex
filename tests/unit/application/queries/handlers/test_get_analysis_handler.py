@@ -6,6 +6,7 @@ from uuid import uuid4
 
 import pytest
 
+from src.application.base.exceptions import ResourceNotFoundError
 from src.application.queries.handlers.get_analysis_handler import (
     GetAnalysisQueryHandler,
 )
@@ -169,7 +170,8 @@ class TestGetAnalysisQueryHandler:
         mock_analysis_repository.get_by_id.return_value = None
 
         with pytest.raises(
-            ValueError, match=f"Analysis with ID {sample_query.analysis_id} not found"
+            ResourceNotFoundError,
+            match=f"Analysis with identifier '{sample_query.analysis_id}' not found",
         ):
             await handler.handle(sample_query)
 

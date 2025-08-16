@@ -70,11 +70,13 @@ describe('FilingService', () => {
         error_code: 'INVALID_TICKER',
       })
 
-      await expect(filingService.searchFilings({ ticker: 'INVALID@TICKER' })).rejects.toMatchObject({
-        detail: expect.stringContaining('Invalid ticker format'),
-        status_code: 400,
-        error_code: 'INVALID_TICKER_FORMAT',
-      })
+      await expect(filingService.searchFilings({ ticker: 'INVALID@TICKER' })).rejects.toMatchObject(
+        {
+          detail: expect.stringContaining('Invalid ticker format'),
+          status_code: 400,
+          error_code: 'INVALID_TICKER_FORMAT',
+        }
+      )
     })
 
     it('should validate date formats', async () => {

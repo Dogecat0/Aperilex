@@ -8,6 +8,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Path, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from src.application.base.exceptions import ResourceNotFoundError
 from src.application.factory import ServiceFactory
 from src.application.schemas.commands.analyze_filing import AnalyzeFilingCommand
 from src.application.schemas.queries.get_analysis_by_accession import (
@@ -365,8 +366,8 @@ async def get_filing_by_id(
 
         return result
 
-    except ValueError as e:
-        logger.warning(
+    except ResourceNotFoundError as e:
+        logger.info(
             "Filing not found",
             extra={"filing_id": str(filing_id), "error": str(e)},
         )
@@ -450,6 +451,15 @@ async def get_filing(
 
         return result
 
+    except ResourceNotFoundError as e:
+        logger.info(
+            "Filing not found",
+            extra={"accession_number": accession_number, "error": str(e)},
+        )
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Filing with accession number {accession_number} not found",
+        ) from e
     except ValueError as e:
         logger.warning(
             "Invalid accession number format",
@@ -538,6 +548,15 @@ async def get_filing_analysis(
 
         return result
 
+    except ResourceNotFoundError as e:
+        logger.info(
+            "Analysis not found for filing",
+            extra={"accession_number": accession_number, "error": str(e)},
+        )
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Analysis not found for filing {accession_number}",
+        ) from e
     except ValueError as e:
         logger.warning(
             "Invalid accession number format",

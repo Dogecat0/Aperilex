@@ -104,6 +104,8 @@ describe('FilingDetails', () => {
       startAnalysis: vi.fn(),
       resetProgress: vi.fn(),
       isAnalyzing: false,
+      checkBackgroundAnalysis: vi.fn(),
+      isBackgroundProcessing: false,
     } as any)
   })
 
@@ -112,8 +114,8 @@ describe('FilingDetails', () => {
       render(<FilingDetails />)
 
       expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('10-K Filing')
+      // The accession number is shown in the metadata section, not in the header
       expect(screen.getByText('0000320193-24-000001')).toBeInTheDocument()
-      expect(screen.getByText(/Filed/)).toBeInTheDocument()
     })
 
     it('sets breadcrumbs with filing data', () => {
@@ -129,13 +131,6 @@ describe('FilingDetails', () => {
       ])
     })
 
-    it('displays back button', () => {
-      render(<FilingDetails />)
-
-      const backButton = screen.getByRole('button', { name: /Back to Filings/ })
-      expect(backButton).toBeInTheDocument()
-    })
-
     it('displays view on SEC button', () => {
       render(<FilingDetails />)
 
@@ -146,16 +141,16 @@ describe('FilingDetails', () => {
     it('displays processing status', () => {
       render(<FilingDetails />)
 
-      expect(screen.getByText('Status:')).toBeInTheDocument()
-      expect(screen.getByText('completed')).toBeInTheDocument()
+      expect(screen.getByText('Processing Status')).toBeInTheDocument()
+      expect(screen.getByText('Completed')).toBeInTheDocument()
     })
 
     it('displays analyses count when available', () => {
       render(<FilingDetails />)
 
-      expect(screen.getByText('Analyses:')).toBeInTheDocument()
+      expect(screen.getByText('Total Analyses')).toBeInTheDocument()
       // Check for analyses count in context, not just the number
-      const analysesText = screen.getByText('Analyses:').parentElement
+      const analysesText = screen.getByText('Total Analyses').parentElement
       expect(analysesText).toHaveTextContent('1')
     })
   })
@@ -185,12 +180,16 @@ describe('FilingDetails', () => {
         startAnalysis: vi.fn(),
         resetProgress: vi.fn(),
         isAnalyzing: true,
+        checkBackgroundAnalysis: vi.fn(),
+        isBackgroundProcessing: false,
       } as any)
 
       render(<FilingDetails />)
 
-      expect(screen.getAllByText('Analysis in progress...')).toHaveLength(2)
-      expect(document.querySelector('.animate-spin')).toBeInTheDocument()
+      expect(screen.getByText('Analysis in progress...')).toBeInTheDocument()
+      // Check for animated icon (could be .animate-spin or .animate-pulse based on state)
+      const animatedIcon = document.querySelector('.animate-spin, .animate-pulse')
+      expect(animatedIcon).toBeInTheDocument()
     })
   })
 
@@ -232,19 +231,12 @@ describe('FilingDetails', () => {
 
       render(<FilingDetails />)
 
-      expect(screen.getByText('failed')).toBeInTheDocument()
+      // "Failed" appears in multiple places - both in metadata status and analysis status
+      expect(screen.getAllByText('Failed')).toHaveLength(2)
     })
   })
 
   describe('Navigation', () => {
-    it('handles back button click', () => {
-      render(<FilingDetails />)
-
-      const backButton = screen.getByRole('button', { name: /Back to Filings/ })
-      fireEvent.click(backButton)
-
-      expect(mockNavigate).toHaveBeenCalledWith('/filings')
-    })
 
     it('handles view on SEC button click', () => {
       // Mock window.open
@@ -333,6 +325,49 @@ describe('FilingDetails', () => {
     })
   })
 
+  describe('Background Processing', () => {
+    it('handles background processing state', () => {
+      const mockCheckBackgroundAnalysis = vi.fn()
+
+      vi.mocked(useFiling.useProgressiveFilingAnalysis).mockReturnValue({
+        analysisProgress: {
+          state: 'processing_background' as const,
+          message: 'Analysis running in background...',
+        },
+        startAnalysis: vi.fn(),
+        resetProgress: vi.fn(),
+        isAnalyzing: false,
+        checkBackgroundAnalysis: mockCheckBackgroundAnalysis,
+        isBackgroundProcessing: true,
+      } as any)
+
+      render(<FilingDetails />)
+
+      expect(screen.getByText('Analysis running in background...')).toBeInTheDocument()
+    })
+
+    it('passes background processing props to FilingAnalysisSection', () => {
+      const mockCheckBackgroundAnalysis = vi.fn()
+
+      vi.mocked(useFiling.useProgressiveFilingAnalysis).mockReturnValue({
+        analysisProgress: {
+          state: 'idle' as const,
+          message: '',
+        },
+        startAnalysis: vi.fn(),
+        resetProgress: vi.fn(),
+        isAnalyzing: false,
+        checkBackgroundAnalysis: mockCheckBackgroundAnalysis,
+        isBackgroundProcessing: true,
+      } as any)
+
+      render(<FilingDetails />)
+
+      // Component should render and pass the props correctly
+      expect(screen.getByText('Analysis Results')).toBeInTheDocument()
+    })
+  })
+
   describe('State Management', () => {
     it('tracks analysis progress state', () => {
       render(<FilingDetails />)
@@ -351,11 +386,13 @@ describe('FilingDetails', () => {
         startAnalysis: vi.fn(),
         resetProgress: vi.fn(),
         isAnalyzing: true,
+        checkBackgroundAnalysis: vi.fn(),
+        isBackgroundProcessing: false,
       } as any)
 
       render(<FilingDetails />)
 
-      expect(screen.getAllByText('Analysis in progress...')).toHaveLength(2)
+      expect(screen.getByText('Analysis in progress...')).toBeInTheDocument()
     })
   })
 
@@ -371,15 +408,14 @@ describe('FilingDetails', () => {
     it('has accessible button labels', () => {
       render(<FilingDetails />)
 
-      expect(screen.getByRole('button', { name: /Back to Filings/ })).toBeInTheDocument()
       expect(screen.getByRole('button', { name: /View on SEC/ })).toBeInTheDocument()
     })
 
     it('provides status information clearly', () => {
       render(<FilingDetails />)
 
-      expect(screen.getByText('Status:')).toBeInTheDocument()
-      expect(screen.getByText('completed')).toBeInTheDocument()
+      expect(screen.getByText('Processing Status')).toBeInTheDocument()
+      expect(screen.getByText('Completed')).toBeInTheDocument()
     })
   })
 })

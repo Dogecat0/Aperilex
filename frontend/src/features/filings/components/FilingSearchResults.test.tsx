@@ -11,22 +11,15 @@ vi.mock('./FilingCard', () => ({
       <span>{filing.filing_type}</span>
       <span>{filing.accession_number}</span>
       {onViewDetails && (
-        <button onClick={() => onViewDetails(filing.accession_number)}>
-          View Details
-        </button>
+        <button onClick={() => onViewDetails(filing.accession_number)}>View Details</button>
       )}
-      {onAnalyze && (
-        <button onClick={() => onAnalyze(filing.accession_number)}>
-          Analyze
-        </button>
-      )}
+      {onAnalyze && <button onClick={() => onAnalyze(filing.accession_number)}>Analyze</button>}
     </div>
   ),
 }))
 
 describe('FilingSearchResults', () => {
   const mockOnViewDetails = vi.fn()
-  const mockOnAnalyze = vi.fn()
   const mockOnPageChange = vi.fn()
 
   const mockFilingData: PaginatedResponse<FilingResponse> = {
@@ -102,12 +95,7 @@ describe('FilingSearchResults', () => {
     })
 
     it('shows loading state when data is present but no error', () => {
-      render(
-        <FilingSearchResults
-          isLoading={true}
-          data={mockFilingData}
-        />
-      )
+      render(<FilingSearchResults isLoading={true} data={mockFilingData} />)
 
       // Loading should show when no error present
       const skeletons = screen.getAllByRole('generic')
@@ -131,12 +119,7 @@ describe('FilingSearchResults', () => {
     })
 
     it('error state takes precedence over loading state', () => {
-      render(
-        <FilingSearchResults
-          isLoading={true}
-          error={{ detail: 'Test error' }}
-        />
-      )
+      render(<FilingSearchResults isLoading={true} error={{ detail: 'Test error' }} />)
 
       // Error should render instead of loading state
       expect(screen.getByText('Search Failed')).toBeInTheDocument()
@@ -148,12 +131,7 @@ describe('FilingSearchResults', () => {
     })
 
     it('does not render data or empty states when loading', () => {
-      render(
-        <FilingSearchResults
-          isLoading={true}
-          data={mockFilingData}
-        />
-      )
+      render(<FilingSearchResults isLoading={true} data={mockFilingData} />)
 
       // Should not render results
       expect(screen.queryByText('Apple Inc. Filings')).not.toBeInTheDocument()
@@ -177,14 +155,18 @@ describe('FilingSearchResults', () => {
       render(<FilingSearchResults error={{}} />)
 
       expect(screen.getByText('Search Failed')).toBeInTheDocument()
-      expect(screen.getByText('There was an error searching for filings. Please try again.')).toBeInTheDocument()
+      expect(
+        screen.getByText('There was an error searching for filings. Please try again.')
+      ).toBeInTheDocument()
     })
 
     it('displays generic error message when error is a string', () => {
       render(<FilingSearchResults error="Network error" />)
 
       expect(screen.getByText('Search Failed')).toBeInTheDocument()
-      expect(screen.getByText('There was an error searching for filings. Please try again.')).toBeInTheDocument()
+      expect(
+        screen.getByText('There was an error searching for filings. Please try again.')
+      ).toBeInTheDocument()
     })
 
     it('handles error with complex detail structure', () => {
@@ -218,7 +200,9 @@ describe('FilingSearchResults', () => {
       render(<FilingSearchResults data={undefined} />)
 
       expect(screen.getByText('No Filings Found')).toBeInTheDocument()
-      expect(screen.getByText('No SEC filings match your search criteria. Try adjusting your filters.')).toBeInTheDocument()
+      expect(
+        screen.getByText('No SEC filings match your search criteria. Try adjusting your filters.')
+      ).toBeInTheDocument()
     })
 
     it('displays empty state when data has no items', () => {
@@ -244,7 +228,9 @@ describe('FilingSearchResults', () => {
     it('displays ticker-specific message when searchTicker is provided', () => {
       render(<FilingSearchResults data={undefined} searchTicker="AAPL" />)
 
-      expect(screen.getByText('No SEC filings found for AAPL. Try adjusting your search criteria.')).toBeInTheDocument()
+      expect(
+        screen.getByText('No SEC filings found for AAPL. Try adjusting your search criteria.')
+      ).toBeInTheDocument()
     })
   })
 
@@ -256,7 +242,6 @@ describe('FilingSearchResults', () => {
           companyName="Apple Inc."
           searchTicker="AAPL"
           onViewDetails={mockOnViewDetails}
-          onAnalyze={mockOnAnalyze}
         />
       )
 
@@ -266,45 +251,25 @@ describe('FilingSearchResults', () => {
     })
 
     it('displays correct header with company name', () => {
-      render(
-        <FilingSearchResults
-          data={mockFilingData}
-          companyName="Apple Inc."
-        />
-      )
+      render(<FilingSearchResults data={mockFilingData} companyName="Apple Inc." />)
 
       expect(screen.getByText('Apple Inc. Filings')).toBeInTheDocument()
       expect(screen.getByText('Showing 2 filings')).toBeInTheDocument()
     })
 
     it('displays correct header with ticker when no company name', () => {
-      render(
-        <FilingSearchResults
-          data={mockFilingData}
-          searchTicker="AAPL"
-        />
-      )
+      render(<FilingSearchResults data={mockFilingData} searchTicker="AAPL" />)
 
       expect(screen.getByText('AAPL Filings')).toBeInTheDocument()
     })
 
-    it('handles callback functions correctly', () => {
-      render(
-        <FilingSearchResults
-          data={mockFilingData}
-          onViewDetails={mockOnViewDetails}
-          onAnalyze={mockOnAnalyze}
-        />
-      )
+    it('handles view details callback correctly', () => {
+      render(<FilingSearchResults data={mockFilingData} onViewDetails={mockOnViewDetails} />)
 
       const viewButtons = screen.getAllByText('View Details')
-      const analyzeButtons = screen.getAllByText('Analyze')
 
       fireEvent.click(viewButtons[0])
       expect(mockOnViewDetails).toHaveBeenCalledWith('0000320193-24-000001')
-
-      fireEvent.click(analyzeButtons[0])
-      expect(mockOnAnalyze).toHaveBeenCalledWith('0000320193-24-000001')
     })
   })
 
@@ -317,12 +282,7 @@ describe('FilingSearchResults', () => {
     })
 
     it('shows pagination controls for multi-page results', () => {
-      render(
-        <FilingSearchResults
-          data={mockMultiPageData}
-          onPageChange={mockOnPageChange}
-        />
-      )
+      render(<FilingSearchResults data={mockMultiPageData} onPageChange={mockOnPageChange} />)
 
       expect(screen.getByText('Previous')).toBeInTheDocument()
       expect(screen.getByText('Next')).toBeInTheDocument()
@@ -330,12 +290,7 @@ describe('FilingSearchResults', () => {
     })
 
     it('handles pagination clicks correctly', () => {
-      render(
-        <FilingSearchResults
-          data={mockMultiPageData}
-          onPageChange={mockOnPageChange}
-        />
-      )
+      render(<FilingSearchResults data={mockMultiPageData} onPageChange={mockOnPageChange} />)
 
       const previousButton = screen.getByText('Previous')
       fireEvent.click(previousButton)
@@ -344,12 +299,7 @@ describe('FilingSearchResults', () => {
     })
 
     it('disables pagination buttons appropriately', () => {
-      render(
-        <FilingSearchResults
-          data={mockMultiPageData}
-          onPageChange={mockOnPageChange}
-        />
-      )
+      render(<FilingSearchResults data={mockMultiPageData} onPageChange={mockOnPageChange} />)
 
       const nextButton = screen.getByText('Next')
       expect(nextButton).toBeDisabled()
@@ -366,11 +316,7 @@ describe('FilingSearchResults', () => {
   describe('Database-Only Results', () => {
     it('only renders FilingCard components (no EdgarFilingCard)', () => {
       render(
-        <FilingSearchResults
-          data={mockFilingData}
-          companyName="Apple Inc."
-          searchTicker="AAPL"
-        />
+        <FilingSearchResults data={mockFilingData} companyName="Apple Inc." searchTicker="AAPL" />
       )
 
       // All cards should be FilingCard components
@@ -383,11 +329,7 @@ describe('FilingSearchResults', () => {
 
     it('passes correct props to FilingCard', () => {
       render(
-        <FilingSearchResults
-          data={mockFilingData}
-          companyName="Apple Inc."
-          searchTicker="AAPL"
-        />
+        <FilingSearchResults data={mockFilingData} companyName="Apple Inc." searchTicker="AAPL" />
       )
 
       // FilingCard should receive the enhanced filing object

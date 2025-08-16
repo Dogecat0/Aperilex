@@ -6,7 +6,7 @@ import { FilingMetadata } from './components/FilingMetadata'
 import { FilingAnalysisSection } from './components/FilingAnalysisSection'
 import { Button } from '@/components/ui/Button'
 import { Skeleton } from '@/components/ui/Skeleton'
-import { AlertCircle, ArrowLeft, ExternalLink, RefreshCw } from 'lucide-react'
+import { AlertCircle, ExternalLink } from 'lucide-react'
 import type { AnalyzeFilingRequest } from '@/api/types'
 
 export function FilingDetails() {
@@ -26,11 +26,18 @@ export function FilingDetails() {
     data: analysis,
     isLoading: analysisLoading,
     error: analysisError,
+    refetch: refetchAnalysis,
   } = useFilingAnalysis(accessionNumber || '', {
     enabled: !!accessionNumber,
   })
 
-  const { analysisProgress, startAnalysis, isAnalyzing } = useProgressiveFilingAnalysis()
+  const {
+    analysisProgress,
+    startAnalysis,
+    isAnalyzing,
+    checkBackgroundAnalysis,
+    isBackgroundProcessing,
+  } = useProgressiveFilingAnalysis()
 
   // Set breadcrumbs when filing data loads
   React.useEffect(() => {
@@ -52,16 +59,27 @@ export function FilingDetails() {
     }
   }, [filing, accessionNumber, setBreadcrumbs])
 
-  const handleBack = () => {
-    navigate('/filings')
-  }
+  // Auto-refetch analysis when it completes
+  React.useEffect(() => {
+    if (analysisProgress.state === 'completed' && !analysis) {
+      refetchAnalysis()
+    }
+  }, [analysisProgress.state, analysis, refetchAnalysis])
 
   const handleAnalyze = async (options?: AnalyzeFilingRequest) => {
     if (!accessionNumber) return
 
     try {
       // Use the progressive analysis system which handles progress tracking automatically
-      await startAnalysis(accessionNumber, options || { analysis_template: 'comprehensive' })
+      const result = await startAnalysis(
+        accessionNumber,
+        options || { analysis_template: 'comprehensive' }
+      )
+
+      // If analysis completed successfully, refetch the analysis data
+      if (result) {
+        refetchAnalysis()
+      }
     } catch (error) {
       console.error('Analysis failed:', error)
       // Error state is already handled by the progressive analysis hook
@@ -101,10 +119,6 @@ export function FilingDetails() {
   if (filingError) {
     return (
       <div className="space-y-4">
-        <Button variant="ghost" onClick={handleBack} className="mb-4">
-          <ArrowLeft className="w-4 h-4 mr-2" />
-          Back to Filings
-        </Button>
         <div className="rounded-lg border border-destructive/20 bg-destructive/5 p-6">
           <div className="flex items-center space-x-2">
             <AlertCircle className="w-5 h-5 text-destructive" />
@@ -123,10 +137,6 @@ export function FilingDetails() {
   if (filingLoading) {
     return (
       <div className="space-y-6">
-        <Button variant="ghost" onClick={handleBack} className="mb-4">
-          <ArrowLeft className="w-4 h-4 mr-2" />
-          Back to Filings
-        </Button>
         <Skeleton className="h-64 w-full" />
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2">
@@ -147,47 +157,16 @@ export function FilingDetails() {
 
   return (
     <div className="space-y-6">
-      {/* Back Button */}
-      <Button variant="ghost" onClick={handleBack} className="mb-4">
-        <ArrowLeft className="w-4 h-4 mr-2" />
-        Back to Filings
-      </Button>
-
       {/* Filing Header */}
       <div className="rounded-lg border bg-card p-6">
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <h1 className="text-2xl font-bold">{filing.filing_type} Filing</h1>
-            <p className="text-muted-foreground">
-              {filing.accession_number} • Filed {new Date(filing.filing_date).toLocaleDateString()}
-            </p>
-          </div>
+        <div className="flex items-center justify-between">
+          <h1 className="text-2xl font-bold">{filing.filing_type} Filing</h1>
           <div className="flex items-center space-x-2">
             <Button variant="outline" size="sm" onClick={handleViewOnSEC}>
               <ExternalLink className="w-4 h-4 mr-2" />
               View on SEC
             </Button>
           </div>
-        </div>
-
-        {/* Processing Status */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-4 text-sm">
-            <span className="text-muted-foreground">
-              Status: <span className="font-medium">{filing.processing_status}</span>
-            </span>
-            {filing.analyses_count !== undefined && (
-              <span className="text-muted-foreground">
-                Analyses: <span className="font-medium">{filing.analyses_count}</span>
-              </span>
-            )}
-          </div>
-          {isAnalyzing && (
-            <div className="flex items-center space-x-2 text-sm text-blue-600">
-              <RefreshCw className="w-4 h-4 animate-spin" />
-              <span>Analysis in progress...</span>
-            </div>
-          )}
         </div>
       </div>
 
@@ -204,6 +183,8 @@ export function FilingDetails() {
             isAnalyzing={isAnalyzing}
             analysisProgress={analysisProgress}
             filingStatus={filing.processing_status}
+            onCheckBackgroundAnalysis={checkBackgroundAnalysis}
+            isBackgroundProcessing={isBackgroundProcessing}
           />
         </div>
 

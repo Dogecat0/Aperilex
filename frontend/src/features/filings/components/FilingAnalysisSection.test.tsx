@@ -1,6 +1,6 @@
 import React from 'react'
-import { describe, it, expect, vi } from 'vitest'
-import { render, screen } from '@/test/utils'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { render, screen, fireEvent } from '@/test/utils'
 import { FilingAnalysisSection } from './FilingAnalysisSection'
 import type { AnalysisResponse, AnalysisProgress } from '@/api/types'
 
@@ -334,6 +334,159 @@ describe('FilingAnalysisSection Progressive Loading', () => {
 
       const messages = screen.getAllByText('Analyzing content with AI...')
       expect(messages).toHaveLength(1) // Should only appear once
+    })
+  })
+
+  describe('Background Processing', () => {
+    const mockOnCheckBackgroundAnalysis = vi.fn()
+
+    beforeEach(() => {
+      vi.clearAllMocks()
+    })
+
+    it('shows processing_background state with amber styling', () => {
+      const progressData: AnalysisProgress = {
+        state: 'processing_background',
+        message: 'Analysis running in background...',
+        progress_percent: 50,
+      }
+
+      render(
+        <FilingAnalysisSection
+          analysis={null}
+          isLoading={false}
+          error={null}
+          isAnalyzing={false}
+          analysisProgress={progressData}
+          onCheckBackgroundAnalysis={mockOnCheckBackgroundAnalysis}
+        />
+      )
+
+      expect(screen.getByText('Analysis running in background...')).toBeInTheDocument()
+
+      // Check for amber-styled progress bar
+      const progressBar = document.querySelector('.bg-amber-600')
+      expect(progressBar).toBeInTheDocument()
+      expect(progressBar).toHaveStyle({ width: '50%' })
+    })
+
+    it('shows Check Status button during background processing', () => {
+      const progressData: AnalysisProgress = {
+        state: 'processing_background',
+        message: 'Analysis running in background...',
+      }
+
+      render(
+        <FilingAnalysisSection
+          analysis={null}
+          isLoading={false}
+          error={null}
+          isAnalyzing={false}
+          analysisProgress={progressData}
+          onCheckBackgroundAnalysis={mockOnCheckBackgroundAnalysis}
+        />
+      )
+
+      const checkStatusButton = screen.getByRole('button', { name: /Check Status/i })
+      expect(checkStatusButton).toBeInTheDocument()
+    })
+
+    it('calls onCheckBackgroundAnalysis when Check Status button is clicked', () => {
+      const progressData: AnalysisProgress = {
+        state: 'processing_background',
+        message: 'Analysis running in background...',
+      }
+
+      render(
+        <FilingAnalysisSection
+          analysis={null}
+          isLoading={false}
+          error={null}
+          isAnalyzing={false}
+          analysisProgress={progressData}
+          onCheckBackgroundAnalysis={mockOnCheckBackgroundAnalysis}
+        />
+      )
+
+      const checkStatusButton = screen.getByRole('button', { name: /Check Status/i })
+      fireEvent.click(checkStatusButton)
+
+      expect(mockOnCheckBackgroundAnalysis).toHaveBeenCalledTimes(1)
+    })
+
+    it('shows background processing status in analysis results view', () => {
+      render(
+        <FilingAnalysisSection
+          analysis={mockAnalysis}
+          isLoading={false}
+          error={null}
+          isBackgroundProcessing={true}
+          onCheckBackgroundAnalysis={mockOnCheckBackgroundAnalysis}
+        />
+      )
+
+      expect(screen.getByText('Background Processing')).toBeInTheDocument()
+
+      // Should show Check Status button in analysis results view
+      const checkStatusButton = screen.getByRole('button', { name: /Check Status/i })
+      expect(checkStatusButton).toBeInTheDocument()
+    })
+
+    it('hides View Full Analysis button during background processing', () => {
+      const mockOnViewFullAnalysis = vi.fn()
+
+      render(
+        <FilingAnalysisSection
+          analysis={mockAnalysis}
+          isLoading={false}
+          error={null}
+          isBackgroundProcessing={true}
+          onCheckBackgroundAnalysis={mockOnCheckBackgroundAnalysis}
+          onViewFullAnalysis={mockOnViewFullAnalysis}
+        />
+      )
+
+      // View Full Analysis button should not be present during background processing
+      expect(screen.queryByRole('button', { name: /View Full Analysis/i })).not.toBeInTheDocument()
+
+      // But Check Status should be present
+      expect(screen.getByRole('button', { name: /Check Status/i })).toBeInTheDocument()
+    })
+
+    it('reduces skeleton opacity for background processing state', () => {
+      const progressData: AnalysisProgress = {
+        state: 'processing_background',
+        message: 'Analysis running in background...',
+      }
+
+      render(
+        <FilingAnalysisSection
+          analysis={null}
+          isLoading={false}
+          error={null}
+          isAnalyzing={false}
+          analysisProgress={progressData}
+        />
+      )
+
+      // Background processing should have reduced opacity skeleton
+      const skeletonContainer = document.querySelector('.opacity-30')
+      expect(skeletonContainer).toBeInTheDocument()
+    })
+
+    it('does not show error state when background processing', () => {
+      render(
+        <FilingAnalysisSection
+          analysis={null}
+          isLoading={false}
+          error={{ message: 'Some error' }}
+          isBackgroundProcessing={true}
+        />
+      )
+
+      // Should not show error UI when background processing
+      expect(screen.queryByText('Analysis Error')).not.toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: /Retry Analysis/i })).not.toBeInTheDocument()
     })
   })
 })

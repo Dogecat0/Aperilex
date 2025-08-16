@@ -139,6 +139,7 @@ export type AnalysisProgressState =
   | 'completing'
   | 'completed'
   | 'error'
+  | 'processing_background'
 
 export interface AnalysisProgress {
   state: AnalysisProgressState
@@ -241,7 +242,6 @@ export interface FilingSearchResult {
   has_content: boolean
   sections_count: number
 }
-
 
 // ===== COMPREHENSIVE ANALYSIS TYPES =====
 

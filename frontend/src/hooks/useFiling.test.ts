@@ -4,7 +4,6 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { HttpResponse as _HttpResponse } from 'msw'
 import {
   useFilingSearch,
-  useEdgarSearch,
   useFiling,
   useFilingAnalysis,
   useFilingHasAnalysis,
@@ -179,58 +178,6 @@ describe('useFiling hooks', () => {
 
       expect(result.current.data).toEqual(previousData)
       expect(result.current.isLoading).toBe(false) // placeholderData prevents loading state
-    })
-  })
-
-  describe('useEdgarSearch', () => {
-    it('should search Edgar filings successfully', async () => {
-      const params = { ticker: 'AAPL', form_type: '10-K' }
-      const mockResults: FilingSearchResult[] = [
-        {
-          accession_number: '0000320193-24-000001',
-          filing_type: '10-K',
-          filing_date: '2024-01-15',
-          company_name: 'Apple Inc.',
-          cik: '0000320193',
-          ticker: 'AAPL',
-          has_content: true,
-          sections_count: 5,
-        },
-      ]
-
-      mockFilingService.searchEdgarFilings.mockResolvedValue(mockResults)
-
-      const { result } = renderHook(() => useEdgarSearch(params), { wrapper: createWrapper })
-
-      await waitFor(() => {
-        expect(result.current.isSuccess).toBe(true)
-      })
-
-      expect(mockFilingService.searchEdgarFilings).toHaveBeenCalledWith(params)
-      expect(result.current.data).toEqual(mockResults)
-    })
-
-    it('should have 5-minute stale time for Edgar results', async () => {
-      const params = { ticker: 'AAPL' }
-      mockFilingService.searchEdgarFilings.mockResolvedValue([])
-
-      const { result } = renderHook(() => useEdgarSearch(params), { wrapper: createWrapper })
-
-      await waitFor(() => {
-        expect(result.current.isSuccess).toBe(true)
-      })
-
-      // Edgar results should have longer stale time
-      expect(result.current.isStale).toBe(false)
-    })
-
-    it('should not search Edgar when ticker is empty', () => {
-      const params = { ticker: '' }
-      mockFilingService.searchEdgarFilings.mockResolvedValue([])
-
-      renderHook(() => useEdgarSearch(params), { wrapper: createWrapper })
-
-      expect(mockFilingService.searchEdgarFilings).not.toHaveBeenCalled()
     })
   })
 
@@ -639,7 +586,9 @@ describe('useFiling hooks', () => {
       expect(mockTasksApi.pollTask).toHaveBeenCalledWith(mockTask.task_id, {
         interval: 2000,
         maxAttempts: 60,
+        adaptivePolling: true,
         onProgress: expect.any(Function),
+        onTimeout: expect.any(Function),
       })
 
       // Verify cache invalidation
@@ -736,6 +685,56 @@ describe('useFiling hooks', () => {
       expect(result.current.analysisProgress.state).toBe('idle')
       expect(result.current.analysisProgress.message).toBe('')
       expect(result.current.isAnalyzing).toBe(false)
+    })
+
+    it('should handle background processing state', async () => {
+      const { result } = renderHook(() => useProgressiveFilingAnalysis(), {
+        wrapper: createWrapper,
+      })
+
+      // Verify background processing methods are available
+      expect(typeof result.current.checkBackgroundAnalysis).toBe('function')
+      expect(typeof result.current.isBackgroundProcessing).toBe('boolean')
+      expect(result.current.isBackgroundProcessing).toBe(false)
+    })
+
+    it('should handle processing_background state correctly', async () => {
+      const accessionNumber = '0000320193-24-000001'
+
+      // Mock task that goes to background processing
+      const mockTask: TaskResponse = {
+        task_id: 'task-123',
+        status: 'pending',
+        result: null,
+        error_message: null,
+        started_at: '2024-01-15T10:00:00Z',
+        completed_at: null,
+        progress_percent: 0,
+        current_step: 'Initiating analysis',
+      }
+
+      // Mock timeout to trigger background processing
+      // Note: mockTimeoutTask is defined for clarity but not used in this test
+
+      mockFilingService.analyzeFiling.mockResolvedValue(mockTask)
+      mockTasksApi.pollTask.mockImplementation((taskId, { onTimeout }) => {
+        // Trigger timeout to go to background processing
+        onTimeout?.()
+        return new Promise(() => {}) // Never resolves to simulate background processing
+      })
+
+      const { result } = renderHook(() => useProgressiveFilingAnalysis(), {
+        wrapper: createWrapper,
+      })
+
+      await act(async () => {
+        // This should trigger background processing due to timeout
+        result.current.startAnalysis(accessionNumber).catch(() => {})
+      })
+
+      // Should be in background processing state
+      expect(result.current.analysisProgress.state).toBe('processing_background')
+      expect(result.current.isBackgroundProcessing).toBe(true)
     })
   })
 })

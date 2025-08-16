@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAppStore } from '@/lib/store'
-import { useFilingSearch, useFilingAnalyzeMutation } from '@/hooks/useFiling'
+import { useFilingSearch } from '@/hooks/useFiling'
 import { FilingSearchForm, FilingSearchResults } from './components'
 import { Search } from 'lucide-react'
 import type { FilingSearchParams } from '@/api/filings'
@@ -21,7 +21,6 @@ interface FilingsListProps {
 export function FilingsList(_props: FilingsListProps) {
   const navigate = useNavigate()
   const { setBreadcrumbs } = useAppStore()
-  const analyzeFiling = useFilingAnalyzeMutation()
 
   // Search state
   const [searchParams, setSearchParams] = useState<FilingSearchParams | null>(null)
@@ -56,19 +55,6 @@ export function FilingsList(_props: FilingsListProps) {
 
   const handleViewDetails = (accessionNumber: string) => {
     navigate(`/filings/${accessionNumber}`)
-  }
-
-  const handleAnalyze = async (accessionNumber: string) => {
-    try {
-      await analyzeFiling.mutateAsync({
-        accessionNumber,
-        // No need to specify options since API defaults to comprehensive
-      })
-      // The mutation will handle cache invalidation and show success feedback
-    } catch (error) {
-      console.error('Failed to start analysis:', error)
-      // TODO: Show error toast notification
-    }
   }
 
   return (
@@ -124,7 +110,6 @@ export function FilingsList(_props: FilingsListProps) {
           isLoading={databaseSearchQuery.isLoading}
           error={databaseSearchQuery.error as any}
           onViewDetails={handleViewDetails}
-          onAnalyze={handleAnalyze}
           onPageChange={handlePageChange}
           companyName={companyData?.display_name}
           searchTicker={searchParams?.ticker}

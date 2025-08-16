@@ -2,6 +2,7 @@
 
 import logging
 
+from src.application.base.exceptions import ResourceNotFoundError
 from src.application.base.handlers import QueryHandler
 from src.application.schemas.queries.get_filing import GetFilingQuery
 from src.application.schemas.responses.filing_response import FilingResponse
@@ -67,7 +68,7 @@ class GetFilingQueryHandler(QueryHandler[GetFilingQuery, FilingResponse]):
             filing = await self.filing_repository.get_by_id(query.filing_id)
 
             if not filing:
-                raise ValueError(f"Filing with ID {query.filing_id} not found")
+                raise ResourceNotFoundError("Filing", str(query.filing_id))
 
             # Optionally get analysis information
             analyses_count = None

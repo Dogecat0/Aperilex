@@ -8,6 +8,8 @@
 - **Learning from existing code** - Study and plan before implementing
 - **Pragmatic over dogmatic** - Adapt to project reality
 - **Clear intent over clever code** - Be boring and obvious
+- **Always use subagents** - Leverage specialized agents for specific tasks
+- **Never commit unless you are instructed to do so** - Wait for explicit approval before commit changes.
 
 ### Simplicity Means
 

@@ -2,11 +2,7 @@ import type { FC } from 'react'
 import { Button } from '@/components/ui/Button'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { FilingCard } from './FilingCard'
-import {
-  ChevronLeft,
-  ChevronRight,
-  FileText,
-} from 'lucide-react'
+import { ChevronLeft, ChevronRight, FileText } from 'lucide-react'
 import type { FilingResponse, PaginatedResponse } from '@/api/types'
 
 interface FilingSearchResultsProps {
@@ -14,19 +10,16 @@ interface FilingSearchResultsProps {
   isLoading?: boolean
   error?: any
   onViewDetails?: (accessionNumber: string) => void
-  onAnalyze?: (accessionNumber: string) => void
   onPageChange?: (page: number) => void
   companyName?: string
   searchTicker?: string
 }
-
 
 export const FilingSearchResults: FC<FilingSearchResultsProps> = ({
   data,
   isLoading,
   error,
   onViewDetails,
-  onAnalyze,
   onPageChange,
   companyName,
   searchTicker,
@@ -116,7 +109,6 @@ export const FilingSearchResults: FC<FilingSearchResultsProps> = ({
               company_ticker: searchTicker,
             }}
             onViewDetails={onViewDetails}
-            onAnalyze={onAnalyze}
             showCompanyInfo={false} // Hide company info since we're searching for a specific company
           />
         ))}

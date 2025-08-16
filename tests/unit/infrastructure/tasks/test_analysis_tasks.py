@@ -55,6 +55,10 @@ class TestAsyncTask:
         self, mock_set_loop, mock_new_loop, mock_get_loop
     ):
         """Test execution of async task when no event loop exists."""
+        # Clear any persistent loop state to ensure clean test
+        if hasattr(AsyncTask._local, 'loop'):
+            AsyncTask._local.loop = None
+
         # Mock RuntimeError when getting event loop (no loop exists)
         mock_get_loop.side_effect = RuntimeError("No event loop")
 
@@ -80,6 +84,10 @@ class TestAsyncTask:
     @patch('asyncio.get_event_loop')
     def test_async_task_execution_existing_loop(self, mock_get_loop):
         """Test execution of async task with existing event loop."""
+        # Clear any persistent loop state to ensure clean test
+        if hasattr(AsyncTask._local, 'loop'):
+            AsyncTask._local.loop = None
+
         # Mock existing loop
         mock_loop = Mock()
         mock_loop.run_until_complete.return_value = "async_result"
