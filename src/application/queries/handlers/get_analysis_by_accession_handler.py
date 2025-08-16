@@ -83,7 +83,7 @@ class GetAnalysisByAccessionQueryHandler(
             )
 
             if not analysis:
-                raise ResourceNotFoundError("Analysis", query.accession_number)
+                raise ResourceNotFoundError("Analysis", str(query.accession_number))
 
             # Convert to response DTO based on requested detail level
             if query.include_full_results:

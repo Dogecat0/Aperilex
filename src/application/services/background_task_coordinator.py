@@ -77,7 +77,31 @@ class BackgroundTaskCoordinator:
         # Execute task based on configuration
         if self.use_celery:
             try:
-                await self._queue_celery_task(task_response.task_id, command)
+                original_task_id = task_response.task_id
+                celery_task_id = await self._queue_celery_task(
+                    task_response.task_id, command
+                )
+                # Create new TaskResponse with Celery task ID for frontend polling when using Celery
+                from src.application.schemas.responses.task_response import TaskResponse
+
+                task_response = TaskResponse(
+                    task_id=celery_task_id,
+                    status=task_response.status,
+                    result=task_response.result,
+                    error_message=task_response.error_message,
+                    started_at=task_response.started_at,
+                    completed_at=task_response.completed_at,
+                    progress_percent=task_response.progress_percent,
+                    current_step=task_response.current_step,
+                )
+                logger.info(
+                    f"Updated task response to use Celery task ID {celery_task_id} for frontend polling",
+                    extra={
+                        "original_task_id": str(original_task_id),
+                        "celery_task_id": celery_task_id,
+                        "filing_identifier": command.filing_identifier,
+                    },
+                )
             except Exception as e:
                 logger.error(
                     f"Failed to queue Celery task {task_response.task_id}",
@@ -103,12 +127,15 @@ class BackgroundTaskCoordinator:
 
     async def _queue_celery_task(
         self, task_id: str, command: AnalyzeFilingCommand
-    ) -> None:
+    ) -> str:
         """Queue analysis task using Celery.
 
         Args:
             task_id: ID of the task to execute
             command: Analysis command to execute
+
+        Returns:
+            Celery task ID for polling
         """
         try:
             from src.infrastructure.tasks.analysis_tasks import analyze_filing_task
@@ -135,10 +162,13 @@ class BackgroundTaskCoordinator:
                 task_id, 0.05, "Queued for background processing"
             )
 
+            return celery_task.id
+
         except ImportError as e:
             logger.error(f"Celery tasks not available: {e}")
             # Fallback to synchronous processing
             await self._execute_analysis_task(task_id, command)
+            return task_id
         except Exception as e:
             logger.error(f"Failed to queue Celery task: {e}")
             await self.task_service.fail_task(
@@ -186,7 +216,9 @@ class BackgroundTaskCoordinator:
             analysis = await self.analysis_orchestrator.orchestrate_filing_analysis(
                 command,
                 progress_callback=lambda progress, message: self._update_analysis_progress(
-                    task_id, 0.3 + (progress * 0.7), message  # Map 0-100% to 30-100%
+                    task_id,
+                    0.3 + (progress * 0.7),
+                    message,  # Map 0-100% to 30-100%
                 ),
             )
 
@@ -242,12 +274,178 @@ class BackgroundTaskCoordinator:
         """Get status of a background task.
 
         Args:
-            task_id: ID of the task to check
+            task_id: ID of the task to check (either application task ID or Celery task ID)
 
         Returns:
             TaskResponse with current status, or None if not found
         """
-        return await self.task_service.get_task_status(task_id)
+        # First try to get from TaskService (for non-Celery tasks or application task IDs)
+        task_status = await self.task_service.get_task_status(task_id)
+        if task_status is not None:
+            return task_status
+
+        # If not found and Celery is enabled, try to query Celery task status
+        if self.use_celery:
+            try:
+                from datetime import datetime
+
+                from celery.result import AsyncResult
+
+                from src.infrastructure.tasks.celery_app import celery_app
+
+                # Query Celery for task status
+                celery_result = AsyncResult(task_id, app=celery_app)
+
+                # Extract timing information from Celery's result backend
+                started_at = None
+                completed_at = None
+                progress_percent = None
+                current_step = None
+
+                try:
+                    # Access Celery's internal task metadata (if available)
+                    task_meta = celery_result._get_task_meta()
+                    if task_meta:
+                        # Extract timing information
+                        if "date_done" in task_meta and task_meta["date_done"]:
+                            completed_at = task_meta["date_done"]
+
+                        # For progress information, check if info contains progress data
+                        if celery_result.info and isinstance(celery_result.info, dict):
+                            progress_percent = celery_result.info.get(
+                                "current_progress"
+                            )
+                            current_step = celery_result.info.get("current_step")
+
+                            # Extract started_at from task meta if available
+                            if "started_at" in celery_result.info:
+                                started_at_str = celery_result.info.get("started_at")
+                                if started_at_str:
+                                    try:
+                                        from datetime import datetime
+
+                                        started_at = datetime.fromisoformat(
+                                            started_at_str.replace("Z", "+00:00")
+                                        )
+                                    except ValueError as e:
+                                        logger.debug(
+                                            f"Failed to parse started_at timestamp '{started_at_str}': {e}"
+                                        )
+                            # Convert progress to percentage if it's between 0 and 1
+                            if (
+                                progress_percent is not None
+                                and 0 <= progress_percent <= 1
+                            ):
+                                progress_percent = progress_percent * 100
+
+                except Exception as meta_error:
+                    logger.debug(
+                        f"Could not extract task metadata for {task_id}: {meta_error}"
+                    )
+
+                if celery_result.state == "PENDING":
+                    # Task is waiting or doesn't exist
+                    if celery_result.info is None:
+                        # Task likely doesn't exist
+                        return None
+                    return TaskResponse(
+                        task_id=task_id,
+                        status="pending",
+                        result=None,
+                        started_at=started_at,
+                        completed_at=completed_at,
+                        progress_percent=progress_percent,
+                        current_step=current_step,
+                    )
+                elif celery_result.state == "STARTED":
+                    return TaskResponse(
+                        task_id=task_id,
+                        status="started",
+                        result=None,
+                        started_at=started_at,
+                        completed_at=completed_at,
+                        progress_percent=progress_percent,
+                        current_step=current_step,
+                    )
+                elif celery_result.state == "SUCCESS":
+                    return TaskResponse(
+                        task_id=task_id,
+                        status="success",
+                        result=celery_result.result,
+                        started_at=started_at,
+                        completed_at=completed_at,
+                        progress_percent=100.0,  # Task is complete
+                        current_step="Completed",
+                    )
+                elif celery_result.state == "FAILURE":
+                    return TaskResponse(
+                        task_id=task_id,
+                        status="failure",
+                        result=None,
+                        error_message=(
+                            str(celery_result.info)
+                            if celery_result.info
+                            else "Task failed"
+                        ),
+                        started_at=started_at,
+                        completed_at=completed_at,
+                        progress_percent=progress_percent,
+                        current_step=current_step,
+                    )
+                elif celery_result.state == "RETRY":
+                    return TaskResponse(
+                        task_id=task_id,
+                        status="retry",
+                        result=None,
+                        error_message=(
+                            str(celery_result.info)
+                            if celery_result.info
+                            else "Task retrying"
+                        ),
+                        started_at=started_at,
+                        completed_at=completed_at,
+                        progress_percent=progress_percent,
+                        current_step=current_step,
+                    )
+                elif celery_result.state == "REVOKED":
+                    return TaskResponse(
+                        task_id=task_id,
+                        status="revoked",
+                        result=None,
+                        error_message="Task was revoked",
+                        started_at=started_at,
+                        completed_at=completed_at,
+                        progress_percent=progress_percent,
+                        current_step=current_step,
+                    )
+                elif celery_result.state == "PROGRESS":
+                    return TaskResponse(
+                        task_id=task_id,
+                        status="progress",
+                        result=None,
+                        started_at=started_at,
+                        completed_at=completed_at,
+                        progress_percent=progress_percent,
+                        current_step=current_step,
+                    )
+                else:
+                    # Custom state (like progress updates)
+                    return TaskResponse(
+                        task_id=task_id,
+                        status=celery_result.state.lower(),
+                        result=celery_result.info,
+                        started_at=started_at,
+                        completed_at=completed_at,
+                        progress_percent=progress_percent,
+                        current_step=current_step,
+                    )
+
+            except ImportError:
+                logger.warning("Celery not available for task status query")
+            except Exception as e:
+                logger.error(f"Error querying Celery task status for {task_id}: {e}")
+
+        return None
 
     async def retry_failed_task(self, task_id: str) -> TaskResponse | None:
         """Retry a failed analysis task.

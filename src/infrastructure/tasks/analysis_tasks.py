@@ -341,6 +341,19 @@ async def analyze_filing_task(
         f"force_reprocess: {force_reprocess}"
     )
 
+    # Update task state to indicate it has started with timing information
+    from datetime import datetime
+
+    start_time = datetime.utcnow()
+    self.update_state(
+        state='STARTED',
+        meta={
+            'current_progress': 0.0,
+            'current_step': 'Initializing analysis task',
+            'started_at': start_time.isoformat(),
+        },
+    )
+
     # Create a fresh database session for this task
     session = None
     try:
@@ -436,6 +449,16 @@ async def analyze_filing_task(
             user_id=created_by,
         )
 
+        # Update progress: Creating orchestrator
+        self.update_state(
+            state='PROGRESS',
+            meta={
+                'current_progress': 0.2,
+                'current_step': 'Setting up analysis orchestrator',
+                'started_at': start_time.isoformat(),
+            },
+        )
+
         # Create orchestrator
         orchestrator = AnalysisOrchestrator(
             analysis_repository=analysis_repo,
@@ -445,8 +468,28 @@ async def analyze_filing_task(
             template_service=template_service,
         )
 
+        # Update progress: Starting analysis
+        self.update_state(
+            state='PROGRESS',
+            meta={
+                'current_progress': 0.3,
+                'current_step': 'Starting filing analysis',
+                'started_at': start_time.isoformat(),
+            },
+        )
+
         # Execute analysis using orchestrator
         analysis = await orchestrator.orchestrate_filing_analysis(command)
+
+        # Update progress: Analysis complete, finalizing
+        self.update_state(
+            state='PROGRESS',
+            meta={
+                'current_progress': 0.9,
+                'current_step': 'Finalizing analysis results',
+                'started_at': start_time.isoformat(),
+            },
+        )
 
         # Commit the session
         await session.commit()
