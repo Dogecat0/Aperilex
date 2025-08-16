@@ -204,15 +204,12 @@ describe('FilingsList', () => {
   })
 
   describe('Analysis Actions', () => {
-    it('handles analyze filing action', async () => {
-      mockAnalyzeFiling.mockResolvedValueOnce({})
-
+    it('should not include analyze functionality on filing list', async () => {
       render(<FilingsList />)
 
-      // The handleAnalyze function should be passed to FilingSearchResults
-      // We can test the function logic by accessing it through component instance
-      // For now, we'll verify the mutation setup
-      expect(useFiling.useFilingAnalyzeMutation).toHaveBeenCalled()
+      // Analyze functionality was removed from filing list/cards
+      // Users now need to go to filing details page to analyze
+      expect(useFiling.useFilingAnalyzeMutation).not.toHaveBeenCalled()
     })
 
     it('handles view details navigation', () => {

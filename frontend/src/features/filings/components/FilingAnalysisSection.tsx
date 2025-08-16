@@ -27,6 +27,8 @@ interface FilingAnalysisSectionProps {
   isAnalyzing?: boolean
   analysisProgress?: AnalysisProgress
   filingStatus?: string // Add filing processing status for accurate display
+  onCheckBackgroundAnalysis?: () => void // Function to check background analysis status
+  isBackgroundProcessing?: boolean // Whether analysis is running in background
 }
 
 /**
@@ -46,15 +48,30 @@ const getProgressIcon = (state: string) => {
       return <CheckCircle className="w-4 h-4 text-green-600" />
     case 'error':
       return <XCircle className="w-4 h-4 text-red-600" />
+    case 'processing_background':
+      return <Clock className="w-4 h-4 animate-pulse text-amber-600" />
     default:
       return <Loader2 className="w-4 h-4 animate-spin" />
   }
 }
 
 /**
- * Get status display info based on filing processing status and analysis availability
+ * Get status display info based on filing processing status, analysis availability, and background processing
  */
-const getAnalysisStatusDisplay = (filingStatus?: string, hasAnalysis?: boolean) => {
+const getAnalysisStatusDisplay = (
+  filingStatus?: string,
+  hasAnalysis?: boolean,
+  isBackgroundProcessing?: boolean
+) => {
+  // Show background processing state if applicable
+  if (isBackgroundProcessing) {
+    return {
+      text: 'Background Processing',
+      icon: <Clock className="w-3 h-3" />,
+      className: 'bg-amber-100 text-amber-800',
+    }
+  }
+
   if (!hasAnalysis) {
     return {
       text: 'Not Available',
@@ -102,9 +119,14 @@ export const FilingAnalysisSection: React.FC<FilingAnalysisSectionProps> = ({
   isAnalyzing = false,
   analysisProgress,
   filingStatus,
+  onCheckBackgroundAnalysis,
+  isBackgroundProcessing = false,
 }) => {
   // Show progressive loading if we have analysis progress
   if (analysisProgress && (isAnalyzing || analysisProgress.state !== 'idle')) {
+    const isBackgroundState = analysisProgress.state === 'processing_background'
+    const progressBarColor = isBackgroundState ? 'bg-amber-600' : 'bg-blue-600'
+
     return (
       <div className="rounded-lg border bg-card p-6">
         <h3 className="text-lg font-semibold mb-4 flex items-center space-x-2">
@@ -119,7 +141,7 @@ export const FilingAnalysisSection: React.FC<FilingAnalysisSectionProps> = ({
               {analysisProgress.progress_percent !== undefined && (
                 <div className="mt-2 w-full bg-gray-200 rounded-full h-2">
                   <div
-                    className="bg-blue-600 h-2 rounded-full transition-all duration-300 ease-out"
+                    className={`${progressBarColor} h-2 rounded-full transition-all duration-300 ease-out`}
                     style={{ width: `${analysisProgress.progress_percent}%` }}
                   />
                 </div>
@@ -131,10 +153,22 @@ export const FilingAnalysisSection: React.FC<FilingAnalysisSectionProps> = ({
                   </p>
                 )}
             </div>
+            {/* Show check status button for background processing */}
+            {isBackgroundState && onCheckBackgroundAnalysis && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={onCheckBackgroundAnalysis}
+                className="flex-shrink-0"
+              >
+                <RefreshCw className="w-4 h-4 mr-2" />
+                Check Status
+              </Button>
+            )}
           </div>
 
-          {/* Progress animation skeleton */}
-          <div className="space-y-3 opacity-50">
+          {/* Progress animation skeleton with different styling for background processing */}
+          <div className={`space-y-3 ${isBackgroundState ? 'opacity-30' : 'opacity-50'}`}>
             <div className="animate-pulse">
               <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
               <div className="h-4 bg-gray-200 rounded w-1/2 mb-4"></div>
@@ -173,7 +207,15 @@ export const FilingAnalysisSection: React.FC<FilingAnalysisSectionProps> = ({
     )
   }
 
-  if (error && !analysis && error.status_code !== 404) {
+  // Only show error for real failures, not background processing or timeouts
+  // Also don't show error if there's active analysis progress
+  if (
+    error &&
+    !analysis &&
+    error.status_code !== 404 &&
+    !isBackgroundProcessing &&
+    !(analysisProgress && (isAnalyzing || analysisProgress.state !== 'idle'))
+  ) {
     return (
       <div className="rounded-lg border bg-card p-6">
         <h3 className="text-lg font-semibold mb-4 flex items-center space-x-2">
@@ -271,12 +313,21 @@ export const FilingAnalysisSection: React.FC<FilingAnalysisSectionProps> = ({
         </h3>
         <div className="flex items-center space-x-2">
           <span
-            className={`inline-flex items-center px-2 py-1 rounded-md text-xs font-medium ${getAnalysisStatusDisplay(filingStatus, !!analysis).className}`}
+            className={`inline-flex items-center px-2 py-1 rounded-md text-xs font-medium ${getAnalysisStatusDisplay(filingStatus, !!analysis, isBackgroundProcessing).className}`}
           >
-            {getAnalysisStatusDisplay(filingStatus, !!analysis).icon}
-            <span className="ml-1">{getAnalysisStatusDisplay(filingStatus, !!analysis).text}</span>
+            {getAnalysisStatusDisplay(filingStatus, !!analysis, isBackgroundProcessing).icon}
+            <span className="ml-1">
+              {getAnalysisStatusDisplay(filingStatus, !!analysis, isBackgroundProcessing).text}
+            </span>
           </span>
-          {onViewFullAnalysis && (
+          {/* Show refresh button for background processing */}
+          {isBackgroundProcessing && onCheckBackgroundAnalysis && (
+            <Button variant="outline" size="sm" onClick={onCheckBackgroundAnalysis}>
+              <RefreshCw className="w-4 h-4 mr-2" />
+              Check Status
+            </Button>
+          )}
+          {onViewFullAnalysis && !isBackgroundProcessing && (
             <Button variant="outline" size="sm" onClick={onViewFullAnalysis}>
               <Eye className="w-4 h-4 mr-2" />
               View Full Analysis

@@ -20,7 +20,6 @@ vi.mock('./FilingCard', () => ({
 
 describe('FilingSearchResults', () => {
   const mockOnViewDetails = vi.fn()
-  const mockOnAnalyze = vi.fn()
   const mockOnPageChange = vi.fn()
 
   const mockFilingData: PaginatedResponse<FilingResponse> = {
@@ -243,7 +242,6 @@ describe('FilingSearchResults', () => {
           companyName="Apple Inc."
           searchTicker="AAPL"
           onViewDetails={mockOnViewDetails}
-          onAnalyze={mockOnAnalyze}
         />
       )
 
@@ -265,23 +263,13 @@ describe('FilingSearchResults', () => {
       expect(screen.getByText('AAPL Filings')).toBeInTheDocument()
     })
 
-    it('handles callback functions correctly', () => {
-      render(
-        <FilingSearchResults
-          data={mockFilingData}
-          onViewDetails={mockOnViewDetails}
-          onAnalyze={mockOnAnalyze}
-        />
-      )
+    it('handles view details callback correctly', () => {
+      render(<FilingSearchResults data={mockFilingData} onViewDetails={mockOnViewDetails} />)
 
       const viewButtons = screen.getAllByText('View Details')
-      const analyzeButtons = screen.getAllByText('Analyze')
 
       fireEvent.click(viewButtons[0])
       expect(mockOnViewDetails).toHaveBeenCalledWith('0000320193-24-000001')
-
-      fireEvent.click(analyzeButtons[0])
-      expect(mockOnAnalyze).toHaveBeenCalledWith('0000320193-24-000001')
     })
   })
 

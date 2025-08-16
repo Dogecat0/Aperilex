@@ -26,11 +26,18 @@ export function FilingDetails() {
     data: analysis,
     isLoading: analysisLoading,
     error: analysisError,
+    refetch: refetchAnalysis,
   } = useFilingAnalysis(accessionNumber || '', {
     enabled: !!accessionNumber,
   })
 
-  const { analysisProgress, startAnalysis, isAnalyzing } = useProgressiveFilingAnalysis()
+  const {
+    analysisProgress,
+    startAnalysis,
+    isAnalyzing,
+    checkBackgroundAnalysis,
+    isBackgroundProcessing,
+  } = useProgressiveFilingAnalysis()
 
   // Set breadcrumbs when filing data loads
   React.useEffect(() => {
@@ -52,6 +59,13 @@ export function FilingDetails() {
     }
   }, [filing, accessionNumber, setBreadcrumbs])
 
+  // Auto-refetch analysis when it completes
+  React.useEffect(() => {
+    if (analysisProgress.state === 'completed' && !analysis) {
+      refetchAnalysis()
+    }
+  }, [analysisProgress.state, analysis, refetchAnalysis])
+
   const handleBack = () => {
     navigate('/filings')
   }
@@ -61,7 +75,15 @@ export function FilingDetails() {
 
     try {
       // Use the progressive analysis system which handles progress tracking automatically
-      await startAnalysis(accessionNumber, options || { analysis_template: 'comprehensive' })
+      const result = await startAnalysis(
+        accessionNumber,
+        options || { analysis_template: 'comprehensive' }
+      )
+
+      // If analysis completed successfully, refetch the analysis data
+      if (result) {
+        refetchAnalysis()
+      }
     } catch (error) {
       console.error('Analysis failed:', error)
       // Error state is already handled by the progressive analysis hook
@@ -204,6 +226,8 @@ export function FilingDetails() {
             isAnalyzing={isAnalyzing}
             analysisProgress={analysisProgress}
             filingStatus={filing.processing_status}
+            onCheckBackgroundAnalysis={checkBackgroundAnalysis}
+            isBackgroundProcessing={isBackgroundProcessing}
           />
         </div>
 
