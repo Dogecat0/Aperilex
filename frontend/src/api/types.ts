@@ -139,6 +139,7 @@ export type AnalysisProgressState =
   | 'completing'
   | 'completed'
   | 'error'
+  | 'processing_background'
 
 export interface AnalysisProgress {
   state: AnalysisProgressState

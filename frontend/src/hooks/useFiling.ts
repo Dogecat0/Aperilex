@@ -188,6 +188,8 @@ const getProgressMessage = (state: AnalysisProgressState, currentStep?: string):
       return 'Analysis complete!'
     case 'error':
       return 'Analysis failed'
+    case 'processing_background':
+      return 'Analysis is taking longer than expected and will continue in the background'
     default:
       return 'Preparing analysis...'
   }
@@ -237,6 +239,19 @@ const mapTaskToProgressState = (task: TaskResponse): AnalysisProgressState => {
 }
 
 /**
+ * Check if analysis completed after timeout
+ */
+export const checkAnalysisAfterTimeout = async (taskId: string): Promise<TaskResponse | null> => {
+  try {
+    const task = await tasksApi.getTask(taskId)
+    return task
+  } catch (error) {
+    console.error('Error checking analysis status:', error)
+    return null
+  }
+}
+
+/**
  * Hook for progressive filing analysis with detailed loading states
  */
 export const useProgressiveFilingAnalysis = () => {
@@ -245,15 +260,18 @@ export const useProgressiveFilingAnalysis = () => {
     state: 'idle',
     message: '',
   })
+  const [backgroundTaskId, setBackgroundTaskId] = useState<string | null>(null)
 
   const startAnalysis = useCallback(
     async (accessionNumber: string, options?: AnalyzeFilingRequest) => {
       try {
-        // Set initial state
+        // Set initial state - clear any previous error state
         setAnalysisProgress({
           state: 'initiating',
           message: getProgressMessage('initiating'),
           progress_percent: 0,
+          current_step: undefined,
+          task_id: undefined,
         })
 
         // Start the analysis
@@ -264,10 +282,11 @@ export const useProgressiveFilingAnalysis = () => {
           task_id: task.task_id,
         }))
 
-        // Poll for completion with progress updates
+        // Poll for completion with progress updates and timeout handling
         const finalTask = await tasksApi.pollTask(task.task_id, {
           interval: 2000,
-          maxAttempts: 60,
+          maxAttempts: 60, // 2 minutes of active polling
+          adaptivePolling: true,
           onProgress: (progressTask) => {
             const progressState = mapTaskToProgressState(progressTask)
             const message = getProgressMessage(
@@ -283,9 +302,20 @@ export const useProgressiveFilingAnalysis = () => {
               task_id: progressTask.task_id,
             })
           },
+          onTimeout: (_attempts) => {
+            // Transition to background processing instead of error
+            setBackgroundTaskId(task.task_id)
+            setAnalysisProgress({
+              state: 'processing_background',
+              message: getProgressMessage('processing_background'),
+              progress_percent: undefined,
+              current_step: 'Analysis continues in background',
+              task_id: task.task_id,
+            })
+          },
         })
 
-        // Set final state
+        // Handle final state based on whether we timed out or completed
         if (finalTask.status === 'success') {
           setAnalysisProgress({
             state: 'completed',
@@ -293,41 +323,121 @@ export const useProgressiveFilingAnalysis = () => {
             progress_percent: 100,
             task_id: finalTask.task_id,
           })
+          setBackgroundTaskId(null)
 
           // Invalidate related queries to refresh data
           queryClient.invalidateQueries({
             queryKey: ['filing', accessionNumber],
           })
 
+          // Also invalidate the analysis query specifically
+          queryClient.invalidateQueries({
+            queryKey: ['filing', accessionNumber, 'analysis'],
+          })
+
+          // Reset progress state after a short delay to show completion
+          setTimeout(() => {
+            setAnalysisProgress({
+              state: 'idle',
+              message: '',
+            })
+          }, 2000)
+
           return finalTask.result?.analysis
-        } else {
+        } else if (finalTask.status === 'failure') {
+          setAnalysisProgress({
+            state: 'error',
+            message: finalTask.error_message || 'Analysis failed',
+            task_id: finalTask.task_id,
+          })
+          setBackgroundTaskId(null)
           throw new Error(finalTask.error_message || 'Analysis failed')
         }
+
+        // If we reach here, we're in background processing mode
+        // The onTimeout callback already set the appropriate state
+        return null
       } catch (error) {
-        setAnalysisProgress({
-          state: 'error',
-          message: error instanceof Error ? error.message : 'Analysis failed',
-        })
+        // Only set error state if it's not a timeout (background processing)
+        if (analysisProgress.state !== 'processing_background') {
+          setAnalysisProgress({
+            state: 'error',
+            message: error instanceof Error ? error.message : 'Analysis failed',
+          })
+          setBackgroundTaskId(null)
+        }
         throw error
       }
     },
-    [queryClient]
+    [queryClient, analysisProgress.state]
   )
+
+  const checkBackgroundAnalysis = useCallback(async () => {
+    if (!backgroundTaskId) {
+      return null
+    }
+
+    try {
+      const task = await checkAnalysisAfterTimeout(backgroundTaskId)
+      if (task?.status === 'success') {
+        setAnalysisProgress({
+          state: 'completed',
+          message: getProgressMessage('completed'),
+          progress_percent: 100,
+          task_id: task.task_id,
+        })
+        setBackgroundTaskId(null)
+
+        // Invalidate queries to refresh data
+        queryClient.invalidateQueries({
+          queryKey: ['filing'],
+        })
+
+        return task.result?.analysis
+      } else if (task?.status === 'failure') {
+        setAnalysisProgress({
+          state: 'error',
+          message: task.error_message || 'Analysis failed',
+          task_id: task.task_id,
+        })
+        setBackgroundTaskId(null)
+        return null
+      }
+
+      // Still processing - update current step if available
+      if (task?.current_step) {
+        setAnalysisProgress((prev) => ({
+          ...prev,
+          current_step: task.current_step || undefined,
+          progress_percent: task.progress_percent || undefined,
+        }))
+      }
+
+      return null
+    } catch (error) {
+      console.error('Error checking background analysis:', error)
+      return null
+    }
+  }, [backgroundTaskId, queryClient])
 
   const resetProgress = useCallback(() => {
     setAnalysisProgress({
       state: 'idle',
       message: '',
     })
+    setBackgroundTaskId(null)
   }, [])
 
   return {
     analysisProgress,
     startAnalysis,
     resetProgress,
+    checkBackgroundAnalysis,
     isAnalyzing:
       analysisProgress.state !== 'idle' &&
       analysisProgress.state !== 'completed' &&
       analysisProgress.state !== 'error',
+    isBackgroundProcessing: analysisProgress.state === 'processing_background',
+    backgroundTaskId,
   }
 }
