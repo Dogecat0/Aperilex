@@ -686,5 +686,55 @@ describe('useFiling hooks', () => {
       expect(result.current.analysisProgress.message).toBe('')
       expect(result.current.isAnalyzing).toBe(false)
     })
+
+    it('should handle background processing state', async () => {
+      const { result } = renderHook(() => useProgressiveFilingAnalysis(), {
+        wrapper: createWrapper,
+      })
+
+      // Verify background processing methods are available
+      expect(typeof result.current.checkBackgroundAnalysis).toBe('function')
+      expect(typeof result.current.isBackgroundProcessing).toBe('boolean')
+      expect(result.current.isBackgroundProcessing).toBe(false)
+    })
+
+    it('should handle processing_background state correctly', async () => {
+      const accessionNumber = '0000320193-24-000001'
+
+      // Mock task that goes to background processing
+      const mockTask: TaskResponse = {
+        task_id: 'task-123',
+        status: 'pending',
+        result: null,
+        error_message: null,
+        started_at: '2024-01-15T10:00:00Z',
+        completed_at: null,
+        progress_percent: 0,
+        current_step: 'Initiating analysis',
+      }
+
+      // Mock timeout to trigger background processing
+      // Note: mockTimeoutTask is defined for clarity but not used in this test
+
+      mockFilingService.analyzeFiling.mockResolvedValue(mockTask)
+      mockTasksApi.pollTask.mockImplementation((taskId, { onTimeout }) => {
+        // Trigger timeout to go to background processing
+        onTimeout?.()
+        return new Promise(() => {}) // Never resolves to simulate background processing
+      })
+
+      const { result } = renderHook(() => useProgressiveFilingAnalysis(), {
+        wrapper: createWrapper,
+      })
+
+      await act(async () => {
+        // This should trigger background processing due to timeout
+        result.current.startAnalysis(accessionNumber).catch(() => {})
+      })
+
+      // Should be in background processing state
+      expect(result.current.analysisProgress.state).toBe('processing_background')
+      expect(result.current.isBackgroundProcessing).toBe(true)
+    })
   })
 })

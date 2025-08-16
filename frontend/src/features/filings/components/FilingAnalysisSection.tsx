@@ -1,7 +1,6 @@
 import React from 'react'
 import { Button } from '@/components/ui/Button'
 import {
-  BarChart3,
   Brain,
   TrendingUp,
   AlertTriangle,
@@ -16,7 +15,7 @@ import {
   Database,
   Cpu,
 } from 'lucide-react'
-import type { AnalysisResponse, AnalysisProgress } from '@/api/types'
+import type { AnalysisResponse, AnalysisProgress, AnalysisTemplate } from '@/api/types'
 
 interface FilingAnalysisSectionProps {
   analysis: AnalysisResponse | null
@@ -29,6 +28,24 @@ interface FilingAnalysisSectionProps {
   filingStatus?: string // Add filing processing status for accurate display
   onCheckBackgroundAnalysis?: () => void // Function to check background analysis status
   isBackgroundProcessing?: boolean // Whether analysis is running in background
+}
+
+/**
+ * Format analysis template for display
+ */
+const formatAnalysisTemplate = (template: AnalysisTemplate): string => {
+  switch (template) {
+    case 'comprehensive':
+      return 'Comprehensive Analysis'
+    case 'financial_focused':
+      return 'Financial-Focused Analysis'
+    case 'risk_focused':
+      return 'Risk-Focused Analysis'
+    case 'business_focused':
+      return 'Business-Focused Analysis'
+    default:
+      return template
+  }
 }
 
 /**
@@ -130,7 +147,6 @@ export const FilingAnalysisSection: React.FC<FilingAnalysisSectionProps> = ({
     return (
       <div className="rounded-lg border bg-card p-6">
         <h3 className="text-lg font-semibold mb-4 flex items-center space-x-2">
-          <BarChart3 className="w-5 h-5" />
           <span>Analysis Results</span>
         </h3>
         <div className="space-y-4">
@@ -189,7 +205,6 @@ export const FilingAnalysisSection: React.FC<FilingAnalysisSectionProps> = ({
     return (
       <div className="rounded-lg border bg-card p-6">
         <h3 className="text-lg font-semibold mb-4 flex items-center space-x-2">
-          <BarChart3 className="w-5 h-5" />
           <span>Analysis Results</span>
         </h3>
         <div className="space-y-4">
@@ -219,7 +234,6 @@ export const FilingAnalysisSection: React.FC<FilingAnalysisSectionProps> = ({
     return (
       <div className="rounded-lg border bg-card p-6">
         <h3 className="text-lg font-semibold mb-4 flex items-center space-x-2">
-          <BarChart3 className="w-5 h-5" />
           <span>Analysis Results</span>
         </h3>
         <div className="text-center py-8">
@@ -239,9 +253,9 @@ export const FilingAnalysisSection: React.FC<FilingAnalysisSectionProps> = ({
               }
             >
               {isAnalyzing ||
-              (analysisProgress &&
-                analysisProgress.state !== 'idle' &&
-                analysisProgress.state !== 'error') ? (
+                (analysisProgress &&
+                  analysisProgress.state !== 'idle' &&
+                  analysisProgress.state !== 'error') ? (
                 <>
                   <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
                   {analysisProgress?.message || 'Analyzing...'}
@@ -263,11 +277,10 @@ export const FilingAnalysisSection: React.FC<FilingAnalysisSectionProps> = ({
     return (
       <div className="rounded-lg border bg-card p-6">
         <h3 className="text-lg font-semibold mb-4 flex items-center space-x-2">
-          <BarChart3 className="w-5 h-5" />
           <span>Analysis Results</span>
         </h3>
         <div className="text-center py-8">
-          <Brain className="mx-auto w-12 h-12 text-muted-foreground mb-4" />
+          <Brain className="mx-auto w-12 h-12 text-orange-600 mb-4" />
           <h4 className="text-lg font-medium text-foreground mb-2">No Analysis Available</h4>
           <p className="text-sm text-muted-foreground mb-4">
             This filing hasn't been analyzed yet. Start an AI-powered analysis to extract key
@@ -284,16 +297,15 @@ export const FilingAnalysisSection: React.FC<FilingAnalysisSectionProps> = ({
               }
             >
               {isAnalyzing ||
-              (analysisProgress &&
-                analysisProgress.state !== 'idle' &&
-                analysisProgress.state !== 'error') ? (
+                (analysisProgress &&
+                  analysisProgress.state !== 'idle' &&
+                  analysisProgress.state !== 'error') ? (
                 <>
                   <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
                   {analysisProgress?.message || 'Analyzing...'}
                 </>
               ) : (
                 <>
-                  <Brain className="w-4 h-4 mr-2" />
                   Start Analysis
                 </>
               )}
@@ -308,7 +320,6 @@ export const FilingAnalysisSection: React.FC<FilingAnalysisSectionProps> = ({
     <div className="rounded-lg border bg-card p-6">
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-lg font-semibold flex items-center space-x-2">
-          <BarChart3 className="w-5 h-5" />
           <span>Analysis Results</span>
         </h3>
         <div className="flex items-center space-x-2">
@@ -341,7 +352,7 @@ export const FilingAnalysisSection: React.FC<FilingAnalysisSectionProps> = ({
         {analysis.executive_summary && (
           <div>
             <h4 className="text-sm font-medium text-foreground mb-2 flex items-center space-x-2">
-              <Brain className="w-4 h-4" />
+              <Brain className="w-4 h-4 text-orange-600" />
               <span>Executive Summary</span>
             </h4>
             <p className="text-sm text-muted-foreground leading-relaxed">
@@ -430,7 +441,7 @@ export const FilingAnalysisSection: React.FC<FilingAnalysisSectionProps> = ({
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
             <div>
               <p className="text-muted-foreground">Analysis Type</p>
-              <p className="font-medium">{analysis.analysis_template}</p>
+              <p className="font-medium">{formatAnalysisTemplate(analysis.analysis_template)}</p>
             </div>
             {analysis.confidence_score && (
               <div>
