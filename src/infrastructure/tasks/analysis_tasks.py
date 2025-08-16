@@ -80,7 +80,7 @@ class AsyncTask(Task):
         Args:
             thread_id: Thread identifier for logging purposes
         """
-        if hasattr(cls._local, 'loop') and cls._local.loop is not None:
+        if hasattr(cls._local, "loop") and cls._local.loop is not None:
             try:
                 if not cls._local.loop.is_closed():
                     logger.debug(f"Closing corrupted event loop in thread {thread_id}")
@@ -121,7 +121,7 @@ class AsyncTask(Task):
 
         # Check if we have a valid existing loop for this thread
         # (this preserves persistence across calls)
-        if hasattr(cls._local, 'loop') and cls._local.loop is not None:
+        if hasattr(cls._local, "loop") and cls._local.loop is not None:
             try:
                 if not cls._local.loop.is_closed():
                     logger.debug(
@@ -143,7 +143,7 @@ class AsyncTask(Task):
         # Thread-safe loop creation
         with cls._creation_lock:
             # Double-check pattern - another thread might have created a loop
-            if hasattr(cls._local, 'loop') and cls._local.loop is not None:
+            if hasattr(cls._local, "loop") and cls._local.loop is not None:
                 try:
                     if not cls._local.loop.is_closed():
                         return cls._local.loop
@@ -346,11 +346,11 @@ async def analyze_filing_task(
 
     start_time = datetime.utcnow()
     self.update_state(
-        state='STARTED',
+        state="STARTED",
         meta={
-            'current_progress': 0.0,
-            'current_step': 'Initializing analysis task',
-            'started_at': start_time.isoformat(),
+            "current_progress": 0.0,
+            "current_step": "Initializing analysis task",
+            "started_at": start_time.isoformat(),
         },
     )
 
@@ -451,11 +451,11 @@ async def analyze_filing_task(
 
         # Update progress: Creating orchestrator
         self.update_state(
-            state='PROGRESS',
+            state="PROGRESS",
             meta={
-                'current_progress': 0.2,
-                'current_step': 'Setting up analysis orchestrator',
-                'started_at': start_time.isoformat(),
+                "current_progress": 0.2,
+                "current_step": "Setting up analysis orchestrator",
+                "started_at": start_time.isoformat(),
             },
         )
 
@@ -470,11 +470,11 @@ async def analyze_filing_task(
 
         # Update progress: Starting analysis
         self.update_state(
-            state='PROGRESS',
+            state="PROGRESS",
             meta={
-                'current_progress': 0.3,
-                'current_step': 'Starting filing analysis',
-                'started_at': start_time.isoformat(),
+                "current_progress": 0.3,
+                "current_step": "Starting filing analysis, please DO NOT refresh the page!",
+                "started_at": start_time.isoformat(),
             },
         )
 
@@ -483,11 +483,11 @@ async def analyze_filing_task(
 
         # Update progress: Analysis complete, finalizing
         self.update_state(
-            state='PROGRESS',
+            state="PROGRESS",
             meta={
-                'current_progress': 0.9,
-                'current_step': 'Finalizing analysis results',
-                'started_at': start_time.isoformat(),
+                "current_progress": 0.9,
+                "current_step": "Finalizing analysis results",
+                "started_at": start_time.isoformat(),
             },
         )
 
@@ -645,7 +645,8 @@ async def batch_analyze_filings_task(
 
         # Get recent filings for the company
         filings = await filing_repo.get_by_company_id(
-            company_id=None, limit=limit  # We'll need to look up by CIK
+            company_id=None,
+            limit=limit,  # We'll need to look up by CIK
         )
 
         if not filings:
@@ -748,7 +749,7 @@ async def _create_filing_from_edgar_data(session: Any, filing_data: Any) -> Fili
             logger.info(f"Created new company: {company.name} [CIK: {cik}]")
 
         # Parse filing date
-        filing_date_obj = date.fromisoformat(filing_data.filing_date.split('T')[0])
+        filing_date_obj = date.fromisoformat(filing_data.filing_date.split("T")[0])
 
         # Create filing entity
         from src.domain.value_objects.accession_number import AccessionNumber
