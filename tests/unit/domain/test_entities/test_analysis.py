@@ -378,7 +378,7 @@ class TestAnalysis:
 
         # Different type should not be equal
         assert analysis1 != "analysis"
-        assert analysis1 != None
+        assert analysis1 is not None
 
     def test_hash(self):
         """Test Analysis hash based on ID."""
@@ -528,5 +528,5 @@ class TestAnalysis:
             analysis_type=AnalysisType.FILING_ANALYSIS,
             created_by=uuid4(),
             llm_provider="openai",
-            llm_model="gpt-4",
+            llm_model="dummy",
         )

@@ -15,10 +15,10 @@ if str(src_path) not in sys.path:
     sys.path.insert(0, str(src_path))
 
 # Import after path setup
-from src.domain.entities.analysis import Analysis
-from src.domain.entities.company import Company
-from src.domain.entities.filing import Filing
-from src.domain.value_objects import (
+from src.domain.entities.analysis import Analysis  # noqa: E402
+from src.domain.entities.company import Company  # noqa: E402
+from src.domain.entities.filing import Filing  # noqa: E402
+from src.domain.value_objects import (  # noqa: E402
     CIK,
     AccessionNumber,
     FilingType,
@@ -90,7 +90,7 @@ def sample_analysis(sample_filing):
         results=analysis_data,
         confidence_score=0.85,
         llm_provider="OpenAI",
-        llm_model="gpt-4o-mini",
+        llm_model="dummy",
         processing_time_ms=1500,
         metadata={"sections_analyzed": 3},
     )
@@ -165,7 +165,7 @@ def mock_openai_response():
 
 
 # Import realistic fixtures
-from tests.fixtures.realistic_analysis_data import (
+from tests.fixtures.realistic_analysis_data import (  # noqa: E402
     get_realistic_company_data,
     get_realistic_edgar_filing_sections,
     get_realistic_filing_analysis_response,

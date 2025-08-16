@@ -100,7 +100,7 @@ def sample_analysis_response():
         created_at=datetime.now(),
         confidence_score=85.5,
         llm_provider="openai",
-        llm_model="gpt-4",
+        llm_model="dummy",
         processing_time_seconds=45.2,
         filing_summary="Sample filing summary",
         executive_summary="Sample executive summary",

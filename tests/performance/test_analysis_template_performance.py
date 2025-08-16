@@ -71,7 +71,7 @@ class TestAnalysisTemplatePerformance:
                         analysis_type=analysis_type.value,
                         created_by="performance_test",
                         llm_provider="openai",
-                        llm_model="gpt-4",
+                        llm_model="dummy",
                         confidence_score=0.8 + (i % 3) * 0.05,  # Vary confidence scores
                         created_at=datetime.now(UTC),
                     )
@@ -174,7 +174,7 @@ class TestAnalysisTemplatePerformance:
             print("\nPerformance Test Results:")
             print("=" * 60)
             for scenario, avg_time, total_items in performance_results:
-                print(f"{scenario:30} {avg_time*1000:6.1f}ms {total_items:6d} items")
+                print(f"{scenario:30} {avg_time * 1000:6.1f}ms {total_items:6d} items")
 
         finally:
             await async_session.rollback()
@@ -222,7 +222,7 @@ class TestAnalysisTemplatePerformance:
                         analysis_type=analysis_type.value,
                         created_by=f"user_{i % 5}",  # Vary users
                         llm_provider="openai",
-                        llm_model="gpt-4",
+                        llm_model="dummy",
                         confidence_score=0.7
                         + (hash(f"{i}-{j}") % 30) / 100,  # Pseudo-random scores
                         created_at=datetime.now(UTC),
@@ -272,7 +272,7 @@ class TestAnalysisTemplatePerformance:
                 ), f"Complex scenario '{scenario_name}' took {query_time:.3f}s, too slow"
 
                 print(
-                    f"Complex scenario '{scenario_name}': {query_time*1000:.1f}ms, {result.pagination.total_items} results"
+                    f"Complex scenario '{scenario_name}': {query_time * 1000:.1f}ms, {result.pagination.total_items} results"
                 )
 
         finally:
@@ -318,7 +318,7 @@ class TestAnalysisTemplatePerformance:
                         analysis_type=analysis_type.value,
                         created_by="perf_test",
                         llm_provider="openai",
-                        llm_model="gpt-4",
+                        llm_model="dummy",
                         confidence_score=0.8,
                         created_at=datetime.now(UTC),
                     )
@@ -371,8 +371,8 @@ class TestAnalysisTemplatePerformance:
                 f"{template_time:.3f}s vs {explicit_time:.3f}s (ratio: {performance_ratio:.2f})"
             )
 
-            print(f"Template query: {template_time*1000:.1f}ms")
-            print(f"Explicit query: {explicit_time*1000:.1f}ms")
+            print(f"Template query: {template_time * 1000:.1f}ms")
+            print(f"Explicit query: {explicit_time * 1000:.1f}ms")
             print(f"Performance ratio: {performance_ratio:.2f}")
 
         finally:

@@ -367,7 +367,7 @@ class TestAnalysisResponse:
             created_at=datetime.now(UTC),
             confidence_score=0.85,
             llm_provider="openai",
-            llm_model="gpt-4",
+            llm_model="dummy",
             processing_time_seconds=45.5,
         )
 
@@ -385,7 +385,7 @@ class TestAnalysisResponse:
             created_at=datetime.now(UTC),
             confidence_score=0.65,
             llm_provider="openai",
-            llm_model="gpt-4",
+            llm_model="dummy",
             processing_time_seconds=45.5,
         )
 
@@ -403,7 +403,7 @@ class TestAnalysisResponse:
             created_at=datetime.now(UTC),
             confidence_score=0.35,
             llm_provider="openai",
-            llm_model="gpt-4",
+            llm_model="dummy",
             processing_time_seconds=45.5,
         )
 
@@ -421,7 +421,7 @@ class TestAnalysisResponse:
             created_at=datetime.now(UTC),
             confidence_score=None,
             llm_provider="openai",
-            llm_model="gpt-4",
+            llm_model="dummy",
             processing_time_seconds=45.5,
         )
 
@@ -440,7 +440,7 @@ class TestAnalysisResponse:
             created_at=datetime.now(UTC),
             confidence_score=0.85,
             llm_provider="openai",
-            llm_model="gpt-4",
+            llm_model="dummy",
             processing_time_seconds=45.5,
         )
 
@@ -456,7 +456,7 @@ class TestAnalysisResponse:
             created_at=datetime.now(UTC),
             confidence_score=0.85,
             llm_provider="openai",
-            llm_model="gpt-4",
+            llm_model="dummy",
             processing_time_seconds=45.5,
             key_insights=["Insight 1", "Insight 2"],
             risk_factors=["Risk 1"],
@@ -476,7 +476,7 @@ class TestAnalysisResponse:
             created_at=datetime.now(UTC),
             confidence_score=0.85,
             llm_provider="openai",
-            llm_model="gpt-4",
+            llm_model="dummy",
             processing_time_seconds=45.5,
             key_insights=[],
             risk_factors=None,
@@ -497,7 +497,7 @@ class TestAnalysisResponse:
             created_at=datetime.now(UTC),
             confidence_score=0.85,
             llm_provider="openai",
-            llm_model="gpt-4",
+            llm_model="dummy",
             processing_time_seconds=45.5,
             key_insights=["Insight 1", "Insight 2"],
             risk_factors=["Risk 1"],
@@ -520,7 +520,7 @@ class TestAnalysisResponse:
             created_at=datetime.now(UTC),
             confidence_score=0.85,
             llm_provider="openai",
-            llm_model="gpt-4",
+            llm_model="dummy",
             processing_time_seconds=45.5,
             key_insights=["Insight 1"],
             risk_factors=["Risk 1"],
@@ -543,7 +543,7 @@ class TestAnalysisResponse:
             created_at=datetime.now(UTC),
             confidence_score=0.85,
             llm_provider="openai",
-            llm_model="gpt-4",
+            llm_model="dummy",
             processing_time_seconds=45.5,
         )
 

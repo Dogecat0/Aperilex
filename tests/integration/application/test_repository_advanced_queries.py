@@ -407,7 +407,6 @@ class TestAnalysisRepositoryAdvancedQueries:
         """Test find_with_filters with complex filtering scenario."""
         # Complex filter: Apple analyses, high confidence, recent dates
         apple_cik = test_companies[0].cik
-        confidence_threshold = 0.80
         recent_date = datetime(2024, 1, 5, tzinfo=UTC)
 
         # First, get all Apple analyses to understand the data
@@ -555,7 +554,7 @@ class TestAnalysisRepositoryAdvancedQueries:
             created_by="integration_test",
             results={"summary": "Integration test analysis 1", "score": 90},
             llm_provider="openai",
-            llm_model="gpt-4",
+            llm_model="dummy",
             confidence_score=0.90,
             created_at=datetime.now(UTC),
         )
@@ -566,7 +565,7 @@ class TestAnalysisRepositoryAdvancedQueries:
             created_by="integration_test",
             results={"summary": "Integration test analysis 2", "score": 87},
             llm_provider="openai",
-            llm_model="gpt-4",
+            llm_model="dummy",
             confidence_score=0.87,
             created_at=datetime.now(UTC) + timedelta(minutes=5),
         )

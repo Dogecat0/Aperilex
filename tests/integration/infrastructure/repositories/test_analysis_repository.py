@@ -33,7 +33,7 @@ class TestAnalysisRepository:
             created_by="test-api-key",
             results={"summary": "Test analysis"},
             llm_provider="openai",
-            llm_model="gpt-4",
+            llm_model="dummy",
             confidence_score=0.85,
             metadata={"test": True},
             created_at=datetime.now(UTC),
@@ -78,7 +78,7 @@ class TestAnalysisRepository:
                 created_by="test-user",
                 results={"index": i},
                 llm_provider="openai",
-                llm_model="gpt-4",
+                llm_model="dummy",
                 created_at=datetime.now(UTC) - timedelta(hours=i),
             )
             await analysis_repository.create(analysis)
@@ -129,7 +129,7 @@ class TestAnalysisRepository:
                 created_by="test-user",
                 results={},
                 llm_provider="openai",
-                llm_model="gpt-4",
+                llm_model="dummy",
             )
             await analysis_repository.create(analysis)
 
@@ -171,7 +171,7 @@ class TestAnalysisRepository:
                 created_by=user,
                 results={},
                 llm_provider="openai",
-                llm_model="gpt-4",
+                llm_model="dummy",
                 created_at=base_time - timedelta(days=i),
             )
             await analysis_repository.create(analysis)
@@ -213,7 +213,7 @@ class TestAnalysisRepository:
                 created_by="test-user",
                 results={},
                 llm_provider="openai",
-                llm_model="gpt-4",
+                llm_model="dummy",
                 confidence_score=score,
             )
             await analysis_repository.create(analysis)
@@ -255,7 +255,7 @@ class TestAnalysisRepository:
                 created_by="test-user",
                 results={"version": i},
                 llm_provider="openai",
-                llm_model="gpt-4",
+                llm_model="dummy",
                 created_at=base_time
                 - timedelta(hours=2 - i),  # Latest has highest version
             )
@@ -302,7 +302,7 @@ class TestAnalysisRepository:
                     created_by="test-user",
                     results={},
                     llm_provider="openai",
-                    llm_model="gpt-4",
+                    llm_model="dummy",
                 )
                 await analysis_repository.create(analysis)
 
@@ -337,7 +337,7 @@ class TestAnalysisRepository:
             created_by=None,  # Anonymous analysis
             results={"summary": "Test"},
             llm_provider="openai",
-            llm_model="gpt-4",
+            llm_model="dummy",
         )
 
         # Act

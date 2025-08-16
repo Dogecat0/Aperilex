@@ -127,7 +127,7 @@ class TestGetCompanyQueryHandler:
         # Mock the CompanyResponse.from_domain_and_edgar method
         expected_response = MagicMock(spec=CompanyResponse)
         with patch.object(
-            CompanyResponse, 'from_domain_and_edgar', return_value=expected_response
+            CompanyResponse, "from_domain_and_edgar", return_value=expected_response
         ) as mock_from_domain:
             result = await handler.handle(sample_query_cik)
 
@@ -163,7 +163,7 @@ class TestGetCompanyQueryHandler:
         # Mock the CompanyResponse.from_edgar_only method
         expected_response = MagicMock(spec=CompanyResponse)
         with patch.object(
-            CompanyResponse, 'from_edgar_only', return_value=expected_response
+            CompanyResponse, "from_edgar_only", return_value=expected_response
         ) as mock_from_edgar:
             result = await handler.handle(sample_query_cik)
 
@@ -198,7 +198,7 @@ class TestGetCompanyQueryHandler:
         # Mock the CompanyResponse.from_edgar_only method
         expected_response = MagicMock(spec=CompanyResponse)
         with patch.object(
-            CompanyResponse, 'from_edgar_only', return_value=expected_response
+            CompanyResponse, "from_edgar_only", return_value=expected_response
         ) as mock_from_edgar:
             result = await handler.handle(sample_query_ticker)
 
@@ -244,7 +244,7 @@ class TestGetCompanyQueryHandler:
                 analysis_type=AnalysisType.FILING_ANALYSIS,
                 created_by="test_user",
                 llm_provider="openai",
-                llm_model="gpt-4",
+                llm_model="dummy",
                 results={"summary": "Test analysis summary"},
                 confidence_score=0.85,
             )
@@ -254,7 +254,7 @@ class TestGetCompanyQueryHandler:
         # Mock the CompanyResponse.from_domain_and_edgar method
         expected_response = MagicMock(spec=CompanyResponse)
         with patch.object(
-            CompanyResponse, 'from_domain_and_edgar', return_value=expected_response
+            CompanyResponse, "from_domain_and_edgar", return_value=expected_response
         ) as mock_from_domain:
             result = await handler.handle(query)
 
@@ -314,7 +314,7 @@ class TestGetCompanyQueryHandler:
                 analysis_type=AnalysisType.FILING_ANALYSIS,
                 created_by="test_user",
                 llm_provider="openai",
-                llm_model="gpt-4",
+                llm_model="dummy",
                 results={"summary": "Test analysis summary"},
                 confidence_score=0.85,
             )

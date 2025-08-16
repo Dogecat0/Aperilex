@@ -81,7 +81,7 @@ class TestGetFilingQueryHandler:
                 analysis_type=AnalysisType.FILING_ANALYSIS,
                 created_by="analyst1",
                 llm_provider="openai",
-                llm_model="gpt-4",
+                llm_model="dummy",
                 created_at=datetime(2024, 3, 16, 10, 0, tzinfo=UTC),
             ),
             Analysis(
@@ -90,7 +90,7 @@ class TestGetFilingQueryHandler:
                 analysis_type=AnalysisType.FILING_ANALYSIS,
                 created_by="analyst2",
                 llm_provider="openai",
-                llm_model="gpt-4",
+                llm_model="dummy",
                 created_at=datetime(2024, 3, 17, 14, 30, tzinfo=UTC),  # Latest
             ),
             Analysis(
@@ -99,7 +99,7 @@ class TestGetFilingQueryHandler:
                 analysis_type=AnalysisType.FILING_ANALYSIS,
                 created_by="analyst1",
                 llm_provider="openai",
-                llm_model="gpt-4",
+                llm_model="dummy",
                 created_at=datetime(2024, 3, 16, 16, 45, tzinfo=UTC),
             ),
         ]
@@ -354,7 +354,7 @@ class TestGetFilingQueryHandler:
                 analysis_type=AnalysisType.FILING_ANALYSIS,
                 created_by="analyst1",
                 llm_provider="openai",
-                llm_model="gpt-4",
+                llm_model="dummy",
                 created_at=datetime(2024, 1, 10, 9, 0, tzinfo=UTC),  # Earliest
             ),
             Analysis(
@@ -363,7 +363,7 @@ class TestGetFilingQueryHandler:
                 analysis_type=AnalysisType.FILING_ANALYSIS,
                 created_by="analyst2",
                 llm_provider="openai",
-                llm_model="gpt-4",
+                llm_model="dummy",
                 created_at=datetime(2024, 3, 25, 17, 45, tzinfo=UTC),  # Latest
             ),
             Analysis(
@@ -372,7 +372,7 @@ class TestGetFilingQueryHandler:
                 analysis_type=AnalysisType.FILING_ANALYSIS,
                 created_by="analyst3",
                 llm_provider="openai",
-                llm_model="gpt-4",
+                llm_model="dummy",
                 created_at=datetime(2024, 2, 14, 11, 30, tzinfo=UTC),  # Middle
             ),
         ]
@@ -579,7 +579,7 @@ class TestGetFilingQueryHandler:
                 analysis_type=AnalysisType.FILING_ANALYSIS,
                 created_by="compliance_officer",
                 llm_provider="openai",
-                llm_model="gpt-4-turbo",
+                llm_model="dummy",
                 confidence_score=0.94,
                 created_at=datetime(2023, 10, 28, 9, 15, tzinfo=UTC),
             ),
@@ -589,7 +589,7 @@ class TestGetFilingQueryHandler:
                 analysis_type=AnalysisType.FILING_ANALYSIS,
                 created_by="risk_analyst",
                 llm_provider="openai",
-                llm_model="gpt-4-turbo",
+                llm_model="dummy",
                 confidence_score=0.88,
                 created_at=datetime(2023, 10, 30, 14, 22, tzinfo=UTC),  # Latest
             ),

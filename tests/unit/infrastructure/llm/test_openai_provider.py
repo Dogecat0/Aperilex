@@ -79,7 +79,7 @@ class TestOpenAIProvider:
             provider = OpenAIProvider(
                 api_key="test-api-key",
                 base_url="https://api.openai.com/v1",
-                model="gpt-4o-mini",
+                model="dummy",
             )
             provider.client = mock_client  # Ensure we can access the mock
             return provider
@@ -92,7 +92,7 @@ class TestOpenAIProvider:
             provider = OpenAIProvider(
                 api_key="explicit-key",
                 base_url="https://custom.api.com/v1",
-                model="gpt-4",
+                model="dummy",
             )
 
             mock_async_openai.assert_called_once_with(
@@ -110,7 +110,7 @@ class TestOpenAIProvider:
             mock_async_openai.assert_called_once_with(
                 api_key="test-api-key", base_url="https://api.openai.com/v1"
             )
-            assert provider.model == "gpt-4o-mini"  # default model
+            assert provider.model == "gpt-5-nano"  # default model
 
     def test_init_missing_api_key_raises_error(self):
         """Test that missing API key raises ValueError."""
@@ -501,13 +501,13 @@ class TestOpenAIProvider:
 
     def test_model_configuration(self, provider: OpenAIProvider) -> None:
         """Test that model can be configured."""
-        assert provider.model == "gpt-4o-mini"
+        assert provider.model == "gpt-5-nano"
 
         with patch("src.infrastructure.llm.openai_provider.AsyncOpenAI"):
             custom_provider = OpenAIProvider(
                 api_key="test-key",
                 base_url="https://api.openai.com/v1",
-                model="gpt-4-turbo",
+                model="dummy",
             )
             assert custom_provider.model == "gpt-4-turbo"
 

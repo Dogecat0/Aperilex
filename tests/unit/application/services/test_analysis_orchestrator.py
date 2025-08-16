@@ -114,7 +114,7 @@ class TestAnalysisOrchestrator:
             analysis_type=AnalysisType.FILING_ANALYSIS,
             created_by="test_user",
             llm_provider="openai",
-            llm_model="gpt-4",
+            llm_model="dummy",
             created_at=datetime.now(UTC),
         )
 
@@ -267,7 +267,7 @@ class TestAnalysisOrchestrator:
         mock_analysis_repository.get_by_id.assert_called_once_with(analysis_id)
         mock_analysis_repository.update.assert_not_called()
 
-    @patch('src.application.services.analysis_orchestrator.uuid4')
+    @patch("src.application.services.analysis_orchestrator.uuid4")
     @pytest.mark.asyncio
     async def test_create_analysis_entity(
         self,
@@ -405,7 +405,7 @@ class TestAnalysisOrchestrator:
         }
 
         with patch.object(
-            orchestrator, 'validate_filing_access_and_get_data'
+            orchestrator, "validate_filing_access_and_get_data"
         ) as mock_validate:
             mock_validate.return_value = mock_filing_data
 
@@ -430,7 +430,7 @@ class TestAnalysisOrchestrator:
     ) -> None:
         """Test orchestration with filing access error."""
         with patch.object(
-            orchestrator, 'validate_filing_access_and_get_data'
+            orchestrator, "validate_filing_access_and_get_data"
         ) as mock_validate:
             mock_validate.side_effect = FilingAccessError("Cannot access filing")
 
@@ -462,9 +462,9 @@ class TestAnalysisOrchestrator:
         mock_llm_provider.analyze_filing.side_effect = Exception("LLM failed")
 
         with (
-            patch.object(orchestrator, 'validate_filing_access') as mock_validate,
+            patch.object(orchestrator, "validate_filing_access") as mock_validate,
             patch.object(
-                orchestrator, 'handle_analysis_failure'
+                orchestrator, "handle_analysis_failure"
             ) as mock_handle_failure,
         ):
             mock_validate.return_value = True
@@ -512,8 +512,8 @@ class TestAnalysisOrchestrator:
         mock_edgar_service.extract_filing_sections.return_value = {}
 
         with (
-            patch.object(orchestrator, 'validate_filing_access') as mock_validate,
-            patch.object(orchestrator, '_find_existing_analysis') as mock_find_existing,
+            patch.object(orchestrator, "validate_filing_access") as mock_validate,
+            patch.object(orchestrator, "_find_existing_analysis") as mock_find_existing,
         ):
             mock_validate.return_value = True
             mock_find_existing.return_value = (
@@ -540,7 +540,7 @@ class TestAnalysisOrchestrator:
             "Unexpected error"
         )
 
-        with patch.object(orchestrator, 'validate_filing_access') as mock_validate:
+        with patch.object(orchestrator, "validate_filing_access") as mock_validate:
             mock_validate.return_value = True
 
             with pytest.raises(
@@ -773,7 +773,7 @@ class TestAnalysisOrchestrator:
         mock_filing_repository.create.return_value = mock_filing_entity
 
         with patch(
-            'src.infrastructure.repositories.company_repository.CompanyRepository'
+            "src.infrastructure.repositories.company_repository.CompanyRepository"
         ) as mock_company_repo_class:
             mock_company_repo_class.return_value = mock_company_repo
 
@@ -812,7 +812,7 @@ class TestAnalysisOrchestrator:
         mock_filing_repository.create.return_value = mock_filing_entity
 
         with patch(
-            'src.infrastructure.repositories.company_repository.CompanyRepository'
+            "src.infrastructure.repositories.company_repository.CompanyRepository"
         ) as mock_company_repo_class:
             mock_company_repo_class.return_value = mock_company_repo
 
@@ -854,7 +854,7 @@ class TestAnalysisOrchestrator:
         mock_filing_repository.create.return_value = mock_filing_entity
 
         with patch(
-            'src.infrastructure.repositories.company_repository.CompanyRepository'
+            "src.infrastructure.repositories.company_repository.CompanyRepository"
         ) as mock_company_repo_class:
             mock_company_repo_class.return_value = mock_company_repo
 
@@ -881,7 +881,7 @@ class TestAnalysisOrchestrator:
         # Mock company repository to raise exception
         with (
             patch(
-                'src.infrastructure.repositories.company_repository.CompanyRepository'
+                "src.infrastructure.repositories.company_repository.CompanyRepository"
             ) as mock_company_repo_class,
         ):
             mock_company_repo_class.side_effect = Exception(
@@ -981,7 +981,7 @@ class TestAnalysisOrchestrator:
             analysis_type=AnalysisType.FILING_ANALYSIS,
             created_by="user1",
             llm_provider="openai",
-            llm_model="gpt-4",
+            llm_model="dummy",
             created_at=datetime.now(UTC),
         )
         analysis1._metadata = {"template_used": sample_command.analysis_template.value}
@@ -992,7 +992,7 @@ class TestAnalysisOrchestrator:
             analysis_type=AnalysisType.FILING_ANALYSIS,
             created_by="user2",
             llm_provider="openai",
-            llm_model="gpt-4",
+            llm_model="dummy",
             created_at=datetime.now(UTC),
         )
         analysis2._metadata = {"template_used": "DIFFERENT_TEMPLATE"}
@@ -1132,7 +1132,7 @@ class TestAnalysisOrchestrator:
         mock_llm_provider.analyze_filing.return_value = mock_llm_response
 
         with patch.object(
-            orchestrator, 'validate_filing_access_and_get_data'
+            orchestrator, "validate_filing_access_and_get_data"
         ) as mock_validate:
             mock_validate.return_value = mock_filing_data
 
@@ -1178,7 +1178,7 @@ class TestAnalysisOrchestrator:
         mock_edgar_service.extract_filing_sections.return_value = {}
 
         with patch.object(
-            orchestrator, 'validate_filing_access_and_get_data'
+            orchestrator, "validate_filing_access_and_get_data"
         ) as mock_validate:
             mock_validate.return_value = mock_filing_data
 
@@ -1232,7 +1232,7 @@ class TestAnalysisOrchestrator:
         }
 
         with patch.object(
-            orchestrator, 'validate_filing_access_and_get_data'
+            orchestrator, "validate_filing_access_and_get_data"
         ) as mock_validate:
             mock_validate.return_value = mock_filing_data
 
@@ -1240,11 +1240,6 @@ class TestAnalysisOrchestrator:
 
         assert result == mock_analysis_entity
 
-        # Check that metadata includes processed schemas
-        expected_schemas_processed = [
-            "BusinessAnalysisSection",
-            "RiskFactorsAnalysisSection",
-        ]
         # The metadata should be updated during orchestration
         mock_analysis_repository.update.assert_called_with(mock_analysis_entity)
 
@@ -1284,7 +1279,7 @@ class TestAnalysisOrchestrator:
         mock_edgar_service.extract_filing_sections.return_value = {}
 
         with patch.object(
-            orchestrator, 'validate_filing_access_and_get_data'
+            orchestrator, "validate_filing_access_and_get_data"
         ) as mock_validate:
             mock_validate.return_value = mock_filing_data
 

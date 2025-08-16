@@ -33,7 +33,7 @@ class TestAnalysesFilterCombinations:
                 created_at=base_date - timedelta(days=5),  # Jan 10
                 confidence_score=0.85,
                 llm_provider="openai",
-                llm_model="gpt-4",
+                llm_model="dummy",
                 processing_time_seconds=10.5,
                 filing_summary="Apple 10-K filing summary",
                 executive_summary="Apple comprehensive analysis",
@@ -55,7 +55,7 @@ class TestAnalysesFilterCombinations:
                 created_at=base_date,  # Jan 15
                 confidence_score=0.92,
                 llm_provider="openai",
-                llm_model="gpt-4",
+                llm_model="dummy",
                 processing_time_seconds=12.3,
                 filing_summary="Microsoft 10-Q filing summary",
                 executive_summary="Microsoft financial analysis",
@@ -77,7 +77,7 @@ class TestAnalysesFilterCombinations:
                 created_at=base_date + timedelta(days=5),  # Jan 20
                 confidence_score=0.78,
                 llm_provider="openai",
-                llm_model="gpt-4",
+                llm_model="dummy",
                 processing_time_seconds=15.2,
                 filing_summary="Apple risk-focused filing summary",
                 executive_summary="Apple risk analysis",
@@ -99,7 +99,7 @@ class TestAnalysesFilterCombinations:
                 created_at=base_date + timedelta(days=10),  # Jan 25
                 confidence_score=0.88,
                 llm_provider="openai",
-                llm_model="gpt-4",
+                llm_model="dummy",
                 processing_time_seconds=11.8,
                 filing_summary="Google business filing summary",
                 executive_summary="Google business strategy analysis",
@@ -121,7 +121,7 @@ class TestAnalysesFilterCombinations:
                 created_at=base_date + timedelta(days=17),  # Feb 1
                 confidence_score=0.91,
                 llm_provider="openai",
-                llm_model="gpt-4",
+                llm_model="dummy",
                 processing_time_seconds=18.5,
                 filing_summary="Microsoft comprehensive filing summary",
                 executive_summary="Microsoft comprehensive analysis",

@@ -5,7 +5,6 @@ real analysis outputs from test_results/ to ensure unit tests validate
 the actual data structures the system produces.
 """
 
-from datetime import datetime
 from typing import Any
 
 
@@ -352,18 +351,4 @@ def get_realistic_filing_metadata() -> dict[str, Any]:
         "size": 15847392,
         "fiscal_year": 2024,
         "fiscal_period": "FY",
-    }
-
-
-def get_processing_metadata() -> dict[str, Any]:
-    """Get realistic processing metadata."""
-    return {
-        "total_processing_time_ms": 46021,
-        "total_sections_analyzed": 6,
-        "total_sub_sections_analyzed": 28,
-        "analysis_timestamp": datetime.utcnow().isoformat(),
-        "llm_provider": "OpenAI",
-        "llm_model": "gpt-4o-mini",
-        "confidence_score": 0.95,
-        "analysis_version": "1.0.0",
     }

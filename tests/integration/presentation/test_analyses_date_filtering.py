@@ -39,7 +39,7 @@ class TestAnalysesDateRangeFiltering:
                 created_at=date,
                 confidence_score=0.85,
                 llm_provider="openai",
-                llm_model="gpt-4",
+                llm_model="dummy",
                 processing_time_seconds=10.5,
                 executive_summary="Test summary",
                 key_insights=["insight1", "insight2"],
