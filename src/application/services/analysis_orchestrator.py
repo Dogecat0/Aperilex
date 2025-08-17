@@ -19,6 +19,7 @@ from src.infrastructure.edgar.service import EdgarService
 from src.infrastructure.llm.base import BaseLLMProvider
 from src.infrastructure.repositories.analysis_repository import AnalysisRepository
 from src.infrastructure.repositories.filing_repository import FilingRepository
+from src.shared.config import settings
 
 logger = logging.getLogger(__name__)
 
@@ -460,8 +461,8 @@ class AnalysisOrchestrator:
             filing_id=filing_id,
             analysis_type=AnalysisType.FILING_ANALYSIS,
             created_by=command.user_id,
-            llm_provider="openai",  # Default provider
-            llm_model="gpt-4",  # Default model
+            llm_provider=settings.default_llm_provider,  # Default provider
+            llm_model=settings.llm_model,  # Default model
             created_at=datetime.now(UTC),
         )
 

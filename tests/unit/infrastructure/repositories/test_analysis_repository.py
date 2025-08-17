@@ -50,7 +50,7 @@ class TestAnalysisRepositoryConversions:
             created_by="test_user",
             results={"key": "value"},
             llm_provider="openai",
-            llm_model="gpt-4",
+            llm_model="dummy",
             confidence_score=0.85,
             meta_data={"test": "data"},
             created_at=created_at,
@@ -65,7 +65,7 @@ class TestAnalysisRepositoryConversions:
         assert entity.created_by == "test_user"
         assert entity.results == {"key": "value"}
         assert entity.llm_provider == "openai"
-        assert entity.llm_model == "gpt-4"
+        assert entity.llm_model == "dummy"
         assert entity.confidence_score == 0.85
         assert entity.metadata == {"test": "data"}
         assert entity.created_at == created_at
@@ -85,7 +85,7 @@ class TestAnalysisRepositoryConversions:
             created_by=None,
             results={},
             llm_provider="anthropic",
-            llm_model="claude-3",
+            llm_model="dummy",
             confidence_score=None,
             meta_data=None,
             created_at=created_at,
@@ -116,7 +116,7 @@ class TestAnalysisRepositoryConversions:
             created_by="test_user",
             results={"insight": "data"},
             llm_provider="openai",
-            llm_model="gpt-3.5-turbo",
+            llm_model="dummy",
             confidence_score=0.92,
             metadata={"processing_time": 15.5},
             created_at=created_at,
@@ -131,7 +131,7 @@ class TestAnalysisRepositoryConversions:
         assert model.created_by == "test_user"
         assert model.results == {"insight": "data"}
         assert model.llm_provider == "openai"
-        assert model.llm_model == "gpt-3.5-turbo"
+        assert model.llm_model == "dummy"
         assert model.confidence_score == 0.92
         assert model.meta_data == {"processing_time": 15.5}
         assert model.created_at == created_at
@@ -151,7 +151,7 @@ class TestAnalysisRepositoryConversions:
             created_by="api_user",
             results={"trends": ["up", "down"]},
             llm_provider="anthropic",
-            llm_model="claude-2",
+            llm_model="dummy",
             confidence_score=0.78,
             metadata={"version": "1.0"},
             created_at=created_at,
@@ -168,7 +168,7 @@ class TestAnalysisRepositoryConversions:
         assert final_entity.created_by == "api_user"
         assert final_entity.results == {"trends": ["up", "down"]}
         assert final_entity.llm_provider == "anthropic"
-        assert final_entity.llm_model == "claude-2"
+        assert final_entity.llm_model == "dummy"
         assert final_entity.confidence_score == 0.78
         assert final_entity.metadata == {"version": "1.0"}
         assert final_entity.created_at == created_at
@@ -190,7 +190,7 @@ class TestAnalysisRepositoryGetByFilingId:
             created_by="test_user",
             results={"data": "test"},
             llm_provider="openai",
-            llm_model="gpt-4",
+            llm_model="dummy",
             created_at=datetime.now(UTC),
         )
 
@@ -276,7 +276,7 @@ class TestAnalysisRepositoryGetByType:
                 created_by="user1",
                 results={"data": "test1"},
                 llm_provider="openai",
-                llm_model="gpt-4",
+                llm_model="dummy",
                 created_at=datetime.now(UTC),
             ),
             AnalysisModel(
@@ -286,7 +286,7 @@ class TestAnalysisRepositoryGetByType:
                 created_by="user2",
                 results={"data": "test2"},
                 llm_provider="anthropic",
-                llm_model="claude-3",
+                llm_model="dummy",
                 created_at=datetime.now(UTC),
             ),
         ]
@@ -319,7 +319,7 @@ class TestAnalysisRepositoryGetByType:
             created_by="user1",
             results={"data": "test"},
             llm_provider="openai",
-            llm_model="gpt-3.5-turbo",
+            llm_model="dummy",
             created_at=datetime.now(UTC),
         )
 
@@ -352,7 +352,7 @@ class TestAnalysisRepositoryGetByUser:
             created_by="test_user",
             results={"data": "test"},
             llm_provider="openai",
-            llm_model="gpt-4",
+            llm_model="dummy",
             created_at=datetime.now(UTC),
         )
 
@@ -407,7 +407,7 @@ class TestAnalysisRepositoryGetHighConfidenceAnalyses:
             created_by="user1",
             results={"data": "test"},
             llm_provider="openai",
-            llm_model="gpt-4",
+            llm_model="dummy",
             confidence_score=0.95,
             created_at=datetime.now(UTC),
         )
@@ -461,7 +461,7 @@ class TestAnalysisRepositoryGetLatestAnalysisForFiling:
             created_by="user1",
             results={"data": "test"},
             llm_provider="openai",
-            llm_model="gpt-4",
+            llm_model="dummy",
             created_at=datetime.now(UTC),
         )
 
@@ -549,7 +549,7 @@ class TestAnalysisRepositoryFindByFilingId:
             created_by="user1",
             results={"data": "test"},
             llm_provider="openai",
-            llm_model="gpt-4",
+            llm_model="dummy",
             created_at=datetime.now(UTC),
         )
 
@@ -681,7 +681,7 @@ class TestAnalysisRepositoryFindWithFilters:
             created_by="user1",
             results={"data": "test"},
             llm_provider="openai",
-            llm_model="gpt-4",
+            llm_model="dummy",
             created_at=datetime.now(UTC),
         )
 
@@ -727,7 +727,7 @@ class TestAnalysisRepositoryFindWithFilters:
             created_by="user1",
             results={"data": "test"},
             llm_provider="openai",
-            llm_model="gpt-4",
+            llm_model="dummy",
             confidence_score=0.9,
             created_at=datetime.now(UTC),
         )
@@ -817,7 +817,7 @@ class TestAnalysisRepositoryBaseRepositoryMethods:
             created_by="user1",
             results={"data": "test"},
             llm_provider="openai",
-            llm_model="gpt-4",
+            llm_model="dummy",
             created_at=datetime.now(UTC),
         )
 
@@ -857,7 +857,7 @@ class TestAnalysisRepositoryBaseRepositoryMethods:
             created_by="user1",
             results={"data": "test"},
             llm_provider="openai",
-            llm_model="gpt-4",
+            llm_model="dummy",
         )
 
         result = await repository.create(test_entity)
@@ -881,7 +881,7 @@ class TestAnalysisRepositoryBaseRepositoryMethods:
             created_by="user1",
             results={"updated": "data"},
             llm_provider="openai",
-            llm_model="gpt-4",
+            llm_model="dummy",
         )
 
         result = await repository.update(test_entity)
@@ -903,7 +903,7 @@ class TestAnalysisRepositoryBaseRepositoryMethods:
             created_by="user1",
             results={"data": "test"},
             llm_provider="openai",
-            llm_model="gpt-4",
+            llm_model="dummy",
             created_at=datetime.now(UTC),
         )
 
@@ -963,7 +963,7 @@ class TestAnalysisRepositoryErrorHandling:
             created_by="user1",
             results={"data": "test"},
             llm_provider="openai",
-            llm_model="gpt-4",
+            llm_model="dummy",
         )
 
         with pytest.raises(SQLAlchemyError, match="Constraint violation"):
@@ -982,7 +982,7 @@ class TestAnalysisRepositoryErrorHandling:
             created_by="user1",
             results={"data": "test"},
             llm_provider="openai",
-            llm_model="gpt-4",
+            llm_model="dummy",
             created_at=datetime.now(UTC),
         )
 
@@ -1011,7 +1011,7 @@ class TestAnalysisRepositoryIntegration:
             created_by="integration_test",
             results={"test": "data"},
             llm_provider="openai",
-            llm_model="gpt-4",
+            llm_model="dummy",
         )
 
         created_entity = await repository.create(test_entity)
@@ -1027,7 +1027,7 @@ class TestAnalysisRepositoryIntegration:
             created_by="integration_test",
             results={"test": "data"},
             llm_provider="openai",
-            llm_model="gpt-4",
+            llm_model="dummy",
             created_at=datetime.now(UTC),
         )
         session.get = AsyncMock(return_value=test_model)

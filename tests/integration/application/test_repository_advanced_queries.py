@@ -4,6 +4,7 @@ from datetime import UTC, date, datetime, timedelta
 from uuid import uuid4
 
 import pytest
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.application.schemas.queries.list_analyses import (
     AnalysisSortField,
@@ -26,44 +27,45 @@ class TestAnalysisRepositoryAdvancedQueries:
     """Integration tests for AnalysisRepository advanced filtering methods."""
 
     @pytest.fixture
-    def analysis_repository(self, async_session) -> AnalysisRepository:
+    def analysis_repository(self, async_session: AsyncSession) -> AnalysisRepository:
         """Create AnalysisRepository with test session."""
         return AnalysisRepository(async_session)
 
     @pytest.fixture
-    def company_repository(self, async_session) -> CompanyRepository:
+    def company_repository(self, async_session: AsyncSession) -> CompanyRepository:
         """Create CompanyRepository for test data setup."""
         return CompanyRepository(async_session)
 
     @pytest.fixture
-    def filing_repository(self, async_session) -> FilingRepository:
+    def filing_repository(self, async_session: AsyncSession) -> FilingRepository:
         """Create FilingRepository for test data setup."""
         return FilingRepository(async_session)
 
-    @pytest.fixture
-    async def test_companies(
+    async def create_test_data(
         self,
         company_repository: CompanyRepository,
-    ) -> list[Company]:
-        """Create test companies."""
-        # Use unique CIKs to avoid database conflicts
-        base_cik = 8000000000  # Different base for test_companies fixture
+        filing_repository: FilingRepository,
+        analysis_repository: AnalysisRepository,
+        base_cik: int = 8000000000,
+    ) -> tuple[list[Company], list[Filing], list[Analysis]]:
+        """Create test data in a single transaction scope."""
+        # Create companies
         companies = [
             Company(
                 id=uuid4(),
-                cik=CIK(str(base_cik + 1).zfill(10)),  # Test Apple Inc.
+                cik=CIK(str(base_cik + 1).zfill(10)),
                 name="Test Apple Inc.",
                 metadata={"ticker": "AAPL", "sector": "Technology"},
             ),
             Company(
                 id=uuid4(),
-                cik=CIK(str(base_cik + 2).zfill(10)),  # Test Microsoft Corp
+                cik=CIK(str(base_cik + 2).zfill(10)),
                 name="Test Microsoft Corporation",
                 metadata={"ticker": "MSFT", "sector": "Technology"},
             ),
             Company(
                 id=uuid4(),
-                cik=CIK(str(base_cik + 3).zfill(10)),  # Test Alphabet Inc.
+                cik=CIK(str(base_cik + 3).zfill(10)),
                 name="Test Alphabet Inc.",
                 metadata={"ticker": "GOOGL", "sector": "Technology"},
             ),
@@ -73,22 +75,9 @@ class TestAnalysisRepositoryAdvancedQueries:
             await company_repository.create(company)
         await company_repository.commit()
 
-        return companies
-
-    @pytest.fixture
-    async def test_filings(
-        self,
-        filing_repository: FilingRepository,
-        test_companies: list[Company],
-    ) -> list[Filing]:
-        """Create test filings for multiple companies."""
-        # Use the shared test_companies instead of creating new ones
-        companies = test_companies
-
+        # Create filings
         filings = []
-
         for i, company in enumerate(companies):
-            # Create 2 filings per company
             for j in range(2):
                 filing = Filing(
                     id=uuid4(),
@@ -106,35 +95,22 @@ class TestAnalysisRepositoryAdvancedQueries:
                 await filing_repository.create(filing)
 
         await filing_repository.commit()
-        return filings
-
-    @pytest.fixture
-    async def test_analyses(
-        self,
-        analysis_repository: AnalysisRepository,
-        test_filings: list[Filing],
-    ) -> list[Analysis]:
-        """Create test analyses with various attributes for filtering tests."""
-        # Use the shared test_filings instead of creating new ones
-        filings = test_filings
 
         # Create analyses
         analyses = []
         analysis_types = [AnalysisType.FILING_ANALYSIS, AnalysisType.FILING_ANALYSIS]
         confidence_scores = [0.85, 0.92, 0.78, 0.88, 0.95, 0.83]
-
         base_time = datetime(2024, 1, 1, 12, 0, 0, tzinfo=UTC)
 
         for i, filing in enumerate(filings):
-            # Create multiple analyses per filing with different characteristics
-            for j in range(2 if i < 3 else 1):  # More analyses for first 3 filings
+            for j in range(2 if i < 3 else 1):
                 analysis_time = base_time + timedelta(days=i * 7 + j * 2)
 
                 analysis = Analysis(
                     id=uuid4(),
                     filing_id=filing.id,
                     analysis_type=analysis_types[i % len(analysis_types)],
-                    created_by=f"analyst_{(i + j) % 3 + 1}",  # analyst_1, analyst_2, analyst_3
+                    created_by=f"analyst_{(i + j) % 3 + 1}",
                     results={
                         "summary": f"Test analysis {i}-{j}",
                         "key_metrics": {"metric1": i * 10},
@@ -155,18 +131,23 @@ class TestAnalysisRepositoryAdvancedQueries:
                 await analysis_repository.create(analysis)
 
         await analysis_repository.commit()
-        return analyses
+        return companies, filings, analyses
 
     @pytest.mark.asyncio
     async def test_find_by_filing_id_integration(
         self,
         analysis_repository: AnalysisRepository,
-        test_analyses: list[Analysis],
-        test_filings: list[Filing],
+        company_repository: CompanyRepository,
+        filing_repository: FilingRepository,
     ) -> None:
         """Test find_by_filing_id method integration."""
+        # Create test data
+        companies, filings, analyses = await self.create_test_data(
+            company_repository, filing_repository, analysis_repository
+        )
+
         # Get first filing's analyses
-        first_filing = test_filings[0]
+        first_filing = filings[0]
         analyses_for_filing = await analysis_repository.find_by_filing_id(
             first_filing.id
         )
@@ -182,25 +163,43 @@ class TestAnalysisRepositoryAdvancedQueries:
     async def test_count_with_filters_no_filters(
         self,
         analysis_repository: AnalysisRepository,
-        test_analyses: list[Analysis],
+        company_repository: CompanyRepository,
+        filing_repository: FilingRepository,
     ) -> None:
         """Test count_with_filters without any filters."""
+        # Create test data with different base CIK to avoid conflicts
+        companies, filings, analyses = await self.create_test_data(
+            company_repository,
+            filing_repository,
+            analysis_repository,
+            base_cik=9000000000,
+        )
+
+        # Now test the count method
         total_count = await analysis_repository.count_with_filters()
 
         # Should return total number of analyses
-        expected_count = len(test_analyses)
+        expected_count = len(analyses)
         assert total_count == expected_count
 
     @pytest.mark.asyncio
     async def test_count_with_filters_company_cik_filter(
         self,
         analysis_repository: AnalysisRepository,
-        test_analyses: list[Analysis],
-        test_companies: list[Company],
+        company_repository: CompanyRepository,
+        filing_repository: FilingRepository,
     ) -> None:
         """Test count_with_filters with company CIK filter."""
+        # Create test data
+        companies, filings, analyses = await self.create_test_data(
+            company_repository,
+            filing_repository,
+            analysis_repository,
+            base_cik=9100000000,
+        )
+
         # Filter by Apple Inc. (first company)
-        apple_cik = test_companies[0].cik
+        apple_cik = companies[0].cik
         count = await analysis_repository.count_with_filters(company_cik=apple_cik)
 
         # Should return analyses for Apple's filings only
@@ -211,24 +210,42 @@ class TestAnalysisRepositoryAdvancedQueries:
     async def test_count_with_filters_analysis_types_filter(
         self,
         analysis_repository: AnalysisRepository,
-        test_analyses: list[Analysis],
+        company_repository: CompanyRepository,
+        filing_repository: FilingRepository,
     ) -> None:
         """Test count_with_filters with analysis types filter."""
+        # Create test data
+        companies, filings, analyses = await self.create_test_data(
+            company_repository,
+            filing_repository,
+            analysis_repository,
+            base_cik=9200000000,
+        )
+
         # Filter by FILING_ANALYSIS type
         count = await analysis_repository.count_with_filters(
             analysis_types=[AnalysisType.FILING_ANALYSIS]
         )
 
         # Should return all analyses since they're all FILING_ANALYSIS
-        assert count == len(test_analyses)
+        assert count == len(analyses)
 
     @pytest.mark.asyncio
     async def test_count_with_filters_date_range_filter(
         self,
         analysis_repository: AnalysisRepository,
-        test_analyses: list[Analysis],
+        company_repository: CompanyRepository,
+        filing_repository: FilingRepository,
     ) -> None:
         """Test count_with_filters with date range filter."""
+        # Create test data
+        companies, filings, analyses = await self.create_test_data(
+            company_repository,
+            filing_repository,
+            analysis_repository,
+            base_cik=9300000000,
+        )
+
         # Filter by a specific date range
         start_date = datetime(2024, 1, 1, tzinfo=UTC)
         end_date = datetime(2024, 1, 15, tzinfo=UTC)  # 2 weeks from start
@@ -239,18 +256,26 @@ class TestAnalysisRepositoryAdvancedQueries:
 
         # Should return analyses created within the first 2 weeks of January 2024
         # Based on our test data creation logic, this should be a subset
-        assert 0 < count < len(test_analyses)
+        assert 0 < count < len(analyses)
 
     @pytest.mark.asyncio
     async def test_count_with_filters_multiple_filters(
         self,
         analysis_repository: AnalysisRepository,
-        test_analyses: list[Analysis],
-        test_companies: list[Company],
+        company_repository: CompanyRepository,
+        filing_repository: FilingRepository,
     ) -> None:
         """Test count_with_filters with multiple filters combined."""
+        # Create test data
+        companies, filings, analyses = await self.create_test_data(
+            company_repository,
+            filing_repository,
+            analysis_repository,
+            base_cik=9400000000,
+        )
+
         # Combine company filter with date range
-        apple_cik = test_companies[0].cik
+        apple_cik = companies[0].cik
         start_date = datetime(2024, 1, 1, tzinfo=UTC)
         end_date = datetime(2024, 1, 10, tzinfo=UTC)
 
@@ -271,9 +296,18 @@ class TestAnalysisRepositoryAdvancedQueries:
     async def test_find_with_filters_no_filters(
         self,
         analysis_repository: AnalysisRepository,
-        test_analyses: list[Analysis],
+        company_repository: CompanyRepository,
+        filing_repository: FilingRepository,
     ) -> None:
         """Test find_with_filters without any filters."""
+        # Create test data
+        companies, filings, analyses_list = await self.create_test_data(
+            company_repository,
+            filing_repository,
+            analysis_repository,
+            base_cik=9500000000,
+        )
+
         analyses = await analysis_repository.find_with_filters(page=1, page_size=10)
 
         # Should return up to 10 analyses from page 1
@@ -284,12 +318,20 @@ class TestAnalysisRepositoryAdvancedQueries:
     async def test_find_with_filters_company_cik_filter(
         self,
         analysis_repository: AnalysisRepository,
-        test_analyses: list[Analysis],
-        test_companies: list[Company],
+        company_repository: CompanyRepository,
+        filing_repository: FilingRepository,
     ) -> None:
         """Test find_with_filters with company CIK filter."""
+        # Create test data
+        companies, filings, analyses_list = await self.create_test_data(
+            company_repository,
+            filing_repository,
+            analysis_repository,
+            base_cik=9600000000,
+        )
+
         # Filter by Microsoft (second company)
-        microsoft_cik = test_companies[1].cik
+        microsoft_cik = companies[1].cik
         analyses = await analysis_repository.find_with_filters(
             company_cik=microsoft_cik, page=1, page_size=10
         )
@@ -307,9 +349,18 @@ class TestAnalysisRepositoryAdvancedQueries:
     async def test_find_with_filters_sorting_by_created_at(
         self,
         analysis_repository: AnalysisRepository,
-        test_analyses: list[Analysis],
+        company_repository: CompanyRepository,
+        filing_repository: FilingRepository,
     ) -> None:
         """Test find_with_filters with sorting by created_at."""
+        # Create test data
+        companies, filings, analyses_list = await self.create_test_data(
+            company_repository,
+            filing_repository,
+            analysis_repository,
+            base_cik=9800000000,
+        )
+
         # Sort by created_at ascending
         analyses_asc = await analysis_repository.find_with_filters(
             sort_by=AnalysisSortField.CREATED_AT,
@@ -342,9 +393,18 @@ class TestAnalysisRepositoryAdvancedQueries:
     async def test_find_with_filters_sorting_by_confidence_score(
         self,
         analysis_repository: AnalysisRepository,
-        test_analyses: list[Analysis],
+        company_repository: CompanyRepository,
+        filing_repository: FilingRepository,
     ) -> None:
         """Test find_with_filters with sorting by confidence_score."""
+        # Create test data
+        companies, filings, analyses_list = await self.create_test_data(
+            company_repository,
+            filing_repository,
+            analysis_repository,
+            base_cik=9850000000,
+        )
+
         # Sort by confidence_score descending (highest first)
         analyses = await analysis_repository.find_with_filters(
             sort_by=AnalysisSortField.CONFIDENCE_SCORE,
@@ -363,9 +423,18 @@ class TestAnalysisRepositoryAdvancedQueries:
     async def test_find_with_filters_pagination(
         self,
         analysis_repository: AnalysisRepository,
-        test_analyses: list[Analysis],
+        company_repository: CompanyRepository,
+        filing_repository: FilingRepository,
     ) -> None:
         """Test find_with_filters pagination functionality."""
+        # Create test data
+        companies, filings, analyses_list = await self.create_test_data(
+            company_repository,
+            filing_repository,
+            analysis_repository,
+            base_cik=9700000000,
+        )
+
         page_size = 3
 
         # Get first page
@@ -401,13 +470,20 @@ class TestAnalysisRepositoryAdvancedQueries:
     async def test_find_with_filters_complex_scenario(
         self,
         analysis_repository: AnalysisRepository,
-        test_analyses: list[Analysis],
-        test_companies: list[Company],
+        company_repository: CompanyRepository,
+        filing_repository: FilingRepository,
     ) -> None:
         """Test find_with_filters with complex filtering scenario."""
+        # Create test data
+        companies, filings, analyses_list = await self.create_test_data(
+            company_repository,
+            filing_repository,
+            analysis_repository,
+            base_cik=9900000000,
+        )
+
         # Complex filter: Apple analyses, high confidence, recent dates
-        apple_cik = test_companies[0].cik
-        confidence_threshold = 0.80
+        apple_cik = companies[0].cik
         recent_date = datetime(2024, 1, 5, tzinfo=UTC)
 
         # First, get all Apple analyses to understand the data
@@ -440,14 +516,23 @@ class TestAnalysisRepositoryAdvancedQueries:
     async def test_find_with_filters_edge_cases(
         self,
         analysis_repository: AnalysisRepository,
-        test_analyses: list[Analysis],
+        company_repository: CompanyRepository,
+        filing_repository: FilingRepository,
     ) -> None:
         """Test find_with_filters edge cases."""
+        # Create test data
+        companies, filings, analyses_list = await self.create_test_data(
+            company_repository,
+            filing_repository,
+            analysis_repository,
+            base_cik=9950000000,
+        )
+
         # Test with very early date (should return all)
         all_analyses = await analysis_repository.find_with_filters(
             created_from=datetime(2020, 1, 1, tzinfo=UTC), page=1, page_size=100
         )
-        assert len(all_analyses) == len(test_analyses)
+        assert len(all_analyses) == len(analyses_list)
 
         # Test with future date (should return none)
         future_analyses = await analysis_repository.find_with_filters(
@@ -465,12 +550,20 @@ class TestAnalysisRepositoryAdvancedQueries:
     async def test_repository_methods_consistency(
         self,
         analysis_repository: AnalysisRepository,
-        test_analyses: list[Analysis],
-        test_companies: list[Company],
+        company_repository: CompanyRepository,
+        filing_repository: FilingRepository,
     ) -> None:
         """Test consistency between count_with_filters and find_with_filters."""
+        # Create test data
+        companies, filings, analyses_list = await self.create_test_data(
+            company_repository,
+            filing_repository,
+            analysis_repository,
+            base_cik=9975000000,
+        )
+
         # Test with same filters
-        apple_cik = test_companies[0].cik
+        apple_cik = companies[0].cik
 
         count = await analysis_repository.count_with_filters(
             company_cik=apple_cik, analysis_types=[AnalysisType.FILING_ANALYSIS]
@@ -491,9 +584,18 @@ class TestAnalysisRepositoryAdvancedQueries:
     async def test_performance_with_large_dataset(
         self,
         analysis_repository: AnalysisRepository,
-        test_analyses: list[Analysis],
+        company_repository: CompanyRepository,
+        filing_repository: FilingRepository,
     ) -> None:
         """Test performance characteristics with filtering and pagination."""
+        # Create test data
+        companies, filings, analyses_list = await self.create_test_data(
+            company_repository,
+            filing_repository,
+            analysis_repository,
+            base_cik=9990000000,
+        )
+
         import time
 
         # Test that complex queries complete in reasonable time
@@ -530,7 +632,7 @@ class TestAnalysisRepositoryAdvancedQueries:
         # Create a complete data set with relationships
         company = Company(
             id=uuid4(),
-            cik=CIK("0001000001"),
+            cik=CIK("9999000001"),
             name="Integration Test Corp",
             metadata={"ticker": "ITC", "sector": "Testing"},
         )
@@ -540,7 +642,7 @@ class TestAnalysisRepositoryAdvancedQueries:
         filing = Filing(
             id=uuid4(),
             company_id=company.id,
-            accession_number=AccessionNumber("0001000001-24-000001"),
+            accession_number=AccessionNumber("9999000001-24-000001"),
             filing_type=FilingType.FORM_10K,
             filing_date=date(2024, 1, 15),
             processing_status=ProcessingStatus.COMPLETED,
@@ -555,7 +657,7 @@ class TestAnalysisRepositoryAdvancedQueries:
             created_by="integration_test",
             results={"summary": "Integration test analysis 1", "score": 90},
             llm_provider="openai",
-            llm_model="gpt-4",
+            llm_model="dummy",
             confidence_score=0.90,
             created_at=datetime.now(UTC),
         )
@@ -566,7 +668,7 @@ class TestAnalysisRepositoryAdvancedQueries:
             created_by="integration_test",
             results={"summary": "Integration test analysis 2", "score": 87},
             llm_provider="openai",
-            llm_model="gpt-4",
+            llm_model="dummy",
             confidence_score=0.87,
             created_at=datetime.now(UTC) + timedelta(minutes=5),
         )

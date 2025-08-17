@@ -57,7 +57,7 @@ class TestGetAnalysisQueryHandler:
             analysis_type=AnalysisType.FILING_ANALYSIS,
             created_by="test_user",
             llm_provider="openai",
-            llm_model="gpt-4",
+            llm_model="dummy",
             confidence_score=0.85,
             created_at=datetime.now(UTC),
             metadata={"processing_time": 45.2},
@@ -109,7 +109,7 @@ class TestGetAnalysisQueryHandler:
         mock_analysis_repository.get_by_id.return_value = mock_analysis
 
         with patch.object(
-            AnalysisResponse, 'from_domain', return_value=mock_analysis_response
+            AnalysisResponse, "from_domain", return_value=mock_analysis_response
         ) as mock_from_domain:
             result = await handler.handle(sample_query)
 
@@ -146,7 +146,7 @@ class TestGetAnalysisQueryHandler:
         mock_analysis_repository.get_by_id.return_value = mock_analysis
 
         with patch.object(
-            AnalysisResponse, 'from_domain', return_value=mock_analysis_response
+            AnalysisResponse, "from_domain", return_value=mock_analysis_response
         ) as mock_from_domain:
             result = await handler.handle(query)
 
@@ -214,7 +214,7 @@ class TestGetAnalysisQueryHandler:
 
         conversion_error = Exception("Response conversion failed")
         with patch.object(
-            AnalysisResponse, 'from_domain', side_effect=conversion_error
+            AnalysisResponse, "from_domain", side_effect=conversion_error
         ):
             with pytest.raises(Exception, match="Response conversion failed"):
                 await handler.handle(sample_query)
@@ -253,7 +253,7 @@ class TestGetAnalysisQueryHandler:
             mock_analysis_repository.get_by_id.return_value = mock_analysis
 
             with patch.object(
-                AnalysisResponse, 'from_domain', return_value=mock_analysis_response
+                AnalysisResponse, "from_domain", return_value=mock_analysis_response
             ) as mock_from_domain:
                 result = await handler.handle(query)
 
@@ -289,7 +289,7 @@ class TestGetAnalysisQueryHandler:
             mock_analysis_repository.get_by_id.return_value = mock_analysis
 
             with patch.object(
-                AnalysisResponse, 'from_domain', return_value=mock_analysis_response
+                AnalysisResponse, "from_domain", return_value=mock_analysis_response
             ):
                 result = await handler.handle(query)
 
@@ -314,13 +314,12 @@ class TestGetAnalysisQueryHandler:
 
         with (
             patch.object(
-                AnalysisResponse, 'from_domain', return_value=mock_analysis_response
+                AnalysisResponse, "from_domain", return_value=mock_analysis_response
             ),
             patch(
-                'src.application.queries.handlers.get_analysis_handler.logger'
+                "src.application.queries.handlers.get_analysis_handler.logger"
             ) as mock_logger,
         ):
-
             result = await handler.handle(sample_query)
 
         assert result == mock_analysis_response
@@ -364,7 +363,7 @@ class TestGetAnalysisQueryHandler:
         mock_analysis_repository.get_by_id.side_effect = repository_error
 
         with patch(
-            'src.application.queries.handlers.get_analysis_handler.logger'
+            "src.application.queries.handlers.get_analysis_handler.logger"
         ) as mock_logger:
             with pytest.raises(Exception, match="Database error"):
                 await handler.handle(sample_query)
@@ -393,7 +392,7 @@ class TestGetAnalysisQueryHandler:
     ) -> None:
         """Test handler type annotations and generic typing."""
         # Verify handler is properly typed
-        assert hasattr(handler, 'handle')
+        assert hasattr(handler, "handle")
 
         # The handler should be a QueryHandler with proper generics
         from src.application.base.handlers import QueryHandler
@@ -427,7 +426,7 @@ class TestGetAnalysisQueryHandler:
             analysis_type=AnalysisType.FILING_ANALYSIS,
             created_by="financial_analyst",
             llm_provider="openai",
-            llm_model="gpt-4-turbo",
+            llm_model="dummy",
             confidence_score=0.92,
             created_at=datetime(2024, 1, 15, 14, 30, 0, tzinfo=UTC),
             metadata={
@@ -464,13 +463,13 @@ class TestGetAnalysisQueryHandler:
             created_at=datetime.now(),
             confidence_score=0.92,
             llm_provider="openai",
-            llm_model="gpt-4",
+            llm_model="dummy",
             processing_time_seconds=127.5,
             sections_analyzed=2,
         )
 
         with patch.object(
-            AnalysisResponse, 'from_domain', return_value=realistic_response
+            AnalysisResponse, "from_domain", return_value=realistic_response
         ) as mock_from_domain:
             result = await handler.handle(realistic_query)
 

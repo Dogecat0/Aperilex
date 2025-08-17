@@ -143,7 +143,12 @@ class TestCeleryHealthChecks:
 
     def test_celery_health_not_configured(self, test_client):
         """Test Celery health when not configured."""
-        response = test_client.get("/health/celery")
+        from unittest.mock import patch
+
+        # Mock settings to have no celery broker URL
+        with patch("src.presentation.api.routers.health.settings") as mock_settings:
+            mock_settings.celery_broker_url = ""
+            response = test_client.get("/health/celery")
 
         assert response.status_code == 200
         data = response.json()

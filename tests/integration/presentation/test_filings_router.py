@@ -77,7 +77,7 @@ class TestSearchFilingsEndpoint:
         """Test filing search with all optional filters."""
         factory, mock_dispatcher = mock_service_factory
 
-        search_results = []
+        search_results: list[FilingResponse] = []
         paginated_response = PaginatedResponse.create(
             items=search_results,
             page=1,

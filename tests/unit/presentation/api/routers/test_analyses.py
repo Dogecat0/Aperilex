@@ -53,7 +53,7 @@ class TestListAnalysesEndpoint:
             created_at=datetime.now(),
             confidence_score=0.85,
             llm_provider="openai",
-            llm_model="gpt-4",
+            llm_model="dummy",
             processing_time_seconds=45.2,
             filing_summary="Sample filing summary",
             executive_summary="Sample executive summary",
@@ -333,7 +333,7 @@ class TestGetAnalysisEndpoint:
             created_at=datetime.now(),
             confidence_score=0.92,
             llm_provider="openai",
-            llm_model="gpt-4",
+            llm_model="dummy",
             processing_time_seconds=67.8,
             filing_summary="Detailed filing summary",
             executive_summary="Executive summary of key findings",
@@ -509,6 +509,6 @@ class TestAnalysesRouterIntegration:
         assert "get_analysis" in routes
 
         # Check response models are set (they should have response_model)
-        for route_name, route in routes.items():
-            if hasattr(route, 'response_model') and route.response_model:
+        for _, route in routes.items():
+            if hasattr(route, "response_model") and route.response_model:
                 assert route.response_model is not None

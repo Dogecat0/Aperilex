@@ -137,7 +137,7 @@ class TestEdgarServiceIntegration:
         filing_type = FilingType("10-K")
 
         # Get the latest filing
-        filing_data = edgar_service.get_filing(
+        _ = edgar_service.get_filing(
             ticker=ticker, filing_type=filing_type, latest=True
         )
 

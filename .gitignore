@@ -250,3 +250,5 @@ frontend/coverage/
 .yarn/build-state.yml
 .yarn/install-state.gz
 .pnp.*
+
+token_usage.txt

@@ -482,7 +482,7 @@ class TestGetFilingAnalysisEndpoint:
             created_at=datetime.now(),
             confidence_score=0.91,
             llm_provider="openai",
-            llm_model="gpt-4",
+            llm_model="dummy",
             processing_time_seconds=89.3,
             filing_summary="Annual report summary",
             executive_summary="Key executive insights",
@@ -685,8 +685,8 @@ class TestFilingsRouterIntegration:
         assert "get_filing_analysis" in routes
 
         # Check response models are set
-        for route_name, route in routes.items():
-            if hasattr(route, 'response_model') and route.response_model:
+        for _, route in routes.items():
+            if hasattr(route, "response_model") and route.response_model:
                 assert route.response_model is not None
 
     def test_analyze_filing_correct_status_code(self):
@@ -696,5 +696,5 @@ class TestFilingsRouterIntegration:
         routes = {route.name: route for route in router.routes}
         analyze_route = routes.get("analyze_filing")
 
-        if analyze_route and hasattr(analyze_route, 'status_code'):
+        if analyze_route and hasattr(analyze_route, "status_code"):
             assert analyze_route.status_code == 202

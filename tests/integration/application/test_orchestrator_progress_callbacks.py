@@ -101,7 +101,7 @@ class TestAnalysisOrchestratorProgressCallbacks:
             analysis_type=AnalysisType.FILING_ANALYSIS,
             created_by="test_user",
             llm_provider="openai",
-            llm_model="gpt-4",
+            llm_model="dummy",
             confidence_score=0.85,
             created_at=datetime.now(UTC),
         )
@@ -340,7 +340,9 @@ class TestAnalysisOrchestratorProgressCallbacks:
             template_progress_calls = []
 
             def template_progress_callback(progress: float, message: str) -> None:
-                template_progress_calls.append((progress, message, template.value))
+                template_progress_calls.append(  # noqa: B023
+                    (progress, message, template.value)  # noqa: B023
+                )
 
             # Execute orchestration
             result = await orchestrator.orchestrate_filing_analysis(

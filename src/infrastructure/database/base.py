@@ -33,27 +33,38 @@ class Base(DeclarativeBase):
     )
 
 
+# Convert SQLite URLs to use async driver
+database_url = settings.database_url
+if database_url.startswith("sqlite://"):
+    database_url = database_url.replace("sqlite://", "sqlite+aiosqlite://")
+
 # Create async engine with better connection handling for Celery context
-engine = create_async_engine(
-    settings.database_url,
-    echo=settings.debug,
-    future=True,
-    # Connection pool settings for better async task handling
-    pool_pre_ping=True,  # Validate connections before use
-    pool_recycle=3600,  # Recycle connections after 1 hour
-    max_overflow=20,  # Allow more connections during high load
-    pool_size=10,  # Base connection pool size
-    # Important: handle disconnects gracefully in async context
-    connect_args=(
+engine_kwargs = {
+    "echo": settings.debug,
+    "future": True,
+    "pool_pre_ping": True,  # Validate connections before use
+    "connect_args": (
         {
             "server_settings": {
                 "application_name": "aperilex_celery",
             }
         }
-        if "postgresql" in settings.database_url
+        if "postgresql" in database_url
         else {}
     ),
-)
+}
+
+# Only add pool settings for non-SQLite databases
+if not database_url.startswith("sqlite"):
+    engine_kwargs.update(
+        {
+            "pool_recycle": 3600,  # Recycle connections after 1 hour
+            "max_overflow": 20,  # Allow more connections during high load
+            "pool_size": 10,  # Base connection pool size
+        }
+    )
+
+engine = create_async_engine(database_url, **engine_kwargs)
 
 # Create async session factory with Celery-friendly settings
 async_session_maker = async_sessionmaker(

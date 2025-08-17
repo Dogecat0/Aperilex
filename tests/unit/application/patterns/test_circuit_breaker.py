@@ -101,7 +101,7 @@ class TestCircuitBreaker:
 
         # Fail 3 times to reach threshold
         for _ in range(3):
-            with pytest.raises(Exception):
+            with pytest.raises(type(test_error)):
                 await circuit_breaker.call(mock_function)
 
         assert circuit_breaker.state == CircuitState.OPEN
@@ -263,7 +263,7 @@ class TestCircuitBreaker:
         assert status["state"] == "open"
         assert status["failure_count"] == 3
         assert "time_until_retry_seconds" in status
-        assert isinstance(status["time_until_retry_seconds"], (int, float))
+        assert isinstance(status["time_until_retry_seconds"], int | float)
 
     def test_get_status_half_open_state(
         self,
@@ -305,10 +305,11 @@ class TestCircuitBreaker:
         """Test that state transitions are logged properly."""
         with patch('src.application.patterns.circuit_breaker.logger') as mock_logger:
             # Cause transition to OPEN
-            mock_function.side_effect = Exception("Service failed")
+            test_error = Exception("Service failed")
+            mock_function.side_effect = test_error
 
             for _ in range(3):  # Reach failure threshold
-                with pytest.raises(Exception):
+                with pytest.raises(type(test_error)):
                     await circuit_breaker.call(mock_function)
 
             # Check that open transition was logged
@@ -348,7 +349,7 @@ class TestCircuitBreaker:
         mock_function.side_effect = test_error
 
         for _ in range(3):
-            with pytest.raises(Exception):
+            with pytest.raises(type(test_error)):
                 await circuit_breaker.call(mock_function)
 
         assert circuit_breaker.state == CircuitState.OPEN
@@ -361,7 +362,7 @@ class TestCircuitBreaker:
         # First call transitions to HALF_OPEN
         result1 = await circuit_breaker.call(mock_function)
         assert result1 == "recovered"
-        assert circuit_breaker.state == CircuitState.HALF_OPEN
+        assert circuit_breaker.state == CircuitState.HALF_OPEN  # type: ignore[comparison-overlap]
 
         # Second call transitions to CLOSED
         result2 = await circuit_breaker.call(mock_function)
@@ -384,7 +385,7 @@ class TestCircuitBreaker:
 
         # Execute multiple failed calls
         results = []
-        for i in range(3):  # 3 consecutive failures to trigger threshold
+        for _i in range(3):  # 3 consecutive failures to trigger threshold
             try:
                 result = await circuit_breaker.call(mock_function)
                 results.append(("success", result))

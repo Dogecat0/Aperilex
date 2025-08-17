@@ -72,7 +72,7 @@ class TestListAnalysesQueryHandler:
                 analysis_type=AnalysisType.FILING_ANALYSIS,
                 created_by="analyst1",
                 llm_provider="openai",
-                llm_model="gpt-4",
+                llm_model="dummy",
                 confidence_score=0.85,
                 created_at=datetime(2024, 2, 15, 10, 30, tzinfo=UTC),
             ),
@@ -82,7 +82,7 @@ class TestListAnalysesQueryHandler:
                 analysis_type=AnalysisType.FILING_ANALYSIS,
                 created_by="analyst2",
                 llm_provider="openai",
-                llm_model="gpt-4",
+                llm_model="dummy",
                 confidence_score=0.92,
                 created_at=datetime(2024, 2, 20, 14, 15, tzinfo=UTC),
             ),
@@ -130,14 +130,13 @@ class TestListAnalysesQueryHandler:
         with (
             patch.object(
                 AnalysisResponse,
-                'summary_from_domain',
+                "summary_from_domain",
                 side_effect=mock_analysis_responses,
             ),
             patch.object(
-                PaginatedResponse, 'create', return_value=mock_paginated_response
+                PaginatedResponse, "create", return_value=mock_paginated_response
             ) as mock_create,
         ):
-
             result = await handler.handle(basic_query)
 
         # Verify result
@@ -193,14 +192,13 @@ class TestListAnalysesQueryHandler:
         with (
             patch.object(
                 AnalysisResponse,
-                'summary_from_domain',
+                "summary_from_domain",
                 side_effect=mock_analysis_responses,
             ),
             patch.object(
-                PaginatedResponse, 'create', return_value=mock_paginated_response
+                PaginatedResponse, "create", return_value=mock_paginated_response
             ) as mock_create,
         ):
-
             result = await handler.handle(filtered_query)
 
         # Verify result
@@ -248,7 +246,7 @@ class TestListAnalysesQueryHandler:
         mock_empty_response = MagicMock(spec=PaginatedResponse)
 
         with patch.object(
-            PaginatedResponse, 'empty', return_value=mock_empty_response
+            PaginatedResponse, "empty", return_value=mock_empty_response
         ) as mock_empty:
             result = await handler.handle(basic_query)
 
@@ -349,7 +347,7 @@ class TestListAnalysesQueryHandler:
             mock_empty_response = MagicMock(spec=PaginatedResponse)
 
             with patch.object(
-                PaginatedResponse, 'empty', return_value=mock_empty_response
+                PaginatedResponse, "empty", return_value=mock_empty_response
             ) as mock_empty:
                 await handler.handle(query)
 
@@ -402,14 +400,13 @@ class TestListAnalysesQueryHandler:
             with (
                 patch.object(
                     AnalysisResponse,
-                    'summary_from_domain',
+                    "summary_from_domain",
                     side_effect=mock_analysis_responses,
                 ),
                 patch.object(
-                    PaginatedResponse, 'create', return_value=mock_paginated_response
+                    PaginatedResponse, "create", return_value=mock_paginated_response
                 ),
             ):
-
                 result = await handler.handle(query)
 
             assert result == mock_paginated_response
@@ -455,14 +452,13 @@ class TestListAnalysesQueryHandler:
             with (
                 patch.object(
                     AnalysisResponse,
-                    'summary_from_domain',
+                    "summary_from_domain",
                     side_effect=mock_analysis_responses,
                 ),
                 patch.object(
-                    PaginatedResponse, 'create', return_value=mock_paginated_response
+                    PaginatedResponse, "create", return_value=mock_paginated_response
                 ) as mock_create,
             ):
-
                 result = await handler.handle(query)
 
             assert result == mock_paginated_response
@@ -508,14 +504,13 @@ class TestListAnalysesQueryHandler:
         with (
             patch.object(
                 AnalysisResponse,
-                'summary_from_domain',
+                "summary_from_domain",
                 side_effect=mock_analysis_responses,
             ),
             patch.object(
-                PaginatedResponse, 'create', return_value=mock_paginated_response
+                PaginatedResponse, "create", return_value=mock_paginated_response
             ) as mock_create,
         ):
-
             await handler.handle(query)
 
         # Verify analysis types were passed correctly
@@ -564,7 +559,7 @@ class TestListAnalysesQueryHandler:
             mock_empty_response = MagicMock(spec=PaginatedResponse)
 
             with patch.object(
-                PaginatedResponse, 'empty', return_value=mock_empty_response
+                PaginatedResponse, "empty", return_value=mock_empty_response
             ) as mock_empty:
                 await handler.handle(query)
 
@@ -595,17 +590,16 @@ class TestListAnalysesQueryHandler:
         with (
             patch.object(
                 AnalysisResponse,
-                'summary_from_domain',
+                "summary_from_domain",
                 side_effect=mock_analysis_responses,
             ),
             patch.object(
-                PaginatedResponse, 'create', return_value=mock_paginated_response
+                PaginatedResponse, "create", return_value=mock_paginated_response
             ),
             patch(
-                'src.application.queries.handlers.list_analyses_handler.logger'
+                "src.application.queries.handlers.list_analyses_handler.logger"
             ) as mock_logger,
         ):
-
             result = await handler.handle(basic_query)
 
         assert result == mock_paginated_response
@@ -647,7 +641,7 @@ class TestListAnalysesQueryHandler:
         mock_analysis_repository.count_with_filters.side_effect = repository_error
 
         with patch(
-            'src.application.queries.handlers.list_analyses_handler.logger'
+            "src.application.queries.handlers.list_analyses_handler.logger"
         ) as mock_logger:
             with pytest.raises(Exception, match="Database error"):
                 await handler.handle(basic_query)
@@ -677,7 +671,7 @@ class TestListAnalysesQueryHandler:
     ) -> None:
         """Test handler type annotations and generic typing."""
         # Verify handler is properly typed
-        assert hasattr(handler, 'handle')
+        assert hasattr(handler, "handle")
 
         # The handler should be a QueryHandler with proper generics
         from src.application.base.handlers import QueryHandler
@@ -708,14 +702,13 @@ class TestListAnalysesQueryHandler:
         with (
             patch.object(
                 AnalysisResponse,
-                'summary_from_domain',
+                "summary_from_domain",
                 side_effect=mock_analysis_responses,
             ) as mock_summary,
             patch.object(
-                PaginatedResponse, 'create', return_value=mock_paginated_response
+                PaginatedResponse, "create", return_value=mock_paginated_response
             ),
         ):
-
             await handler.handle(basic_query)
 
         # Verify summary_from_domain was called for each analysis
@@ -752,7 +745,7 @@ class TestListAnalysesQueryHandler:
                 analysis_type=AnalysisType.FILING_ANALYSIS,
                 created_by="financial_analyst",
                 llm_provider="openai",
-                llm_model="gpt-4-turbo",
+                llm_model="dummy",
                 confidence_score=0.94,
                 created_at=datetime(2024, 3, 15, 9, 30, tzinfo=UTC),
             ),
@@ -762,7 +755,7 @@ class TestListAnalysesQueryHandler:
                 analysis_type=AnalysisType.FILING_ANALYSIS,
                 created_by="risk_analyst",
                 llm_provider="openai",
-                llm_model="gpt-4-turbo",
+                llm_model="dummy",
                 confidence_score=0.87,
                 created_at=datetime(2024, 4, 10, 14, 20, tzinfo=UTC),
             ),
@@ -782,14 +775,13 @@ class TestListAnalysesQueryHandler:
         with (
             patch.object(
                 AnalysisResponse,
-                'summary_from_domain',
+                "summary_from_domain",
                 side_effect=mock_analysis_responses,
             ),
             patch.object(
-                PaginatedResponse, 'create', return_value=mock_paginated_response
+                PaginatedResponse, "create", return_value=mock_paginated_response
             ) as mock_create,
         ):
-
             result = await handler.handle(realistic_query)
 
         assert result == mock_paginated_response
@@ -889,14 +881,13 @@ class TestListAnalysesQueryHandler:
             with (
                 patch.object(
                     AnalysisResponse,
-                    'summary_from_domain',
+                    "summary_from_domain",
                     side_effect=mock_analysis_responses,
                 ),
                 patch.object(
-                    PaginatedResponse, 'create', return_value=mock_paginated_response
+                    PaginatedResponse, "create", return_value=mock_paginated_response
                 ),
             ):
-
                 result = await handler.handle(query)
 
             assert result == mock_paginated_response
@@ -939,14 +930,13 @@ class TestListAnalysesQueryHandler:
         with (
             patch.object(
                 AnalysisResponse,
-                'summary_from_domain',
+                "summary_from_domain",
                 side_effect=mock_analysis_responses,
             ),
             patch.object(
-                PaginatedResponse, 'create', return_value=mock_paginated_response
+                PaginatedResponse, "create", return_value=mock_paginated_response
             ),
         ):
-
             result = await handler.handle(query)
 
         assert result == mock_paginated_response
@@ -977,7 +967,7 @@ class TestListAnalysesQueryHandler:
         mock_empty_response = MagicMock(spec=PaginatedResponse)
 
         with patch.object(
-            PaginatedResponse, 'empty', return_value=mock_empty_response
+            PaginatedResponse, "empty", return_value=mock_empty_response
         ) as mock_empty:
             await handler.handle(query)
 
@@ -1011,7 +1001,7 @@ class TestListAnalysesQueryHandler:
         mock_empty_response = MagicMock(spec=PaginatedResponse)
 
         with patch.object(
-            PaginatedResponse, 'empty', return_value=mock_empty_response
+            PaginatedResponse, "empty", return_value=mock_empty_response
         ) as mock_empty:
             await handler.handle(query)
 
@@ -1047,14 +1037,13 @@ class TestListAnalysesQueryHandler:
         with (
             patch.object(
                 AnalysisResponse,
-                'summary_from_domain',
+                "summary_from_domain",
                 side_effect=mock_analysis_responses,
             ),
             patch.object(
-                PaginatedResponse, 'create', return_value=mock_paginated_response
+                PaginatedResponse, "create", return_value=mock_paginated_response
             ),
         ):
-
             result = await handler.handle(query)
 
         assert result == mock_paginated_response

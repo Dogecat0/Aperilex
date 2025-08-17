@@ -319,7 +319,7 @@ class TestCacheManagerAnalysisMethods:
         analysis.created_by = "test_user"
         analysis.results = {"summary": "Analysis results"}
         analysis.llm_provider = "openai"
-        analysis.llm_model = "gpt-4"
+        analysis.llm_model = "default"
         analysis.confidence_score = 0.95
         analysis.metadata = {"version": "1.0"}
 
@@ -335,7 +335,7 @@ class TestCacheManagerAnalysisMethods:
             "created_by": "test_user",
             "results": {"summary": "Analysis results"},
             "llm_provider": "openai",
-            "llm_model": "gpt-4",
+            "llm_model": "default",
             "confidence_score": 0.95,
             "metadata": {"version": "1.0"},
         }
@@ -712,7 +712,7 @@ class TestCacheManagerErrorHandling:
         analysis.created_by = "test_user"
         analysis.results = {}
         analysis.llm_provider = "openai"
-        analysis.llm_model = "gpt-4"
+        analysis.llm_model = "default"
         analysis.confidence_score = 0.95
         analysis.metadata = {}
 

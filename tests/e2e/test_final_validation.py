@@ -66,7 +66,7 @@ async def test_subsection_analysis_features():
 
         # Check for Union types (should be none)
         has_union = False
-        for prop_name, prop_schema in schema.get("properties", {}).items():
+        for _prop_name, prop_schema in schema.get("properties", {}).items():
             if "anyOf" in prop_schema or "oneOf" in prop_schema:
                 has_union = True
                 break
@@ -188,7 +188,7 @@ async def test_subsection_analysis_features():
         print("  ✓ SectionSummaryResponse created (OpenAI compatible)")
 
         # Test that we can convert to SectionAnalysisResponse
-        full_response = SectionAnalysisResponse(
+        _ = SectionAnalysisResponse(
             section_name=section_summary.section_name,
             section_summary=section_summary.section_summary,
             consolidated_insights=section_summary.consolidated_insights,

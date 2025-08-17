@@ -375,6 +375,15 @@ async def get_filing_by_id(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Filing with ID {filing_id} not found",
         ) from e
+    except ValueError as e:
+        logger.info(
+            "Filing not found",
+            extra={"filing_id": str(filing_id), "error": str(e)},
+        )
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(e),
+        ) from e
     except Exception:
         logger.error(
             "Failed to retrieve filing information by ID",

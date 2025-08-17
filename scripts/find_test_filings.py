@@ -18,7 +18,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from edgar import Company, set_identity
 
 
-def main():
+def main() -> None:
     """Find and display valid filing accession numbers for testing."""
     try:
         # Set identity for SEC compliance

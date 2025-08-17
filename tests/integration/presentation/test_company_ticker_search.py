@@ -74,13 +74,13 @@ class TestCompanyTickerSearch:
                 created_at=base_date,
                 confidence_score=0.85 + i * 0.05,
                 llm_provider="openai",
-                llm_model="gpt-4",
+                llm_model="dummy",
                 processing_time_seconds=30.5,
-                executive_summary=f"Analysis {i+1} summary",
-                key_insights=[f"Insight {i+1}"],
-                financial_highlights=[f"Revenue: ${100+i*10}M"],
-                risk_factors=[f"Risk {i+1}"],
-                opportunities=[f"Opportunity {i+1}"],
+                executive_summary=f"Analysis {i + 1} summary",
+                key_insights=[f"Insight {i + 1}"],
+                financial_highlights=[f"Revenue: ${100 + i * 10}M"],
+                risk_factors=[f"Risk {i + 1}"],
+                opportunities=[f"Opportunity {i + 1}"],
                 sections_analyzed=3,
             )
             analyses.append(analysis)
@@ -283,7 +283,7 @@ class TestCompanyTickerSearch:
 
         # Verify the query was called with the correct CIK
         last_call = mock_dispatcher.dispatch_query.call_args[0][0]
-        assert hasattr(last_call, 'company_cik')
+        assert hasattr(last_call, "company_cik")
         assert last_call.company_cik == CIK(cik)
 
     def test_company_ticker_case_insensitive_search(

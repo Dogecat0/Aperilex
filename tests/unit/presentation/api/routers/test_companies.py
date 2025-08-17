@@ -359,7 +359,7 @@ class TestListCompanyAnalysesEndpoint:
             created_at=datetime.now(),
             confidence_score=85.5,
             llm_provider="openai",
-            llm_model="gpt-4",
+            llm_model="dummy",
             processing_time_seconds=45.2,
             filing_summary="Sample filing summary",
             executive_summary="Sample executive summary",
@@ -701,7 +701,7 @@ class TestListCompanyFilingsEndpoint:
         from src.presentation.api.routers.companies import list_company_filings
 
         # Test page provided, page_size defaults to 20
-        result = await list_company_filings(
+        _result = await list_company_filings(
             ticker="AAPL",
             session=mock_session,
             factory=factory,
@@ -955,7 +955,7 @@ class TestCompaniesRouterValidation:
             business_address=None,
         )
 
-        mock_paginated_response = PaginatedResponse.create(
+        _mock_paginated_response = PaginatedResponse.create(
             items=[],
             page=1,
             page_size=20,
@@ -1022,7 +1022,7 @@ class TestCompaniesRouterValidation:
                 mock_paginated_response,
             ]
 
-            result = await list_company_analyses(
+            _result = await list_company_analyses(
                 ticker="AAPL",
                 session=mock_session,
                 factory=factory,
@@ -1053,7 +1053,7 @@ class TestCompaniesRouterValidation:
         from src.presentation.api.routers.companies import list_company_filings
 
         # Test lowercase filing type
-        result = await list_company_filings(
+        _result = await list_company_filings(
             ticker="AAPL",
             session=mock_session,
             factory=factory,
@@ -1109,7 +1109,7 @@ class TestCompaniesRouterValidation:
 
         from src.presentation.api.routers.companies import list_company_analyses
 
-        result = await list_company_analyses(
+        _result = await list_company_analyses(
             ticker="AAPL",
             session=mock_session,
             factory=factory,

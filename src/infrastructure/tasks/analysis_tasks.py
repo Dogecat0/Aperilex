@@ -23,21 +23,25 @@ from src.domain.value_objects.filing_type import FilingType
 from src.domain.value_objects.processing_status import ProcessingStatus
 from src.infrastructure.database.base import async_session_maker
 from src.infrastructure.edgar.service import EdgarService
+from src.infrastructure.llm import OpenAIProvider
 from src.infrastructure.llm.base import BaseLLMProvider
-from src.infrastructure.llm.openai_provider import OpenAIProvider
+from src.infrastructure.llm.google_provider import GoogleProvider
 from src.infrastructure.repositories.analysis_repository import AnalysisRepository
 from src.infrastructure.repositories.company_repository import CompanyRepository
 from src.infrastructure.repositories.filing_repository import FilingRepository
 from src.infrastructure.tasks.celery_app import celery_app
+from src.shared.config.settings import settings
 
 logger = logging.getLogger(__name__)
 
 
-def get_llm_provider(llm_provider: str = "openai") -> BaseLLMProvider:
+def get_llm_provider(
+    llm_provider: str = settings.default_llm_provider,
+) -> BaseLLMProvider:
     """Get LLM provider instance.
 
     Args:
-        llm_provider: Provider name (default: openai)
+        llm_provider: Provider name (default: google)
 
     Returns:
         LLM provider instance
@@ -45,8 +49,11 @@ def get_llm_provider(llm_provider: str = "openai") -> BaseLLMProvider:
     Raises:
         ValueError: If provider is not supported
     """
+    # TODO: Make into an enum in settings...
     if llm_provider == "openai":
         return OpenAIProvider()
+    if llm_provider == "google":
+        return GoogleProvider()
     else:
         raise ValueError(f"Unsupported LLM provider: {llm_provider}")
 
@@ -317,8 +324,8 @@ async def analyze_filing_task(
     analysis_template: str,
     created_by: str,
     force_reprocess: bool = False,
-    llm_provider: str = "openai",
-    llm_model: str = "gpt-4",
+    llm_provider: str = settings.default_llm_provider,
+    llm_model: str = settings.llm_model,
 ) -> dict[str, Any]:
     """
     Analyze a filing using the specified LLM provider.
@@ -543,8 +550,8 @@ async def analyze_filing_comprehensive_task(
     self: AsyncTask,
     filing_id: str,
     created_by: str,
-    llm_provider: str = "openai",
-    llm_model: str = "gpt-4",
+    llm_provider: str = settings.default_llm_provider,
+    llm_model: str = settings.llm_model,
 ) -> dict[str, Any]:
     """
     Perform comprehensive analysis on a filing using multiple analysis types.
@@ -614,7 +621,7 @@ async def batch_analyze_filings_task(
     analysis_template: str,
     created_by: str,
     limit: int = 10,
-    llm_provider: str = "openai",
+    llm_provider: str = settings.default_llm_provider,
 ) -> dict[str, Any]:
     """
     Perform batch analysis on recent filings for a company.

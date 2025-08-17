@@ -60,7 +60,7 @@ class TestAnalysisTemplateFilteringIntegration:
                 return MockResult()
 
         # Mock the execute method to capture queries
-        with patch.object(async_session, 'execute', side_effect=mock_execute):
+        with patch.object(async_session, "execute", side_effect=mock_execute):
             await handler.handle(query)
 
         # Verify that queries were executed
@@ -119,7 +119,7 @@ class TestAnalysisTemplateFilteringIntegration:
                 created_by="test_user",
                 results={},
                 llm_provider="openai",
-                llm_model="gpt-4",
+                llm_model="dummy",
                 confidence_score=0.9,
                 created_at=datetime.now(UTC),
             ),
@@ -130,7 +130,7 @@ class TestAnalysisTemplateFilteringIntegration:
                 created_by="test_user",
                 results={},
                 llm_provider="openai",
-                llm_model="gpt-4",
+                llm_model="dummy",
                 confidence_score=0.85,
                 created_at=datetime.now(UTC),
             ),
@@ -141,7 +141,7 @@ class TestAnalysisTemplateFilteringIntegration:
                 created_by="test_user",
                 results={},
                 llm_provider="openai",
-                llm_model="gpt-4",
+                llm_model="dummy",
                 confidence_score=0.8,
                 created_at=datetime.now(UTC),
             ),
@@ -152,7 +152,7 @@ class TestAnalysisTemplateFilteringIntegration:
                 created_by="test_user",
                 results={},
                 llm_provider="openai",
-                llm_model="gpt-4",
+                llm_model="dummy",
                 confidence_score=0.75,
                 created_at=datetime.now(UTC),
             ),
@@ -250,7 +250,7 @@ class TestAnalysisTemplateFilteringIntegration:
                 created_by="test_user",
                 results={},
                 llm_provider="openai",
-                llm_model="gpt-4",
+                llm_model="dummy",
                 confidence_score=0.9,
                 created_at=datetime.now(UTC),
             ),
@@ -261,7 +261,7 @@ class TestAnalysisTemplateFilteringIntegration:
                 created_by="test_user",
                 results={},
                 llm_provider="openai",
-                llm_model="gpt-4",
+                llm_model="dummy",
                 confidence_score=0.85,
                 created_at=datetime.now(UTC),
             ),
@@ -350,7 +350,7 @@ class TestAnalysisTemplateFilteringIntegration:
                         created_by="test_user",
                         results={},
                         llm_provider="openai",
-                        llm_model="gpt-4",
+                        llm_model="dummy",
                         confidence_score=0.8,
                         created_at=datetime.now(UTC),
                     )

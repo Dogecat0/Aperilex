@@ -107,7 +107,7 @@ def test_openai_schema_compatibility():
         )
 
         # Check that the JSON is valid
-        parsed_schema = json.loads(schema_json)
+        _ = json.loads(schema_json)
         print("  ✓ JSON parsing successful")
 
         # Check for common OpenAI incompatible patterns

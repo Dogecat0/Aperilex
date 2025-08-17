@@ -81,7 +81,7 @@ class TestTicker:
         assert ticker1 == ticker2  # Should be equal despite different case
         assert ticker1 != ticker3
         assert ticker1 != "AAPL"  # Different type
-        assert ticker1 != None
+        assert ticker1 is not None
 
     def test_hash(self):
         """Test Ticker hash consistency."""
