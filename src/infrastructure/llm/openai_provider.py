@@ -3,8 +3,9 @@
 import asyncio
 import json
 from datetime import UTC
-from typing import Any, Union, get_args, get_origin
+from typing import Any
 
+from celery.utils.log import get_task_logger  # type: ignore[import-untyped]
 from openai import AsyncOpenAI
 from openai.types.chat import ParsedChatCompletion
 from pydantic import BaseModel as PydanticBaseModel
@@ -13,17 +14,37 @@ from tenacity import retry, stop_after_attempt, wait_exponential
 from src.domain.value_objects import FilingType
 from src.shared.config import settings
 
-from . import schemas
 from .base import (
+    SECTION_SCHEMAS,
+    SUBSECTION_NAME_MAP,
     BaseLLMProvider,
     ComprehensiveAnalysisResponse,
     OverallAnalysisResponse,
     SectionAnalysisResponse,
     SectionSummaryResponse,
-    SubSectionAnalysisResponse,
     SubsectionAnalysisResponse,
+    create_analysis_prompt,
     create_analysis_response,
+    create_extraction_prompt,
+    create_fallback_subsection_response,
+    create_human_readable_name,
+    create_overall_analysis_prompts,
+    create_section_analysis_prompt,
+    create_section_summary_prompts,
+    extract_subsection_schemas,
+    run_concurrent_subsection_analysis,
 )
+
+logger = get_task_logger(__name__)
+
+GENERATION_CONFIG: dict[str, Any] = {
+    "temperature": settings.llm_temperature,
+}
+
+EXTRA_BODY = {
+    "usage": {"include": True},
+    "reasoning": {"effort": "minimal", "summary": None},
+}
 
 
 def sentiment_to_score(sentiment: str | float) -> float:
@@ -49,7 +70,7 @@ class OpenAIProvider(BaseLLMProvider):
         self,
         api_key: str | None = None,
         base_url: str | None = None,
-        model: str = "gpt-4o-mini",
+        model: str = settings.llm_model,
     ) -> None:
         """Initialize OpenAI provider.
 
@@ -68,67 +89,8 @@ class OpenAIProvider(BaseLLMProvider):
         self.client = AsyncOpenAI(api_key=self.api_key, base_url=self.base_url)
         self.model = model
 
-        # Section to schema mapping
-        self.section_schemas = {
-            # 10-K sections
-            "Item 1 - Business": schemas.BusinessAnalysisSection,
-            "Item 1A - Risk Factors": schemas.RiskFactorsAnalysisSection,
-            "Item 7 - Management Discussion & Analysis": schemas.MDAAnalysisSection,
-            # 10-Q sections - Part I
-            "Part I Item 2 - Management Discussion & Analysis": schemas.MDAAnalysisSection,
-            # 10-Q sections - Part II
-            "Part II Item 1A - Risk Factors": schemas.RiskFactorsAnalysisSection,
-            # Financial statement schemas
-            "Balance Sheet": schemas.BalanceSheetAnalysisSection,
-            "Income Statement": schemas.IncomeStatementAnalysisSection,
-            "Cash Flow Statement": schemas.CashFlowAnalysisSection,
-        }
-
-    def _extract_subsection_schemas(
-        self, schema_class: type[PydanticBaseModel]
-    ) -> dict[str, type[PydanticBaseModel]]:
-        """Extract subsection schemas from a main section schema.
-
-        This method introspects the schema to identify all subsection fields that are
-        themselves Pydantic models, enabling targeted analysis of each subsection.
-
-        Args:
-            schema_class: The main section schema class
-
-        Returns:
-            Dictionary mapping field names to their schema types
-        """
-        from enum import Enum
-
-        subsections: dict[Any, Any] = {}
-
-        for field_name, field_info in schema_class.model_fields.items():
-            field_type = field_info.annotation
-
-            # Handle Optional types (Union[Type, None])
-            if get_origin(field_type) is Union:
-                args = get_args(field_type)
-                field_type = (
-                    args[0] if len(args) == 2 and type(None) in args else field_type
-                )
-
-            # Handle List types
-            if get_origin(field_type) is list:
-                field_type = get_args(field_type)[0]
-
-            # Check if it's a BaseModel subclass (but not an Enum)
-            try:
-                if (
-                    isinstance(field_type, type)
-                    and issubclass(field_type, PydanticBaseModel)
-                    and not issubclass(field_type, Enum)
-                ):
-                    subsections[field_name] = field_type
-            except TypeError:
-                # Handle cases where field_type might not be a proper type
-                pass
-
-        return subsections
+        # Use shared section schemas
+        self.section_schemas = SECTION_SCHEMAS
 
     async def _extract_subsection_text(
         self,
@@ -138,39 +100,10 @@ class OpenAIProvider(BaseLLMProvider):
         section_name: str,
         company_name: str,
     ) -> str:
-        """Extract relevant text from section for specific subsection analysis.
-
-        Uses LLM to identify and extract text segments that are most relevant
-        for analyzing the specific subsection.
-
-        Args:
-            section_text: Full text content of the section
-            subsection_name: Name of the subsection (e.g., 'operational_overview')
-            subsection_schema: Pydantic schema class for the subsection
-            section_name: Name of the parent section
-            company_name: Company name for context
-
-        Returns:
-            Extracted text relevant to the subsection
-        """
-        # Get schema field information to understand what the subsection focuses on
-        list(subsection_schema.model_fields.keys())
-        field_descriptions = [
-            f"{field}: {info.description or 'No description'}"
-            for field, info in subsection_schema.model_fields.items()
-        ]
-
-        prompt = f"""Extract the most relevant text from the following {section_name} section for analyzing the "{subsection_name}" subsection.
-
-The {subsection_name} subsection should focus on these aspects:
-{chr(10).join(field_descriptions)}
-
-Full Section Text:
-{section_text}
-
-Extract only the text segments that are directly relevant to the {subsection_name} analysis. Include context but avoid unrelated content. If no directly relevant text is found, return the most contextually appropriate portions.
-
-Return the extracted text without any additional commentary or formatting."""
+        """Extract relevant text from section for specific subsection analysis."""
+        prompt = create_extraction_prompt(
+            section_name, subsection_name, section_text, subsection_schema
+        )
 
         try:
             response = await self.client.chat.completions.create(
@@ -182,18 +115,27 @@ Return the extracted text without any additional commentary or formatting."""
                     },
                     {"role": "user", "content": prompt},
                 ],
-                temperature=0.1,  # Low temperature for consistent extraction
+                **GENERATION_CONFIG,
+                extra_body=EXTRA_BODY,
             )
+
+            if response.usage is not None:
+                try:
+                    logger.warning(
+                        "Tokens used: %d prompt and %d output",
+                        int(response.usage.prompt_tokens),
+                        int(response.usage.completion_tokens),
+                    )
+                except (TypeError, ValueError):
+                    logger.warning("Token usage info unavailable")
 
             extracted_text: str | None = response.choices[0].message.content
             if not extracted_text:
-                # Fallback to full section text if extraction fails
                 return section_text
 
             return extracted_text.strip()
 
         except Exception:
-            # Fallback to full section text if extraction fails
             return section_text
 
     async def _analyze_individual_subsection(
@@ -221,16 +163,14 @@ Return the extracted text without any additional commentary or formatting."""
         import time
 
         start_time = time.time()
-
-        # Create a human-readable subsection name
-        human_readable_name = subsection_name.replace("_", " ").title()
-
-        prompt = f"""Analyze the {human_readable_name} from {company_name}'s {filing_type.value} filing's {section_name} section.
-
-Text:
-{subsection_text}
-
-Focus specifically on the {human_readable_name} aspects and provide a detailed analysis using the structured schema provided."""
+        human_readable_name = create_human_readable_name(subsection_name)
+        prompt = create_analysis_prompt(
+            human_readable_name,
+            company_name,
+            filing_type,
+            section_name,
+            subsection_text,
+        )
 
         try:
             response: ParsedChatCompletion[Any] = (
@@ -243,10 +183,21 @@ Focus specifically on the {human_readable_name} aspects and provide a detailed a
                         },
                         {"role": "user", "content": prompt},
                     ],
-                    temperature=0.3,
+                    **GENERATION_CONFIG,
                     response_format=subsection_schema,
+                    extra_body=EXTRA_BODY,
                 )
             )
+
+            if response.usage is not None:
+                try:
+                    logger.warning(
+                        "Tokens used: %d prompt and %d output",
+                        int(response.usage.prompt_tokens),
+                        int(response.usage.completion_tokens),
+                    )
+                except (TypeError, ValueError):
+                    logger.warning("Token usage info unavailable")
 
             if not response.choices[0].message.content:
                 raise ValueError("Empty response from LLM")
@@ -264,15 +215,13 @@ Focus specifically on the {human_readable_name} aspects and provide a detailed a
             )
 
         except Exception as e:
-            # Create a fallback response with minimal information
             processing_time_ms = int((time.time() - start_time) * 1000)
-            return SubsectionAnalysisResponse(
-                sub_section_name=human_readable_name,
-                processing_time_ms=processing_time_ms,
-                schema_type=subsection_schema.__name__,
-                analysis={},
-                parent_section=section_name,
-                subsection_focus=f"Analysis failed: {str(e)}",
+            return create_fallback_subsection_response(
+                subsection_name,
+                subsection_schema,
+                section_name,
+                str(e),
+                processing_time_ms,
             )
 
     async def analyze_filing(
@@ -371,21 +320,21 @@ Focus specifically on the {human_readable_name} aspects and provide a detailed a
         schema_class: type,
         filing_type: FilingType,
         company_name: str,
-    ) -> list[SubSectionAnalysisResponse]:
+    ) -> list[SubsectionAnalysisResponse]:
         """Analyze section using structured schema with concurrent subsection analysis.
 
         This method implements the TODO enhancement by:
         1. Using schema introspection to identify subsections
         2. Extracting relevant text for each subsection
         3. Analyzing each subsection concurrently with its specific schema
-        4. Returning multiple SubSectionAnalysisResponse objects
+        4. Returning multiple SubsectionAnalysisResponse objects
         """
         import time
 
         time.time()
 
         # Step 1: Extract subsection schemas from the main schema
-        subsection_schemas = self._extract_subsection_schemas(schema_class)
+        subsection_schemas = extract_subsection_schemas(schema_class)
 
         if not subsection_schemas:
             # Fallback to original single-analysis approach if no subsections found
@@ -393,58 +342,16 @@ Focus specifically on the {human_readable_name} aspects and provide a detailed a
                 section_text, section_name, schema_class, filing_type, company_name
             )
 
-        # Step 2: Create concurrent tasks for text extraction and analysis
-        async def analyze_subsection_task(
-            subsection_name: str, subsection_schema: type
-        ) -> SubsectionAnalysisResponse:
-            """Concurrent task for analyzing a single subsection."""
-            try:
-                # Extract relevant text for this subsection
-                subsection_text = await self._extract_subsection_text(
-                    section_text,
-                    subsection_name,
-                    subsection_schema,
-                    section_name,
-                    company_name,
-                )
-
-                # Analyze the subsection with its specific schema
-                return await self._analyze_individual_subsection(
-                    subsection_text,
-                    subsection_name,
-                    subsection_schema,
-                    section_name,
-                    company_name,
-                    filing_type,
-                )
-            except Exception as e:
-                # Create a fallback response for failed subsections
-                return SubsectionAnalysisResponse(
-                    sub_section_name=subsection_name.replace("_", " ").title(),
-                    processing_time_ms=0,
-                    schema_type=subsection_schema.__name__,
-                    analysis={},
-                    parent_section=section_name,
-                    subsection_focus=f"Analysis failed: {str(e)}",
-                )
-
-        # Step 3: Run all subsection analyses concurrently
-        tasks = [
-            analyze_subsection_task(subsection_name, subsection_schema)
-            for subsection_name, subsection_schema in subsection_schemas.items()
-        ]
-
-        # Execute all tasks concurrently
-        subsection_responses = await asyncio.gather(*tasks, return_exceptions=True)
-
-        # Step 4: Filter out any failed responses and return valid ones
-        valid_responses: list[SubSectionAnalysisResponse] = []
-        for response in subsection_responses:
-            if isinstance(response, SubsectionAnalysisResponse):
-                valid_responses.append(response)
-            elif isinstance(response, Exception):
-                # Log the exception but continue
-                print(f"Subsection analysis failed: {response}")
+        # Step 2: Use shared concurrent analysis function
+        valid_responses = await run_concurrent_subsection_analysis(
+            subsection_schemas,
+            section_text,
+            section_name,
+            company_name,
+            filing_type,
+            self._extract_subsection_text,
+            self._analyze_individual_subsection,
+        )
 
         # If all subsections failed, fall back to single analysis
         if not valid_responses:
@@ -461,18 +368,15 @@ Focus specifically on the {human_readable_name} aspects and provide a detailed a
         schema_class: type,
         filing_type: FilingType,
         company_name: str,
-    ) -> list[SubSectionAnalysisResponse]:
+    ) -> list[SubsectionAnalysisResponse]:
         """Fallback to original single-analysis approach if subsection analysis fails."""
         import time
 
         start_time = time.time()
 
-        prompt = f"""Analyze the {section_name} section from {company_name}'s {filing_type.value} filing.
-
-Text:
-{section_text}
-
-Use the structured schema to guide your analysis and ensure comprehensive coverage of all relevant aspects."""
+        prompt = create_section_analysis_prompt(
+            section_name, company_name, filing_type, section_text
+        )
 
         response: ParsedChatCompletion[Any] = await self.client.chat.completions.parse(
             model=self.model,
@@ -483,9 +387,20 @@ Use the structured schema to guide your analysis and ensure comprehensive covera
                 },
                 {"role": "user", "content": prompt},
             ],
-            temperature=0.3,
+            **GENERATION_CONFIG,
             response_format=schema_class,
+            extra_body=EXTRA_BODY,
         )
+
+        if response.usage is not None:
+            try:
+                logger.warning(
+                    "Tokens used: %d prompt and %d output",
+                    int(response.usage.prompt_tokens),
+                    int(response.usage.completion_tokens),
+                )
+            except (TypeError, ValueError):
+                logger.warning("Token usage info unavailable")
 
         if not response.choices[0].message.content:
             return []
@@ -498,17 +413,7 @@ Use the structured schema to guide your analysis and ensure comprehensive covera
         processing_time_ms = int((time.time() - start_time) * 1000)
         schema_type = schema_class.__name__
 
-        # Map schema types to more concise subsection names
-        subsection_name_map = {
-            "BusinessAnalysisSection": "Business Analysis",
-            "RiskFactorsAnalysisSection": "Risk Assessment",
-            "MDAAnalysisSection": "Management Discussion",
-            "BalanceSheetAnalysisSection": "Balance Sheet Review",
-            "IncomeStatementAnalysisSection": "Income Statement Review",
-            "CashFlowAnalysisSection": "Cash Flow Review",
-        }
-
-        subsection_name = subsection_name_map.get(schema_type, "Analysis")
+        subsection_name = SUBSECTION_NAME_MAP.get(schema_type, "Analysis")
 
         # Use factory pattern to create response
         try:
@@ -518,7 +423,7 @@ Use the structured schema to guide your analysis and ensure comprehensive covera
                 sub_section_name=subsection_name,
                 processing_time_ms=processing_time_ms,
             )
-            return [analysis_response]
+            return [analysis_response]  # type: ignore[list-item]
         except ValueError as e:
             # This shouldn't happen as we only call this method for known schema types
             raise ValueError(f"Unknown schema type: {schema_type}") from e
@@ -528,41 +433,38 @@ Use the structured schema to guide your analysis and ensure comprehensive covera
     )
     async def _generate_section_summary(
         self,
-        sub_sections: list[SubSectionAnalysisResponse],
+        sub_sections: list[SubsectionAnalysisResponse],
         section_name: str,
         filing_type: FilingType,
         company_name: str,
     ) -> SectionAnalysisResponse:
         """Generate section summary from sub-section analyses."""
-        # Extract schema type and analysis content for summary
-        sub_sections_summary = "\n".join(
-            [
-                f"- {sub.sub_section_name}: {sub.schema_type} analysis completed"
-                for sub in sub_sections
-            ]
+        system_prompt, user_prompt = create_section_summary_prompts(
+            sub_sections, section_name, filing_type, company_name
         )
-
-        prompt = f"""Based on the following sub-section analyses for the {section_name} section of {company_name}'s {filing_type.value} filing, provide a comprehensive section summary.
-
-        Sub-section Summaries:
-        {sub_sections_summary}
-
-        Consolidate the insights and provide an overall assessment of this section."""
 
         response: ParsedChatCompletion[SectionSummaryResponse] = (
             await self.client.chat.completions.parse(
                 model=self.model,
                 messages=[
-                    {
-                        "role": "system",
-                        "content": "You are a financial analyst. Provide a consolidated summary of the section based on sub-section analyses.",
-                    },
-                    {"role": "user", "content": prompt},
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt},
                 ],
-                temperature=0.3,
+                **GENERATION_CONFIG,
                 response_format=SectionSummaryResponse,
+                extra_body=EXTRA_BODY,
             )
         )
+
+        if response.usage is not None:
+            try:
+                logger.warning(
+                    "Tokens used: %d prompt and %d output",
+                    int(response.usage.prompt_tokens),
+                    int(response.usage.completion_tokens),
+                )
+            except (TypeError, ValueError):
+                logger.warning("Token usage info unavailable")
 
         summary_result: SectionSummaryResponse = (
             SectionSummaryResponse.model_validate_json(
@@ -577,7 +479,7 @@ Use the structured schema to guide your analysis and ensure comprehensive covera
             consolidated_insights=summary_result.consolidated_insights,
             overall_sentiment=summary_result.overall_sentiment,
             critical_findings=summary_result.critical_findings,
-            sub_sections=sub_sections,
+            sub_sections=sub_sections,  # type: ignore[arg-type]
             processing_time_ms=None,
             sub_section_count=len(sub_sections),
         )
@@ -595,48 +497,32 @@ Use the structured schema to guide your analysis and ensure comprehensive covera
         analysis_focus: list[str] | None = None,
     ) -> OverallAnalysisResponse:
         """Generate overall filing analysis from all section analyses."""
-        sections_summary = "\n".join(
-            [
-                f"- {section.section_name}: {section.section_summary}"
-                for section in section_analyses
-            ]
+        system_prompt, user_prompt = create_overall_analysis_prompts(
+            section_analyses, filing_type, company_name, analysis_focus
         )
-
-        focus_text = (
-            f" Focus areas: {', '.join(analysis_focus)}" if analysis_focus else ""
-        )
-
-        prompt = f"""Based on all section analyses of {company_name}'s {filing_type.value} filing, provide a comprehensive overall analysis.{focus_text}
-
-        Section Summaries:
-        {sections_summary}
-
-        Provide an executive-level analysis that synthesizes insights from all sections.
-
-        IMPORTANT for financial_highlights:
-        - Extract actual financial numbers, percentages, and dollar amounts from the filing content
-        - If specific numbers are mentioned in the sections, use those exact values
-        - If precise numbers aren't available, provide descriptive statements without placeholder variables (X, Y, Z)
-        - Examples of good financial highlights:
-          * "Revenue increased 15% year-over-year to $45.3 billion"
-          * "Operating margins improved significantly compared to prior year"
-          * "Strong cash position with substantial liquidity reserves"
-        - Never use placeholder letters like X%, Y%, Z billion, or A%"""
 
         response: ParsedChatCompletion[OverallAnalysisResponse] = (
             await self.client.chat.completions.parse(
                 model=self.model,
                 messages=[
-                    {
-                        "role": "system",
-                        "content": "You are a senior financial analyst. Provide executive-level analysis of the complete filing. Always use actual financial data when available and avoid placeholder variables. If specific numbers aren't available, provide descriptive qualitative statements instead.",
-                    },
-                    {"role": "user", "content": prompt},
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt},
                 ],
-                temperature=0.3,
+                **GENERATION_CONFIG,
                 response_format=OverallAnalysisResponse,
+                extra_body=EXTRA_BODY,
             )
         )
+
+        if response.usage is not None:
+            try:
+                logger.warning(
+                    "Tokens used: %d prompt and %d output",
+                    int(response.usage.prompt_tokens),
+                    int(response.usage.completion_tokens),
+                )
+            except (TypeError, ValueError):
+                logger.warning("Token usage info unavailable")
 
         return OverallAnalysisResponse.model_validate_json(
             response.choices[0].message.content or "{}"
