@@ -5,7 +5,12 @@ from collections.abc import AsyncGenerator
 
 import pytest_asyncio
 from sqlalchemy import text
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.ext.asyncio import (
+    AsyncEngine,
+    AsyncSession,
+    async_sessionmaker,
+    create_async_engine,
+)
 
 from src.infrastructure.database.base import Base
 
@@ -66,7 +71,9 @@ async def async_engine():
 
 
 @pytest_asyncio.fixture
-async def async_session(async_engine) -> AsyncGenerator[AsyncSession, None]:
+async def async_session(
+    async_engine: AsyncEngine,
+) -> AsyncGenerator[AsyncSession, None]:
     """Create async session for testing."""
     async_session_maker = async_sessionmaker(
         async_engine,
