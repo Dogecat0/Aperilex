@@ -15,7 +15,6 @@ Environment variables required:
 
 import asyncio
 import json
-import os
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -26,11 +25,12 @@ project_root = Path(__file__).parent.parent
 if str(project_root) not in sys.path:
     sys.path.insert(0, str(project_root))
 
-from src.domain.value_objects import FilingType, Ticker
-from src.infrastructure.edgar.schemas.company_data import CompanyData
-from src.infrastructure.edgar.service import EdgarService
-from src.infrastructure.llm.base import ComprehensiveAnalysisResponse
-from src.infrastructure.llm.openai_provider import OpenAIProvider
+from src.domain.value_objects import FilingType, Ticker  # noqa: E402
+from src.infrastructure.edgar.schemas.company_data import CompanyData  # noqa: E402
+from src.infrastructure.edgar.service import EdgarService  # noqa: E402
+from src.infrastructure.llm.base import ComprehensiveAnalysisResponse  # noqa: E402
+from src.infrastructure.llm.openai_provider import OpenAIProvider  # noqa: E402
+from src.shared.config import settings  # noqa: E402
 
 
 class AnalysisSampleGenerator:
@@ -43,14 +43,13 @@ class AnalysisSampleGenerator:
         self.results_dir.mkdir(exist_ok=True)
 
         # Initialize OpenAI provider
-        api_key = os.getenv("OPENAI_API_KEY")
-        base_url = os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1")
+        api_key = settings.openai_api_key
 
         if not api_key:
             raise ValueError("OPENAI_API_KEY environment variable is required")
 
         self.llm_provider = OpenAIProvider(
-            api_key=api_key, base_url=base_url, model="gpt-4o-mini"
+            api_key=api_key, base_url=settings.openai_base_url, model=settings.llm_model
         )
 
     async def generate_comprehensive_analysis(
