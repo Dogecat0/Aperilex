@@ -162,7 +162,7 @@ class BackgroundTaskCoordinator:
                 task_id, 0.05, "Queued for background processing"
             )
 
-            return celery_task.id
+            return str(celery_task.id)
 
         except ImportError as e:
             logger.error(f"Celery tasks not available: {e}")
@@ -289,7 +289,7 @@ class BackgroundTaskCoordinator:
             try:
                 from datetime import datetime
 
-                from celery.result import AsyncResult
+                from celery.result import AsyncResult  # type: ignore[import-untyped]
 
                 from src.infrastructure.tasks.celery_app import celery_app
 
