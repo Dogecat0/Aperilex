@@ -15,7 +15,7 @@ if str(src_path) not in sys.path:
     sys.path.insert(0, str(src_path))
 
 # Import after path setup
-from src.domain.entities.analysis import Analysis  # noqa: E402
+from src.domain.entities.analysis import Analysis, AnalysisType  # noqa: E402
 from src.domain.entities.company import Company  # noqa: E402
 from src.domain.entities.filing import Filing  # noqa: E402
 from src.domain.value_objects import (  # noqa: E402
@@ -86,12 +86,12 @@ def sample_analysis(sample_filing):
     return Analysis(
         id=uuid.uuid4(),
         filing_id=sample_filing.id,
-        analysis_type="comprehensive_analysis",
+        analysis_type=AnalysisType.COMPREHENSIVE,
+        created_by="test_user",
         results=analysis_data,
         confidence_score=0.85,
         llm_provider="OpenAI",
         llm_model="dummy",
-        processing_time_ms=1500,
         metadata={"sections_analyzed": 3},
     )
 
