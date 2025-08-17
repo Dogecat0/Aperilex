@@ -1,9 +1,12 @@
 """Base abstraction for LLM providers."""
 
+import asyncio
 from abc import ABC, abstractmethod
-from typing import Any
+from collections.abc import Callable
+from typing import Any, Union, get_args, get_origin
 
 from pydantic import BaseModel, Field
+from pydantic import BaseModel as PydanticBaseModel
 
 from src.domain.value_objects import FilingType
 from src.infrastructure.llm import schemas
@@ -418,3 +421,308 @@ class BaseLLMProvider(ABC):
             score *= 0.5
 
         return round(score, 3)
+
+
+# Common constants and mappings for all providers
+SECTION_SCHEMAS = {
+    # 10-K sections
+    "Item 1 - Business": schemas.BusinessAnalysisSection,
+    "Item 1A - Risk Factors": schemas.RiskFactorsAnalysisSection,
+    "Item 7 - Management Discussion & Analysis": schemas.MDAAnalysisSection,
+    # 10-Q sections - Part I
+    "Part I Item 2 - Management Discussion & Analysis": schemas.MDAAnalysisSection,
+    # 10-Q sections - Part II
+    "Part II Item 1A - Risk Factors": schemas.RiskFactorsAnalysisSection,
+    # Financial statement schemas
+    "Balance Sheet": schemas.BalanceSheetAnalysisSection,
+    "Income Statement": schemas.IncomeStatementAnalysisSection,
+    "Cash Flow Statement": schemas.CashFlowAnalysisSection,
+}
+
+SUBSECTION_NAME_MAP = {
+    "BusinessAnalysisSection": "Business Analysis",
+    "RiskFactorsAnalysisSection": "Risk Assessment",
+    "MDAAnalysisSection": "Management Discussion",
+    "BalanceSheetAnalysisSection": "Balance Sheet Review",
+    "IncomeStatementAnalysisSection": "Income Statement Review",
+    "CashFlowAnalysisSection": "Cash Flow Review",
+}
+
+
+def extract_subsection_schemas(
+    schema_class: type[PydanticBaseModel],
+) -> dict[str, type[PydanticBaseModel]]:
+    """Extract subsection schemas from a main section schema.
+
+    This method introspects the schema to identify all subsection fields that are
+    themselves Pydantic models, enabling targeted analysis of each subsection.
+
+    Args:
+        schema_class: The main section schema class
+
+    Returns:
+        Dictionary mapping field names to their schema types
+    """
+    from enum import Enum
+
+    subsections: dict[Any, Any] = {}
+
+    for field_name, field_info in schema_class.model_fields.items():
+        field_type = field_info.annotation
+
+        # Handle Optional types (Union[Type, None])
+        if get_origin(field_type) is Union:
+            args = get_args(field_type)
+            field_type = (
+                args[0] if len(args) == 2 and type(None) in args else field_type
+            )
+
+        # Handle List types
+        if get_origin(field_type) is list:
+            field_type = get_args(field_type)[0]
+
+        # Check if it's a BaseModel subclass (but not an Enum)
+        try:
+            if (
+                isinstance(field_type, type)
+                and issubclass(field_type, PydanticBaseModel)
+                and not issubclass(field_type, Enum)
+            ):
+                subsections[field_name] = field_type
+        except TypeError:
+            # Handle cases where field_type might not be a proper type
+            pass
+
+    return subsections
+
+
+def create_human_readable_name(subsection_name: str) -> str:
+    """Convert underscore-separated name to human-readable title case."""
+    return subsection_name.replace("_", " ").title()
+
+
+def create_extraction_prompt(
+    section_name: str,
+    subsection_name: str,
+    section_text: str,
+    subsection_schema: type[PydanticBaseModel],
+) -> str:
+    """Create standardized prompt for text extraction."""
+    field_descriptions = [
+        f"{field}: {info.description or 'No description'}"
+        for field, info in subsection_schema.model_fields.items()
+    ]
+
+    return f"""Extract the most relevant text from the following {section_name} section for analyzing the "{subsection_name}" subsection.
+
+The {subsection_name} subsection should focus on these aspects:
+{chr(10).join(field_descriptions)}
+
+Full Section Text:
+{section_text}
+
+Extract only the text segments that are directly relevant to the {subsection_name} analysis. Include context but avoid unrelated content. If no directly relevant text is found, return the most contextually appropriate portions.
+
+Return the extracted text without any additional commentary or formatting."""
+
+
+def create_analysis_prompt(
+    human_readable_name: str,
+    company_name: str,
+    filing_type: FilingType,
+    section_name: str,
+    subsection_text: str,
+) -> str:
+    """Create standardized prompt for subsection analysis."""
+    return f"""Analyze the {human_readable_name} from {company_name}'s {filing_type.value} filing's {section_name} section.
+
+Text:
+{subsection_text}
+
+Focus specifically on the {human_readable_name} aspects and provide a detailed analysis using the structured schema provided."""
+
+
+def create_section_analysis_prompt(
+    section_name: str,
+    company_name: str,
+    filing_type: FilingType,
+    section_text: str,
+) -> str:
+    """Create standardized prompt for section analysis."""
+    return f"""Analyze the {section_name} section from {company_name}'s {filing_type.value} filing.
+
+Text:
+{section_text}
+
+Use the structured schema to guide your analysis and ensure comprehensive coverage of all relevant aspects."""
+
+
+def create_fallback_subsection_response(
+    subsection_name: str,
+    subsection_schema: type[PydanticBaseModel],
+    section_name: str,
+    error: str,
+    processing_time_ms: int = 0,
+) -> SubsectionAnalysisResponse:
+    """Create a fallback response for failed subsection analysis."""
+    human_readable_name = create_human_readable_name(subsection_name)
+    return SubsectionAnalysisResponse(
+        sub_section_name=human_readable_name,
+        processing_time_ms=processing_time_ms,
+        schema_type=subsection_schema.__name__,
+        analysis={},
+        parent_section=section_name,
+        subsection_focus=f"Analysis failed: {error}",
+    )
+
+
+async def run_concurrent_subsection_analysis(
+    subsection_schemas: dict[str, type],
+    section_text: str,
+    section_name: str,
+    company_name: str,
+    filing_type: FilingType,
+    extract_text_func: Callable[..., Any],
+    analyze_subsection_func: Callable[..., Any],
+) -> list[SubsectionAnalysisResponse]:
+    """Run concurrent analysis of all subsections in a section.
+
+    This function encapsulates the common pattern of:
+    1. Creating concurrent tasks for each subsection
+    2. Running text extraction and analysis for each
+    3. Handling exceptions and creating fallback responses
+    4. Filtering valid responses
+
+    Args:
+        subsection_schemas: Dict mapping subsection names to their schema types
+        section_text: Full text of the parent section
+        section_name: Name of the parent section
+        company_name: Company name for context
+        filing_type: Type of SEC filing
+        extract_text_func: Function to extract text for a subsection
+        analyze_subsection_func: Function to analyze a subsection
+
+    Returns:
+        List of valid SubsectionAnalysisResponse objects
+    """
+
+    async def analyze_subsection_task(
+        subsection_name: str, subsection_schema: type
+    ) -> SubsectionAnalysisResponse:
+        """Concurrent task for analyzing a single subsection."""
+        try:
+            # Extract relevant text for this subsection
+            subsection_text = await extract_text_func(
+                section_text,
+                subsection_name,
+                subsection_schema,
+                section_name,
+                company_name,
+            )
+
+            # Analyze the subsection with its specific schema
+            result = await analyze_subsection_func(
+                subsection_text,
+                subsection_name,
+                subsection_schema,
+                section_name,
+                company_name,
+                filing_type,
+            )
+            return result  # type: ignore[no-any-return]
+        except Exception as e:
+            return create_fallback_subsection_response(
+                subsection_name, subsection_schema, section_name, str(e)
+            )
+
+    # Run all subsection analyses concurrently
+    tasks = [
+        analyze_subsection_task(subsection_name, subsection_schema)
+        for subsection_name, subsection_schema in subsection_schemas.items()
+    ]
+
+    # Execute all tasks concurrently
+    subsection_responses = await asyncio.gather(*tasks, return_exceptions=True)
+
+    # Filter out any failed responses and return valid ones
+    valid_responses: list[SubsectionAnalysisResponse] = []
+    for response in subsection_responses:
+        if isinstance(response, SubsectionAnalysisResponse):
+            valid_responses.append(response)
+
+    return valid_responses
+
+
+def create_section_summary_prompts(
+    sub_sections: list[SubsectionAnalysisResponse],
+    section_name: str,
+    filing_type: FilingType,
+    company_name: str,
+) -> tuple[str, str]:
+    """Create standardized prompts for section summary generation.
+
+    Returns:
+        Tuple of (system_prompt, user_prompt)
+    """
+    sub_sections_summary = "\n".join(
+        [
+            f"- {sub.sub_section_name}: {sub.schema_type} analysis completed"
+            for sub in sub_sections
+        ]
+    )
+
+    system_prompt = "You are a financial analyst. Provide a consolidated summary of the section based on sub-section analyses."
+
+    user_prompt = (
+        f"Based on the following sub-section analyses for the {section_name} section of {company_name}'s {filing_type.value} filing, provide a comprehensive section summary.\n\n"
+        f"        Sub-section Summaries:\n"
+        f"        {sub_sections_summary}\n\n"
+        f"        Consolidate the insights and provide an overall assessment of this section."
+    )
+
+    return system_prompt, user_prompt
+
+
+def create_overall_analysis_prompts(
+    section_analyses: list[SectionAnalysisResponse],
+    filing_type: FilingType,
+    company_name: str,
+    analysis_focus: list[str] | None = None,
+) -> tuple[str, str]:
+    """Create standardized prompts for overall analysis generation.
+
+    Returns:
+        Tuple of (system_prompt, user_prompt)
+    """
+    sections_summary = "\n".join(
+        [
+            f"- {section.section_name}: {section.section_summary}"
+            for section in section_analyses
+        ]
+    )
+
+    focus_text = f" Focus areas: {', '.join(analysis_focus)}" if analysis_focus else ""
+
+    system_prompt = (
+        "You are a senior financial analyst. Provide executive-level analysis of the complete filing. "
+        "Always use actual financial data when available and avoid placeholder variables. "
+        "If specific numbers aren't available, provide descriptive qualitative statements instead."
+    )
+
+    user_prompt = (
+        f"Based on all section analyses of {company_name}'s {filing_type.value} filing, provide a comprehensive overall analysis.{focus_text}\n\n"
+        f"        Section Summaries:\n"
+        f"        {sections_summary}\n\n"
+        f"        Provide an executive-level analysis that synthesizes insights from all sections.\n\n"
+        f"        IMPORTANT for financial_highlights:\n"
+        f"        - Extract actual financial numbers, percentages, and dollar amounts from the filing content\n"
+        f"        - If specific numbers are mentioned in the sections, use those exact values\n"
+        f"        - If precise numbers aren't available, provide descriptive statements without placeholder variables (X, Y, Z)\n"
+        f"        - Examples of good financial highlights:\n"
+        f'          * "Revenue increased 15% year-over-year to $45.3 billion"\n'
+        f'          * "Operating margins improved significantly compared to prior year"\n'
+        f'          * "Strong cash position with substantial liquidity reserves"\n'
+        f"        - Never use placeholder letters like X%, Y%, Z billion, or A%"
+    )
+
+    return system_prompt, user_prompt
