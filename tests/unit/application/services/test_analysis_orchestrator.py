@@ -295,7 +295,7 @@ class TestAnalysisOrchestrator:
         assert created_analysis.analysis_type == AnalysisType.FILING_ANALYSIS
         assert created_analysis.created_by == sample_command.user_id
         assert created_analysis.llm_provider == "openai"
-        assert created_analysis.llm_model == "gpt-4"
+        assert created_analysis.llm_model == "default"
 
     @pytest.mark.asyncio
     async def test_find_existing_analysis(

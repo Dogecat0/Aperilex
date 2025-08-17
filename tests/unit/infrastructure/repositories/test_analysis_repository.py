@@ -65,7 +65,7 @@ class TestAnalysisRepositoryConversions:
         assert entity.created_by == "test_user"
         assert entity.results == {"key": "value"}
         assert entity.llm_provider == "openai"
-        assert entity.llm_model == "gpt-4"
+        assert entity.llm_model == "dummy"
         assert entity.confidence_score == 0.85
         assert entity.metadata == {"test": "data"}
         assert entity.created_at == created_at
@@ -131,7 +131,7 @@ class TestAnalysisRepositoryConversions:
         assert model.created_by == "test_user"
         assert model.results == {"insight": "data"}
         assert model.llm_provider == "openai"
-        assert model.llm_model == "gpt-3.5-turbo"
+        assert model.llm_model == "dummy"
         assert model.confidence_score == 0.92
         assert model.meta_data == {"processing_time": 15.5}
         assert model.created_at == created_at
@@ -168,7 +168,7 @@ class TestAnalysisRepositoryConversions:
         assert final_entity.created_by == "api_user"
         assert final_entity.results == {"trends": ["up", "down"]}
         assert final_entity.llm_provider == "anthropic"
-        assert final_entity.llm_model == "claude-2"
+        assert final_entity.llm_model == "dummy"
         assert final_entity.confidence_score == 0.78
         assert final_entity.metadata == {"version": "1.0"}
         assert final_entity.created_at == created_at

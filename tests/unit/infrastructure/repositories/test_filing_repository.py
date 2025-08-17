@@ -1071,7 +1071,7 @@ class TestFilingRepositoryErrorHandling:
     async def test_filing_status_transition_validation_error(self):
         """Test handling of invalid status transitions."""
         session = Mock(spec=AsyncSession)
-        repository = FilingRepository(session)
+        _ = FilingRepository(session)
 
         # Create a filing in completed status
         completed_filing = Filing(

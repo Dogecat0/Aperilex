@@ -31,7 +31,7 @@ class TestAnalysis:
         """Test Analysis initialization with required parameters."""
         analysis_id = uuid4()
         filing_id = uuid4()
-        created_by = uuid4()
+        created_by = "test_user_1"
         analysis_type = AnalysisType.FILING_ANALYSIS
 
         analysis = Analysis(
@@ -56,14 +56,14 @@ class TestAnalysis:
         """Test Analysis initialization with all parameters."""
         analysis_id = uuid4()
         filing_id = uuid4()
-        created_by = uuid4()
+        created_by = "test_user_1"
         analysis_type = AnalysisType.CUSTOM_QUERY
         results = {
             "summary": "Test summary",
             "key_findings": ["Finding 1", "Finding 2"],
         }
         llm_provider = "openai"
-        llm_model = "gpt-4"
+        llm_model = "default"
         confidence_score = 0.85
         metadata = {"processing_time": 45.2}
         created_at = datetime(2024, 1, 15, 10, 30, 0)
@@ -92,7 +92,7 @@ class TestAnalysis:
         """Test Analysis initialization with invalid confidence score."""
         analysis_id = uuid4()
         filing_id = uuid4()
-        created_by = uuid4()
+        created_by = "test_user_1"
         analysis_type = AnalysisType.FILING_ANALYSIS
 
         # Too low confidence score
@@ -123,7 +123,7 @@ class TestAnalysis:
         """Test confidence score classification methods."""
         analysis_id = uuid4()
         filing_id = uuid4()
-        created_by = uuid4()
+        created_by = "test_user_1"
         analysis_type = AnalysisType.FILING_ANALYSIS
 
         # High confidence
@@ -321,7 +321,7 @@ class TestAnalysis:
         """Test LLM generation check."""
         analysis_id = uuid4()
         filing_id = uuid4()
-        created_by = uuid4()
+        created_by = "test_user_1"
         analysis_type = AnalysisType.FILING_ANALYSIS
 
         # No LLM provider
@@ -347,7 +347,7 @@ class TestAnalysis:
         """Test Analysis equality based on ID."""
         analysis_id = uuid4()
         filing_id = uuid4()
-        created_by = uuid4()
+        created_by = "test_user_1"
         analysis_type = AnalysisType.FILING_ANALYSIS
 
         analysis1 = Analysis(
@@ -361,7 +361,7 @@ class TestAnalysis:
             id=analysis_id,
             filing_id=uuid4(),  # Different filing ID
             analysis_type=AnalysisType.CUSTOM_QUERY,  # Different type
-            created_by=uuid4(),  # Different creator
+            created_by="test_user_2",  # Different creator
         )
 
         # Same ID should be equal
@@ -384,7 +384,7 @@ class TestAnalysis:
         """Test Analysis hash based on ID."""
         analysis_id = uuid4()
         filing_id = uuid4()
-        created_by = uuid4()
+        created_by = "test_user_1"
         analysis_type = AnalysisType.FILING_ANALYSIS
 
         analysis1 = Analysis(
@@ -398,7 +398,7 @@ class TestAnalysis:
             id=analysis_id,
             filing_id=uuid4(),
             analysis_type=AnalysisType.CUSTOM_QUERY,
-            created_by=uuid4(),
+            created_by="test_user_2",
         )
 
         # Same ID should have same hash
@@ -526,7 +526,7 @@ class TestAnalysis:
             id=uuid4(),
             filing_id=uuid4(),
             analysis_type=AnalysisType.FILING_ANALYSIS,
-            created_by=uuid4(),
+            created_by="test_user_2",
             llm_provider="openai",
             llm_model="dummy",
         )

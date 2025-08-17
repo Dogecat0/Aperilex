@@ -532,7 +532,7 @@ class TestHealthRouterIntegration:
         assert "celery_health_check" in routes
 
         # Check response models are set
-        for route_name, route in routes.items():
+        for _route_name, route in routes.items():
             if hasattr(route, 'response_model') and route.response_model:
                 assert route.response_model is not None
 

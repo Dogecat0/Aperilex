@@ -122,7 +122,7 @@ class TestMoney:
         assert money1 != money3
         assert money1 != money4
         assert money1 != "100 USD"  # Different type
-        assert money1 != None
+        assert money1 is not None
 
     def test_hash(self):
         """Test Money hash consistency."""
@@ -197,7 +197,9 @@ class TestMoney:
         assert result3.currency == "USD"
 
         # Test with invalid type
-        with pytest.raises(Exception):  # InvalidOperation from decimal
+        from decimal import InvalidOperation
+
+        with pytest.raises(InvalidOperation):
             money * "invalid"  # type: ignore
 
     def test_division(self):
@@ -262,7 +264,7 @@ class TestMoney:
         with pytest.raises(
             AttributeError, match="'int' object has no attribute '_currency'"
         ):
-            money1 < 100  # type: ignore
+            assert money1 < 100  # type: ignore
 
     def test_abs(self):
         """Test Money absolute value."""

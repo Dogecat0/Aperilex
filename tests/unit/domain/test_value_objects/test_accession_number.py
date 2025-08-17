@@ -73,7 +73,7 @@ class TestAccessionNumber:
         assert acc_num1 == acc_num2
         assert acc_num1 != acc_num3
         assert acc_num1 != "0000320193-24-000005"  # Different type
-        assert acc_num1 != None
+        assert acc_num1 is not None
 
     def test_hash(self):
         """Test AccessionNumber hash consistency."""

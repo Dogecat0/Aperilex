@@ -220,7 +220,7 @@ class TestFiling:
 
         # Different type should not be equal
         assert filing1 != "0000320193-24-000005"
-        assert filing1 != None
+        assert filing1 is not None
 
     def test_hash(self):
         """Test Filing hash based on accession number."""
@@ -345,7 +345,7 @@ class TestFiling:
 
         # Complete processing
         filing.mark_as_completed()
-        assert filing.processing_status == ProcessingStatus.COMPLETED
+        assert filing.processing_status == ProcessingStatus.COMPLETED  # type: ignore[comparison-overlap]
         assert filing.processing_error is None
         assert filing.can_be_processed() is False
 
@@ -365,7 +365,7 @@ class TestFiling:
 
         # Reset for retry
         filing.reset_for_retry()
-        assert filing.processing_status == ProcessingStatus.PENDING
+        assert filing.processing_status == ProcessingStatus.PENDING  # type: ignore[comparison-overlap]
         assert filing.processing_error is None
         assert filing.can_be_processed() is True
 

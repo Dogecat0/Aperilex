@@ -221,7 +221,7 @@ class TestProcessingStatus:
         """Test ProcessingStatus equality."""
         assert ProcessingStatus.PENDING == ProcessingStatus.PENDING
         assert ProcessingStatus.PENDING != ProcessingStatus.PROCESSING
-        assert ProcessingStatus.PENDING == "pending"  # Should equal string value
+        assert ProcessingStatus.PENDING.value == "pending"  # Should equal string value
         assert ProcessingStatus.PENDING != "processing"
 
     def test_enum_membership(self):

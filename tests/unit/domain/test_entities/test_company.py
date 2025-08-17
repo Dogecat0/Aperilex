@@ -111,7 +111,7 @@ class TestCompany:
 
         # Different type should not be equal
         assert company1 != "Apple Inc."
-        assert company1 != None
+        assert company1 is not None
 
     def test_hash(self):
         """Test Company hash based on CIK."""

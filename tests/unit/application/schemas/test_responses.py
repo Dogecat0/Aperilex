@@ -283,7 +283,7 @@ class TestAnalysisResponse:
             "created_at": datetime.now(UTC),
             "confidence_score": 0.85,
             "llm_provider": "openai",
-            "llm_model": "gpt-4",
+            "llm_model": "default",
             "results": {"summary": "Test analysis results"},
         }
         defaults.update(overrides)

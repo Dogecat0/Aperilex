@@ -281,7 +281,7 @@ class TestTaskServiceDataConsistency:
         self, task_service_redis, mock_redis_service
     ):
         """Test datetime objects are consistently serialized."""
-        task_id = uuid4()
+        _ = uuid4()
 
         # Mock Redis operations
         mock_redis_service.get.return_value = None

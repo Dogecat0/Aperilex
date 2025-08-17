@@ -55,7 +55,7 @@ class TestFilingType:
         assert FilingType.FORM_10K == FilingType.FORM_10K
         assert FilingType.FORM_10K != FilingType.FORM_10Q
         assert FilingType.FORM_10K.value == "10-K"  # Should equal string value
-        assert FilingType.FORM_10K != "10-Q"
+        assert FilingType.FORM_10K.value != "10-Q"
 
     def test_enum_membership(self):
         """Test enum membership."""

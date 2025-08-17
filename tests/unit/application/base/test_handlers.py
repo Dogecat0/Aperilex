@@ -323,7 +323,7 @@ class TestCommandHandler:
         import inspect
 
         sig = inspect.signature(create_handler.handle)
-        command_param = list(sig.parameters.values())[0]
+        _ = list(sig.parameters.values())[0]
         # Note: Runtime type checking is limited, but we can verify the handler works
 
         # The handler should work with the correct command type

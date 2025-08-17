@@ -461,7 +461,7 @@ class TestTaskService:
     ) -> None:
         """Test task statistics with mixed task states."""
         # Create tasks in different states
-        pending_task = await task_service.create_task("task1", sample_task_parameters)
+        _ = await task_service.create_task("task1", sample_task_parameters)
         processing_task = await task_service.create_task(
             "task2", sample_task_parameters
         )

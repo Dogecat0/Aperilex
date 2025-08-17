@@ -672,7 +672,7 @@ class TestCompanyRepositoryErrorHandling:
     async def test_entity_validation_error_during_create(self):
         """Test create when entity validation fails."""
         session = Mock(spec=AsyncSession)
-        repository = CompanyRepository(session)
+        _ = CompanyRepository(session)
 
         # This should fail during entity creation due to empty name
         with pytest.raises(ValueError, match="Company name cannot be empty"):

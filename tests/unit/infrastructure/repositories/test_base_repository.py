@@ -5,16 +5,24 @@ from unittest.mock import AsyncMock, Mock
 from uuid import uuid4
 
 import pytest
+from sqlalchemy import Column, String
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from src.infrastructure.database.base import Base
 from src.infrastructure.repositories.base import BaseRepository
 
 
-class MockModel:
+class MockModel(Base):
     """Mock SQLAlchemy model for testing."""
 
+    __tablename__ = "mock_model"
+
+    id = Column(String, primary_key=True)
+    name = Column(String)
+
     def __init__(self, id=None, name="default_model"):
-        self.id = id or uuid4()
+        super().__init__()
+        self.id = id or str(uuid4())
         self.name = name if name != "default_model" else "Test Model"
 
 
@@ -537,11 +545,11 @@ class TestBaseRepositoryIntegration:
         assert session.flush.call_count == 2
 
         # All operations should use the same session instance
-        for call in session.add.call_args_list:
+        for _call in session.add.call_args_list:
             # Each call should be on the same session
             pass  # Session is already the same instance
 
-        for call in session.flush.call_args_list:
+        for _call in session.flush.call_args_list:
             # Each call should be on the same session
             pass  # Session is already the same instance
 
@@ -573,9 +581,15 @@ class TestBaseRepositoryEdgeCases:
     def test_repository_with_different_model_entity_pairs(self):
         """Test repository with different model/entity combinations."""
 
-        class DifferentModel:
+        class DifferentModel(Base):
+            __tablename__ = "different_model"
+
+            id = Column(String, primary_key=True)
+            title = Column(String)
+
             def __init__(self, id=None, title=None):
-                self.id = id or uuid4()
+                super().__init__()
+                self.id = id or str(uuid4())
                 self.title = title or "Different Model"
 
         class DifferentEntity:
