@@ -45,7 +45,7 @@ RUN mkdir -p /tmp/edgar_data /home/appuser/.edgar /home/appuser/.cache && \
 ENV HOME=/home/appuser
 
 # Copy application code
-COPY . .
+COPY ./src/ ./src/
 
 # Change ownership to appuser
 RUN chown -R appuser:appuser /app
