@@ -1,8 +1,7 @@
 """Service factory for creating application services with proper dependency injection.
 
 This factory provides configuration-based service creation, allowing switching between
-in-memory implementations (for development) and distributed implementations using
-Redis and Celery (for production environments).
+different messaging implementations based on environment (mock, RabbitMQ, AWS SQS/Lambda).
 """
 
 import logging
@@ -18,10 +17,13 @@ from src.application.services.analysis_template_service import AnalysisTemplateS
 from src.application.services.background_task_coordinator import (
     BackgroundTaskCoordinator,
 )
-from src.application.services.cache_service import CacheService
 from src.application.services.task_service import TaskService
-from src.infrastructure.cache.redis_service import RedisService
 from src.infrastructure.edgar.service import EdgarService
+from src.infrastructure.messaging import (
+    EnvironmentType,
+    cleanup_services,
+    initialize_services,
+)
 from src.infrastructure.repositories.analysis_repository import AnalysisRepository
 from src.infrastructure.repositories.company_repository import CompanyRepository
 from src.infrastructure.repositories.filing_repository import FilingRepository
@@ -45,84 +47,34 @@ class ServiceFactory:
             settings: Application settings for configuration
         """
         self.settings = settings
-        self._redis_service: RedisService | None = None
         self._repositories: dict[str, Any] = {}
         self._services: dict[str, Any] = {}
+        self._messaging_initialized = False
 
     @property
-    def use_redis(self) -> bool:
-        """Whether to use Redis for caching.
+    def use_background_tasks(self) -> bool:
+        """Whether to use background task processing.
 
-        Redis is used when redis_url is configured.
+        Background tasks are always available with the new messaging system.
         """
-        return bool(self.settings.redis_url)
-
-    @property
-    def use_celery(self) -> bool:
-        """Whether to use Celery for background tasks.
-
-        Celery is used when celery_broker_url is configured.
-        """
-        return bool(self.settings.celery_broker_url)
-
-    def get_redis_service(self) -> RedisService | None:
-        """Get or create Redis service if configured.
-
-        Returns:
-            RedisService instance if Redis is configured, None otherwise
-        """
-        if not self.use_redis:
-            return None
-
-        if self._redis_service is None:
-            logger.info("Initializing Redis service")
-            self._redis_service = RedisService(self.settings.redis_url)
-
-        return self._redis_service
-
-    def create_cache_service(self) -> CacheService:
-        """Create cache service with appropriate backend.
-
-        Returns:
-            CacheService with Redis backend if configured, in-memory otherwise
-        """
-        if "cache_service" not in self._services:
-            if self.use_redis:
-                logger.info("Creating CacheService with Redis backend")
-                redis_service = self.get_redis_service()
-                cache_service = CacheService(redis_service=redis_service)
-            else:
-                logger.info("Creating CacheService with in-memory backend")
-                cache_service = CacheService()
-
-            self._services["cache_service"] = cache_service
-
-        from typing import cast
-
-        return cast(CacheService, self._services["cache_service"])
+        return True
 
     def create_task_service(self) -> TaskService:
-        """Create task service with appropriate backend.
+        """Create task service with new storage backend.
 
         Returns:
-            TaskService with Redis persistence if configured, in-memory otherwise
+            TaskService using the new generic storage system
         """
         if "task_service" not in self._services:
-            if self.use_redis:
-                logger.info("Creating TaskService with Redis backend")
-                redis_service = self.get_redis_service()
-                task_service = TaskService(redis_service=redis_service)
-            else:
-                logger.info("Creating TaskService with in-memory backend")
-                task_service = TaskService()
-
+            logger.info("Creating TaskService with generic storage backend")
+            task_service = TaskService()
             self._services["task_service"] = task_service
 
         from typing import cast
 
         return cast(TaskService, self._services["task_service"])
 
-    def create_background_task_coordinator(
+    async def create_background_task_coordinator(
         self, session: AsyncSession | None = None
     ) -> BackgroundTaskCoordinator:
         """Create background task coordinator with appropriate backend.
@@ -134,18 +86,21 @@ class ServiceFactory:
             BackgroundTaskCoordinator with Celery integration if configured
         """
         if "background_task_coordinator" not in self._services:
+            # Ensure messaging is initialized before creating services that use it
+            await self.ensure_messaging_initialized()
+
             analysis_orchestrator = self.create_analysis_orchestrator(session)
             task_service = self.create_task_service()
 
             logger.info(
                 f"Creating BackgroundTaskCoordinator with "
-                f"{'Celery' if self.use_celery else 'synchronous'} backend"
+                f"{'background' if self.use_background_tasks else 'synchronous'} backend"
             )
 
             coordinator = BackgroundTaskCoordinator(
                 analysis_orchestrator=analysis_orchestrator,
                 task_service=task_service,
-                use_celery=self.use_celery,
+                use_background=self.use_background_tasks,
             )
 
             self._services["background_task_coordinator"] = coordinator
@@ -291,7 +246,7 @@ class ServiceFactory:
 
         return self._services["dispatcher"]
 
-    def create_application_service(
+    async def create_application_service(
         self, session: AsyncSession | None = None
     ) -> ApplicationService:
         """Create the main application service with all dependencies.
@@ -310,7 +265,7 @@ class ServiceFactory:
 
         logger.info(
             f"Creating ApplicationService with session-dependent repositories "
-            f"(Redis: {self.use_redis}, Celery: {self.use_celery})"
+            f"(Background Tasks: {self.use_background_tasks})"
         )
 
         # Create singleton dependencies (services that don't need database sessions)
@@ -318,7 +273,9 @@ class ServiceFactory:
         analysis_orchestrator = self.create_analysis_orchestrator(session)
         analysis_template_service = self.create_analysis_template_service()
         edgar_service = self.create_edgar_service()
-        background_task_coordinator = self.create_background_task_coordinator(session)
+        background_task_coordinator = await self.create_background_task_coordinator(
+            session
+        )
 
         # Create session-dependent repositories
         analysis_repository = self.create_analysis_repository(session)
@@ -336,7 +293,7 @@ class ServiceFactory:
             background_task_coordinator=background_task_coordinator,
         )
 
-    def get_handler_dependencies(self, session: AsyncSession) -> dict[str, Any]:
+    async def get_handler_dependencies(self, session: AsyncSession) -> dict[str, Any]:
         """Get dependencies for handler instantiation with database session.
 
         This method provides the correct dependencies for CQRS handlers,
@@ -354,15 +311,50 @@ class ServiceFactory:
             "company_repository": self.create_company_repository(session),
             "edgar_service": self.create_edgar_service(),
             "analysis_orchestrator": self.create_analysis_orchestrator(session),
-            "background_task_coordinator": self.create_background_task_coordinator(),
+            "background_task_coordinator": await self.create_background_task_coordinator(
+                session
+            ),
             "template_service": self.create_analysis_template_service(),
         }
 
+    async def ensure_messaging_initialized(self) -> None:
+        """Ensure messaging services are initialized."""
+        if not self._messaging_initialized:
+            logger.info("Initializing messaging services")
+
+            # Determine environment
+            env_str = self.settings.messaging_environment.lower()
+            if env_str == "production":
+                environment = EnvironmentType.PRODUCTION
+            elif env_str == "testing":
+                environment = EnvironmentType.TESTING
+            else:
+                environment = EnvironmentType.DEVELOPMENT
+
+            # Prepare configuration based on environment
+            config = {}
+            if environment == EnvironmentType.DEVELOPMENT:
+                config["rabbitmq_url"] = self.settings.rabbitmq_url
+            elif environment == EnvironmentType.PRODUCTION:
+                config["aws_region"] = self.settings.aws_region
+                config["aws_access_key_id"] = self.settings.aws_access_key_id
+                config["aws_secret_access_key"] = self.settings.aws_secret_access_key
+                config["aws_s3_bucket"] = self.settings.aws_s3_bucket
+                config["queue_prefix"] = "aperilex"
+
+            # Initialize messaging services
+            await initialize_services(environment, **config)
+            self._messaging_initialized = True
+            logger.info(
+                f"Messaging services initialized for {environment.value} environment"
+            )
+
     async def cleanup(self) -> None:
-        """Clean up resources like Redis connections.
+        """Clean up resources.
 
         Should be called during application shutdown.
         """
-        if self._redis_service is not None:
-            logger.info("Closing Redis connection")
-            await self._redis_service.disconnect()
+        logger.info("Cleaning up service factory resources")
+        if self._messaging_initialized:
+            await cleanup_services()
+            self._messaging_initialized = False

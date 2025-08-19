@@ -1,15 +1,12 @@
-"""Task service for managing background task operations."""
+"""Task service for managing background task operations using the new storage system."""
 
-import json
 import logging
 from datetime import UTC, datetime
-from typing import TYPE_CHECKING, Any
-from uuid import UUID, uuid4
+from typing import Any
+from uuid import uuid4
 
 from src.application.schemas.responses.task_response import TaskResponse
-
-if TYPE_CHECKING:
-    from src.infrastructure.cache.redis_service import RedisService
+from src.infrastructure.messaging import get_storage_service
 
 logger = logging.getLogger(__name__)
 
@@ -18,351 +15,467 @@ class TaskService:
     """Service for managing background task operations.
 
     This service provides task tracking and coordination for long-running operations
-    like LLM analysis. It prepares the foundation for Celery integration in Phase 7
-    while providing immediate task tracking capabilities for synchronous operations.
+    using the new generic storage interface. It supports both distributed storage
+    (for production) and in-memory storage (for development/testing).
     """
 
-    def __init__(self, redis_service: "RedisService | None" = None) -> None:
+    def __init__(self) -> None:
         """Initialize the task service.
 
-        Args:
-            redis_service: Redis service for distributed task storage (optional)
+        Storage backend is determined by the messaging service configuration.
         """
-        self.redis_service = redis_service
         self.tasks: dict[str, dict[str, Any]] = {}  # Fallback in-memory storage
+        self._storage_available = False
+        logger.info("TaskService initialized with generic storage backend")
 
-        if redis_service:
-            logger.info("TaskService initialized with Redis backend")
-        else:
-            logger.info("TaskService initialized with in-memory backend")
+    async def _get_storage(self) -> Any:
+        """Get storage service instance."""
+        try:
+            storage = await get_storage_service()
+            self._storage_available = True
+            return storage
+        except Exception as e:
+            logger.warning(
+                f"Storage service not available, using in-memory fallback: {e}"
+            )
+            self._storage_available = False
+            return None
 
     async def create_task(
         self,
-        task_type: str,
-        parameters: dict[str, Any],
+        task_id: str | None = None,
+        task_type: str = "generic",
+        parameters: dict[str, Any] | None = None,
         user_id: str | None = None,
     ) -> TaskResponse:
         """Create a new task for tracking.
 
         Args:
+            task_id: Optional task ID (will generate if not provided)
             task_type: Type of task (e.g., "analyze_filing")
             parameters: Task parameters for execution
             user_id: User who initiated the task
 
         Returns:
-            TaskResponse with task tracking information
+            TaskResponse with task details
         """
-        task_id = uuid4()
-
-        task_info = {
-            "task_id": str(task_id),
-            "task_type": task_type,
-            "status": "pending",
-            "created_at": datetime.now(UTC).isoformat(),
-            "updated_at": datetime.now(UTC).isoformat(),
-            "parameters": parameters,
-            "user_id": user_id,
-            "result": None,
-            "error": None,
-            "progress": 0.0,
-        }
-
-        await self._store_task(str(task_id), task_info)
-
-        logger.info(
-            f"Created task {task_id}",
-            extra={
-                "task_id": str(task_id),
-                "task_type": task_type,
-                "user_id": user_id,
-            },
-        )
-
-        return TaskResponse(
-            task_id=str(task_id),
-            status="pending",
-            result=None,
-        )
-
-    async def _store_task(self, task_id: str, task_info: dict[str, Any]) -> None:
-        """Store task information.
-
-        Args:
-            task_id: Task ID
-            task_info: Task information dict
-        """
-        if self.redis_service:
-            await self._store_task_in_redis(task_id, task_info)
-        else:
-            await self._store_task_in_memory(task_id, task_info)
-
-    async def _store_task_in_redis(
-        self, task_id: str, task_info: dict[str, Any]
-    ) -> None:
-        """Store task in Redis.
-
-        Args:
-            task_id: Task ID
-            task_info: Task information dict
-        """
-        if self.redis_service is None:
-            await self._store_task_in_memory(task_id, task_info)
-            return
-
         try:
-            key = f"task:{task_id}"
-            value = json.dumps(task_info, default=str)
-            # Store with 7 days TTL
-            from datetime import timedelta
+            # Generate task ID if not provided
+            if task_id is None:
+                task_id = str(uuid4())
 
-            await self.redis_service.set(key, value, expire=timedelta(days=7))
+            # Create task data
+            task_data = {
+                "task_id": task_id,
+                "task_type": task_type,
+                "status": "created",
+                "parameters": parameters or {},
+                "user_id": user_id,
+                "created_at": datetime.now(UTC).isoformat(),
+                "updated_at": datetime.now(UTC).isoformat(),
+                "started_at": None,
+                "completed_at": None,
+                "progress": 0,
+                "message": "Task created",
+                "result": None,
+                "error": None,
+                "metadata": {},
+            }
+
+            # Store task
+            await self._store_task(task_id, task_data)
+
+            logger.info(f"Created task {task_id} of type {task_type}")
+
+            return TaskResponse(
+                task_id=task_id,
+                status="created",
+                current_step="Task created successfully",
+            )
+
         except Exception as e:
-            logger.warning(f"Redis task storage error for {task_id}: {str(e)}")
-            # Fallback to memory
-            await self._store_task_in_memory(task_id, task_info)
+            logger.error(f"Failed to create task: {e}")
+            task_id = task_id or str(uuid4())
+            return TaskResponse(
+                task_id=task_id,
+                status="error",
+                error_message=f"Failed to create task: {str(e)}",
+            )
 
-    async def _store_task_in_memory(
-        self, task_id: str, task_info: dict[str, Any]
-    ) -> None:
-        """Store task in memory.
+    async def update_task_status(
+        self,
+        task_id: str,
+        status: str,
+        message: str | None = None,
+        progress: int | None = None,
+        result: Any = None,
+        error: str | None = None,
+        metadata: dict[str, Any] | None = None,
+    ) -> TaskResponse:
+        """Update task status and information.
 
         Args:
-            task_id: Task ID
-            task_info: Task information dict
-        """
-        # Convert datetime objects back for in-memory storage
-        memory_info = task_info.copy()
-        if isinstance(memory_info["created_at"], str):
-            memory_info["created_at"] = datetime.fromisoformat(
-                memory_info["created_at"]
-            )
-        if isinstance(memory_info["updated_at"], str):
-            memory_info["updated_at"] = datetime.fromisoformat(
-                memory_info["updated_at"]
-            )
-        # Keep task_id as string for consistency
+            task_id: Task identifier
+            status: New task status
+            message: Optional status message
+            progress: Optional progress percentage (0-100)
+            result: Optional task result
+            error: Optional error message
+            metadata: Optional additional metadata
 
-        self.tasks[str(task_id)] = memory_info
+        Returns:
+            TaskResponse with updated task details
+        """
+        try:
+            # Get existing task
+            task_data = await self._get_task(task_id)
+
+            if not task_data:
+                return TaskResponse(
+                    task_id=task_id,
+                    status="not_found",
+                    error_message="Task not found",
+                )
+
+            # Update task data
+            task_data["status"] = status
+            task_data["updated_at"] = datetime.now(UTC).isoformat()
+
+            if message is not None:
+                task_data["message"] = message
+
+            if progress is not None:
+                task_data["progress_percent"] = float(max(0, min(100, progress)))
+
+            if result is not None:
+                task_data["result"] = result
+
+            if error is not None:
+                task_data["error"] = error
+
+            if metadata is not None:
+                task_data["metadata"].update(metadata)
+
+            # Set timing information based on status
+            if status == "running" and not task_data.get("started_at"):
+                task_data["started_at"] = datetime.now(UTC).isoformat()
+            elif status in ["completed", "failed", "cancelled"] and not task_data.get(
+                "completed_at"
+            ):
+                task_data["completed_at"] = datetime.now(UTC).isoformat()
+
+            # Store updated task
+            await self._store_task(task_id, task_data)
+
+            logger.debug(f"Updated task {task_id} status to {status}")
+
+            return TaskResponse(
+                task_id=task_id,
+                status=status,
+                current_step=task_data.get("message", ""),
+                result=task_data.get("result"),
+                progress_percent=task_data.get("progress_percent"),
+                started_at=task_data.get("started_at"),
+                completed_at=task_data.get("completed_at"),
+                error_message=task_data.get("error"),
+            )
+
+        except Exception as e:
+            logger.error(f"Failed to update task {task_id}: {e}")
+            return TaskResponse(
+                task_id=task_id,
+                status="error",
+                error_message=f"Failed to update task: {str(e)}",
+            )
+
+    async def get_task_status(self, task_id: str) -> dict[str, Any] | None:
+        """Get task status and information with messaging system synchronization.
+
+        Args:
+            task_id: Task identifier
+
+        Returns:
+            Task data dictionary or None if not found
+        """
+        try:
+            task_data = await self._get_task(task_id)
+
+            if not task_data:
+                return None
+
+            # If task has a messaging task ID, sync status from messaging system
+            await self._sync_messaging_status(task_id, task_data)
+
+            return task_data
+        except Exception as e:
+            logger.error(f"Failed to get task status for {task_id}: {e}")
+            return None
+
+    async def get_task_response(self, task_id: str) -> TaskResponse:
+        """Get task status as TaskResponse object.
+
+        Args:
+            task_id: Task identifier
+
+        Returns:
+            TaskResponse with task details
+        """
+        try:
+            task_data = await self._get_task(task_id)
+
+            if not task_data:
+                return TaskResponse(
+                    task_id=task_id,
+                    status="not_found",
+                    error_message="Task not found",
+                )
+
+            return TaskResponse(
+                task_id=task_id,
+                status=task_data.get("status", "unknown"),
+                current_step=task_data.get("message", ""),
+                result=task_data.get("result"),
+                progress_percent=task_data.get("progress_percent"),
+                started_at=task_data.get("started_at"),
+                completed_at=task_data.get("completed_at"),
+                error_message=task_data.get("error"),
+            )
+
+        except Exception as e:
+            logger.error(f"Failed to get task response for {task_id}: {e}")
+            return TaskResponse(
+                task_id=task_id,
+                status="error",
+                error_message=f"Failed to get task: {str(e)}",
+            )
+
+    async def list_user_tasks(
+        self, user_id: str, limit: int = 50, status_filter: str | None = None
+    ) -> list[TaskResponse]:
+        """List tasks for a specific user.
+
+        Args:
+            user_id: User identifier
+            limit: Maximum number of tasks to return
+            status_filter: Optional status filter
+
+        Returns:
+            List of TaskResponse objects
+        """
+        try:
+            # This is a simplified implementation
+            # In a real implementation, you'd want to use storage indexes
+            # or a separate task index for efficient querying
+
+            # For now, we'll check if we can list keys from storage
+            storage = await self._get_storage()
+
+            if storage and hasattr(storage, "get_all_keys"):
+                # Try to get all task keys and filter
+                all_keys = storage.get_all_keys()
+                task_keys = [key for key in all_keys if key.startswith("task:")]
+
+                tasks = []
+                for key in task_keys[
+                    : limit * 2
+                ]:  # Get more than limit to allow filtering
+                    task_id = key.replace("task:", "")
+                    task_data = await self._get_task(task_id)
+
+                    if (
+                        task_data
+                        and task_data.get("user_id") == user_id
+                        and (
+                            not status_filter
+                            or task_data.get("status") == status_filter
+                        )
+                    ):
+                        tasks.append(
+                            TaskResponse(
+                                task_id=task_id,
+                                status=task_data.get("status", "unknown"),
+                                current_step=task_data.get("message", ""),
+                                result=task_data.get("result"),
+                                progress_percent=task_data.get("progress_percent"),
+                                started_at=task_data.get("started_at"),
+                                completed_at=task_data.get("completed_at"),
+                                error_message=task_data.get("error"),
+                            )
+                        )
+
+                        if len(tasks) >= limit:
+                            break
+
+                return tasks
+            else:
+                # Fall back to in-memory storage
+                tasks = []
+                for task_id, task_data in self.tasks.items():
+                    if task_data.get("user_id") == user_id and (
+                        not status_filter or task_data.get("status") == status_filter
+                    ):
+                        tasks.append(
+                            TaskResponse(
+                                task_id=task_id,
+                                status=task_data.get("status", "unknown"),
+                                current_step=task_data.get("message", ""),
+                                result=task_data.get("result"),
+                                progress_percent=task_data.get("progress_percent"),
+                                started_at=task_data.get("started_at"),
+                                completed_at=task_data.get("completed_at"),
+                                error_message=task_data.get("error"),
+                            )
+                        )
+
+                        if len(tasks) >= limit:
+                            break
+
+                return tasks
+
+        except Exception as e:
+            logger.error(f"Failed to list tasks for user {user_id}: {e}")
+            return []
+
+    async def delete_task(self, task_id: str) -> bool:
+        """Delete a task.
+
+        Args:
+            task_id: Task identifier
+
+        Returns:
+            True if deleted successfully
+        """
+        try:
+            storage = await self._get_storage()
+
+            if storage:
+                key = f"task:{task_id}"
+                result = await storage.delete(key)
+                return bool(result)
+            else:
+                # In-memory fallback
+                if task_id in self.tasks:
+                    del self.tasks[task_id]
+                    return True
+                return False
+
+        except Exception as e:
+            logger.error(f"Failed to delete task {task_id}: {e}")
+            return False
+
+    async def _store_task(self, task_id: str, task_data: dict[str, Any]) -> None:
+        """Store task data."""
+        storage = await self._get_storage()
+
+        if storage:
+            key = f"task:{task_id}"
+            await storage.set(key, task_data)
+        else:
+            # In-memory fallback
+            self.tasks[task_id] = task_data
 
     async def _get_task(self, task_id: str) -> dict[str, Any] | None:
-        """Get task information.
+        """Get task data."""
+        storage = await self._get_storage()
 
-        Args:
-            task_id: Task ID
-
-        Returns:
-            Task information dict or None
-        """
-        if self.redis_service:
-            return await self._get_task_from_redis(task_id)
+        if storage:
+            key = f"task:{task_id}"
+            result = await storage.get(key)
+            return result if result is not None else None
         else:
-            return await self._get_task_from_memory(task_id)
+            # In-memory fallback
+            return self.tasks.get(task_id)
 
-    async def _get_task_from_redis(self, task_id: str) -> dict[str, Any] | None:
-        """Get task from Redis.
+    async def _sync_messaging_status(
+        self, task_id: str, task_data: dict[str, Any]
+    ) -> None:
+        """Sync task status with messaging system if messaging task ID exists.
 
         Args:
-            task_id: Task ID
-
-        Returns:
-            Task information dict or None
+            task_id: Task identifier
+            task_data: Current task data (modified in place)
         """
-        if self.redis_service is None:
-            return await self._get_task_from_memory(task_id)
+        messaging_task_id = task_data.get("metadata", {}).get("messaging_task_id")
+        if not messaging_task_id:
+            return
 
         try:
-            key = f"task:{task_id}"
-            data = await self.redis_service.get(key)
-            if data:
-                return json.loads(data)  # type: ignore[no-any-return]
-            return None
+            from src.infrastructure.messaging import get_queue_service
+
+            queue_service = await get_queue_service()
+            messaging_status = await queue_service.get_task_status(messaging_task_id)
+
+            if messaging_status:
+                # Map messaging status to our status
+                status_mapping = {
+                    "PENDING": "queued",
+                    "RUNNING": "running",
+                    "SUCCESS": "completed",
+                    "FAILURE": "failed",
+                    "RETRY": "running",
+                    "REVOKED": "cancelled",
+                }
+
+                mapped_status = status_mapping.get(
+                    messaging_status.value, task_data.get("status", "unknown")
+                )
+
+                # Update task status if it changed
+                if mapped_status != task_data.get("status"):
+                    task_data["status"] = mapped_status
+                    task_data["updated_at"] = datetime.now(UTC).isoformat()
+
+                    # Set completion time for final states
+                    if mapped_status in [
+                        "completed",
+                        "failed",
+                        "cancelled",
+                    ] and not task_data.get("completed_at"):
+                        task_data["completed_at"] = datetime.now(UTC).isoformat()
+
+                    # Store the updated task data
+                    await self._store_task(task_id, task_data)
+                    logger.debug(
+                        f"Synced task {task_id} status from messaging: {mapped_status}"
+                    )
+
         except Exception as e:
-            logger.warning(f"Redis task get error for {task_id}: {str(e)}")
-            return await self._get_task_from_memory(task_id)
+            logger.warning(f"Could not sync messaging status for task {task_id}: {e}")
 
-    async def _get_task_from_memory(self, task_id: str) -> dict[str, Any] | None:
-        """Get task from memory.
+    async def cancel_messaging_task(self, task_id: str) -> bool:
+        """Cancel a task in the messaging system if it exists.
 
         Args:
-            task_id: Task ID
+            task_id: Task identifier
 
         Returns:
-            Task information dict or None
+            True if cancellation was attempted, False if no messaging task ID
         """
-        if str(task_id) in self.tasks:
-            task_info = self.tasks[str(task_id)].copy()
-            # Convert datetime objects to ISO format for consistency
-            if isinstance(task_info["created_at"], datetime):
-                task_info["created_at"] = task_info["created_at"].isoformat()
-            if isinstance(task_info["updated_at"], datetime):
-                task_info["updated_at"] = task_info["updated_at"].isoformat()
-            # task_id is already a string, no conversion needed
-            return task_info
-        return None
+        try:
+            task_data = await self._get_task(task_id)
+            if not task_data:
+                return False
 
-    async def update_task_progress(
-        self,
-        task_id: str,
-        progress: float,
-        message: str | None = None,
-    ) -> None:
-        """Update task progress.
+            messaging_task_id = task_data.get("metadata", {}).get("messaging_task_id")
+            if not messaging_task_id:
+                return False
 
-        Args:
-            task_id: ID of the task to update
-            progress: Progress percentage (0.0 to 1.0)
-            message: Optional progress message
-        """
-        task_info = await self._get_task(task_id)
-        if not task_info:
-            logger.warning(f"Attempted to update non-existent task {task_id}")
-            return
+            from src.infrastructure.messaging import get_queue_service
 
-        task_info["progress"] = min(max(progress, 0.0), 1.0)  # Clamp between 0 and 1
-        task_info["updated_at"] = datetime.now(UTC).isoformat()
+            queue_service = await get_queue_service()
+            cancelled = await queue_service.cancel_task(messaging_task_id)
 
-        if task_info["status"] == "pending" and progress > 0:
-            task_info["status"] = "processing"
+            if cancelled:
+                logger.info(
+                    f"Cancelled messaging task {messaging_task_id} for task {task_id}"
+                )
+            else:
+                logger.warning(
+                    f"Could not cancel messaging task {messaging_task_id} for task {task_id}"
+                )
 
-        await self._store_task(str(task_id), task_info)
+            return cancelled
 
-        logger.debug(
-            f"Updated task {task_id} progress to {progress:.1%}",
-            extra={
-                "task_id": str(task_id),
-                "progress": progress,
-                "message": message,
-            },
-        )
-
-    async def complete_task(
-        self,
-        task_id: str,
-        result: dict[str, Any],
-        message: str | None = None,
-    ) -> None:
-        """Mark task as completed with result.
-
-        Args:
-            task_id: ID of the task to complete
-            result: Task result data
-            message: Optional completion message
-        """
-        task_info = await self._get_task(task_id)
-        if not task_info:
-            logger.warning(f"Attempted to complete non-existent task {task_id}")
-            return
-
-        task_info["status"] = "completed"
-        task_info["progress"] = 1.0
-        task_info["updated_at"] = datetime.now(UTC).isoformat()
-        task_info["result"] = result
-
-        await self._store_task(str(task_id), task_info)
-
-        logger.info(
-            f"Completed task {task_id}",
-            extra={
-                "task_id": str(task_id),
-                "task_type": task_info["task_type"],
-                "message": message,
-            },
-        )
-
-    async def fail_task(
-        self,
-        task_id: str,
-        error: str,
-        retry_count: int = 0,
-    ) -> None:
-        """Mark task as failed with error information.
-
-        Args:
-            task_id: ID of the task to fail
-            error: Error message
-            retry_count: Number of retry attempts
-        """
-        task_info = await self._get_task(task_id)
-        if not task_info:
-            logger.warning(f"Attempted to fail non-existent task {task_id}")
-            return
-
-        task_info["status"] = "failed"
-        task_info["updated_at"] = datetime.now(UTC).isoformat()
-        task_info["error"] = error
-        task_info["retry_count"] = retry_count
-
-        await self._store_task(str(task_id), task_info)
-
-        logger.error(
-            f"Failed task {task_id}",
-            extra={
-                "task_id": str(task_id),
-                "task_type": task_info["task_type"],
-                "error": error,
-                "retry_count": retry_count,
-            },
-        )
-
-    async def get_task_status(self, task_id: str | UUID) -> TaskResponse | None:
-        """Get current status of a task.
-
-        Args:
-            task_id: ID of the task to check
-
-        Returns:
-            TaskResponse with current status, or None if task not found
-        """
-        task_id_str = str(task_id) if isinstance(task_id, UUID) else task_id
-        task_info = await self._get_task(task_id_str)
-        if not task_info:
-            return None
-
-        return TaskResponse(
-            task_id=task_id_str,
-            status=task_info["status"],
-            result=task_info["result"],
-        )
-
-    def cleanup_old_tasks(self, hours_old: int = 24) -> int:
-        """Clean up old completed/failed tasks.
-
-        Args:
-            hours_old: Remove tasks older than this many hours
-
-        Returns:
-            Number of tasks cleaned up
-        """
-        cutoff_time = datetime.now(UTC).timestamp() - (hours_old * 3600)
-        old_task_ids = []
-
-        for task_id, task_info in self.tasks.items():
-            if (
-                task_info["status"] in ["completed", "failed"]
-                and task_info["updated_at"].timestamp() < cutoff_time
-            ):
-                old_task_ids.append(task_id)
-
-        for task_id in old_task_ids:
-            del self.tasks[task_id]
-
-        if old_task_ids:
-            logger.info(f"Cleaned up {len(old_task_ids)} old tasks")
-
-        return len(old_task_ids)
-
-    def get_task_statistics(self) -> dict[str, int]:
-        """Get statistics about current tasks.
-
-        Returns:
-            Dictionary with task counts by status
-        """
-        stats = {"pending": 0, "processing": 0, "completed": 0, "failed": 0, "total": 0}
-
-        for task_info in self.tasks.values():
-            status = task_info["status"]
-            if status in stats:
-                stats[status] += 1
-            stats["total"] += 1
-
-        return stats
+        except Exception as e:
+            logger.warning(f"Error cancelling messaging task for {task_id}: {e}")
+            return False

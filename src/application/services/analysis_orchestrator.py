@@ -3,21 +3,25 @@
 import inspect
 import logging
 from collections.abc import Callable, Coroutine
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from typing import Any
 from uuid import UUID, uuid4
 
 from src.application.schemas.commands.analyze_filing import AnalyzeFilingCommand
 from src.application.services.analysis_template_service import AnalysisTemplateService
 from src.domain.entities.analysis import Analysis, AnalysisType
+from src.domain.entities.company import Company
 from src.domain.entities.filing import Filing
+from src.domain.value_objects import CIK
 from src.domain.value_objects.accession_number import AccessionNumber
 from src.domain.value_objects.filing_type import FilingType
 from src.domain.value_objects.processing_status import ProcessingStatus
+from src.domain.value_objects.ticker import Ticker
 from src.infrastructure.edgar.schemas.filing_data import FilingData
 from src.infrastructure.edgar.service import EdgarService
 from src.infrastructure.llm.base import BaseLLMProvider
 from src.infrastructure.repositories.analysis_repository import AnalysisRepository
+from src.infrastructure.repositories.company_repository import CompanyRepository
 from src.infrastructure.repositories.filing_repository import FilingRepository
 from src.shared.config import settings
 
@@ -67,7 +71,7 @@ class AnalysisOrchestrator:
 
         Args:
             analysis_repository: Repository for analysis persistence
-            filing_repository: Repository for filing data
+            filing_repository: Repository for filing metadata and status
             edgar_service: Service for SEC filing retrieval
             llm_provider: LLM provider for analysis processing
             template_service: Service for analysis template management
@@ -88,9 +92,18 @@ class AnalysisOrchestrator:
         progress: float,
         message: str,
     ) -> None:
-        """Helper to call progress callback whether it's sync or async.
+        """Call progress callback function, handling both sync and async variants.
 
-        Progress callback errors are logged but don't interrupt the orchestration.
+        Progress callback errors are logged but don't interrupt the orchestration workflow.
+        Provides resilient progress reporting for long-running analysis operations.
+
+        Args:
+            progress_callback: Optional callback function for progress updates
+            progress: Progress value between 0.0 and 1.0
+            message: Human-readable progress status message
+
+        Note:
+            Callback errors are logged as warnings and don't affect the main workflow.
         """
         if progress_callback:
             try:
@@ -113,26 +126,62 @@ class AnalysisOrchestrator:
             | None
         ) = None,
     ) -> Analysis:
-        """Orchestrate the complete filing analysis workflow.
+        """Orchestrate the complete end-to-end filing analysis workflow.
 
-        This is the main orchestration method that coordinates:
-        1. Filing access validation
-        2. Filing content retrieval via EdgarService
-        3. Template and schema resolution
-        4. LLM analysis processing
-        5. Result persistence and metadata management
+        This is the primary orchestration method that coordinates the entire SEC filing
+        analysis pipeline from filing validation through LLM processing to result persistence.
+        Implements robust error handling, progress tracking, and status management throughout
+        the workflow.
+
+        Workflow Steps:
+        1. Command Validation: Validates required parameters and business rules
+        2. Filing Access: Validates filing accessibility via Edgar API
+        3. Filing Resolution: Retrieves or creates filing entity with company linkage
+        4. Content Retrieval: Loads filing content from storage with Edgar fallback
+        5. Duplicate Detection: Checks for existing analyses (unless force reprocess)
+        6. Analysis Initialization: Creates analysis entity and begins progress tracking
+        7. Status Management: Marks filing as PROCESSING during analysis
+        8. Template Resolution: Maps analysis template to required LLM schemas
+        9. Section Extraction: Intelligently filters filing content by schema requirements
+        10. LLM Processing: Executes AI analysis with proper error handling
+        11. Result Processing: Updates analysis with results and computed metadata
+        12. Persistence: Saves completed analysis with comprehensive metadata
+        13. Status Completion: Marks filing as COMPLETED after successful analysis
+        14. Error Recovery: Handles failures with proper status rollback and cleanup
+
+        Features:
+        - Progress Tracking: Real-time progress updates via callback and persistent metadata
+        - Duplicate Prevention: Automatic detection of existing analyses for efficiency
+        - Error Resilience: Comprehensive error handling with proper status rollback
+        - Content Optimization: Intelligent section filtering to reduce LLM token usage
+        - Metadata Enrichment: Rich metadata capture for debugging and reanalysis
+        - Storage Integration: Seamless integration with cached content and Edgar API
 
         Args:
-            command: Analysis command with filing details and parameters
-            progress_callback: Optional callback for progress updates (progress: float, message: str)
+            command: Analysis command containing filing identifier, template, and configuration
+            progress_callback: Optional callback function for real-time progress updates.
+                              Supports both synchronous and asynchronous callback functions.
+                              Called with (progress: float, message: str) parameters.
 
         Returns:
-            Analysis entity with complete results
+            Analysis entity with complete results, metadata, and confidence scoring.
+            Contains LLM analysis results, processing metadata, and section mappings.
 
         Raises:
-            FilingAccessError: If filing cannot be accessed or validated
-            AnalysisProcessingError: If LLM analysis fails
-            AnalysisOrchestrationError: For other orchestration failures
+            FilingAccessError: When filing cannot be accessed, validated, or retrieved
+                              from Edgar API. Includes cases where filing data is malformed
+                              or missing required fields.
+            AnalysisProcessingError: When LLM analysis fails due to processing errors,
+                                   API failures, or invalid analysis responses.
+            AnalysisOrchestrationError: For other orchestration failures including
+                                      database errors, entity creation failures, or
+                                      unexpected system errors during workflow execution.
+            ValueError: When command validation fails due to missing or invalid parameters.
+
+        Note:
+            The orchestrator ensures data consistency by rolling back filing status
+            to FAILED if analysis fails after marking as PROCESSING. Progress callback
+            errors are logged but don't interrupt the main workflow.
         """
         # Initialize filing variable to prevent UnboundLocalError in exception handlers
         filing = None
@@ -153,14 +202,29 @@ class AnalysisOrchestrator:
                 command.accession_number
             )
 
-            # Get or create filing entity in database
+            # Get filing metadata from database and content from cache
             filing = await self.filing_repository.get_by_accession_number(
                 command.accession_number
             )
             if not filing:
-                # Create filing entity from edgar data
+                # Try to create filing from edgar data if it doesn't exist
+                filing_data = await self.validate_filing_access_and_get_data(
+                    command.accession_number
+                )
                 filing = await self._create_filing_from_edgar_data(
                     filing_data, command.company_cik
+                )
+
+            # Ensure company_cik is available for storage retrieval
+            assert command.company_cik is not None, "company_cik must not be None"
+            # Get filing content directly from storage (no cache dependency)
+            filing_content = await self._get_filing_content_from_storage(
+                command.accession_number, command.company_cik
+            )
+            if not filing_content:
+                raise FilingAccessError(
+                    f"Filing content for {command.accession_number} not found in storage. "
+                    f"Filing content must be retrieved before analysis can be performed."
                 )
 
             # Step 2: Check for existing analysis (unless force reprocess)
@@ -200,7 +264,7 @@ class AnalysisOrchestrator:
 
             # Step 5: Extract filing sections based on schemas needed
             filing_sections = await self._extract_relevant_filing_sections(
-                filing_data, schemas_to_use
+                filing_content, schemas_to_use, command.accession_number
             )
             await self.track_analysis_progress(
                 analysis.id, 0.4, "Filing sections extracted"
@@ -232,8 +296,49 @@ class AnalysisOrchestrator:
                 await self.handle_analysis_failure(analysis.id, e)
                 raise AnalysisProcessingError(f"LLM analysis failed: {str(e)}") from e
 
-            # Step 7: Update analysis with results and metadata
-            analysis.update_results(llm_response.model_dump())
+            # Step 7: Store analysis results to storage first (for transactional consistency)
+            # CRITICAL: Storage MUST succeed before persisting to database to prevent
+            # orphaned metadata without results. This ensures data consistency.
+            analysis_results = llm_response.model_dump()
+
+            # Import storage function
+            from src.infrastructure.tasks.analysis_tasks import store_analysis_results
+
+            try:
+                # Store results to storage - MUST succeed before saving to database
+                storage_success = await store_analysis_results(
+                    analysis.id,
+                    command.company_cik,
+                    command.accession_number,
+                    analysis_results,
+                )
+
+                if not storage_success:
+                    # Storage failed - DO NOT save to database to maintain consistency
+                    # Delete the analysis entity that was created earlier
+                    await self.analysis_repository.delete(analysis.id)
+
+                    error_msg = (
+                        f"Failed to store analysis results to storage for {analysis.id}. "
+                        f"Analysis entity has been rolled back to maintain data consistency."
+                    )
+                    logger.error(error_msg)
+                    raise AnalysisProcessingError(error_msg)
+
+            except Exception as e:
+                # Handle any storage exceptions
+                await self.analysis_repository.delete(analysis.id)
+                error_msg = (
+                    f"Storage operation failed for analysis {analysis.id}: {str(e)}. "
+                    f"Analysis entity has been rolled back."
+                )
+                logger.error(error_msg, exc_info=True)
+                raise AnalysisProcessingError(error_msg) from e
+
+            # Storage succeeded, now safe to update metadata
+            logger.info(
+                f"Successfully stored analysis results for {analysis.id} in storage"
+            )
             analysis.update_confidence_score(llm_response.confidence_score)
 
             # Determine which schemas were actually processed based on sections analyzed
@@ -270,6 +375,8 @@ class AnalysisOrchestrator:
                 "sections_analyzed": sections_analyzed,
                 "processing_time_minutes": 15,  # Default processing time
                 "edgar_accession": command.accession_number.value,
+                "accession_number": str(command.accession_number),  # For reanalysis
+                "company_cik": command.company_cik.value,  # For reanalysis
                 "force_reprocessed": command.force_reprocess,
             }
             # Update metadata directly since there's no update_metadata method
@@ -372,11 +479,19 @@ class AnalysisOrchestrator:
     async def handle_analysis_failure(
         self, analysis_id: UUID, error: Exception
     ) -> None:
-        """Handle analysis processing failures with proper logging and cleanup.
+        """Handle analysis processing failures with comprehensive error logging and cleanup.
+
+        Updates analysis entity with failure metadata, logs detailed error information,
+        and tracks failure progress. Provides graceful degradation when analysis
+        operations encounter unrecoverable errors.
 
         Args:
-            analysis_id: ID of the failed analysis
-            error: Exception that caused the failure
+            analysis_id: UUID of the failed analysis entity
+            error: Exception instance that caused the analysis failure
+
+        Note:
+            Failure handling errors are logged but don't propagate to prevent
+            cascading failures in the orchestration workflow.
         """
         try:
             logger.error(
@@ -410,12 +525,20 @@ class AnalysisOrchestrator:
     async def track_analysis_progress(
         self, analysis_id: UUID, progress: float, status: str
     ) -> None:
-        """Track progress of long-running analysis operations.
+        """Track and persist progress updates for long-running analysis operations.
+
+        Updates analysis entity metadata with current progress information and logs
+        detailed progress events. Enables monitoring and debugging of analysis workflows
+        through persistent progress tracking.
 
         Args:
-            analysis_id: ID of the analysis to track
-            progress: Progress percentage (0.0 to 1.0)
-            status: Human-readable status message
+            analysis_id: UUID of the analysis entity being tracked
+            progress: Progress value between 0.0 and 1.0 (0% to 100%)
+            status: Human-readable description of current processing step
+
+        Note:
+            Progress tracking failures are logged as warnings and don't interrupt
+            the main analysis workflow.
         """
         try:
             logger.info(
@@ -447,14 +570,21 @@ class AnalysisOrchestrator:
     async def _create_analysis_entity(
         self, filing_id: UUID, command: AnalyzeFilingCommand
     ) -> Analysis:
-        """Create new analysis entity from command parameters.
+        """Create and persist new analysis entity from command parameters.
+
+        Initializes analysis entity with default configuration values from settings,
+        assigns unique identifier, and persists to repository. Sets up the foundation
+        for tracking analysis workflow progress and results.
 
         Args:
-            filing_id: ID of the filing being analyzed
-            command: Analysis command with configuration
+            filing_id: UUID of the filing entity being analyzed
+            command: Analysis command containing user ID and configuration
 
         Returns:
-            Find Analysis entity
+            Newly created and persisted Analysis entity
+
+        Raises:
+            AnalysisOrchestrationError: If analysis entity creation or persistence fails
         """
         analysis = Analysis(
             id=uuid4(),
@@ -471,14 +601,22 @@ class AnalysisOrchestrator:
     async def _find_existing_analysis(
         self, filing_id: UUID, command: AnalyzeFilingCommand
     ) -> Analysis | None:
-        """Find existing analysis for the same filing and template.
+        """Search for existing analysis matching the same filing and template configuration.
+
+        Prevents duplicate analysis processing by checking for completed analyses
+        with identical filing and template parameters. Enables efficient reuse
+        of previously computed results unless force reprocessing is requested.
 
         Args:
-            filing_id: ID of the filing
-            command: Analysis command to match against
+            filing_id: UUID of the filing entity to search for
+            command: Analysis command containing template and configuration to match
 
         Returns:
-            Existing Analysis if found, None otherwise
+            Existing Analysis entity if matching analysis found, None otherwise
+
+        Note:
+            Search errors are logged as warnings and return None to allow
+            new analysis creation rather than failing the orchestration.
         """
         try:
             # Search for existing analyses for this filing
@@ -517,43 +655,31 @@ class AnalysisOrchestrator:
             return None
 
     async def _create_filing_from_edgar_data(
-        self, filing_data: FilingData, company_cik: Any
+        self, filing_data: FilingData, company_cik: CIK | None
     ) -> Filing:
-        """Create filing entity from edgar service data.
+        """Create and persist filing entity from Edgar service data.
+
+        Handles complete filing entity creation workflow including company resolution,
+        filing metadata extraction, and database persistence. Creates associated
+        company entity if it doesn't exist in the database.
 
         Args:
-            filing_data: Filing data from EdgarService
-            company_cik: Company CIK from command (could be CIK object or None)
+            filing_data: Complete filing information from EdgarService
+            company_cik: Company CIK identifier, uses filing data CIK if None
 
         Returns:
-            Created Filing entity
+            Newly created and persisted Filing entity
 
         Raises:
-            AnalysisOrchestrationError: If filing creation fails
+            AnalysisOrchestrationError: If filing or company creation fails
+            ValueError: If required filing data fields are missing or invalid
         """
         try:
-            # Import required types
-            from datetime import date
-            from uuid import uuid4
-
-            from src.domain.entities.company import Company
-            from src.domain.entities.filing import Filing
-            from src.domain.value_objects.cik import CIK
-            from src.infrastructure.repositories.company_repository import (
-                CompanyRepository,
-            )
-
-            # Use CIK from filing data if command CIK is not provided
+            # Use CIK from command or fallback to filing data CIK
             if company_cik:
-                # Convert CIK object to string if needed
-                cik_value = (
-                    str(company_cik)
-                    if hasattr(company_cik, "value")
-                    else str(company_cik)
-                )
+                cik = company_cik
             else:
-                cik_value = filing_data.cik
-            cik = CIK(cik_value)
+                cik = CIK(filing_data.cik)
 
             # Get or create company entity
             company_repo = CompanyRepository(self.filing_repository.session)
@@ -621,17 +747,78 @@ class AnalysisOrchestrator:
                 f"Failed to create filing entity: {str(e)}"
             ) from e
 
-    async def _extract_relevant_filing_sections(
-        self, filing_data: FilingData, schemas_to_use: list[str]
-    ) -> dict[str, str]:
-        """Extract only the filing sections needed for the specified schemas.
+    async def _get_filing_content_from_storage(
+        self, accession_number: AccessionNumber, company_cik: CIK
+    ) -> dict[str, Any] | None:
+        """Retrieve filing content from persistent storage (local files or S3).
+
+        Attempts to load previously cached filing content using the same storage
+        logic as analysis tasks. Provides fast access to filing data without
+        requiring repeated Edgar API calls.
 
         Args:
-            filing_data: Filing data from EdgarService
-            schemas_to_use: List of schema names that need specific sections
+            accession_number: SEC accession number for filing identification
+            company_cik: Company CIK identifier for storage path resolution
 
         Returns:
-            Dictionary mapping section names to section text
+            Filing content dictionary with sections and metadata if found,
+            None if content not available in storage
+
+        Note:
+            Storage access failures are logged but return None rather than
+            raising exceptions to allow fallback to Edgar API retrieval.
+        """
+        try:
+            # Import the storage functions from analysis_tasks
+            # Import required modules for storage access
+            from src.infrastructure.tasks.analysis_tasks import get_filing_content
+
+            # company_cik is already typed as CIK
+            cik = company_cik
+
+            # Use the same storage retrieval logic
+            filing_content = await get_filing_content(accession_number, cik)
+
+            if filing_content:
+                logger.debug(
+                    f"Retrieved filing content for {accession_number} from storage"
+                )
+                return filing_content
+            else:
+                logger.warning(
+                    f"Filing content for {accession_number} not found in storage"
+                )
+                return None
+
+        except Exception as e:
+            logger.error(
+                f"Failed to retrieve filing content from storage: {e}", exc_info=True
+            )
+            return None
+
+    async def _extract_relevant_filing_sections(
+        self,
+        filing_content: dict[str, Any] | None,
+        schemas_to_use: list[str],
+        accession_number: AccessionNumber,
+    ) -> dict[str, str]:
+        """Extract relevant filing sections optimized for specified analysis schemas.
+
+        Intelligently filters filing content to include only sections required
+        by the analysis templates, improving processing efficiency and reducing
+        LLM token usage. Implements fallback strategies for content retrieval.
+
+        Args:
+            filing_content: Cached filing content from storage, None triggers Edgar fallback
+            schemas_to_use: List of analysis schema names requiring specific sections
+            accession_number: SEC accession number for Edgar API fallback retrieval
+
+        Returns:
+            Dictionary mapping section names to extracted section text content
+
+        Note:
+            Falls back through multiple strategies: cached content → Edgar data →
+            section extraction → full content text to ensure analysis can proceed.
         """
         # Map schemas to required filing sections, both 10-K and 10-Q
         schema_section_mapping = {
@@ -656,9 +843,37 @@ class AnalysisOrchestrator:
         for schema in schemas_to_use:
             sections_needed.update(schema_section_mapping.get(schema, []))
 
-        # If filing data already has sections extracted, use them
+        # Try filing content first (preferred path)
+        if filing_content and "sections" in filing_content:
+            logger.debug("Using sections from filing content")
+            # Filter to only needed sections
+            relevant_sections = {
+                section: content
+                for section, content in filing_content["sections"].items()
+                if section in sections_needed
+            }
+
+            # If we found relevant sections, return them
+            if relevant_sections:
+                logger.info(
+                    f"Found {len(relevant_sections)} relevant sections from filing content"
+                )
+                return relevant_sections
+
+        # Fallback to filing content text if no sections available
+        if filing_content and "content_text" in filing_content:
+            logger.warning(
+                "No specific sections found in filing content, using content text"
+            )
+            return {"Filing Content": filing_content["content_text"]}
+
+        # Last resort: fetch from Edgar service
+        logger.warning("No filing content available, fetching from Edgar service")
+        filing_data = await self.validate_filing_access_and_get_data(accession_number)
+
+        # If filing data has sections extracted, use them
         if filing_data.sections:
-            logger.debug("Using pre-extracted sections from filing data")
+            logger.debug("Using pre-extracted sections from Edgar filing data")
             # Filter to only needed sections
             relevant_sections = {
                 section: content
@@ -669,7 +884,7 @@ class AnalysisOrchestrator:
             # If we found relevant sections, return them
             if relevant_sections:
                 logger.info(
-                    f"Found {len(relevant_sections)} relevant sections from pre-extracted data"
+                    f"Found {len(relevant_sections)} relevant sections from Edgar data"
                 )
                 return relevant_sections
 
@@ -677,8 +892,6 @@ class AnalysisOrchestrator:
         # extract sections using EdgarService
         try:
             # Import required types for EdgarService call
-            from src.domain.value_objects.filing_type import FilingType
-            from src.domain.value_objects.ticker import Ticker
 
             # Use ticker from filing data if available, otherwise extract from company
             if filing_data.ticker:
@@ -733,11 +946,19 @@ class AnalysisOrchestrator:
     async def _rollback_filing_status_on_failure(
         self, filing: Filing | None, error_message: str
     ) -> None:
-        """Rollback filing status to FAILED if analysis fails after marking as processing.
+        """Rollback filing processing status to FAILED after analysis orchestration failure.
+
+        Ensures filing entities don't remain in PROCESSING state when analysis
+        workflows encounter unrecoverable errors. Maintains data consistency
+        and enables proper retry logic for failed analyses.
 
         Args:
-            filing: Filing entity that may need status rollback
-            error_message: Error message to record with the failure
+            filing: Filing entity to update, None-safe for error scenarios
+            error_message: Detailed error description for failure documentation
+
+        Note:
+            Status rollback failures are logged as warnings to prevent
+            cascading errors during error recovery workflows.
         """
         try:
             if filing and filing.processing_status == ProcessingStatus.PROCESSING:
