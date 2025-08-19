@@ -36,10 +36,10 @@ passlib = { extras = ["bcrypt"], version = "^1.7.4" }
 cryptography = "^42.0.0"
 # HTTP Client
 httpx = "^0.28.0"
-# Cache
-redis = "^5.0.1"
-# Task Queue
-celery = { extras = ["redis"], version = "^5.3.6" }
+# Messaging and Queue (development dependencies)
+aio-pika = { version = "^9.4.0" }
+# AWS services (production dependencies)
+boto3 = { version = "^1.34.0" }
 # Monitoring
 prometheus-client = "^0.20.0"
 opentelemetry-api = "^1.22.0"
@@ -153,27 +153,16 @@ module = "src.infrastructure.database.models"
 disable_error_code = ["assignment"]
 
 [[tool.mypy.overrides]]
-module = "celery"
+module = "aio_pika"
 ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
-module = "src.infrastructure.celery_app"
-disable_error_code = ["import-untyped"]
+module = "boto3"
+ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
-module = "src.infrastructure.tasks.*"
-disable_error_code = [
-    "import-untyped",
-    "attr-defined",
-    "call-arg",
-    "arg-type",
-    "misc",
-    "no-any-return",
-]
-
-[[tool.mypy.overrides]]
-module = "src.infrastructure.cache.*"
-disable_error_code = ["union-attr", "no-any-return", "misc", "no-untyped-call"]
+module = "src.infrastructure.messaging.*"
+disable_error_code = ["import-untyped", "misc"]
 
 [[tool.mypy.overrides]]
 module = "edgar.*"
