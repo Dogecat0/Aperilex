@@ -31,7 +31,6 @@ class Analysis:
         filing_id: UUID,
         analysis_type: AnalysisType,
         created_by: str | None,
-        results: dict[str, Any] | None = None,
         llm_provider: str | None = None,
         llm_model: str | None = None,
         confidence_score: float | None = None,
@@ -56,7 +55,6 @@ class Analysis:
         self._filing_id = filing_id
         self._analysis_type = analysis_type
         self._created_by = created_by
-        self._results = results or {}
         self._llm_provider = llm_provider
         self._llm_model = llm_model
         self._confidence_score = confidence_score
@@ -88,7 +86,9 @@ class Analysis:
     @property
     def results(self) -> dict[str, Any]:
         """Get analysis results."""
-        return self._results.copy()
+        # Results are now stored in storage, not in entity
+        # This property exists for API compatibility and fast database queriesbut should be populated separately
+        return {}
 
     @property
     def llm_provider(self) -> str | None:
@@ -162,7 +162,8 @@ class Analysis:
         Returns:
             Filing summary text if available, empty string otherwise
         """
-        return str(self._results.get("filing_summary", ""))
+        # Results are now in storage, not in entity
+        return ""
 
     def get_executive_summary(self) -> str:
         """Get executive summary from comprehensive analysis.
@@ -170,7 +171,8 @@ class Analysis:
         Returns:
             Executive summary text if available, empty string otherwise
         """
-        return str(self._results.get("executive_summary", ""))
+        # Results are now in storage, not in entity
+        return ""
 
     def get_key_insights(self) -> list[str]:
         """Get key insights from analysis.
@@ -178,9 +180,7 @@ class Analysis:
         Returns:
             List of key insights
         """
-        insights: Any = self._results.get("key_insights", [])
-        if isinstance(insights, list):
-            return [str(i) for i in insights]
+        # Results are now in storage, not in entity
         return []
 
     def get_risk_factors(self) -> list[str]:
@@ -189,9 +189,7 @@ class Analysis:
         Returns:
             List of risk factors
         """
-        risks = self._results.get("risk_factors", [])
-        if isinstance(risks, list):
-            return [str(r) for r in risks]
+        # Results are now in storage, not in entity
         return []
 
     def get_opportunities(self) -> list[str]:
@@ -200,9 +198,7 @@ class Analysis:
         Returns:
             List of opportunities
         """
-        opportunities = self._results.get("opportunities", [])
-        if isinstance(opportunities, list):
-            return [str(o) for o in opportunities]
+        # Results are now in storage, not in entity
         return []
 
     def get_financial_highlights(self) -> list[str]:
@@ -211,9 +207,7 @@ class Analysis:
         Returns:
             List of financial highlights
         """
-        highlights = self._results.get("financial_highlights", [])
-        if isinstance(highlights, list):
-            return [str(h) for h in highlights]
+        # Results are now in storage, not in entity
         return []
 
     def get_section_analyses(self) -> list[dict[str, Any]]:
@@ -222,9 +216,7 @@ class Analysis:
         Returns:
             List of section analysis data
         """
-        sections = self._results.get("section_analyses", [])
-        if isinstance(sections, list):
-            return sections
+        # Results are now in storage, not in entity
         return []
 
     def get_section_by_name(self, section_name: str) -> dict[str, Any] | None:
@@ -236,18 +228,20 @@ class Analysis:
         Returns:
             Section analysis data or None if not found
         """
-        for section in self.get_section_analyses():
-            if section.get("section_name") == section_name:
-                return section
+        # Results are now in storage, not in entity
         return None
 
     def update_results(self, results: dict[str, Any]) -> None:
         """Update analysis results.
 
+        Note: Results are now stored in storage, not in entity.
+        This method is kept for compatibility but does nothing.
+
         Args:
             results: New results data to merge with existing
         """
-        self._results.update(results)
+        # Results are now stored in storage, not in entity
+        pass
 
     def update_confidence_score(self, score: float) -> None:
         """Update confidence score.
@@ -292,8 +286,11 @@ class Analysis:
             # For custom queries, base on results size
             return "custom"
 
-    def to_api_response(self) -> dict[str, Any]:
+    def to_api_response(self, results: dict[str, Any] | None = None) -> dict[str, Any]:
         """Convert analysis to API-friendly response format.
+
+        Args:
+            results: Analysis results from storage (must be provided separately)
 
         Returns:
             Dictionary suitable for API responses
@@ -313,16 +310,22 @@ class Analysis:
             },
         }
 
-        # For filing analysis, include the comprehensive results
-        if self.is_filing_analysis():
-            response.update(self._results)
-        else:
-            response["results"] = self._results
+        # Include results if provided from storage
+        if results:
+            if self.is_filing_analysis():
+                response.update(results)
+            else:
+                response["results"] = results
 
         return response
 
-    def get_summary_for_api(self) -> dict[str, Any]:
+    def get_summary_for_api(
+        self, results: dict[str, Any] | None = None
+    ) -> dict[str, Any]:
         """Get condensed summary for API list responses.
+
+        Args:
+            results: Analysis results from storage (optional for summary counts)
 
         Returns:
             Condensed analysis summary
@@ -335,18 +338,19 @@ class Analysis:
             "confidence_score": self._confidence_score,
         }
 
-        if self.is_filing_analysis():
+        if self.is_filing_analysis() and results:
+            # Extract counts from storage results
             summary.update(
                 {
-                    "filing_summary": self.get_filing_summary(),
-                    "key_insights_count": len(self.get_key_insights()),
-                    "risk_factors_count": len(self.get_risk_factors()),
-                    "opportunities_count": len(self.get_opportunities()),
-                    "sections_analyzed": len(self.get_section_analyses()),
+                    "filing_summary": results.get("filing_summary", ""),
+                    "key_insights_count": len(results.get("key_insights", [])),
+                    "risk_factors_count": len(results.get("risk_factors", [])),
+                    "opportunities_count": len(results.get("opportunities", [])),
+                    "sections_analyzed": len(results.get("section_analyses", [])),
                 }
             )
-        else:
-            summary["summary"] = self._results.get("summary", "")
+        elif results:
+            summary["summary"] = results.get("summary", "")
 
         return summary
 

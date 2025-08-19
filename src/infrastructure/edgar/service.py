@@ -2,11 +2,11 @@
 
 import asyncio
 import logging
-from typing import Any
 
 from edgar import Company, Filing, set_identity
 
-from src.domain.value_objects import CIK, AccessionNumber, FilingType, Ticker
+from src.domain.value_objects import CIK, FilingType, Ticker
+from src.domain.value_objects.accession_number import AccessionNumber
 from src.infrastructure.edgar.schemas.company_data import CompanyData
 from src.infrastructure.edgar.schemas.filing_data import FilingData
 from src.infrastructure.edgar.schemas.filing_query import FilingQueryParams
@@ -126,36 +126,6 @@ class EdgarService:
 
         except Exception as e:
             raise ValueError(f"Failed to get filing: {str(e)}") from e
-
-    def get_filing_by_accession(self, accession_number: AccessionNumber) -> FilingData:
-        """Get filing by accession number.
-
-        Args:
-            accession_number: SEC accession number
-
-        Returns:
-            Filing data
-
-        Raises:
-            ValueError: If filing not found
-        """
-        try:
-            # Parse CIK from accession number format
-            cik_str = accession_number.value.split("-")[0]
-            cik = int(cik_str)
-
-            company = Company(cik)
-            filings = company.get_filings()
-
-            # Find filing with matching accession number
-            for filing in filings:
-                if filing.accession_number == accession_number.value:
-                    return self._extract_filing_data(filing)
-
-            raise ValueError(f"Filing not found: {accession_number.value}")
-
-        except Exception as e:
-            raise ValueError(f"Failed to get filing by accession: {str(e)}") from e
 
     def extract_filing_sections(
         self,
@@ -485,22 +455,6 @@ class EdgarService:
         except Exception as e:
             raise ValueError(f"Failed to extract filing sections: {str(e)}") from e
 
-    async def get_filing_by_accession_async(
-        self, accession_number: AccessionNumber
-    ) -> FilingData:
-        """Async version of get_filing_by_accession.
-
-        Args:
-            accession_number: SEC accession number
-
-        Returns:
-            Filing data
-
-        Raises:
-            ValueError: If filing not found
-        """
-        return await asyncio.to_thread(self.get_filing_by_accession, accession_number)
-
     async def get_company_by_cik_async(self, cik: CIK) -> CompanyData:
         """Async version of get_company_by_cik.
 
@@ -692,187 +646,37 @@ class EdgarService:
         except Exception as e:
             raise ValueError(f"Failed to get filings: {str(e)}") from e
 
-    def search_all_filings(
-        self,
-        ticker: Ticker,
-        *,
-        filing_date: str | None = None,
-        limit: int | None = None,
-        amendments: bool = True,
-    ) -> list[FilingData]:
-        """Search all filings for a company with flexible parameters.
-
-        This method allows searching across all filing types for discovery purposes.
+    def get_filing_by_accession(self, accession_number: AccessionNumber) -> FilingData:
+        """Get filing data by accession number.
 
         Args:
-            ticker: Company ticker symbol
-            filing_date: Date or date range filter. Format: 'YYYY-MM-DD' or 'YYYY-MM-DD:YYYY-MM-DD'
-            limit: Maximum number of filings to return
-            amendments: Whether to include amended filings
+            accession_number: SEC accession number
 
         Returns:
-            List of filing data
+            Filing data
 
         Raises:
-            ValueError: If invalid parameters or search fails
+            ValueError: If filing not found or cannot be accessed
         """
         try:
-            company = Company(ticker.value)
+            # Use edgar library's get_by_accession_number function
+            from edgar import get_by_accession_number
 
-            # Get all filings for the company
-            entity_filings = company.get_filings()
+            # Get filing by accession number
+            filing = get_by_accession_number(accession_number.value)
 
-            # Apply date filtering if specified
-            if filing_date:
-                entity_filings = self._apply_date_filter(entity_filings, filing_date)
-
-            # Apply amendments filter
-            if not amendments:
-                entity_filings = [
-                    f for f in entity_filings if not f.form.endswith("/A")
-                ]
-
-            # Convert EntityFilings to FilingData objects
-            # Apply limit during iteration to avoid PyArrow compatibility issues
-            filing_data_list = []
-            count = 0
-
-            try:
-                for filing in entity_filings:
-                    if limit and count >= limit:
-                        break
-                    filing_data = self._extract_filing_data_from_entity_filing(filing)
-                    filing_data_list.append(filing_data)
-                    count += 1
-            except Exception as iteration_error:
-                # If iteration fails due to PyArrow issues, try alternative approach
-                print(f"[EdgarService] Direct iteration failed: {iteration_error}")
-                print("[EdgarService] Attempting alternative filing extraction method")
-
-                # Try to access filings directly from company object without slicing
-                company = Company(ticker.value)
-                try:
-                    # Get filings using a different approach - convert to list first
-                    all_filings = list(company.get_filings())
-
-                    # Apply manual filtering
-                    filtered_filings = all_filings
-
-                    # Apply date filtering
-                    if filing_date:
-                        filtered_filings = self._apply_date_filter(
-                            filtered_filings, filing_date
-                        )
-
-                    # Apply amendments filter
-                    if not amendments:
-                        filtered_filings = [
-                            f for f in filtered_filings if not f.form.endswith("/A")
-                        ]
-
-                    # Apply limit
-                    if limit:
-                        filtered_filings = filtered_filings[:limit]
-
-                    # Convert to FilingData
-                    filing_data_list = []
-                    for filing in filtered_filings:
-                        try:
-                            filing_data = self._extract_filing_data(filing)
-                            filing_data_list.append(filing_data)
-                        except Exception as extract_error:
-                            print(
-                                f"[EdgarService] Failed to extract filing data: {extract_error}"
-                            )
-                            continue
-
-                except Exception as fallback_error:
-                    print(
-                        f"[EdgarService] Fallback approach also failed: {fallback_error}"
-                    )
-                    raise ValueError(
-                        f"Unable to extract filings due to PyArrow compatibility issue: {iteration_error}"
-                    ) from iteration_error
-
-            return filing_data_list
-
-        except Exception as e:
-            raise ValueError(f"Failed to search all filings: {str(e)}") from e
-
-    def _apply_date_filter(self, filings: list[Any], filing_date: str) -> list[Any]:
-        """Apply date filtering to entity filings."""
-        from datetime import datetime
-
-        if ":" in filing_date:
-            # Date range
-            start_date_str, end_date_str = filing_date.split(":")
-            start_date = (
-                datetime.strptime(start_date_str, "%Y-%m-%d").date()
-                if start_date_str
-                else None
-            )
-            end_date = (
-                datetime.strptime(end_date_str, "%Y-%m-%d").date()
-                if end_date_str
-                else None
-            )
-
-            if start_date and end_date:
-                return [f for f in filings if start_date <= f.filing_date <= end_date]
-            elif start_date:
-                return [f for f in filings if f.filing_date >= start_date]
-            elif end_date:
-                return [f for f in filings if f.filing_date <= end_date]
-        else:
-            # Single date
-            target_date = datetime.strptime(filing_date, "%Y-%m-%d").date()
-            return [f for f in filings if f.filing_date == target_date]
-
-        return filings
-
-    def _extract_filing_data_from_entity_filing(self, entity_filing: Any) -> FilingData:
-        """Extract FilingData from an EntityFiling object."""
-        from src.domain.value_objects.filing_type import FilingType
-
-        # Map the form to our FilingType enum, with fallback for unknown forms
-        try:
-            filing_type = FilingType(entity_filing.form)
-        except ValueError:
-            # For unknown forms, we'll use a generic approach
-            filing_type = None
-
-        # Convert filing_date to string if it's a date object
-        filing_date_str = entity_filing.filing_date
-        if hasattr(filing_date_str, "isoformat"):
-            filing_date_str = filing_date_str.isoformat()
-        else:
-            filing_date_str = str(filing_date_str)
-
-        # Extract ticker from company if available
-        ticker_value = None
-        if hasattr(entity_filing, "company") and entity_filing.company:
-            if hasattr(entity_filing.company, "ticker"):
-                ticker_value = (
-                    str(entity_filing.company.ticker)
-                    if entity_filing.company.ticker
-                    else None
+            if not filing:
+                raise ValueError(
+                    f"No filing found with accession number: {accession_number.value}"
                 )
 
-        return FilingData(
-            accession_number=entity_filing.accession_number,
-            filing_type=filing_type.value if filing_type else entity_filing.form,
-            filing_date=filing_date_str,
-            company_name=(
-                entity_filing.company.name
-                if hasattr(entity_filing, "company") and entity_filing.company
-                else "Unknown"
-            ),
-            cik=str(entity_filing.cik),
-            ticker=ticker_value,
-            content_text="",  # EntityFiling doesn't provide content text at search level
-            raw_html=None,  # EntityFiling doesn't provide raw HTML at search level
-            sections={},  # No sections extracted at search level
-        )
+            # Extract filing data using existing method
+            return self._extract_filing_data(filing)
+
+        except Exception as e:
+            raise ValueError(
+                f"Failed to get filing by accession number {accession_number.value}: {str(e)}"
+            ) from e
 
     def _get_filings_with_params(
         self, ticker: Ticker, filing_type: FilingType, query_params: FilingQueryParams

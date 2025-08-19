@@ -130,11 +130,6 @@ class Analysis(Base):
         nullable=True,
         index=True,
     )
-    results: Mapped[dict[str, Any]] = mapped_column(
-        JSON,
-        nullable=False,
-        default=dict,
-    )
     llm_provider: Mapped[str] = mapped_column(
         String(50),
         nullable=False,

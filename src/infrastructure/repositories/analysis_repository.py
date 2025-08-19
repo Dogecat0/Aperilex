@@ -8,6 +8,8 @@ from sqlalchemy import and_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.domain.entities.analysis import Analysis, AnalysisType
+from src.domain.value_objects import CIK
+from src.domain.value_objects.accession_number import AccessionNumber
 from src.infrastructure.database.models import Analysis as AnalysisModel
 from src.infrastructure.repositories.base import BaseRepository
 
@@ -37,7 +39,6 @@ class AnalysisRepository(BaseRepository[AnalysisModel, Analysis]):
             filing_id=model.filing_id,
             analysis_type=AnalysisType(model.analysis_type),
             created_by=model.created_by,
-            results=model.results,
             llm_provider=model.llm_provider,
             llm_model=model.llm_model,
             confidence_score=model.confidence_score,
@@ -59,7 +60,6 @@ class AnalysisRepository(BaseRepository[AnalysisModel, Analysis]):
             filing_id=entity.filing_id,
             analysis_type=entity.analysis_type.value,
             created_by=entity.created_by,
-            results=entity.results,
             llm_provider=entity.llm_provider,
             llm_model=entity.llm_model,
             confidence_score=entity.confidence_score,
@@ -156,67 +156,6 @@ class AnalysisRepository(BaseRepository[AnalysisModel, Analysis]):
         result = await self.session.execute(stmt)
         models = result.scalars().all()
         return [self.to_entity(model) for model in models]
-
-    async def get_high_confidence_analyses(
-        self,
-        min_confidence: float = 0.8,
-        limit: int | None = None,
-    ) -> list[Analysis]:
-        """Get analyses with high confidence scores.
-
-        Args:
-            min_confidence: Minimum confidence score (default: 0.8)
-            limit: Optional limit on results
-
-        Returns:
-            List of high confidence analyses
-        """
-        stmt = (
-            select(AnalysisModel)
-            .where(AnalysisModel.confidence_score >= min_confidence)
-            .order_by(AnalysisModel.confidence_score.desc())
-        )
-
-        if limit:
-            stmt = stmt.limit(limit)
-
-        result = await self.session.execute(stmt)
-        models = result.scalars().all()
-        return [self.to_entity(model) for model in models]
-
-    async def get_latest_analysis_for_filing(
-        self,
-        filing_id: UUID,
-        analysis_type: AnalysisType | None = None,
-    ) -> Analysis | None:
-        """Get the most recent analysis for a filing.
-
-        Args:
-            filing_id: Filing ID
-            analysis_type: Optional analysis type filter
-
-        Returns:
-            Latest analysis if found, None otherwise
-        """
-        analyses = await self.get_by_filing_id(filing_id, analysis_type)
-        return analyses[0] if analyses else None
-
-    async def count_by_type(self) -> dict[str, int]:
-        """Get count of analyses by type.
-
-        Returns:
-            Dictionary mapping analysis type to count
-        """
-        from sqlalchemy import func
-
-        stmt = select(
-            AnalysisModel.analysis_type, func.count(AnalysisModel.id).label("count")
-        ).group_by(AnalysisModel.analysis_type)
-
-        result = await self.session.execute(stmt)
-        rows = result.all()
-
-        return {str(row[0]): int(row[1]) for row in rows}
 
     async def find_by_filing_id(self, filing_id: UUID) -> list[Analysis]:
         """Find all analyses for a specific filing ID.
@@ -377,3 +316,112 @@ class AnalysisRepository(BaseRepository[AnalysisModel, Analysis]):
         result = await self.session.execute(stmt)
         models = result.scalars().all()
         return [self.to_entity(model) for model in models]
+
+    async def get_analysis_results_from_storage(
+        self, analysis_id: UUID, company_cik: CIK, accession_number: AccessionNumber
+    ) -> dict[str, Any] | None:
+        """Retrieve analysis results from storage.
+
+        Args:
+            analysis_id: Analysis ID
+            company_cik: Company CIK for storage path
+            accession_number: Accession number for storage path
+
+        Returns:
+            Analysis results dictionary or None if not found
+        """
+        from src.infrastructure.tasks.analysis_tasks import get_analysis_results
+
+        return await get_analysis_results(analysis_id, company_cik, accession_number)
+
+    async def get_by_id_with_results(
+        self, analysis_id: UUID
+    ) -> tuple[Analysis | None, dict[str, Any] | None]:
+        """Get analysis by ID with results from storage.
+
+        Args:
+            analysis_id: Analysis ID
+
+        Returns:
+            Tuple of (Analysis entity or None, Results dict or None)
+        """
+        # Get metadata from database
+        analysis = await self.get_by_id(analysis_id)
+        if not analysis:
+            return None, None
+
+        # Get filing info to retrieve results from storage
+        from src.infrastructure.database.models import Company as CompanyModel
+        from src.infrastructure.database.models import Filing as FilingModel
+
+        # Query to get company CIK and accession number
+        stmt = (
+            select(CompanyModel.cik, FilingModel.accession_number)
+            .join(FilingModel, FilingModel.company_id == CompanyModel.id)
+            .join(AnalysisModel, AnalysisModel.filing_id == FilingModel.id)
+            .where(AnalysisModel.id == analysis_id)
+        )
+
+        result = await self.session.execute(stmt)
+        row = result.first()
+
+        if not row:
+            return analysis, None
+
+        company_cik = CIK(row.cik)
+        accession_number = AccessionNumber(row.accession_number)
+
+        # Get results from storage
+        results = await self.get_analysis_results_from_storage(
+            analysis_id, company_cik, accession_number
+        )
+
+        return analysis, results
+
+    async def get_by_filing_id_with_results(
+        self, filing_id: UUID, analysis_type: AnalysisType | None = None
+    ) -> list[tuple[Analysis, dict[str, Any] | None]]:
+        """Get analyses by filing ID with results from storage.
+
+        Args:
+            filing_id: Filing ID
+            analysis_type: Optional analysis type filter
+
+        Returns:
+            List of tuples containing (Analysis entity, Results dict or None)
+        """
+        # Get analyses from database
+        analyses = await self.get_by_filing_id(filing_id, analysis_type)
+
+        if not analyses:
+            return []
+
+        # Get filing info for storage path
+        from src.infrastructure.database.models import Company as CompanyModel
+        from src.infrastructure.database.models import Filing as FilingModel
+
+        stmt = (
+            select(CompanyModel.cik, FilingModel.accession_number)
+            .join(CompanyModel, FilingModel.company_id == CompanyModel.id)
+            .where(FilingModel.id == filing_id)
+        )
+
+        result = await self.session.execute(stmt)
+        row = result.first()
+
+        if not row:
+            # Return analyses without results if filing info not found
+            return [(analysis, None) for analysis in analyses]
+
+        company_cik = CIK(row.cik)
+        accession_number = AccessionNumber(row.accession_number)
+
+        # Get results for each analysis
+        analyses_with_results = []
+        for analysis in analyses:
+            results = await self.get_analysis_results_from_storage(
+                analysis.id, company_cik, accession_number
+            )
+            analyses_with_results.append((analysis, results))
+
+        return analyses_with_results
