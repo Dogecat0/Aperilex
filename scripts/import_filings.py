@@ -6,6 +6,10 @@ This script provides a comprehensive command-line interface for importing SEC fi
 in batch from the Edgar database. It supports multiple import strategies, flexible
 filtering options, and robust validation to ensure reliable operation.
 
+The script uses the current storage architecture where filing content is stored in
+external storage (local files or S3) while metadata is kept in the database for
+fast lookups and filtering.
+
 FEATURES:
     - Multiple import strategies (by companies, by date range)
     - Support for both ticker symbols and CIK numbers
@@ -69,7 +73,13 @@ ENVIRONMENT VARIABLES:
                      Format: "Company Name email@domain.com"
                      Example: "MyCompany investor.relations@mycompany.com"
 
-    OPENAI_API_KEY: Optional. OpenAI API key if LLM analysis is enabled
+    FILING_STORAGE_PATH: Optional. Local storage path for filing content (default: ./data/filings)
+
+    USE_S3_STORAGE: Optional. Set to "true" to use S3 storage instead of local files
+
+    AWS_S3_BUCKET: Required when USE_S3_STORAGE=true. S3 bucket name for storage
+
+    AWS_REGION: Required when USE_S3_STORAGE=true. AWS region for S3 bucket
 
     DATABASE_URL: Optional. Database connection string (uses default if not set)
 
@@ -130,6 +140,7 @@ TROUBLESHOOTING:
        - Check database connectivity
        - Verify all environment variables are set
        - Ensure required services are running
+       - For S3 storage, verify AWS credentials and bucket access
 
     Use --verbose flag for detailed diagnostic information.
 
@@ -221,6 +232,7 @@ class FilingImportManager:
             from src.infrastructure.repositories.filing_repository import (
                 FilingRepository,
             )
+            from src.infrastructure.tasks.analysis_tasks import store_filing_content
 
             task_id = f"script-task-{secrets.token_hex(8)}"
             start_time = time.time()
@@ -353,7 +365,31 @@ class FilingImportManager:
                                 )
                                 continue
 
-                            # Create new filing
+                            # Store filing content in storage
+                            filing_content = {
+                                "content_text": filing_data.content_text,
+                                "sections": filing_data.sections,
+                                "company_name": filing_data.company_name,
+                                "filing_type": filing_data.filing_type,
+                                "filing_date": filing_data.filing_date,
+                                "accession_number": filing_data.accession_number,
+                                "cik": filing_data.cik,
+                                "ticker": filing_data.ticker,
+                            }
+
+                            # Store content in storage (local files or S3)
+                            storage_success = await store_filing_content(
+                                AccessionNumber(filing_data.accession_number),
+                                CIK(filing_data.cik),
+                                filing_content,
+                            )
+
+                            if not storage_success:
+                                logger.warning(
+                                    f"Failed to store filing content for {filing_data.accession_number}"
+                                )
+
+                            # Create new filing with minimal metadata in database
                             # Build metadata from available filing data fields
                             metadata = {
                                 "company_name": filing_data.company_name,
@@ -370,6 +406,7 @@ class FilingImportManager:
                                     if filing_data.sections
                                     else 0
                                 ),
+                                "stored_in_storage": storage_success,
                             }
 
                             # Parse filing date string to date object
@@ -391,8 +428,8 @@ class FilingImportManager:
 
                             await filing_repo.create(filing)
                             created_count += 1
-                            logger.debug(
-                                f"Created filing {filing_data.accession_number}"
+                            logger.info(
+                                f"Created filing {filing_data.accession_number} - content stored: {storage_success}"
                             )
 
                         await filing_repo.commit()

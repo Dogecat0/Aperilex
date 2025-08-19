@@ -35,13 +35,15 @@ python scripts/generate_analysis_samples.py --validate-only
 - `OPENAI_BASE_URL` (optional): OpenAI base URL (defaults to https://api.openai.com/v1)
 
 ### 2. `import_filings.py`
-Management command for batch importing SEC filings using the ImportFilingsCommand and background task system.
+Management command for batch importing SEC filings using the current storage architecture where filing content is stored in external storage (local files or S3) while metadata is kept in the database for fast lookups.
 
 **Features:**
 - Batch import SEC filings by ticker or CIK
 - Support for multiple filing types (10-K, 10-Q, 8-K, etc.)
+- Storage-based architecture: content in files/S3, metadata in database
 - Date range filtering for targeted imports
 - Configurable limits per company
+- Support for both local file storage and S3 storage
 - Dry-run mode for testing
 - Verbose logging and progress tracking
 - Command validation and error handling
@@ -77,6 +79,13 @@ poetry run python scripts/import_filings.py --help
 - `--dry-run`: Show what would be imported without importing
 - `--verbose`: Enable detailed logging
 
+**Environment Variables:**
+- `EDGAR_USER_AGENT` (required): User agent for SEC compliance (format: "Company Name email@domain.com")
+- `FILING_STORAGE_PATH` (optional): Local storage path for filing content (default: ./data/filings)
+- `USE_S3_STORAGE` (optional): Set to "true" to use S3 storage instead of local files
+- `AWS_S3_BUCKET` (required when USE_S3_STORAGE=true): S3 bucket name for storage
+- `AWS_REGION` (required when USE_S3_STORAGE=true): AWS region for S3 bucket
+
 **Supported Filing Types:**
 - 10-K, 10-K/A: Annual reports
 - 10-Q, 10-Q/A: Quarterly reports
@@ -84,6 +93,11 @@ poetry run python scripts/import_filings.py --help
 - DEF 14A, DEFA14A: Proxy statements
 - S-1, S-3, S-4: Registration statements
 - 13F, 3, 4, 5: Ownership reports
+
+**Storage Architecture:**
+- **Database**: Stores filing metadata (ID, company, dates, type, basic stats)
+- **Local Files**: `./data/filings/{company_cik}/{accession_number}/filing_content.json`
+- **S3 Storage**: `s3://{bucket}/filings/{company_cik}/{accession_number}/filing_content.json`
 
 ### 3. `validate_api_integration.py`
 Lightweight validation of API integration and schema compatibility without expensive analysis operations.
@@ -168,8 +182,20 @@ Both scripts generate output in the `test_results/` directory:
 
 ### 1. Initial Setup
 ```bash
-# Set environment variables
+# Set environment variables for analysis scripts
 export OPENAI_API_KEY="your-api-key-here"
+
+# Set environment variables for filing imports
+export EDGAR_USER_AGENT="YourCompany info@yourcompany.com"
+
+# For local file storage (development)
+export FILING_STORAGE_PATH="./data/filings"
+export USE_S3_STORAGE="false"
+
+# For S3 storage (production)
+export USE_S3_STORAGE="true"
+export AWS_S3_BUCKET="your-bucket-name"
+export AWS_REGION="us-east-1"
 
 # Validate setup
 python scripts/validate_api_integration.py --schemas-only
@@ -184,7 +210,19 @@ python scripts/validate_api_integration.py --quick
 python scripts/validate_api_integration.py
 ```
 
-### 3. Generate Analysis Samples
+### 3. Import Filing Data
+```bash
+# Test filing import with dry run
+poetry run python scripts/import_filings.py --tickers AAPL --dry-run --verbose
+
+# Import recent filings for development
+poetry run python scripts/import_filings.py --tickers AAPL,MSFT --limit 2
+
+# Import specific filing types
+poetry run python scripts/import_filings.py --tickers TSLA --filing-types 10-K,8-K --limit 1
+```
+
+### 4. Generate Analysis Samples
 ```bash
 # Generate samples for development
 python scripts/generate_analysis_samples.py --ticker MSFT
@@ -193,7 +231,7 @@ python scripts/generate_analysis_samples.py --ticker MSFT
 python scripts/generate_analysis_samples.py --section "Item 1A - Risk Factors"
 ```
 
-### 4. Development Testing
+### 5. Development Testing
 Use the generated samples in unit tests with enhanced mock fixtures:
 ```python
 # In your tests
@@ -271,6 +309,22 @@ python scripts/validate_api_integration.py --schemas-only
 **4. Network/Connectivity Issues**
 - Use `--validate-only` flag to test connectivity
 - Check firewall and proxy settings
+
+**5. Storage Issues**
+```bash
+# Check storage configuration
+echo $FILING_STORAGE_PATH
+echo $USE_S3_STORAGE
+
+# Test local storage permissions
+mkdir -p ./data/filings && touch ./data/filings/test && rm ./data/filings/test
+
+# Test S3 connectivity (requires AWS CLI)
+aws s3 ls s3://$AWS_S3_BUCKET/ --region $AWS_REGION
+
+# Test filing import with dry run to validate storage setup
+poetry run python scripts/import_filings.py --tickers AAPL --dry-run --verbose
+```
 
 ### Error Codes
 - Exit 0: Success

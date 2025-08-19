@@ -252,3 +252,7 @@ frontend/coverage/
 .pnp.*
 
 token_usage.txt
+local_storage/
+
+# Data for local storage
+data/
