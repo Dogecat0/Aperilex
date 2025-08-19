@@ -174,7 +174,7 @@ async def search_filings(
 
         # Get dependencies and dispatcher
         dispatcher = factory.create_dispatcher()
-        dependencies = factory.get_handler_dependencies(session)
+        dependencies = await factory.get_handler_dependencies(session)
 
         # Dispatch query
         result: PaginatedResponse[FilingSearchResult] = await dispatcher.dispatch_query(
@@ -270,7 +270,7 @@ async def analyze_filing(
 
         # Get dependencies and dispatcher
         dispatcher = factory.create_dispatcher()
-        dependencies = factory.get_handler_dependencies(session)
+        dependencies = await factory.get_handler_dependencies(session)
 
         # Dispatch command
         result: TaskResponse = await dispatcher.dispatch_command(command, dependencies)
@@ -349,7 +349,7 @@ async def get_filing_by_id(
 
         # Get dependencies and dispatcher
         dispatcher = factory.create_dispatcher()
-        dependencies = factory.get_handler_dependencies(session)
+        dependencies = await factory.get_handler_dependencies(session)
 
         # Dispatch query
         result: FilingResponse = await dispatcher.dispatch_query(query, dependencies)
@@ -443,7 +443,7 @@ async def get_filing(
 
         # Get dependencies and dispatcher
         dispatcher = factory.create_dispatcher()
-        dependencies = factory.get_handler_dependencies(session)
+        dependencies = await factory.get_handler_dependencies(session)
 
         # Dispatch query
         result: FilingResponse = await dispatcher.dispatch_query(query, dependencies)
@@ -540,7 +540,7 @@ async def get_filing_analysis(
 
         # Get dependencies and dispatcher
         dispatcher = factory.create_dispatcher()
-        dependencies = factory.get_handler_dependencies(session)
+        dependencies = await factory.get_handler_dependencies(session)
 
         # Dispatch query
         result: AnalysisResponse = await dispatcher.dispatch_query(query, dependencies)

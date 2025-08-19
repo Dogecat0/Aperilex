@@ -14,6 +14,17 @@ def _is_testing() -> bool:
     )
 
 
+def _get_messaging_environment() -> str:
+    """Determine messaging environment based on context."""
+    if _is_testing():
+        return "testing"
+
+    env = os.environ.get("ENVIRONMENT", "development").lower()
+    if env == "production":
+        return "production"
+    return "development"
+
+
 class Settings(BaseSettings):
     # Application
     app_name: str = Field(default="Aperilex", validation_alias="APP_NAME")
@@ -27,44 +38,57 @@ class Settings(BaseSettings):
         validation_alias="DATABASE_URL",
     )
 
-    # Redis
-    redis_url: str = Field(
-        default="redis://localhost:6379/1" if _is_testing() else "",
-        validation_alias="REDIS_URL",
+    # Messaging System Configuration
+    messaging_environment: str = Field(
+        default_factory=_get_messaging_environment,
+        validation_alias="MESSAGING_ENVIRONMENT",
     )
 
-    # Celery
-    celery_broker_url: str = Field(
-        default="redis://localhost:6379/2" if _is_testing() else "",
-        validation_alias="CELERY_BROKER_URL",
+    # RabbitMQ (Development)
+    rabbitmq_url: str = Field(
+        default="amqp://guest:guest@localhost:5672/",
+        validation_alias="RABBITMQ_URL",
     )
-    celery_result_backend: str = Field(
-        default="redis://localhost:6379/3" if _is_testing() else "",
-        validation_alias="CELERY_RESULT_BACKEND",
+
+    # AWS Configuration (Production)
+    aws_region: str = Field(
+        default="us-east-1",
+        validation_alias="AWS_REGION",
     )
-    celery_worker_concurrency: int = Field(
-        default=4, validation_alias="CELERY_WORKER_CONCURRENCY"
+    aws_access_key_id: str = Field(
+        default="",
+        validation_alias="AWS_ACCESS_KEY_ID",
     )
-    celery_task_serializer: str = Field(
-        default="json", validation_alias="CELERY_TASK_SERIALIZER"
+    aws_secret_access_key: str = Field(
+        default="",
+        validation_alias="AWS_SECRET_ACCESS_KEY",
     )
-    celery_result_serializer: str = Field(
-        default="json", validation_alias="CELERY_RESULT_SERIALIZER"
+    aws_sqs_queue_url: str = Field(
+        default="",
+        validation_alias="AWS_SQS_QUEUE_URL",
     )
-    celery_accept_content: list[str] = Field(
-        default=["json"], validation_alias="CELERY_ACCEPT_CONTENT"
+    aws_s3_bucket: str = Field(
+        default="",
+        validation_alias="AWS_S3_BUCKET",
     )
-    celery_timezone: str = Field(default="UTC", validation_alias="CELERY_TIMEZONE")
-    celery_enable_utc: bool = Field(default=True, validation_alias="CELERY_ENABLE_UTC")
-    celery_task_track_started: bool = Field(
-        default=True, validation_alias="CELERY_TASK_TRACK_STARTED"
+
+    # Worker Polling Configuration
+    worker_queue_timeout: float = Field(
+        default=0.2,
+        validation_alias="WORKER_QUEUE_TIMEOUT",
     )
-    celery_task_time_limit: int = Field(
-        default=3600, validation_alias="CELERY_TASK_TIME_LIMIT"
-    )  # 1 hour
-    celery_task_soft_time_limit: int = Field(
-        default=3300, validation_alias="CELERY_TASK_SOFT_TIME_LIMIT"
-    )  # 55 minutes
+    worker_min_sleep: float = Field(
+        default=0.1,
+        validation_alias="WORKER_MIN_SLEEP",
+    )
+    worker_max_sleep: float = Field(
+        default=30.0,
+        validation_alias="WORKER_MAX_SLEEP",
+    )
+    worker_backoff_factor: float = Field(
+        default=1.5,
+        validation_alias="WORKER_BACKOFF_FACTOR",
+    )
 
     # Security
     secret_key: str = Field(

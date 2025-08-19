@@ -1,5 +1,6 @@
 """Health check endpoints for monitoring service status."""
 
+import asyncio
 import logging
 from datetime import UTC, datetime
 from typing import Any
@@ -8,8 +9,8 @@ from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 
 from src.application.factory import ServiceFactory
-from src.infrastructure.cache.redis_service import RedisService
-from src.presentation.api.dependencies import get_redis_service, get_service_factory
+from src.infrastructure.messaging import get_registry
+from src.presentation.api.dependencies import get_service_factory
 from src.shared.config.settings import settings
 
 logger = logging.getLogger(__name__)
@@ -37,16 +38,21 @@ class DetailedHealthResponse(BaseModel):
     configuration: dict[str, Any]
 
 
+# Health status cache
+_health_status_cache: HealthStatus | None = None
+_cache_timestamp: datetime | None = None
+_cache_duration_seconds = 30  # Cache for 30 seconds
+
+
 @router.get("/detailed", response_model=DetailedHealthResponse)
 async def detailed_health_check(
     factory: ServiceFactory = Depends(get_service_factory),
-    redis_service: RedisService | None = Depends(get_redis_service),
 ) -> DetailedHealthResponse:
     """Detailed health check including all service statuses.
 
     Returns comprehensive health information for:
-    - Redis connectivity
-    - Celery worker status
+    - Messaging services (queue, worker, storage)
+    - Cache manager
     - Configuration status
     - Service factory status
     """
@@ -54,16 +60,10 @@ async def detailed_health_check(
     services = {}
     overall_status = "healthy"
 
-    # Check Redis health
-    redis_status = await _check_redis_health(redis_service)
-    services["redis"] = redis_status
-    if redis_status.status != "healthy":
-        overall_status = "degraded"
-
-    # Check Celery health
-    celery_status = await _check_celery_health()
-    services["celery"] = celery_status
-    if celery_status.status != "healthy":
+    # Check messaging services health
+    messaging_status = await _check_messaging_health()
+    services["messaging"] = messaging_status
+    if messaging_status.status != "healthy":
         overall_status = "degraded"
 
     # Check service factory configuration
@@ -72,183 +72,191 @@ async def detailed_health_check(
     if factory_status.status != "healthy":
         overall_status = "degraded"
 
+    # Determine current environment
+    env_name = getattr(settings, "ENVIRONMENT", "development").lower()
+    environment_type = "production" if env_name in ["prod", "production"] else env_name
+
     return DetailedHealthResponse(
         status=overall_status,
         timestamp=timestamp,
-        version=settings.app_version,
-        environment=settings.environment,
+        version=getattr(settings, "app_version", "unknown"),
+        environment=environment_type,
         services=services,
         configuration={
-            "redis_enabled": factory.use_redis,
-            "celery_enabled": factory.use_celery,
-            "debug": settings.debug,
-            "redis_url_configured": bool(settings.redis_url),
-            "celery_broker_configured": bool(settings.celery_broker_url),
+            "messaging_enabled": True,
+            "cache_enabled": True,
+            "debug": getattr(settings, "debug", False),
+            "environment": environment_type,
         },
     )
 
 
-@router.get("/redis", response_model=HealthStatus)
-async def redis_health_check(
-    redis_service: RedisService | None = Depends(get_redis_service),
-) -> HealthStatus:
-    """Check Redis connectivity and performance."""
-    return await _check_redis_health(redis_service)
+@router.get("/messaging", response_model=HealthStatus)
+async def messaging_health_check() -> HealthStatus:
+    """Check messaging services (queue, worker, storage) health."""
+    return await _check_messaging_health()
 
 
-@router.get("/celery", response_model=HealthStatus)
-async def celery_health_check() -> HealthStatus:
-    """Check Celery worker status and queues."""
-    return await _check_celery_health()
-
-
-async def _check_redis_health(redis_service: RedisService | None) -> HealthStatus:
-    """Check Redis service health.
-
-    Args:
-        redis_service: Redis service instance or None
+async def _check_messaging_health() -> HealthStatus:
+    """Check messaging services health with caching.
 
     Returns:
-        Health status for Redis
+        Health status for messaging services
     """
-    timestamp = datetime.now(UTC).isoformat()
+    global _health_status_cache, _cache_timestamp
 
-    if not redis_service:
-        return HealthStatus(
-            status="not_configured",
-            message="Redis service not configured",
-            timestamp=timestamp,
-            details={
-                "redis_url_configured": bool(settings.redis_url),
-                "service_available": False,
-            },
+    now = datetime.now(UTC)
+    timestamp = now.isoformat()
+
+    # Check if we have a valid cached result
+    if (
+        _health_status_cache is not None
+        and _cache_timestamp is not None
+        and (now - _cache_timestamp).total_seconds() < _cache_duration_seconds
+    ):
+        logger.debug("Returning cached messaging health status")
+        # Update timestamp but keep cached status
+        cached_result = _health_status_cache.model_copy()
+        cached_result.timestamp = timestamp
+        cached_result.details = cached_result.details or {}
+        cached_result.details["cached"] = True
+        cached_result.details["cache_age_seconds"] = int(
+            (now - _cache_timestamp).total_seconds()
         )
+        return cached_result
 
+    # Perform actual health check with timeout
     try:
-        # Test basic connectivity
-        start_time = datetime.now()
-        await redis_service.health_check()
-        ping_duration = (datetime.now() - start_time).total_seconds() * 1000
-
-        # Test set/get operations
-        test_key = "health_check_test"
-        test_value = f"health_check_{timestamp}"
-
-        from datetime import timedelta
-
-        await redis_service.set(test_key, test_value, expire=timedelta(seconds=60))
-        retrieved_value = await redis_service.get(test_key)
-        await redis_service.delete(test_key)
-
-        if retrieved_value != test_value:
-            raise Exception("Redis set/get test failed")
-
-        return HealthStatus(
-            status="healthy",
-            message="Redis connectivity and operations successful",
-            timestamp=timestamp,
-            details={
-                "ping_duration_ms": round(ping_duration, 2),
-                "set_get_test": "passed",
-                "redis_url": (
-                    settings.redis_url.split('@')[-1]
-                    if '@' in settings.redis_url
-                    else settings.redis_url
-                ),  # Hide password
-            },
+        logger.debug("Performing fresh messaging health check")
+        health_status = await asyncio.wait_for(
+            _perform_messaging_health_check(),
+            timeout=10.0,  # 10 second timeout for health check
         )
 
-    except Exception as e:
-        logger.error(f"Redis health check failed: {e}")
+        # Cache the successful result
+        _health_status_cache = health_status
+        _cache_timestamp = now
+
+        return health_status
+
+    except TimeoutError:
+        logger.warning("Messaging health check timed out")
+        degraded_status = HealthStatus(
+            status="degraded",
+            message="Health check timed out - services may be under load",
+            timestamp=timestamp,
+            details={
+                "error": "TimeoutError",
+                "timeout_seconds": 10.0,
+            },
+        )
+        # Cache the timeout result for a shorter time
+        _health_status_cache = degraded_status
+        _cache_timestamp = now
+        return degraded_status
+
+    except asyncio.CancelledError:
+        logger.warning("Messaging health check was cancelled")
         return HealthStatus(
+            status="degraded",
+            message="Health check was cancelled - service may be under load",
+            timestamp=timestamp,
+            details={
+                "error": "CancelledError",
+                "reason": "Health check operation cancelled",
+            },
+        )
+    except Exception as e:
+        logger.error(f"Messaging health check failed: {e}")
+        error_status = HealthStatus(
             status="unhealthy",
-            message=f"Redis connectivity failed: {str(e)}",
+            message=f"Messaging health check failed: {str(e)}",
             timestamp=timestamp,
             details={
                 "error": str(e),
-                "redis_url_configured": bool(settings.redis_url),
             },
         )
+        # Don't cache error results
+        return error_status
 
 
-async def _check_celery_health() -> HealthStatus:
-    """Check Celery worker and queue health.
-
-    Returns:
-        Health status for Celery
-    """
+async def _perform_messaging_health_check() -> HealthStatus:
+    """Perform the actual messaging health check without caching."""
     timestamp = datetime.now(UTC).isoformat()
 
-    if not settings.celery_broker_url:
-        return HealthStatus(
-            status="not_configured",
-            message="Celery broker not configured",
-            timestamp=timestamp,
-            details={
-                "broker_url_configured": False,
-                "workers_available": False,
-            },
-        )
-
     try:
-        # Import Celery app for inspection
-        from src.infrastructure.tasks.celery_app import celery_app
+        # Get the messaging registry
+        registry = await get_registry()
 
-        # Check active workers
-        inspect = celery_app.control.inspect()
-        active_workers = inspect.active()
-        stats = inspect.stats()
+        # Check health of all services
+        health_results = await registry.health_check()
 
-        if not active_workers:
+        all_healthy = all(health_results.values())
+        unhealthy_services = [
+            name for name, healthy in health_results.items() if not healthy
+        ]
+
+        # Try to get circuit breaker status if available
+        circuit_breaker_info = {}
+        try:
+            from src.infrastructure.messaging import get_queue_service
+
+            queue_service = await get_queue_service()
+            if hasattr(queue_service, "get_circuit_breaker_status"):
+                circuit_breaker_info = {
+                    "circuit_breaker": queue_service.get_circuit_breaker_status()
+                }
+        except Exception as e:
+            # Don't fail health check if circuit breaker status unavailable
+            logger.debug(f"Circuit breaker status unavailable: {e}")
+
+        if all_healthy:
             return HealthStatus(
-                status="degraded",
-                message="No Celery workers found",
+                status="healthy",
+                message="All messaging services are healthy",
                 timestamp=timestamp,
                 details={
-                    "broker_url_configured": True,
-                    "active_workers": 0,
-                    "worker_stats": stats or {},
+                    "environment": registry.environment.value,
+                    "services": health_results,
+                    "connected": registry.is_connected,
+                    "cached": False,
+                },
+            )
+        else:
+            return HealthStatus(
+                status="degraded",
+                message=f"Some messaging services are unhealthy: {', '.join(unhealthy_services)}",
+                timestamp=timestamp,
+                details={
+                    "environment": registry.environment.value,
+                    "services": health_results,
+                    "unhealthy_services": unhealthy_services,
+                    "connected": registry.is_connected,
+                    "cached": False,
+                    **circuit_breaker_info,
                 },
             )
 
-        worker_count = len(active_workers)
-
+    except RuntimeError as e:
+        # Registry not initialized
         return HealthStatus(
-            status="healthy",
-            message=f"Celery workers active: {worker_count}",
-            timestamp=timestamp,
-            details={
-                "active_workers": worker_count,
-                "worker_names": list(active_workers.keys()),
-                "broker_url": (
-                    settings.celery_broker_url.split('@')[-1]
-                    if '@' in settings.celery_broker_url
-                    else settings.celery_broker_url
-                ),  # Hide password
-            },
-        )
-
-    except ImportError:
-        return HealthStatus(
-            status="degraded",
-            message="Celery not available for inspection",
-            timestamp=timestamp,
-            details={
-                "broker_url_configured": True,
-                "celery_available": False,
-            },
-        )
-    except Exception as e:
-        logger.error(f"Celery health check failed: {e}")
-        return HealthStatus(
-            status="degraded",
-            message=f"Celery inspection failed: {str(e)}",
+            status="not_configured",
+            message="Messaging services not initialized",
             timestamp=timestamp,
             details={
                 "error": str(e),
-                "broker_url_configured": bool(settings.celery_broker_url),
+                "initialized": False,
+                "cached": False,
             },
         )
+
+
+def clear_health_cache() -> None:
+    """Clear health status cache - useful for testing or manual refresh."""
+    global _health_status_cache, _cache_timestamp
+    _health_status_cache = None
+    _cache_timestamp = None
+    logger.info("Health status cache cleared")
 
 
 def _check_factory_configuration(factory: ServiceFactory) -> HealthStatus:
@@ -264,15 +272,13 @@ def _check_factory_configuration(factory: ServiceFactory) -> HealthStatus:
 
     try:
         details: dict[str, Any] = {
-            "redis_configured": factory.use_redis,
-            "celery_configured": factory.use_celery,
-            "services_created": len(factory._services),
-            "repositories_created": len(factory._repositories),
+            "services_created": len(getattr(factory, "_services", {})),
+            "repositories_created": len(getattr(factory, "_repositories", {})),
+            "factory_type": type(factory).__name__,
         }
 
         # Check if essential services can be created
         try:
-            _ = factory.create_cache_service()
             _ = factory.create_task_service()
             details["cache_service"] = "available"
             details["task_service"] = "available"

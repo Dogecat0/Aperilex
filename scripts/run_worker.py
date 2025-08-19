@@ -106,11 +106,6 @@ async def import_all_tasks() -> None:
 
         logging.info(f"Imported analysis tasks from {analysis_tasks.__file__}")
 
-        # Filing tasks
-        from src.infrastructure.tasks import filing_tasks
-
-        logging.info(f"Imported filing tasks from {filing_tasks.__file__}")
-
         logging.info("All task modules imported successfully")
 
     except ImportError as e:
