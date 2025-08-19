@@ -32,7 +32,7 @@ RUN --mount=type=cache,target=/opt/poetry_cache \
     poetry config virtualenvs.create false && \
     poetry config virtualenvs.in-project false && \
     poetry install --only=main --no-root && \
-    python -c "import uvicorn; import celery; import fastapi; print('All imports successful')"
+    python -c "import uvicorn; import fastapi; print('All imports successful')"
 
 # Security: Create non-root user with home directory
 RUN groupadd -r appuser && useradd -r -g appuser -m -d /home/appuser appuser
@@ -46,6 +46,7 @@ ENV HOME=/home/appuser
 
 # Copy application code
 COPY ./src/ ./src/
+COPY ./scripts/ ./scripts/
 
 # Change ownership to appuser
 RUN chown -R appuser:appuser /app
