@@ -39,18 +39,7 @@ else
     exit 1
 fi
 
-# Step 2: Clean Redis Cache
-echo -e "\n${YELLOW}🧹 Cleaning Redis cache...${NC}"
-docker exec aperilex-redis-1 redis-cli -a dev_password FLUSHALL > /dev/null 2>&1
-
-if [ $? -eq 0 ]; then
-    echo -e "${GREEN}✅ Redis cache cleaned successfully${NC}"
-else
-    echo -e "${RED}❌ Failed to clean Redis cache${NC}"
-    exit 1
-fi
-
-# Step 3: Run Alembic Migrations
+# Step 2: Run Alembic Migrations
 echo -e "\n${YELLOW}🔄 Running Alembic migrations...${NC}"
 alembic upgrade head
 
