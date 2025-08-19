@@ -10,6 +10,8 @@ from uuid import UUID
 import aio_pika
 from aio_pika import Channel, Connection, ExchangeType, Message, Queue
 
+from src.application.patterns.circuit_breaker import CircuitBreaker
+
 from ..interfaces import IQueueService, TaskMessage, TaskPriority, TaskStatus
 
 logger = logging.getLogger(__name__)
@@ -18,7 +20,7 @@ logger = logging.getLogger(__name__)
 class RabbitMQQueueService(IQueueService):
     """RabbitMQ implementation for local development and testing."""
 
-    def __init__(self, connection_url: str = "amqp://localhost"):
+    def __init__(self, connection_url: str = "amqp://localhost:5672/") -> None:
         self.connection_url = connection_url
         self.connection: Connection | None = None
         self.channel: Channel | None = None
@@ -26,32 +28,57 @@ class RabbitMQQueueService(IQueueService):
         self.task_statuses: dict[UUID, TaskStatus] = {}
         self._connected = False
 
+        # Circuit breakers for different operations
+        self._health_circuit_breaker = CircuitBreaker(
+            service_name="rabbitmq_health_check",
+            failure_threshold=3,  # Open after 3 failures
+            recovery_timeout=30,  # Wait 30s before retry
+            success_threshold=2,  # Need 2 successes to close
+        )
+
+        self._connection_circuit_breaker = CircuitBreaker(
+            service_name="rabbitmq_connection",
+            failure_threshold=5,  # Open after 5 failures
+            recovery_timeout=60,  # Wait 60s before retry
+            success_threshold=3,  # Need 3 successes to close
+        )
+
+        self._message_circuit_breaker = CircuitBreaker(
+            service_name="rabbitmq_message_ops",
+            failure_threshold=10,  # Open after 10 failures
+            recovery_timeout=30,  # Wait 30s before retry
+            success_threshold=5,  # Need 5 successes to close
+        )
+
     async def connect(self) -> None:
-        """Connect to RabbitMQ."""
+        """Connect to RabbitMQ with circuit breaker protection."""
         try:
-            self.connection = await aio_pika.connect_robust(self.connection_url)
-            self.channel = await self.connection.channel()
-
-            # Set quality of service for fair task distribution
-            await self.channel.set_qos(prefetch_count=1)
-
-            # Declare default exchange
-            self.exchange = await self.channel.declare_exchange(
-                "aperilex_tasks", ExchangeType.DIRECT, durable=True
-            )
-
-            # Declare dead letter exchange
-            self.dlx = await self.channel.declare_exchange(
-                "aperilex_dlx", ExchangeType.DIRECT, durable=True
-            )
-
-            self._connected = True
+            await self._connection_circuit_breaker.call(self._perform_connection)
             logger.info("Connected to RabbitMQ successfully")
-
         except Exception as e:
             logger.error(f"Failed to connect to RabbitMQ: {e}")
             self._connected = False
             raise
+
+    async def _perform_connection(self) -> None:
+        """Perform the actual connection operation."""
+        self.connection = await aio_pika.connect_robust(self.connection_url)
+        self.channel = await self.connection.channel()
+
+        # Set quality of service for fair task distribution
+        await self.channel.set_qos(prefetch_count=1)
+
+        # Declare default exchange
+        self.exchange = await self.channel.declare_exchange(
+            "aperilex_tasks", ExchangeType.DIRECT, durable=True
+        )
+
+        # Declare dead letter exchange
+        self.dlx = await self.channel.declare_exchange(
+            "aperilex_dlx", ExchangeType.DIRECT, durable=True
+        )
+
+        self._connected = True
 
     async def disconnect(self) -> None:
         """Disconnect from RabbitMQ."""
@@ -131,8 +158,22 @@ class RabbitMQQueueService(IQueueService):
         )
 
     async def send_task(self, message: TaskMessage) -> UUID:
-        """Send a task message to RabbitMQ queue."""
+        """Send a task message to RabbitMQ queue with circuit breaker protection."""
         await self._ensure_connected()
+
+        # Use circuit breaker for message operations
+        try:
+            return await self._message_circuit_breaker.call(
+                self._perform_send_task, message
+            )
+        except Exception as e:
+            logger.error(
+                f"Failed to send task {message.task_id} through circuit breaker: {e}"
+            )
+            raise
+
+    async def _perform_send_task(self, message: TaskMessage) -> UUID:
+        """Perform the actual task sending operation."""
         _ = await self._ensure_queue(message.queue)
 
         # Convert priority (higher number = higher priority in RabbitMQ)
@@ -150,8 +191,11 @@ class RabbitMQQueueService(IQueueService):
             delivery_mode=2,  # Persistent
         )
 
-        # Send message
-        await self.exchange.publish(amqp_message, routing_key=message.queue)
+        # Send message with timeout
+        await asyncio.wait_for(
+            self.exchange.publish(amqp_message, routing_key=message.queue),
+            timeout=5.0,  # 5 second timeout for publishing
+        )
 
         # Track task status
         self.task_statuses[message.task_id] = TaskStatus.PENDING
@@ -192,10 +236,13 @@ class RabbitMQQueueService(IQueueService):
             logger.debug(f"Received task {task.task_id} from queue {queue}")
             return task
 
-        except TimeoutError:
+        except (TimeoutError, aio_pika.exceptions.QueueEmpty):
             return None
         except Exception as e:
-            logger.error(f"Error receiving task from queue {queue}: {e}")
+            logger.error(
+                f"Error receiving task from queue {queue}: {e}",
+                exc_info=True,
+            )
             return None
 
     async def ack_task(self, task_id: UUID) -> bool:
@@ -269,21 +316,41 @@ class RabbitMQQueueService(IQueueService):
         return message_count
 
     async def health_check(self) -> bool:
-        """Check if RabbitMQ connection is healthy."""
+        """Check if RabbitMQ connection is healthy with circuit breaker protection."""
         try:
-            if not self._connected:
-                return False
-
-            if self.connection and self.connection.is_closed:
-                return False
-
-            # Try to declare a test exchange to verify connection
-            test_exchange = await self.channel.declare_exchange(
-                "health_check_test", ExchangeType.DIRECT, auto_delete=True
-            )
-            await test_exchange.delete()
-
-            return True
+            # Use circuit breaker to protect health check operation
+            return await self._health_circuit_breaker.call(self._perform_health_check)
         except Exception as e:
-            logger.error(f"RabbitMQ health check failed: {e}")
+            logger.warning(f"RabbitMQ health check failed through circuit breaker: {e}")
             return False
+
+    async def _perform_health_check(self) -> bool:
+        """Perform the actual health check operation."""
+        if not self._connected:
+            raise ConnectionError("RabbitMQ service not connected")
+
+        if self.connection and self.connection.is_closed:
+            raise ConnectionError("RabbitMQ connection is closed")
+
+        # Try to declare a test exchange to verify connection with timeout
+        try:
+            test_exchange = await asyncio.wait_for(
+                self.channel.declare_exchange(
+                    "health_check_test", ExchangeType.DIRECT, auto_delete=True
+                ),
+                timeout=5.0,  # 5 second timeout
+            )
+            await asyncio.wait_for(test_exchange.delete(), timeout=2.0)
+            return True
+        except TimeoutError as e:
+            raise ConnectionError("RabbitMQ health check timed out") from e
+        except asyncio.CancelledError as e:
+            raise ConnectionError("RabbitMQ health check was cancelled") from e
+
+    def get_circuit_breaker_status(self) -> dict[str, Any]:
+        """Get all circuit breaker statuses for monitoring."""
+        return {
+            "health_check": self._health_circuit_breaker.get_status(),
+            "connection": self._connection_circuit_breaker.get_status(),
+            "message_operations": self._message_circuit_breaker.get_status(),
+        }

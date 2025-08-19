@@ -135,10 +135,11 @@ class MessagingFactory:
             Storage service implementation
         """
         if environment == EnvironmentType.DEVELOPMENT:
-            # For development, use memory storage (no Redis)
-            from .implementations.memory_storage import MemoryStorageService
+            # For development, use local file storage for persistence
+            from .implementations.local_file_storage import LocalFileStorageService
 
-            return MemoryStorageService()
+            base_path = kwargs.get("local_storage_path", "./local_storage")
+            return LocalFileStorageService(base_path=base_path)
 
         elif environment == EnvironmentType.TESTING:
             # Use mock service for testing

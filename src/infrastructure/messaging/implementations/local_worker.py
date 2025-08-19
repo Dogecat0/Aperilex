@@ -8,6 +8,8 @@ from datetime import datetime
 from typing import Any
 from uuid import uuid4
 
+from src.shared.config.settings import settings
+
 from ..interfaces import (
     IQueueService,
     IWorkerService,
@@ -28,6 +30,14 @@ class LocalWorkerService(IWorkerService):
         self.task_handlers: dict[str, Callable] = {}
         self.running = False
         self.worker_task: asyncio.Task | None = None
+
+        # Load polling configuration from settings
+        self.queue_timeout = settings.worker_queue_timeout
+        self.min_sleep = settings.worker_min_sleep
+        self.max_sleep = settings.worker_max_sleep
+        self.backoff_factor = settings.worker_backoff_factor
+        self.current_sleep = self.min_sleep
+
         self.stats = {
             "tasks_processed": 0,
             "tasks_succeeded": 0,
@@ -126,6 +136,8 @@ class LocalWorkerService(IWorkerService):
 
         while self.running:
             try:
+                tasks_found = False
+
                 # Round-robin through queues
                 for queue_name in queues:
                     if not self.running:
@@ -134,15 +146,22 @@ class LocalWorkerService(IWorkerService):
                     # Try to get a task from this queue
                     task = await self.queue_service.receive_task(
                         queue=queue_name,
-                        timeout=1,  # Short timeout to check other queues
+                        timeout=self.queue_timeout,
                     )
 
                     if task:
                         await self._process_task(task)
+                        tasks_found = True
+                        # Reset sleep time when we find tasks
+                        self.current_sleep = self.min_sleep
 
-                # Brief pause if no tasks found
-                if self.running:
-                    await asyncio.sleep(0.1)
+                # Apply exponential backoff when no tasks found
+                if not tasks_found and self.running:
+                    await asyncio.sleep(self.current_sleep)
+                    # Increase sleep time for next iteration
+                    self.current_sleep = min(
+                        self.current_sleep * self.backoff_factor, self.max_sleep
+                    )
 
             except Exception as e:
                 logger.error(f"Error in worker loop: {e}", exc_info=True)

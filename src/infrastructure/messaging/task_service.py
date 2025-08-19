@@ -30,25 +30,41 @@ class Task:
         self.max_retries = max_retries
         self.timeout = timeout
         self.func: Callable | None = None
+        self._registered = False
 
     def __call__(self, func: Callable) -> "Task":
         """Decorator to register a task function."""
         self.func = func
         self.name = self.name or func.__name__
 
-        # Register the task with the worker service
-        asyncio.create_task(self._register_with_worker())
+        # Try to register immediately if worker service is available
+        # This ensures tasks are registered when modules are imported by workers
+        try:
+            # Create a background task to register without blocking
+            asyncio.create_task(self._ensure_registered())
+        except RuntimeError:
+            # No event loop running (normal during import), will register later
+            pass
+        except Exception as e:
+            # Worker service not available yet, will register when needed
+            logger.debug(f"Failed to create registration task for {self.name}: {e}")
 
         return self
 
-    async def _register_with_worker(self) -> None:
-        """Register this task with the worker service."""
+    async def _ensure_registered(self) -> None:
+        """Ensure this task is registered with the worker service."""
+        if self._registered:
+            return
+
         try:
             worker_service = await get_worker_service()
             worker_service.register_task(self.name, self.func)
+            self._registered = True
             logger.debug(f"Registered task: {self.name}")
         except Exception as e:
-            logger.warning(f"Failed to register task {self.name}: {e}")
+            # Worker service not available (probably on client side)
+            # This is normal - tasks only need registration on worker side
+            logger.debug(f"Task {self.name} registration skipped: {e}")
 
     async def delay(self, *args, **kwargs) -> "AsyncResult":
         """Execute task asynchronously."""
@@ -67,6 +83,9 @@ class Task:
         timeout: int | None = None,
     ) -> "AsyncResult":
         """Apply task asynchronously with options."""
+        # Ensure task is registered before executing
+        await self._ensure_registered()
+
         task_id = task_id or uuid4()
 
         message = TaskMessage(
