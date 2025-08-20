@@ -39,7 +39,7 @@ Management command for batch importing SEC filings using the current storage arc
 
 **Features:**
 - Batch import SEC filings by ticker or CIK
-- Support for multiple filing types (10-K, 10-Q, 8-K, etc.)
+- Support for multiple filing types (10-K, 10-Q, etc.)
 - Storage-based architecture: content in files/S3, metadata in database
 - Date range filtering for targeted imports
 - Configurable limits per company
@@ -89,10 +89,6 @@ poetry run python scripts/import_filings.py --help
 **Supported Filing Types:**
 - 10-K, 10-K/A: Annual reports
 - 10-Q, 10-Q/A: Quarterly reports
-- 8-K, 8-K/A: Current reports
-- DEF 14A, DEFA14A: Proxy statements
-- S-1, S-3, S-4: Registration statements
-- 13F, 3, 4, 5: Ownership reports
 
 **Storage Architecture:**
 - **Database**: Stores filing metadata (ID, company, dates, type, basic stats)
@@ -219,7 +215,7 @@ poetry run python scripts/import_filings.py --tickers AAPL --dry-run --verbose
 poetry run python scripts/import_filings.py --tickers AAPL,MSFT --limit 2
 
 # Import specific filing types
-poetry run python scripts/import_filings.py --tickers TSLA --filing-types 10-K,8-K --limit 1
+poetry run python scripts/import_filings.py --tickers TSLA --filing-types 10-K,10-Q --limit 1
 ```
 
 ### 4. Generate Analysis Samples

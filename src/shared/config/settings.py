@@ -90,6 +90,20 @@ class Settings(BaseSettings):
         validation_alias="WORKER_BACKOFF_FACTOR",
     )
 
+    # Task Retry Configuration
+    task_retry_base_delay: float = Field(
+        default=2.0,
+        validation_alias="TASK_RETRY_BASE_DELAY",
+    )
+    task_retry_max_delay: float = Field(
+        default=300.0,  # 5 minutes
+        validation_alias="TASK_RETRY_MAX_DELAY",
+    )
+    task_default_max_retries: int = Field(
+        default=3,
+        validation_alias="TASK_DEFAULT_MAX_RETRIES",
+    )
+
     # Security
     secret_key: str = Field(
         default="test_secret_key_for_testing_only" if _is_testing() else "",
