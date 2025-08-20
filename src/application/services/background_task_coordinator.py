@@ -1,7 +1,7 @@
 """Background task coordinator for managing long-running analysis operations using new messaging system."""
 
 import logging
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 from src.application.schemas.commands.analyze_filing import AnalyzeFilingCommand
 from src.application.schemas.responses.task_response import TaskResponse
@@ -80,8 +80,10 @@ class BackgroundTaskCoordinator:
                         "analysis_template": command.analysis_template.value,
                         "force_reprocess": command.force_reprocess,
                         "llm_schemas": command.get_llm_schemas_to_use(),
+                        "task_id": task_id,  # Pass task_id as parameter
                     },
                     queue="analysis_queue",
+                    task_id=UUID(task_id),  # Pass the same task_id to messaging system
                 )
 
                 # Update task with messaging task ID

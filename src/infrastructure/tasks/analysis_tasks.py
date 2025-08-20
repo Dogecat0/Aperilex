@@ -1,10 +1,8 @@
 """Background tasks for filing retrieval and analysis using LLM providers and new messaging system."""
 
 import asyncio
-import json
 import logging
 import os
-from pathlib import Path
 from typing import Any
 from uuid import UUID, uuid4
 
@@ -23,6 +21,7 @@ from src.infrastructure.database.base import async_session_maker
 from src.infrastructure.edgar.service import EdgarService
 from src.infrastructure.llm import BaseLLMProvider, GoogleProvider, OpenAIProvider
 from src.infrastructure.messaging import TaskPriority, task
+from src.infrastructure.messaging.interfaces import IStorageService
 from src.infrastructure.repositories.analysis_repository import AnalysisRepository
 from src.infrastructure.repositories.company_repository import CompanyRepository
 from src.infrastructure.repositories.filing_repository import FilingRepository
@@ -31,11 +30,28 @@ from src.shared.config.settings import Settings
 logger = logging.getLogger(__name__)
 
 # File storage configuration
-FILING_STORAGE_PATH = os.getenv("FILING_STORAGE_PATH", "./data/filings")
-ANALYSIS_STORAGE_PATH = os.getenv("ANALYSIS_STORAGE_PATH", "./data/analyses")
 USE_S3_STORAGE = os.getenv("USE_S3_STORAGE", "false").lower() == "true"
 MAX_CONCURRENT_FILING_DOWNLOADS = 1  # Limit to 1 concurrent download from EDGAR
 MAX_FILE_SIZE = 50 * 1024 * 1024  # 50MB limit for filing files
+
+# Storage service (replaces direct file operations)
+_local_storage_service: IStorageService | None = None
+
+
+async def get_local_storage_service() -> IStorageService:
+    """Get local storage service instance."""
+    global _local_storage_service
+    if _local_storage_service is None:
+        from src.infrastructure.messaging.factory import (
+            EnvironmentType,
+            MessagingFactory,
+        )
+
+        _local_storage_service = MessagingFactory.create_storage_service(
+            EnvironmentType.DEVELOPMENT
+        )
+        await _local_storage_service.connect()
+    return _local_storage_service
 
 
 def _validate_s3_configuration() -> None:
@@ -61,49 +77,7 @@ def _validate_s3_configuration() -> None:
             f"region={settings.aws_region}"
         )
     else:
-        logger.info(f"Using local file storage: {FILING_STORAGE_PATH}")
-
-
-def _validate_file_path(file_path: Path) -> None:
-    """Validate file path for security and size constraints.
-
-    Args:
-        file_path: Path to validate
-
-    Raises:
-        ValueError: If path is invalid or file is too large
-    """
-    # Ensure path is within expected directory (prevent path traversal)
-    resolved_path = file_path.resolve()
-
-    # Check if path is within either filing or analysis storage directory
-    valid_paths = [
-        Path(FILING_STORAGE_PATH).resolve(),
-        Path(ANALYSIS_STORAGE_PATH).resolve(),
-    ]
-
-    path_valid = False
-    for valid_path in valid_paths:
-        try:
-            resolved_path.relative_to(valid_path)
-            path_valid = True
-            break
-        except ValueError:
-            continue
-
-    if not path_valid:
-        raise ValueError(
-            f"Invalid file path outside storage directories: {file_path}. "
-            f"Must be within {FILING_STORAGE_PATH} or {ANALYSIS_STORAGE_PATH}"
-        )
-
-    # Check file size if file exists
-    if file_path.exists():
-        file_size = file_path.stat().st_size
-        if file_size > MAX_FILE_SIZE:
-            raise ValueError(
-                f"File too large: {file_size} bytes (max: {MAX_FILE_SIZE})"
-            )
+        logger.info("Using local storage service (development mode)")
 
 
 async def get_filing_content(
@@ -152,24 +126,19 @@ async def get_filing_content(
             except Exception as e:
                 logger.warning(f"Failed to retrieve from S3: {e}")
         else:
-            # Development: Try local file storage first
-            file_path = (
-                Path(FILING_STORAGE_PATH) / str(company_cik) / f"{clean_accession}.json"
-            )
+            # Development: Try local storage service first
+            try:
+                storage_service = await get_local_storage_service()
+                filing_key = f"filing:{company_cik}/{clean_accession}"
+                filing_content = await storage_service.get(filing_key)
 
-            if file_path.exists():
-                try:
-                    # Validate file path and size for security
-                    _validate_file_path(file_path)
-
-                    with open(file_path, encoding="utf-8") as f:
-                        filing_content = json.load(f)
+                if filing_content:
                     logger.info(
-                        f"Retrieved filing {accession_number} from local storage: {file_path}"
+                        f"Retrieved filing {accession_number} from local storage service"
                     )
                     return filing_content  # type: ignore[no-any-return]
-                except Exception as e:
-                    logger.warning(f"Failed to read local file {file_path}: {e}")
+            except Exception as e:
+                logger.warning(f"Failed to retrieve from local storage service: {e}")
 
         # If not in storage, download from EDGAR (with rate limiting)
         logger.info(
@@ -265,26 +234,24 @@ async def get_analysis_results(
             except Exception as e:
                 logger.warning(f"Failed to retrieve analysis from S3: {e}")
         else:
-            # Development: Try local file storage using dedicated analysis storage path
-            clean_accession = accession_number.value.replace("-", "")
-            file_path = (
-                Path(ANALYSIS_STORAGE_PATH)
-                / str(company_cik)
-                / clean_accession
-                / f"{analysis_key}.json"
-            )
+            # Development: Try local storage service
+            try:
+                storage_service = await get_local_storage_service()
+                clean_accession = accession_number.value.replace("-", "")
+                analysis_storage_key = (
+                    f"analysis:{company_cik}/{clean_accession}/{analysis_key}"
+                )
+                analysis_results = await storage_service.get(analysis_storage_key)
 
-            if file_path.exists():
-                try:
-                    _validate_file_path(file_path)
-                    with open(file_path, encoding="utf-8") as f:
-                        analysis_results = json.load(f)
+                if analysis_results:
                     logger.debug(
-                        f"Retrieved analysis {analysis_id} from local storage: {file_path}"
+                        f"Retrieved analysis {analysis_id} from local storage service"
                     )
                     return analysis_results  # type: ignore[no-any-return]
-                except Exception as e:
-                    logger.warning(f"Failed to read analysis file {file_path}: {e}")
+            except Exception as e:
+                logger.warning(
+                    f"Failed to retrieve analysis from local storage service: {e}"
+                )
 
         return None
 
@@ -338,27 +305,24 @@ async def store_analysis_results(
                 logger.error(f"Failed to store analysis to S3: {e}")
                 return False
         else:
-            # Development: Store in local file system using dedicated analysis storage path
-            clean_accession = accession_number.value.replace("-", "")
-            file_path = (
-                Path(ANALYSIS_STORAGE_PATH)
-                / str(company_cik)
-                / clean_accession
-                / f"{analysis_key}.json"
-            )
-
-            # Create directory if it doesn't exist
-            file_path.parent.mkdir(parents=True, exist_ok=True)
-
+            # Development: Store in local storage service
             try:
-                with open(file_path, "w") as f:
-                    json.dump(analysis_results, f, indent=2, default=str)
-                logger.info(
-                    f"Stored analysis {analysis_id} to local storage: {file_path}"
+                storage_service = await get_local_storage_service()
+                clean_accession = accession_number.value.replace("-", "")
+                analysis_storage_key = (
+                    f"analysis:{company_cik}/{clean_accession}/{analysis_key}"
                 )
-                return True
+                success = await storage_service.set(
+                    analysis_storage_key, analysis_results
+                )
+
+                if success:
+                    logger.info(
+                        f"Stored analysis {analysis_id} to local storage service"
+                    )
+                return success
             except Exception as e:
-                logger.error(f"Failed to write analysis file {file_path}: {e}")
+                logger.error(f"Failed to store analysis to local storage service: {e}")
                 return False
 
     except Exception as e:
@@ -411,23 +375,19 @@ async def store_filing_content(
                 logger.error(f"Failed to store to S3: {e}")
                 return False
         else:
-            # Development: Store in local file system
-            file_path = (
-                Path(FILING_STORAGE_PATH) / str(company_cik) / f"{clean_accession}.json"
-            )
-
-            # Create directory if it doesn't exist
-            file_path.parent.mkdir(parents=True, exist_ok=True)
-
+            # Development: Store in local storage service
             try:
-                with open(file_path, "w") as f:
-                    json.dump(filing_content, f, indent=2, default=str)
-                logger.info(
-                    f"Stored filing {accession_number} to local storage: {file_path}"
-                )
-                return True
+                storage_service = await get_local_storage_service()
+                filing_key = f"filing:{company_cik}/{clean_accession}"
+                success = await storage_service.set(filing_key, filing_content)
+
+                if success:
+                    logger.info(
+                        f"Stored filing {accession_number} to local storage service"
+                    )
+                return success
             except Exception as e:
-                logger.error(f"Failed to write local file {file_path}: {e}")
+                logger.error(f"Failed to store to local storage service: {e}")
                 return False
 
     except Exception as e:
@@ -449,6 +409,7 @@ async def retrieve_and_analyze_filing(
     llm_schemas: list[str] | None = None,
     llm_provider: str | None = None,
     llm_model: str | None = None,
+    task_id: str | None = None,  # Add task ID parameter
 ) -> dict[str, Any]:
     """Retrieve filing content and analyze using the specified LLM provider.
 
@@ -492,10 +453,41 @@ async def retrieve_and_analyze_filing(
             f"Starting analysis for filing {company_cik}/{accession_number} with template {analysis_template}"
         )
 
+        # Initialize task tracking
+        task_service = None
+        if task_id:
+            try:
+                from src.application.services.task_service import TaskService
+
+                task_service = TaskService()
+                await task_service.update_task_status(
+                    task_id=task_id,
+                    status="running",
+                    message="Starting filing analysis",
+                    progress=5,
+                )
+            except Exception as e:
+                logger.warning(f"Could not initialize task tracking: {e}")
+
         # Step 1: Retrieve filing content from storage or EDGAR
+        if task_service and task_id:
+            await task_service.update_task_status(
+                task_id=task_id,
+                status="running",
+                message="Retrieving filing content",
+                progress=15,
+            )
+
         filing_content = await get_filing_content(accession_number, company_cik)
 
         if not filing_content:
+            if task_service and task_id:
+                await task_service.update_task_status(
+                    task_id=task_id,
+                    status="failed",
+                    message="Failed to retrieve filing content",
+                    error=f"Unable to retrieve filing content for {accession_number}",
+                )
             raise ValueError(
                 f"Unable to retrieve filing content for {accession_number}. "
                 f"Filing could not be found in storage or downloaded from EDGAR."
@@ -512,6 +504,14 @@ async def retrieve_and_analyze_filing(
             f"Filing content retrieved for {accession_number}, proceeding with analysis"
         )
 
+        if task_service and task_id:
+            await task_service.update_task_status(
+                task_id=task_id,
+                status="running",
+                message="Setting up database connections",
+                progress=25,
+            )
+
         async with async_session_maker() as session:
             # Get repositories
             filing_repo = FilingRepository(session)
@@ -521,11 +521,46 @@ async def retrieve_and_analyze_filing(
             # Get Edgar service
             edgar_service = EdgarService()
 
-            # Step 3: Ensure filing record exists in database
-            # Get company and filing from database
+            # Step 3: Ensure company and filing records exist in database
+            # Get company from database, auto-populate if not found
             company = await company_repo.get_by_cik(company_cik)
             if not company:
-                raise ValueError(f"Company with CIK {company_cik} not found")
+                logger.info(
+                    f"Company with CIK {company_cik} not found, fetching from EDGAR"
+                )
+                try:
+                    # Fetch company data from SEC EDGAR
+                    company_data = edgar_service.get_company_by_cik(company_cik)
+
+                    # Create new company entity
+                    from src.domain.entities.company import Company
+
+                    company = Company(
+                        id=uuid4(),
+                        cik=company_cik,
+                        name=company_data.name,
+                        metadata={
+                            "ticker": company_data.ticker,
+                            "sic": company_data.sic,
+                            "sector": company_data.sector,
+                            "auto_populated": True,
+                            "auto_populated_date": filing_content.get("filing_date"),
+                            "source": "edgar_api",
+                        },
+                    )
+
+                    # Save to database
+                    await company_repo.update(company)
+                    await session.commit()
+
+                    logger.info(
+                        f"Successfully created company record for CIK {company_cik}: {company_data.name}"
+                    )
+
+                except Exception as company_error:
+                    raise ValueError(
+                        f"Company with CIK {company_cik} not found in database and could not be auto-populated from EDGAR: {str(company_error)}"
+                    ) from company_error
 
             filing = await filing_repo.get_by_accession_number(
                 accession_number=accession_number
@@ -609,9 +644,25 @@ async def retrieve_and_analyze_filing(
                 logger.info(f"Using LLM schemas from template: {llm_schemas}")
 
             # Step 5: Perform analysis using orchestrator
+            if task_service and task_id:
+                await task_service.update_task_status(
+                    task_id=task_id,
+                    status="running",
+                    message="Running LLM analysis",
+                    progress=60,
+                )
+
             analysis = await orchestrator.orchestrate_filing_analysis(command)
 
             # Save results
+            if task_service and task_id:
+                await task_service.update_task_status(
+                    task_id=task_id,
+                    status="running",
+                    message="Saving analysis results",
+                    progress=90,
+                )
+
             await analysis_repo.update(analysis)
             await session.commit()
 
@@ -633,6 +684,16 @@ async def retrieve_and_analyze_filing(
                 ),
             }
 
+            # Mark task as completed
+            if task_service and task_id:
+                await task_service.update_task_status(
+                    task_id=task_id,
+                    status="completed",
+                    message="Analysis completed successfully",
+                    progress=100,
+                    result=result,
+                )
+
             logger.info(
                 f"Analysis completed for filing {company_cik}/{accession_number}: {result}"
             )
@@ -644,6 +705,20 @@ async def retrieve_and_analyze_filing(
             f"Analysis failed for filing {company_cik}/{accession_number}: {str(e)}"
         )
         logger.error(error_msg)
+
+        # Mark task as failed
+        if task_service and task_id:
+            try:
+                await task_service.update_task_status(
+                    task_id=task_id,
+                    status="failed",
+                    message="Analysis failed",
+                    error=error_msg,
+                )
+            except Exception as update_error:
+                logger.warning(
+                    f"Could not update task status on failure: {update_error}"
+                )
 
         # Re-raise for task retry logic
         raise e
