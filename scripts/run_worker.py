@@ -27,17 +27,17 @@ from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from typing import Any
 
-from src.infrastructure.messaging.factory import (
+# Add project root to path for imports
+project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, project_root)
+
+from src.infrastructure.messaging.factory import (  # noqa: E402
     EnvironmentType,
     cleanup_services,
     get_worker_service,
     initialize_services,
 )
-from src.shared.config.settings import Settings
-
-# Add project root to path for imports
-project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.insert(0, project_root)
+from src.shared.config.settings import Settings  # noqa: E402
 
 
 def setup_logging(log_level: str = "INFO") -> None:

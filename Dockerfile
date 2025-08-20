@@ -34,25 +34,26 @@ RUN --mount=type=cache,target=/opt/poetry_cache \
     poetry install --only=main --no-root && \
     python -c "import uvicorn; import fastapi; print('All imports successful')"
 
-# Security: Create non-root user with home directory
-RUN groupadd -r appuser && useradd -r -g appuser -m -d /home/appuser appuser
-
-# Create necessary directories with proper permissions
-RUN mkdir -p /tmp/edgar_data /home/appuser/.edgar /home/appuser/.cache && \
-    chown -R appuser:appuser /tmp/edgar_data /home/appuser
+# Create necessary directories
+RUN mkdir -p /tmp/edgar_data /app/data /home/appuser/.edgar /home/appuser/.cache && \
+    chmod -R 777 /tmp/edgar_data /app/data /home/appuser
 
 # Set HOME environment variable
 ENV HOME=/home/appuser
 
-# Copy application code
+# Copy application and Alembic code
 COPY ./src/ ./src/
 COPY ./scripts/ ./scripts/
+COPY ./alembic/ ./alembic/
+COPY alembic.ini ./
 
-# Change ownership to appuser
-RUN chown -R appuser:appuser /app
+# Change ownership to allow flexible user IDs and make scripts executable
+RUN chmod -R 755 /app && \
+    find /app/scripts -name "*.sh" -exec chmod +x {} \; && \
+    find /app/scripts -name "*.py" -exec chmod +x {} \;
 
-# Switch to non-root user
-USER appuser
+# Set entrypoint
+ENTRYPOINT ["/app/scripts/docker-entrypoint.sh"]
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=3s --start-period=40s --retries=3 \
@@ -61,5 +62,5 @@ HEALTHCHECK --interval=30s --timeout=3s --start-period=40s --retries=3 \
 # Expose port
 EXPOSE 8000
 
-# Run application
-CMD ["uvicorn", "src.presentation.api.app:app", "--host", "0.0.0.0", "--port", "8000"]
+# Default command (can be overridden)
+CMD ["app"]

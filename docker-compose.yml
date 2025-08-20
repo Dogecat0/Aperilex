@@ -37,6 +37,7 @@ services:
     ports:
       - "8000:8000"
     env_file: .env
+    user: "${UID:-1000}:${GID:-1000}"
     environment:
       # Database
       DATABASE_URL: postgresql+asyncpg://aperilex:${DB_PASSWORD:-dev_password}@postgres/aperilex
@@ -52,6 +53,7 @@ services:
       DEBUG: "true"
       EDGAR_IDENTITY: ${EDGAR_IDENTITY:-dev@aperilex.com}
       EDGAR_DATA_DIR: /tmp/edgar_data
+      LOCAL_STORAGE_PATH: ${LOCAL_STORAGE_PATH:-/app/data}
 
       # LLM Configuration
       OPENAI_API_KEY: ${OPENAI_API_KEY:-dummy_openai_key}
@@ -67,11 +69,13 @@ services:
       - ./src:/app/src
       - ./tests:/app/tests
       - ./scripts:/app/scripts
-    command: python3 -m uvicorn src.presentation.api.app:app --reload --host 0.0.0.0 --port 8000
+      - ./data:/app/data
+    command: ["app"]
 
   worker:
     build: .
     env_file: .env
+    user: "${UID:-1000}:${GID:-1000}"
     environment:
       # Database
       DATABASE_URL: postgresql+asyncpg://aperilex:${DB_PASSWORD:-dev_password}@postgres/aperilex
@@ -87,6 +91,7 @@ services:
       DEBUG: "true"
       EDGAR_IDENTITY: ${EDGAR_IDENTITY:-dev@aperilex.com}
       EDGAR_DATA_DIR: /tmp/edgar_data
+      LOCAL_STORAGE_PATH: ${LOCAL_STORAGE_PATH:-/app/data}
 
       # LLM Configuration
       OPENAI_API_KEY: ${OPENAI_API_KEY:-dummy_openai_key}
@@ -102,7 +107,8 @@ services:
       - ./src:/app/src
       - ./tests:/app/tests
       - ./scripts:/app/scripts
-    command: python3 scripts/run_worker.py --log-level INFO
+      - ./data:/app/data
+    command: ["worker"]
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "python", "-c", "import asyncio; import aio_pika; asyncio.run(aio_pika.connect('amqp://${RABBITMQ_USER:-aperilex}:${RABBITMQ_PASSWORD:-dev_password}@rabbitmq:5672/')); print('RabbitMQ connection successful')"]
