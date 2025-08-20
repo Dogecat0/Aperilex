@@ -16,7 +16,6 @@ from src.domain.value_objects import CIK
 from src.domain.value_objects.accession_number import AccessionNumber
 from src.domain.value_objects.filing_type import FilingType
 from src.domain.value_objects.processing_status import ProcessingStatus
-from src.domain.value_objects.ticker import Ticker
 from src.infrastructure.edgar.schemas.filing_data import FilingData
 from src.infrastructure.edgar.service import EdgarService
 from src.infrastructure.llm.base import BaseLLMProvider
@@ -871,77 +870,35 @@ class AnalysisOrchestrator:
         logger.warning("No filing content available, fetching from Edgar service")
         filing_data = await self.validate_filing_access_and_get_data(accession_number)
 
-        # If filing data has sections extracted, use them
+        # With our fix, filing_data.sections should always be populated
+        logger.debug("Using sections extracted from filing data")
+
+        # Filter to only needed sections
+        relevant_sections = {
+            section: content
+            for section, content in filing_data.sections.items()
+            if section in sections_needed
+        }
+
+        # If we found relevant sections, return them
+        if relevant_sections:
+            logger.info(
+                f"Found {len(relevant_sections)} relevant sections from filing data"
+            )
+            return relevant_sections
+
+        # If no relevant sections found but we have sections, return all sections
         if filing_data.sections:
-            logger.debug("Using pre-extracted sections from Edgar filing data")
-            # Filter to only needed sections
-            relevant_sections = {
-                section: content
-                for section, content in filing_data.sections.items()
-                if section in sections_needed
-            }
-
-            # If we found relevant sections, return them
-            if relevant_sections:
-                logger.info(
-                    f"Found {len(relevant_sections)} relevant sections from Edgar data"
-                )
-                return relevant_sections
-
-        # If no sections in filing data or no relevant sections found,
-        # extract sections using EdgarService
-        try:
-            # Import required types for EdgarService call
-
-            # Use ticker from filing data if available, otherwise extract from company
-            if filing_data.ticker:
-                ticker = Ticker(filing_data.ticker)
-            else:
-                logger.warning(
-                    "No ticker in filing data, using CIK for section extraction"
-                )
-                # For now, we'll use the sections from filing data or content text
-                # as a fallback since we can't extract without a ticker
-                if filing_data.sections:
-                    return filing_data.sections
-                else:
-                    # Return content as a single section
-                    return {"Filing Content": filing_data.content_text}
-
-            filing_type = FilingType(filing_data.filing_type)
-
-            # Extract sections using EdgarService (synchronous call)
-            all_sections = self.edgar_service.extract_filing_sections(
-                ticker, filing_type
+            logger.info(
+                f"No specific sections needed, returning all {len(filing_data.sections)} sections"
             )
+            return filing_data.sections
 
-            # Filter to only needed sections
-            relevant_sections = {
-                section: content
-                for section, content in all_sections.items()
-                if section in sections_needed
-            }
-
-            if relevant_sections:
-                logger.info(f"Extracted {len(relevant_sections)} relevant sections")
-                return relevant_sections
-            else:
-                logger.warning(
-                    "No relevant sections found, returning all extracted sections"
-                )
-                return all_sections
-
-        except Exception as e:
-            logger.warning(
-                f"Failed to extract specific sections: {str(e)}. "
-                f"Using fallback approach"
-            )
-            # Fallback to returning available sections or content
-            if filing_data.sections:
-                return filing_data.sections
-            else:
-                # Return content as a single section for analysis
-                return {"Filing Content": filing_data.content_text}
+        # Final fallback if somehow no sections were extracted
+        logger.warning(
+            "No sections extracted from filing data, using full content text"
+        )
+        return {"Filing Content": filing_data.content_text}
 
     async def _rollback_filing_status_on_failure(
         self, filing: Filing | None, error_message: str
