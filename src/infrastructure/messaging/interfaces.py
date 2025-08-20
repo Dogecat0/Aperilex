@@ -44,9 +44,9 @@ class TaskMessage:
     eta: datetime | None = None
     expires: datetime | None = None
     queue: str = "default"
-    metadata: dict[str, Any] = None
+    metadata: dict[str, Any] | None = None
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         if self.metadata is None:
             self.metadata = {}
 
@@ -63,9 +63,9 @@ class TaskResult:
     started_at: datetime | None = None
     completed_at: datetime | None = None
     worker_id: str | None = None
-    metadata: dict[str, Any] = None
+    metadata: dict[str, Any] | None = None
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         if self.metadata is None:
             self.metadata = {}
 
@@ -197,7 +197,7 @@ class IWorkerService(ABC):
     """Generic worker service interface."""
 
     @abstractmethod
-    async def start(self, queues: list[str] = None) -> None:
+    async def start(self, queues: list[str] | None = None) -> None:
         """Start the worker service.
 
         Args:
@@ -211,7 +211,7 @@ class IWorkerService(ABC):
         pass
 
     @abstractmethod
-    def register_task(self, name: str, handler: Callable) -> None:
+    def register_task(self, name: str, handler: Callable[..., Any]) -> None:
         """Register a task handler.
 
         Args:

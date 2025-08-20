@@ -215,17 +215,13 @@ class LocalWorkerService(IWorkerService):
 
             # Decide whether to retry or fail permanently
             if task.retry_count < task.max_retries:
-                # Requeue for retry
-                await self.queue_service.nack_task(task.task_id, requeue=True)
-                task.retry_count += 1
-                logger.info(
-                    f"Requeuing task {task.task_id} for retry ({task.retry_count}/{task.max_retries})"
-                )
+                # Increment retry count and requeue with exponential backoff
+                await self._requeue_task_with_retry(task, error_msg)
             else:
-                # Permanently fail
+                # Permanently fail - send to dead letter queue
                 await self.queue_service.nack_task(task.task_id, requeue=False)
                 logger.error(
-                    f"Task {task.task_id} permanently failed after {task.max_retries} retries"
+                    f"Task {task.task_id} permanently failed after {task.max_retries} retries: {error_msg}"
                 )
 
         except Exception as e:
@@ -241,17 +237,13 @@ class LocalWorkerService(IWorkerService):
 
             # Decide whether to retry or fail permanently
             if task.retry_count < task.max_retries:
-                # Requeue for retry
-                await self.queue_service.nack_task(task.task_id, requeue=True)
-                task.retry_count += 1
-                logger.info(
-                    f"Requeuing task {task.task_id} for retry ({task.retry_count}/{task.max_retries})"
-                )
+                # Increment retry count and requeue with exponential backoff
+                await self._requeue_task_with_retry(task, error_msg)
             else:
-                # Permanently fail
+                # Permanently fail - send to dead letter queue
                 await self.queue_service.nack_task(task.task_id, requeue=False)
                 logger.error(
-                    f"Task {task.task_id} permanently failed after {task.max_retries} retries"
+                    f"Task {task.task_id} permanently failed after {task.max_retries} retries: {error_msg}"
                 )
 
         finally:
@@ -273,3 +265,51 @@ class LocalWorkerService(IWorkerService):
         except Exception as e:
             logger.error(f"Handler execution failed: {e}")
             raise
+
+    async def _requeue_task_with_retry(self, task: TaskMessage, error_msg: str) -> None:
+        """Requeue task with incremented retry count and exponential backoff."""
+        # Increment retry count
+        task.retry_count += 1
+
+        # Calculate exponential backoff delay (in seconds)
+        # Formula: base_delay * (2^retry_count) with jitter
+        base_delay = settings.task_retry_base_delay
+        delay = min(
+            base_delay * (2 ** (task.retry_count - 1)), settings.task_retry_max_delay
+        )
+
+        # Add some jitter to prevent thundering herd
+        import secrets
+
+        jitter_factor = 0.8 + (secrets.randbelow(401) / 1000)
+        delay *= jitter_factor
+
+        logger.info(
+            f"Requeuing task {task.task_id} for retry {task.retry_count}/{task.max_retries} "
+            f"with {delay:.1f}s delay. Error: {error_msg}"
+        )
+
+        # Create new task message with updated retry count
+        retry_task = TaskMessage(
+            task_id=task.task_id,
+            task_name=task.task_name,
+            args=task.args,
+            kwargs=task.kwargs,
+            priority=task.priority,
+            retry_count=task.retry_count,
+            max_retries=task.max_retries,
+            timeout=task.timeout,
+            eta=task.eta,
+            expires=task.expires,
+            queue=task.queue,
+            metadata={**task.metadata, "retry_reason": error_msg, "retry_delay": delay},
+        )
+
+        # First nack the current message
+        await self.queue_service.nack_task(task.task_id, requeue=False)
+
+        # Wait for the delay
+        await asyncio.sleep(delay)
+
+        # Send the retry task
+        await self.queue_service.send_task(retry_task)

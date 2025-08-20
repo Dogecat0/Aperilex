@@ -19,7 +19,7 @@ class LocalFileStorageService(IStorageService):
     on the local filesystem. Metadata should be stored in the database.
     """
 
-    def __init__(self, base_path: str = "./local_storage"):
+    def __init__(self, base_path: str = "./data"):
         """Initialize local file storage.
 
         Args:
@@ -59,14 +59,29 @@ class LocalFileStorageService(IStorageService):
         """Get the file path for a given key.
 
         Routes different content types to appropriate subdirectories.
+        Supports hierarchical keys with forward slashes for directory structure.
         """
         # Determine subdirectory based on key prefix
         if key.startswith("filing:"):
             subdir = "filings"
-            filename = key.replace("filing:", "") + ".json"
+            # Remove prefix and support hierarchical paths
+            relative_path = key.replace("filing:", "")
+            if "/" in relative_path:
+                # Hierarchical path: filing:cik/accession -> filings/cik/accession.json
+                filename = relative_path + ".json"
+            else:
+                # Flat path: filing:accession -> filings/accession.json
+                filename = relative_path + ".json"
         elif key.startswith("analysis:"):
             subdir = "analyses"
-            filename = key.replace("analysis:", "") + ".json"
+            # Remove prefix and support hierarchical paths
+            relative_path = key.replace("analysis:", "")
+            if "/" in relative_path:
+                # Hierarchical path: analysis:cik/accession/id -> analyses/cik/accession/id.json
+                filename = relative_path + ".json"
+            else:
+                # Flat path: analysis:id -> analyses/id.json
+                filename = relative_path + ".json"
         elif key.startswith("task:"):
             subdir = "tasks"
             filename = key.replace("task:", "") + ".json"

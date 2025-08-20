@@ -1,7 +1,9 @@
 """Service factory for messaging infrastructure."""
 
 import logging
+import os
 from enum import Enum
+from typing import Any
 
 # Lazy imports - only import what we need for each environment
 from .interfaces import IQueueService, IStorageService, IWorkerService
@@ -21,7 +23,9 @@ class MessagingFactory:
     """Factory for creating messaging service implementations."""
 
     @staticmethod
-    def create_queue_service(environment: EnvironmentType, **kwargs) -> IQueueService:
+    def create_queue_service(
+        environment: EnvironmentType, **kwargs: Any
+    ) -> IQueueService:
         """Create queue service based on environment.
 
         Args:
@@ -74,7 +78,7 @@ class MessagingFactory:
     def create_worker_service(
         environment: EnvironmentType,
         queue_service: IQueueService | None = None,
-        **kwargs,
+        **kwargs: Any,
     ) -> IWorkerService:
         """Create worker service based on environment.
 
@@ -123,7 +127,7 @@ class MessagingFactory:
 
     @staticmethod
     def create_storage_service(
-        environment: EnvironmentType, **kwargs
+        environment: EnvironmentType, **kwargs: Any
     ) -> IStorageService:
         """Create storage service based on environment.
 
@@ -138,7 +142,10 @@ class MessagingFactory:
             # For development, use local file storage for persistence
             from .implementations.local_file_storage import LocalFileStorageService
 
-            base_path = kwargs.get("local_storage_path", "./local_storage")
+            # Use environment variable or kwargs, fallback to ./data
+            base_path = kwargs.get(
+                "local_storage_path", os.getenv("LOCAL_STORAGE_PATH", "./data")
+            )
             return LocalFileStorageService(base_path=base_path)
 
         elif environment == EnvironmentType.TESTING:
@@ -179,7 +186,7 @@ class ServiceRegistry:
         self._storage_service: IStorageService | None = None
         self._connected = False
 
-    async def initialize(self, **config) -> None:
+    async def initialize(self, **config: Any) -> None:
         """Initialize all services with configuration."""
         try:
             # Create services
@@ -289,7 +296,7 @@ async def get_registry() -> ServiceRegistry:
 
 
 async def initialize_services(
-    environment: EnvironmentType, **config
+    environment: EnvironmentType, **config: Any
 ) -> ServiceRegistry:
     """Initialize global service registry."""
     global _registry

@@ -97,11 +97,12 @@ class RabbitMQQueueService(IQueueService):
         if queue_name not in self.queues:
             await self._ensure_connected()
 
-            # Arguments for dead letter routing
+            # Arguments for dead letter routing and retry handling
             queue_args = {
                 "x-dead-letter-exchange": "aperilex_dlx",
                 "x-dead-letter-routing-key": f"{queue_name}.dead",
-                "x-message-ttl": 3600000,  # 1 hour TTL
+                "x-message-ttl": 3600000,  # 1 hour TTL for messages
+                "x-max-retries": 3,  # RabbitMQ built-in retry limit
             }
 
             # Declare main queue

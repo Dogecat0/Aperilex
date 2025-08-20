@@ -29,10 +29,10 @@ class Task:
         self.priority = priority
         self.max_retries = max_retries
         self.timeout = timeout
-        self.func: Callable | None = None
+        self.func: Callable[..., Any] | None = None
         self._registered = False
 
-    def __call__(self, func: Callable) -> "Task":
+    def __call__(self, func: Callable[..., Any]) -> "Task":
         """Decorator to register a task function."""
         self.func = func
         self.name = self.name or func.__name__
@@ -58,7 +58,8 @@ class Task:
 
         try:
             worker_service = await get_worker_service()
-            worker_service.register_task(self.name, self.func)
+            if self.name is not None and self.func is not None:
+                worker_service.register_task(self.name, self.func)
             self._registered = True
             logger.debug(f"Registered task: {self.name}")
         except Exception as e:
@@ -66,14 +67,14 @@ class Task:
             # This is normal - tasks only need registration on worker side
             logger.debug(f"Task {self.name} registration skipped: {e}")
 
-    async def delay(self, *args, **kwargs) -> "AsyncResult":
+    async def delay(self, *args: Any, **kwargs: Any) -> "AsyncResult":
         """Execute task asynchronously."""
-        return await self.apply_async(args=args, kwargs=kwargs)
+        return await self.apply_async(args=list(args), kwargs=kwargs)
 
     async def apply_async(
         self,
-        args: list = None,
-        kwargs: dict = None,
+        args: list[Any] | None = None,
+        kwargs: dict[str, Any] | None = None,
         task_id: UUID | None = None,
         eta: datetime | None = None,
         expires: datetime | None = None,
@@ -87,6 +88,9 @@ class Task:
         await self._ensure_registered()
 
         task_id = task_id or uuid4()
+
+        if self.name is None:
+            raise ValueError("Task name must be set")
 
         message = TaskMessage(
             task_id=task_id,
@@ -208,14 +212,15 @@ class TaskService:
     @staticmethod
     async def send_task(
         task_name: str,
-        args: list = None,
-        kwargs: dict = None,
+        args: list[Any] | None = None,
+        kwargs: dict[str, Any] | None = None,
         queue: str = "default",
         priority: TaskPriority = TaskPriority.NORMAL,
-        **options,
+        task_id: UUID | None = None,
+        **options: Any,
     ) -> AsyncResult:
         """Send a task directly without using a decorator."""
-        task_id = uuid4()
+        task_id = task_id or uuid4()
 
         message = TaskMessage(
             task_id=task_id,
