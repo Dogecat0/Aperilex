@@ -30,12 +30,10 @@ export function DashboardHome() {
     <div className="space-y-8">
       {/* Hero Section */}
       <div className="text-center space-y-4 py-12 bg-gradient-to-b from-primary/5 to-background rounded-lg border">
-        <h1 className="text-4xl md:text-5xl font-bold text-foreground">
-          Welcome to Aperilex
-        </h1>
+        <h1 className="text-4xl md:text-5xl font-bold text-foreground">Welcome to Aperilex</h1>
         <p className="text-lg text-muted-foreground max-w-2xl mx-auto px-4">
-          Your open-source platform for SEC filing analysis and financial insights.
-          Analyze filings, discover company data, and generate comprehensive financial reports.
+          Your open-source platform for SEC filing analysis and financial insights. Analyze filings,
+          discover company data, and generate comprehensive financial reports.
         </p>
         <div className="pt-4">
           <Button size="lg" onClick={handleViewFilings}>
@@ -49,7 +47,9 @@ export function DashboardHome() {
         <div className="flex items-center justify-between mb-4">
           <div>
             <h2 className="text-xl font-semibold">View SEC Filings</h2>
-            <p className="text-sm text-muted-foreground">Browse and analyze SEC filings from public companies</p>
+            <p className="text-sm text-muted-foreground">
+              Browse and analyze SEC filings from public companies
+            </p>
           </div>
           <Button onClick={handleViewFilings}>
             <svg className="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -73,7 +73,9 @@ export function DashboardHome() {
         <div className="flex items-center justify-between mb-4">
           <div>
             <h2 className="text-xl font-semibold">Search Companies</h2>
-            <p className="text-sm text-muted-foreground">Find and explore public company information</p>
+            <p className="text-sm text-muted-foreground">
+              Find and explore public company information
+            </p>
           </div>
           <Button variant="outline" onClick={handleSearchCompanies}>
             <svg className="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -88,7 +90,8 @@ export function DashboardHome() {
           </Button>
         </div>
         <div className="text-sm text-muted-foreground">
-          Search by company name, ticker symbol, or CIK to access detailed company profiles and filing history.
+          Search by company name, ticker symbol, or CIK to access detailed company profiles and
+          filing history.
         </div>
       </div>
 

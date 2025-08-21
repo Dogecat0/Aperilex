@@ -122,7 +122,7 @@ export type AnalysisStage =
   | 'completed'
   | 'error'
   | 'background'
-  | 'processing_background'  // Frontend-specific extension of 'background'
+  | 'processing_background' // Frontend-specific extension of 'background'
 
 export interface TaskResult {
   analysis?: AnalysisResponse
@@ -140,9 +140,8 @@ export interface TaskResponse {
   completed_at: string | null
   progress_percent: number | null
   current_step: string | null
-  analysis_stage: AnalysisStage | null  // New structured progress field
+  analysis_stage: AnalysisStage | null // New structured progress field
 }
-
 
 export interface AnalysisProgress {
   state: AnalysisStage
