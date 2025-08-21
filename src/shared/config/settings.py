@@ -181,6 +181,21 @@ class Settings(BaseSettings):
         default=False, validation_alias="OPENTELEMETRY_ENABLED"
     )
 
+    # Rate Limiting
+    rate_limiting_enabled: bool = Field(
+        default=True, validation_alias="RATE_LIMITING_ENABLED"
+    )
+    rate_limit_requests_per_hour: int = Field(
+        default=10, validation_alias="RATE_LIMIT_REQUESTS_PER_HOUR"
+    )
+    rate_limit_requests_per_day: int = Field(
+        default=50, validation_alias="RATE_LIMIT_REQUESTS_PER_DAY"
+    )
+    rate_limit_excluded_paths: list[str] = Field(
+        default=["/health", "/", "/docs", "/openapi.json", "/redoc"],
+        validation_alias="RATE_LIMIT_EXCLUDED_PATHS",
+    )
+
     @field_validator("encryption_key")
     @classmethod
     def validate_encryption_key(cls, v: str) -> str:
