@@ -110,7 +110,7 @@ export interface AnalysisResponse {
 }
 
 // Task Types
-export type TaskStatus = 'pending' | 'started' | 'success' | 'failure'
+export type TaskStatus = 'pending' | 'started' | 'success' | 'failure' | 'completed'
 
 export interface TaskResult {
   analysis?: AnalysisResponse
