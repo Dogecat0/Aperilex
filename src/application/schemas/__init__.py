@@ -36,7 +36,7 @@ from src.application.schemas.responses.paginated_response import (
     PaginatedResponse,
     PaginationMetadata,
 )
-from src.application.schemas.responses.task_response import TaskResponse, TaskStatus
+from src.application.schemas.responses.task_response import TaskResponse
 
 __all__ = [
     # Commands
@@ -55,6 +55,5 @@ __all__ = [
     "ErrorResponse",
     "PaginatedResponse",
     "PaginationMetadata",
-    "TaskStatus",
     "ErrorType",
 ]
