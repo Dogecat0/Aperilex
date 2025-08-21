@@ -5,7 +5,7 @@ import { tasksApi } from '@/api/tasks'
 import type {
   AnalyzeFilingRequest,
   AnalysisProgress,
-  AnalysisProgressState,
+  AnalysisStage,
   TaskResponse,
 } from '@/api/types'
 import type { FilingSearchParams } from '@/api/filings'
@@ -170,7 +170,7 @@ export const usePollAnalysisCompletion = () => {
 /**
  * Get appropriate progress message for analysis state
  */
-const getProgressMessage = (state: AnalysisProgressState, currentStep?: string): string => {
+const getProgressMessage = (state: AnalysisStage, currentStep?: string): string => {
   if (currentStep) {
     return currentStep
   }
@@ -196,13 +196,13 @@ const getProgressMessage = (state: AnalysisProgressState, currentStep?: string):
 }
 
 /**
- * Map task status and current_step to our progress states
- * Prefers structured analysis_stage field, falls back to parsing current_step
+ * Map task to analysis stage using structured analysis_stage field
+ * Falls back to basic task status if analysis_stage is not available
  */
-const mapTaskToProgressState = (task: TaskResponse): AnalysisProgressState => {
-  // NEW: Prefer structured analysis_stage field from backend
+const mapTaskToProgressState = (task: TaskResponse): AnalysisStage => {
+  // Use structured analysis_stage field from backend
   if (task.analysis_stage) {
-    // Map AnalysisStage to AnalysisProgressState (they should match exactly)
+    // Map backend AnalysisStage values to frontend AnalysisStage (with frontend extensions)
     switch (task.analysis_stage) {
       case 'idle':
         return 'idle'
@@ -221,49 +221,20 @@ const mapTaskToProgressState = (task: TaskResponse): AnalysisProgressState => {
       case 'background':
         return 'processing_background'
       default:
-        // If unknown stage, fall through to legacy logic
-        break
+        // If unknown analysis_stage, use a safe default based on task status
+        if (task.status === 'failure') return 'error'
+        if (task.status === 'success' || task.status === 'completed') return 'completed'
+        return 'analyzing_content' // Safe default for active tasks
     }
   }
 
-  // LEGACY: Fallback to existing logic for backward compatibility
-  if (task.status === 'failure') {
-    return 'error'
-  }
+  // If no analysis_stage field is provided, provide safe defaults based on basic task status
+  if (task.status === 'failure') return 'error'
+  if (task.status === 'success' || task.status === 'completed') return 'completed'
+  if (task.status === 'pending') return 'initiating'
 
-  if (task.status === 'success' || task.status === 'completed') {
-    return 'completed'
-  }
-
-  if (task.status === 'pending') {
-    return 'initiating'
-  }
-
-  if (task.status === 'started') {
-    const step = task.current_step?.toLowerCase() || ''
-
-    if (step.includes('filing') || step.includes('loading') || step.includes('fetch')) {
-      return 'loading_filing'
-    }
-
-    if (
-      step.includes('analysis') ||
-      step.includes('analyzing') ||
-      step.includes('llm') ||
-      step.includes('ai')
-    ) {
-      return 'analyzing_content'
-    }
-
-    if (step.includes('finaliz') || step.includes('complet') || step.includes('finish')) {
-      return 'completing'
-    }
-
-    // Default for started status
-    return 'analyzing_content'
-  }
-
-  return 'initiating'
+  // Default for any other status (like 'started' without analysis_stage)
+  return 'analyzing_content'
 }
 
 /**
