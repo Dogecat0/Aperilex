@@ -189,8 +189,8 @@ export function AnalysisDetails() {
   const comprehensiveAnalysis = analysis.full_results as ComprehensiveAnalysisResponse | undefined
   const hasComprehensiveResults = Boolean(
     comprehensiveAnalysis &&
-      'section_analyses' in comprehensiveAnalysis &&
-      Array.isArray(comprehensiveAnalysis.section_analyses)
+    'section_analyses' in comprehensiveAnalysis &&
+    Array.isArray(comprehensiveAnalysis.section_analyses)
   )
   const hasLegacyResults = Boolean(analysis.full_results && !hasComprehensiveResults)
 
@@ -310,8 +310,7 @@ export function AnalysisDetails() {
     } catch (error) {
       console.error('Export failed:', error)
       showFeedback(
-        `Failed to export as ${getFormatInfo(format).name}: ${
-          error instanceof Error ? error.message : 'Unknown error'
+        `Failed to export as ${getFormatInfo(format).name}: ${error instanceof Error ? error.message : 'Unknown error'
         }`,
         'error'
       )
@@ -340,11 +339,10 @@ export function AnalysisDetails() {
       {/* Feedback notification */}
       {feedback && (
         <div
-          className={`fixed top-4 right-4 z-50 p-4 rounded-lg border shadow-lg transition-all duration-300 ${
-            feedback.type === 'success'
-              ? 'bg-green-50 border-green-200 text-green-800 dark:bg-green-950 dark:border-green-800 dark:text-green-200'
-              : 'bg-red-50 border-red-200 text-red-800 dark:bg-red-950 dark:border-red-800 dark:text-red-200'
-          }`}
+          className={`fixed top-4 right-4 z-50 p-4 rounded-lg border shadow-lg transition-all duration-300 ${feedback.type === 'success'
+            ? 'bg-green-50 border-green-200 text-green-800 dark:bg-green-950 dark:border-green-800 dark:text-green-200'
+            : 'bg-red-50 border-red-200 text-red-800 dark:bg-red-950 dark:border-red-800 dark:text-red-200'
+            }`}
         >
           <div className="flex items-center gap-2">
             {feedback.type === 'success' ? (
@@ -362,7 +360,6 @@ export function AnalysisDetails() {
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
           <div className="flex-1">
             <div className="flex items-center gap-3 mb-2">
-              <FileText className="h-6 w-6 text-blue-600 dark:text-blue-400" />
               <h1 className="text-2xl font-bold text-foreground">
                 {comprehensiveAnalysis?.company_name || 'Unknown Company'} -{' '}
                 {comprehensiveAnalysis?.filing_type
