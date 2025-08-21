@@ -19,11 +19,7 @@ from src.application.services.background_task_coordinator import (
 )
 from src.application.services.task_service import TaskService
 from src.infrastructure.edgar.service import EdgarService
-from src.infrastructure.messaging import (
-    EnvironmentType,
-    cleanup_services,
-    initialize_services,
-)
+from src.infrastructure.messaging import cleanup_services, initialize_services
 from src.infrastructure.repositories.analysis_repository import AnalysisRepository
 from src.infrastructure.repositories.company_repository import CompanyRepository
 from src.infrastructure.repositories.filing_repository import FilingRepository
@@ -321,33 +317,14 @@ class ServiceFactory:
         """Ensure messaging services are initialized."""
         if not self._messaging_initialized:
             logger.info("Initializing messaging services")
-
-            # Determine environment
-            env_str = self.settings.messaging_environment.lower()
-            if env_str == "production":
-                environment = EnvironmentType.PRODUCTION
-            elif env_str == "testing":
-                environment = EnvironmentType.TESTING
-            else:
-                environment = EnvironmentType.DEVELOPMENT
-
-            # Prepare configuration based on environment
-            config = {}
-            if environment == EnvironmentType.DEVELOPMENT:
-                config["rabbitmq_url"] = self.settings.rabbitmq_url
-            elif environment == EnvironmentType.PRODUCTION:
-                config["aws_region"] = self.settings.aws_region
-                config["aws_access_key_id"] = self.settings.aws_access_key_id
-                config["aws_secret_access_key"] = self.settings.aws_secret_access_key
-                config["aws_s3_bucket"] = self.settings.aws_s3_bucket
-                config["queue_prefix"] = "aperilex"
-
-            # Initialize messaging services
-            await initialize_services(environment, **config)
-            self._messaging_initialized = True
             logger.info(
-                f"Messaging services initialized for {environment.value} environment"
+                f"Service types - Queue: {self.settings.queue_service_type}, Storage: {self.settings.storage_service_type}, Worker: {self.settings.worker_service_type}"
             )
+
+            # Initialize messaging services with settings
+            await initialize_services(self.settings)
+            self._messaging_initialized = True
+            logger.info("Messaging services initialized successfully")
 
     async def cleanup(self) -> None:
         """Clean up resources.

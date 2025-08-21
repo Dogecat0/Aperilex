@@ -43,14 +43,13 @@ async def get_local_storage_service() -> IStorageService:
     """Get local storage service instance."""
     global _local_storage_service
     if _local_storage_service is None:
-        from src.infrastructure.messaging.factory import (
-            EnvironmentType,
-            MessagingFactory,
-        )
+        from src.infrastructure.messaging.factory import MessagingFactory
+        from src.shared.config.settings import Settings
 
-        _local_storage_service = MessagingFactory.create_storage_service(
-            EnvironmentType.DEVELOPMENT
-        )
+        # Create a settings instance with local storage type for development tasks
+        task_settings = Settings()
+        task_settings.storage_service_type = "local"
+        _local_storage_service = MessagingFactory.create_storage_service(task_settings)
         await _local_storage_service.connect()
     return _local_storage_service
 

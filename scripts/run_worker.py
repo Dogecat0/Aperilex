@@ -32,7 +32,6 @@ project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, project_root)
 
 from src.infrastructure.messaging.factory import (  # noqa: E402
-    EnvironmentType,
     cleanup_services,
     get_worker_service,
     initialize_services,
@@ -53,48 +52,26 @@ def setup_logging(log_level: str = "INFO") -> None:
     )
 
 
-def parse_environment(env_str: str | None = None) -> EnvironmentType:
-    """Parse environment from string or detect automatically."""
-    if env_str:
+def get_worker_settings(env_override: str | None = None) -> Settings:
+    """Get settings for worker with optional environment override."""
+    if env_override:
+        import os
+
+        # Temporarily override environment for this settings instance
+        old_env = os.environ.get("ENVIRONMENT")
+        os.environ["ENVIRONMENT"] = env_override
         try:
-            return EnvironmentType(env_str.lower())
-        except ValueError as exc:
-            raise ValueError(f"Invalid environment: {env_str}") from exc
-
-    # Auto-detect from settings
-    settings = Settings()
-    env_name = settings.messaging_environment.lower()
-
-    if env_name == "production":
-        return EnvironmentType.PRODUCTION
-    elif env_name == "testing":
-        return EnvironmentType.TESTING
+            settings = Settings()
+        finally:
+            # Restore original environment
+            if old_env is not None:
+                os.environ["ENVIRONMENT"] = old_env
+            elif "ENVIRONMENT" in os.environ:
+                del os.environ["ENVIRONMENT"]
     else:
-        return EnvironmentType.DEVELOPMENT
+        settings = Settings()
 
-
-def get_messaging_config(environment: EnvironmentType) -> dict[str, Any]:
-    """Get messaging configuration for the environment."""
-    settings = Settings()
-
-    config = {}
-
-    if environment == EnvironmentType.DEVELOPMENT:
-        config["rabbitmq_url"] = settings.rabbitmq_url
-
-    elif environment == EnvironmentType.PRODUCTION:
-        config.update(
-            {
-                "aws_region": settings.aws_region,
-                "aws_access_key_id": settings.aws_access_key_id,
-                "aws_secret_access_key": settings.aws_secret_access_key,
-                "queue_prefix": "aperilex",
-                "function_prefix": "aperilex",
-                "s3_bucket_name": settings.aws_s3_bucket or "aperilex-cache",
-            }
-        )
-
-    return config
+    return settings
 
 
 async def import_all_tasks() -> None:
@@ -114,9 +91,7 @@ async def import_all_tasks() -> None:
 
 
 @asynccontextmanager
-async def worker_context(
-    environment: EnvironmentType, config: dict[str, Any]
-) -> AsyncGenerator[None, Any]:
+async def worker_context(settings: Settings) -> AsyncGenerator[None, Any]:
     """Context manager for worker lifecycle."""
     max_retries = 5
     retry_delay = 2
@@ -126,9 +101,9 @@ async def worker_context(
             try:
                 # Initialize messaging services
                 logging.info(
-                    f"Initializing messaging services for {environment.value} (attempt {attempt + 1}/{max_retries})"
+                    f"Initializing messaging services (Queue: {settings.queue_service_type}, Storage: {settings.storage_service_type}, Worker: {settings.worker_service_type}) (attempt {attempt + 1}/{max_retries})"
                 )
-                await initialize_services(environment, **config)
+                await initialize_services(settings)
 
                 # Import tasks to register them
                 await import_all_tasks()
@@ -161,12 +136,11 @@ class WorkerProcess:
         self,
         worker_id: str | None = None,
         queues: list[str] | None = None,
-        environment: EnvironmentType | None = None,
+        settings: Settings | None = None,
     ):
         self.worker_id = worker_id or f"worker-{os.getpid()}"
         self.queues = queues or ["default", "analysis_queue", "filing_queue"]
-        self.environment = environment or parse_environment()
-        self.config = get_messaging_config(self.environment)
+        self.settings = settings or Settings()
         self.running = False
         self._shutdown_event = asyncio.Event()
 
@@ -182,20 +156,23 @@ class WorkerProcess:
     async def run(self) -> None:
         """Run the worker process."""
         logging.info(f"Starting worker {self.worker_id}")
-        logging.info(f"Environment: {self.environment.value}")
+        logging.info(
+            f"Service types - Queue: {self.settings.queue_service_type}, Storage: {self.settings.storage_service_type}, Worker: {self.settings.worker_service_type}"
+        )
         logging.info(f"Queues: {', '.join(self.queues)}")
 
-        if self.environment == EnvironmentType.PRODUCTION:
+        # Warn about production usage
+        if self.settings.worker_service_type == "lambda":
             logging.warning(
-                "Production environment detected. "
+                "Lambda worker service type detected. "
                 "In production, workers should be AWS Lambda functions, "
                 "not standalone processes. This script is intended for development."
             )
 
-        async with worker_context(self.environment, self.config):
+        async with worker_context(self.settings):
             worker_service = await get_worker_service()
 
-            if self.environment == EnvironmentType.DEVELOPMENT:
+            if self.settings.worker_service_type == "local":
                 # For development, start the local worker
                 self.running = True
 
@@ -212,17 +189,17 @@ class WorkerProcess:
                 logging.info("Stopping worker...")
                 await worker_service.stop()
 
-            elif self.environment == EnvironmentType.TESTING:
+            elif self.settings.worker_service_type == "mock":
                 # For testing, just validate setup
-                logging.info("Testing environment - worker setup validated")
+                logging.info("Mock worker service - setup validated")
                 health = await worker_service.health_check()
                 logging.info(f"Worker health check: {health}")
 
             else:
-                # Production - shouldn't run this script
+                # Lambda or other - shouldn't run this script
                 logging.error(
-                    "This worker script should not be used in production. "
-                    "Use AWS Lambda functions instead."
+                    f"Worker service type '{self.settings.worker_service_type}' should not use this script. "
+                    "Use appropriate deployment method instead."
                 )
                 sys.exit(1)
 
@@ -272,13 +249,15 @@ def main() -> None:
 
     # Parse arguments
     queues = [q.strip() for q in args.queues.split(",") if q.strip()]
-    environment = EnvironmentType(args.environment) if args.environment else None
+
+    # Get settings with optional environment override
+    settings = get_worker_settings(args.environment)
 
     # Create and run worker
     worker = WorkerProcess(
         worker_id=args.worker_id,
         queues=queues,
-        environment=environment,
+        settings=settings,
     )
 
     try:

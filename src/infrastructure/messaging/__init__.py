@@ -1,7 +1,6 @@
 """Messaging infrastructure package."""
 
 from .factory import (
-    EnvironmentType,
     MessagingFactory,
     ServiceRegistry,
     cleanup_services,
@@ -40,7 +39,6 @@ __all__ = [
     "TaskResult",
     "TaskStatus",
     # Factory and registry
-    "EnvironmentType",
     "MessagingFactory",
     "ServiceRegistry",
     "cleanup_services",

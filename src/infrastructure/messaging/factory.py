@@ -2,8 +2,9 @@
 
 import logging
 import os
-from enum import Enum
 from typing import Any
+
+from src.shared.config.settings import Settings
 
 # Lazy imports - only import what we need for each environment
 from .interfaces import IQueueService, IStorageService, IWorkerService
@@ -11,36 +12,26 @@ from .interfaces import IQueueService, IStorageService, IWorkerService
 logger = logging.getLogger(__name__)
 
 
-class EnvironmentType(Enum):
-    """Deployment environment types."""
-
-    DEVELOPMENT = "development"
-    TESTING = "testing"
-    PRODUCTION = "production"
-
-
 class MessagingFactory:
     """Factory for creating messaging service implementations."""
 
     @staticmethod
-    def create_queue_service(
-        environment: EnvironmentType, **kwargs: Any
-    ) -> IQueueService:
-        """Create queue service based on environment.
+    def create_queue_service(settings: Settings, **kwargs: Any) -> IQueueService:
+        """Create queue service based on settings.
 
         Args:
-            environment: Target environment
-            **kwargs: Provider-specific configuration
+            settings: Application settings
+            **kwargs: Additional provider-specific configuration
 
         Returns:
             Queue service implementation
         """
-        if environment == EnvironmentType.DEVELOPMENT:
+        if settings.queue_service_type == "rabbitmq":
             # Use RabbitMQ for local development
             try:
                 from .implementations.rabbitmq_queue import RabbitMQQueueService
 
-                connection_url = kwargs.get("rabbitmq_url", "amqp://localhost")
+                connection_url = kwargs.get("rabbitmq_url", settings.rabbitmq_url)
                 return RabbitMQQueueService(connection_url=connection_url)
             except ImportError as e:
                 raise ImportError(
@@ -48,22 +39,26 @@ class MessagingFactory:
                     "Install with: poetry add aio-pika"
                 ) from e
 
-        elif environment == EnvironmentType.TESTING:
+        elif settings.queue_service_type == "mock":
             # Use mock service for testing
             from .implementations.mock_services import MockQueueService
 
             return MockQueueService()
 
-        elif environment == EnvironmentType.PRODUCTION:
+        elif settings.queue_service_type == "sqs":
             # Use AWS SQS for production
             try:
                 from .implementations.sqs_queue import SQSQueueService
 
                 return SQSQueueService(
-                    aws_region=kwargs.get("aws_region", "us-east-1"),
+                    aws_region=kwargs.get("aws_region", settings.aws_region),
                     queue_prefix=kwargs.get("queue_prefix", "aperilex"),
-                    aws_access_key_id=kwargs.get("aws_access_key_id"),
-                    aws_secret_access_key=kwargs.get("aws_secret_access_key"),
+                    aws_access_key_id=kwargs.get(
+                        "aws_access_key_id", settings.aws_access_key_id
+                    ),
+                    aws_secret_access_key=kwargs.get(
+                        "aws_secret_access_key", settings.aws_secret_access_key
+                    ),
                 )
             except ImportError as e:
                 raise ImportError(
@@ -72,25 +67,27 @@ class MessagingFactory:
                 ) from e
 
         else:
-            raise ValueError(f"Unsupported environment: {environment}")
+            raise ValueError(
+                f"Unsupported queue service type: {settings.queue_service_type}"
+            )
 
     @staticmethod
     def create_worker_service(
-        environment: EnvironmentType,
+        settings: Settings,
         queue_service: IQueueService | None = None,
         **kwargs: Any,
     ) -> IWorkerService:
-        """Create worker service based on environment.
+        """Create worker service based on settings.
 
         Args:
-            environment: Target environment
+            settings: Application settings
             queue_service: Queue service instance (required for local workers)
-            **kwargs: Provider-specific configuration
+            **kwargs: Additional provider-specific configuration
 
         Returns:
             Worker service implementation
         """
-        if environment == EnvironmentType.DEVELOPMENT:
+        if settings.worker_service_type == "local":
             # Use local worker with RabbitMQ
             from .implementations.local_worker import LocalWorkerService
 
@@ -99,22 +96,26 @@ class MessagingFactory:
             worker_id = kwargs.get("worker_id")
             return LocalWorkerService(queue_service=queue_service, worker_id=worker_id)
 
-        elif environment == EnvironmentType.TESTING:
+        elif settings.worker_service_type == "mock":
             # Use mock service for testing
             from .implementations.mock_services import MockWorkerService
 
             return MockWorkerService()
 
-        elif environment == EnvironmentType.PRODUCTION:
+        elif settings.worker_service_type == "lambda":
             # Use AWS Lambda for production
             try:
                 from .implementations.lambda_worker import LambdaWorkerService
 
                 return LambdaWorkerService(
-                    aws_region=kwargs.get("aws_region", "us-east-1"),
+                    aws_region=kwargs.get("aws_region", settings.aws_region),
                     function_prefix=kwargs.get("function_prefix", "aperilex"),
-                    aws_access_key_id=kwargs.get("aws_access_key_id"),
-                    aws_secret_access_key=kwargs.get("aws_secret_access_key"),
+                    aws_access_key_id=kwargs.get(
+                        "aws_access_key_id", settings.aws_access_key_id
+                    ),
+                    aws_secret_access_key=kwargs.get(
+                        "aws_secret_access_key", settings.aws_secret_access_key
+                    ),
                 )
             except ImportError as e:
                 raise ImportError(
@@ -123,22 +124,22 @@ class MessagingFactory:
                 ) from e
 
         else:
-            raise ValueError(f"Unsupported environment: {environment}")
+            raise ValueError(
+                f"Unsupported worker service type: {settings.worker_service_type}"
+            )
 
     @staticmethod
-    def create_storage_service(
-        environment: EnvironmentType, **kwargs: Any
-    ) -> IStorageService:
-        """Create storage service based on environment.
+    def create_storage_service(settings: Settings, **kwargs: Any) -> IStorageService:
+        """Create storage service based on settings.
 
         Args:
-            environment: Target environment
-            **kwargs: Provider-specific configuration
+            settings: Application settings
+            **kwargs: Additional provider-specific configuration
 
         Returns:
             Storage service implementation
         """
-        if environment == EnvironmentType.DEVELOPMENT:
+        if settings.storage_service_type == "local":
             # For development, use local file storage for persistence
             from .implementations.local_file_storage import LocalFileStorageService
 
@@ -148,23 +149,29 @@ class MessagingFactory:
             )
             return LocalFileStorageService(base_path=base_path)
 
-        elif environment == EnvironmentType.TESTING:
+        elif settings.storage_service_type == "mock":
             # Use mock service for testing
             from .implementations.mock_services import MockStorageService
 
             return MockStorageService()
 
-        elif environment == EnvironmentType.PRODUCTION:
+        elif settings.storage_service_type == "s3":
             # Use AWS S3 for production storage (no Redis)
             try:
                 from .implementations.s3_storage import S3StorageService
 
                 return S3StorageService(
-                    bucket_name=kwargs.get("s3_bucket_name", "aperilex-cache"),
-                    aws_region=kwargs.get("aws_region", "us-east-1"),
+                    bucket_name=kwargs.get(
+                        "s3_bucket_name", settings.aws_s3_bucket or "aperilex-cache"
+                    ),
+                    aws_region=kwargs.get("aws_region", settings.aws_region),
                     prefix=kwargs.get("s3_prefix", "cache/"),
-                    aws_access_key_id=kwargs.get("aws_access_key_id"),
-                    aws_secret_access_key=kwargs.get("aws_secret_access_key"),
+                    aws_access_key_id=kwargs.get(
+                        "aws_access_key_id", settings.aws_access_key_id
+                    ),
+                    aws_secret_access_key=kwargs.get(
+                        "aws_secret_access_key", settings.aws_secret_access_key
+                    ),
                 )
             except ImportError as e:
                 raise ImportError(
@@ -173,14 +180,16 @@ class MessagingFactory:
                 ) from e
 
         else:
-            raise ValueError(f"Unsupported environment: {environment}")
+            raise ValueError(
+                f"Unsupported storage service type: {settings.storage_service_type}"
+            )
 
 
 class ServiceRegistry:
     """Registry for managing service instances."""
 
-    def __init__(self, environment: EnvironmentType):
-        self.environment = environment
+    def __init__(self, settings: Settings):
+        self.settings = settings
         self._queue_service: IQueueService | None = None
         self._worker_service: IWorkerService | None = None
         self._storage_service: IStorageService | None = None
@@ -191,15 +200,15 @@ class ServiceRegistry:
         try:
             # Create services
             self._queue_service = MessagingFactory.create_queue_service(
-                self.environment, **config
+                self.settings, **config
             )
 
             self._storage_service = MessagingFactory.create_storage_service(
-                self.environment, **config
+                self.settings, **config
             )
 
             self._worker_service = MessagingFactory.create_worker_service(
-                self.environment, queue_service=self._queue_service, **config
+                self.settings, queue_service=self._queue_service, **config
             )
 
             # Connect services
@@ -208,7 +217,8 @@ class ServiceRegistry:
 
             self._connected = True
             logger.info(
-                f"Initialized messaging services for environment: {self.environment.value}"
+                f"Initialized messaging services - Queue: {self.settings.queue_service_type}, "
+                f"Storage: {self.settings.storage_service_type}, Worker: {self.settings.worker_service_type}"
             )
 
         except Exception as e:
@@ -295,16 +305,14 @@ async def get_registry() -> ServiceRegistry:
     return _registry
 
 
-async def initialize_services(
-    environment: EnvironmentType, **config: Any
-) -> ServiceRegistry:
+async def initialize_services(settings: Settings, **config: Any) -> ServiceRegistry:
     """Initialize global service registry."""
     global _registry
 
     if _registry is not None:
         await _registry.cleanup()
 
-    _registry = ServiceRegistry(environment)
+    _registry = ServiceRegistry(settings)
     await _registry.initialize(**config)
 
     return _registry

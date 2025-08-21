@@ -16,7 +16,6 @@ from src.application.services.background_task_coordinator import (
 )
 from src.application.services.task_service import TaskService
 from src.infrastructure.messaging import (
-    EnvironmentType,
     cleanup_services,
     get_queue_service,
     get_storage_service,
@@ -100,27 +99,6 @@ class ServiceLifecycle:
     def __init__(self) -> None:
         """Initialize service lifecycle manager."""
         self.factory: ServiceFactory | None = None
-        self._environment: EnvironmentType | None = None
-
-    def _determine_environment(self) -> EnvironmentType:
-        """Determine environment based on settings.
-
-        Returns:
-            Environment type for service configuration
-        """
-        # Check if we're in testing mode
-        if getattr(settings, "TESTING", False):
-            return EnvironmentType.TESTING
-
-        # Check environment variable or setting
-        env_name = getattr(settings, "ENVIRONMENT", "development").lower()
-
-        if env_name in ["prod", "production"]:
-            return EnvironmentType.PRODUCTION
-        elif env_name in ["test", "testing"]:
-            return EnvironmentType.TESTING
-        else:
-            return EnvironmentType.DEVELOPMENT
 
     async def startup(self) -> None:
         """Initialize services during application startup.
@@ -128,40 +106,9 @@ class ServiceLifecycle:
         Creates the service factory and initializes messaging services.
         """
         logger.info("Starting service lifecycle management")
-
-        # Determine environment
-        self._environment = self._determine_environment()
-        logger.info(f"Detected environment: {self._environment.value}")
-
-        # Initialize messaging services
-        config = {}
-
-        if self._environment == EnvironmentType.DEVELOPMENT:
-            # RabbitMQ configuration for development
-            rabbitmq_url = getattr(settings, "rabbitmq_url", "amqp://localhost")
-            logger.info(f"Using RabbitMQ URL: {rabbitmq_url}")
-            config["rabbitmq_url"] = rabbitmq_url
-
-        elif self._environment == EnvironmentType.PRODUCTION:
-            # AWS configuration for production
-            config.update(
-                {
-                    "aws_region": getattr(settings, "AWS_REGION", "us-east-1"),
-                    "queue_prefix": getattr(settings, "QUEUE_PREFIX", "aperilex"),
-                    "s3_bucket_name": getattr(
-                        settings, "S3_CACHE_BUCKET", "aperilex-cache"
-                    ),
-                    "s3_prefix": getattr(settings, "S3_CACHE_PREFIX", "cache/"),
-                }
-            )
-
-            # Add AWS credentials if available
-            aws_access_key = getattr(settings, "AWS_ACCESS_KEY_ID", None)
-            if aws_access_key:
-                config["aws_access_key_id"] = aws_access_key
-            aws_secret_key = getattr(settings, "AWS_SECRET_ACCESS_KEY", None)
-            if aws_secret_key:
-                config["aws_secret_access_key"] = aws_secret_key
+        logger.info(
+            f"Queue service: {settings.queue_service_type}, Storage: {settings.storage_service_type}, Worker: {settings.worker_service_type}"
+        )
 
         try:
             # Create application services factory

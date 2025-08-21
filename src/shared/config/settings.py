@@ -14,15 +14,28 @@ def _is_testing() -> bool:
     )
 
 
-def _get_messaging_environment() -> str:
-    """Determine messaging environment based on context."""
+def _get_default_queue_service() -> str:
+    """Determine default queue service type based on environment."""
     if _is_testing():
-        return "testing"
-
+        return "mock"
     env = os.environ.get("ENVIRONMENT", "development").lower()
-    if env == "production":
-        return "production"
-    return "development"
+    return "sqs" if env == "production" else "rabbitmq"
+
+
+def _get_default_storage_service() -> str:
+    """Determine default storage service type based on environment."""
+    if _is_testing():
+        return "mock"
+    env = os.environ.get("ENVIRONMENT", "development").lower()
+    return "s3" if env == "production" else "local"
+
+
+def _get_default_worker_service() -> str:
+    """Determine default worker service type based on environment."""
+    if _is_testing():
+        return "mock"
+    env = os.environ.get("ENVIRONMENT", "development").lower()
+    return "lambda" if env == "production" else "local"
 
 
 class Settings(BaseSettings):
@@ -38,10 +51,18 @@ class Settings(BaseSettings):
         validation_alias="DATABASE_URL",
     )
 
-    # Messaging System Configuration
-    messaging_environment: str = Field(
-        default_factory=_get_messaging_environment,
-        validation_alias="MESSAGING_ENVIRONMENT",
+    # Messaging Service Configuration
+    queue_service_type: str = Field(
+        default_factory=_get_default_queue_service,
+        validation_alias="QUEUE_SERVICE_TYPE",
+    )
+    storage_service_type: str = Field(
+        default_factory=_get_default_storage_service,
+        validation_alias="STORAGE_SERVICE_TYPE",
+    )
+    worker_service_type: str = Field(
+        default_factory=_get_default_worker_service,
+        validation_alias="WORKER_SERVICE_TYPE",
     )
 
     # RabbitMQ (Development)
@@ -167,6 +188,30 @@ class Settings(BaseSettings):
             return "test_encryption_key_32_chars_long"
         if len(v) < 32:
             raise ValueError("Encryption key must be at least 32 characters long")
+        return v
+
+    @field_validator("queue_service_type")
+    @classmethod
+    def validate_queue_service_type(cls, v: str) -> str:
+        valid_types = ["rabbitmq", "sqs", "mock"]
+        if v not in valid_types:
+            raise ValueError(f"queue_service_type must be one of {valid_types}")
+        return v
+
+    @field_validator("storage_service_type")
+    @classmethod
+    def validate_storage_service_type(cls, v: str) -> str:
+        valid_types = ["local", "s3", "mock"]
+        if v not in valid_types:
+            raise ValueError(f"storage_service_type must be one of {valid_types}")
+        return v
+
+    @field_validator("worker_service_type")
+    @classmethod
+    def validate_worker_service_type(cls, v: str) -> str:
+        valid_types = ["local", "lambda", "mock"]
+        if v not in valid_types:
+            raise ValueError(f"worker_service_type must be one of {valid_types}")
         return v
 
     class Config:
