@@ -15,7 +15,7 @@ import time
 
 import pytest
 
-from src.shared.rate_limiter import RateLimitConfig, SecRateLimiter
+from src.shared.sec_rate_limiter import RateLimitConfig, SecRateLimiter
 
 
 class TestBatchImportRateLimiting:

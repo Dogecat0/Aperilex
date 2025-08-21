@@ -14,7 +14,7 @@ from unittest.mock import patch
 import pytest
 
 from src.infrastructure.edgar.service import EdgarService
-from src.shared.rate_limiter import RateLimitConfig, SecRateLimiter
+from src.shared.sec_rate_limiter import RateLimitConfig, SecRateLimiter
 
 
 class TestEdgarServiceRateLimiting:
