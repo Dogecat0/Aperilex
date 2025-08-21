@@ -76,7 +76,7 @@ describe('Button Component', () => {
       expect(button).toHaveClass(
         'border',
         'border-input',
-        'bg-background',
+        'bg-outline-bg',
         'hover:bg-accent',
         'hover:text-accent-foreground'
       )
@@ -273,7 +273,7 @@ describe('Button Component', () => {
       )
 
       const button = screen.getByRole('button')
-      expect(button).toHaveClass('border', 'border-input', 'bg-background') // outline variant
+      expect(button).toHaveClass('border', 'border-input', 'bg-outline-bg') // outline variant
       expect(button).toHaveClass('h-11', 'px-8') // lg size
     })
 
@@ -498,7 +498,7 @@ describe('Button Component', () => {
       // Should have base classes
       expect(button).toHaveClass('inline-flex', 'items-center', 'justify-center')
       // Should have variant classes
-      expect(button).toHaveClass('border', 'border-input', 'bg-background')
+      expect(button).toHaveClass('border', 'border-input', 'bg-outline-bg')
       // Should have size classes
       expect(button).toHaveClass('h-11', 'px-8')
       // Should have custom classes

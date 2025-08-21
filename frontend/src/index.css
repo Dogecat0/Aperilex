@@ -70,8 +70,8 @@
   --color-primary-dark: hsl(243 75% 59%);
   /* Same indigo primary */
   --color-primary-foreground-dark: hsl(222.2 47.4% 11.2%);
-  --color-secondary-dark: hsl(215 25% 27%);
-  /* Updated to slate-700 */
+  --color-secondary-dark: hsl(215 30% 35%);
+  /* Updated for better dark mode contrast */
   --color-secondary-foreground-dark: hsl(0 0% 100%);
   --color-muted-dark: hsl(215 25% 27%);
   /* Updated to slate-700 */
@@ -90,6 +90,12 @@
   --color-success-dark: hsl(158 64% 52%);
   --color-warning-dark: hsl(43 96% 56%);
   --color-teal-dark: hsl(173 58% 39%);
+
+  /* Outline and ghost button backgrounds */
+  --color-outline-bg: hsl(210 40% 98%);
+  --color-ghost-bg: hsl(210 40% 98%);
+  --color-outline-bg-dark: hsl(217.2 32.6% 20%);
+  --color-ghost-bg-dark: hsl(217.2 32.6% 20%);
 }
 
 @layer base {
@@ -126,6 +132,8 @@
     --color-success: var(--color-success-dark);
     --color-warning: var(--color-warning-dark);
     --color-teal: var(--color-teal-dark);
+    --color-outline-bg: var(--color-outline-bg-dark);
+    --color-ghost-bg: var(--color-ghost-bg-dark);
   }
 
   /* Enhanced typography for financial data */

@@ -140,6 +140,9 @@ export default {
           processing: '#f59e0b',
           failed: '#ef4444',
         },
+        // CSS variable-based colors
+        'outline-bg': 'hsl(var(--color-outline-bg) / <alpha-value>)',
+        'ghost-bg': 'hsl(var(--color-ghost-bg) / <alpha-value>)',
       },
       fontFamily: {
         sans: ['Inter', 'system-ui', 'sans-serif'],
