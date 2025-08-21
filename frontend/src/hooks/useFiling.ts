@@ -197,8 +197,36 @@ const getProgressMessage = (state: AnalysisProgressState, currentStep?: string):
 
 /**
  * Map task status and current_step to our progress states
+ * Prefers structured analysis_stage field, falls back to parsing current_step
  */
 const mapTaskToProgressState = (task: TaskResponse): AnalysisProgressState => {
+  // NEW: Prefer structured analysis_stage field from backend
+  if (task.analysis_stage) {
+    // Map AnalysisStage to AnalysisProgressState (they should match exactly)
+    switch (task.analysis_stage) {
+      case 'idle':
+        return 'idle'
+      case 'initiating':
+        return 'initiating'
+      case 'loading_filing':
+        return 'loading_filing'
+      case 'analyzing_content':
+        return 'analyzing_content'
+      case 'completing':
+        return 'completing'
+      case 'completed':
+        return 'completed'
+      case 'error':
+        return 'error'
+      case 'background':
+        return 'processing_background'
+      default:
+        // If unknown stage, fall through to legacy logic
+        break
+    }
+  }
+
+  // LEGACY: Fallback to existing logic for backward compatibility
   if (task.status === 'failure') {
     return 'error'
   }

@@ -111,6 +111,7 @@ class TaskService:
         result: Any = None,
         error: str | None = None,
         metadata: dict[str, Any] | None = None,
+        analysis_stage: str | None = None,
     ) -> TaskResponse:
         """Update task status and information.
 
@@ -122,6 +123,7 @@ class TaskService:
             result: Optional task result
             error: Optional error message
             metadata: Optional additional metadata
+            analysis_stage: Optional structured analysis stage
 
         Returns:
             TaskResponse with updated task details
@@ -156,6 +158,9 @@ class TaskService:
             if metadata is not None:
                 task_data["metadata"].update(metadata)
 
+            if analysis_stage is not None:
+                task_data["analysis_stage"] = analysis_stage
+
             # Set timing information based on status
             if status == "running" and not task_data.get("started_at"):
                 task_data["started_at"] = datetime.now(UTC).isoformat()
@@ -178,6 +183,7 @@ class TaskService:
                 started_at=task_data.get("started_at"),
                 completed_at=task_data.get("completed_at"),
                 error_message=task_data.get("error"),
+                analysis_stage=task_data.get("analysis_stage"),
             )
 
         except Exception as e:
@@ -239,6 +245,7 @@ class TaskService:
                 started_at=task_data.get("started_at"),
                 completed_at=task_data.get("completed_at"),
                 error_message=task_data.get("error"),
+                analysis_stage=task_data.get("analysis_stage"),
             )
 
         except Exception as e:

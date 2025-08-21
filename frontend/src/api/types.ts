@@ -112,6 +112,17 @@ export interface AnalysisResponse {
 // Task Types
 export type TaskStatus = 'pending' | 'started' | 'success' | 'failure' | 'completed'
 
+// Analysis Stage Types (structured progress from backend)
+export type AnalysisStage =
+  | 'idle'
+  | 'initiating'
+  | 'loading_filing'
+  | 'analyzing_content'
+  | 'completing'
+  | 'completed'
+  | 'error'
+  | 'background'
+
 export interface TaskResult {
   analysis?: AnalysisResponse
   filing?: FilingResponse
@@ -128,6 +139,7 @@ export interface TaskResponse {
   completed_at: string | null
   progress_percent: number | null
   current_step: string | null
+  analysis_stage: AnalysisStage | null  // New structured progress field
 }
 
 // Progressive Loading States

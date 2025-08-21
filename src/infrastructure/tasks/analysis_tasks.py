@@ -15,6 +15,7 @@ from src.application.services.analysis_template_service import AnalysisTemplateS
 from src.domain.entities.filing import Filing
 from src.domain.value_objects import CIK
 from src.domain.value_objects.accession_number import AccessionNumber
+from src.domain.value_objects.analysis_stage import AnalysisStage
 from src.domain.value_objects.filing_type import FilingType
 from src.domain.value_objects.processing_status import ProcessingStatus
 from src.infrastructure.database.base import async_session_maker
@@ -465,6 +466,7 @@ async def retrieve_and_analyze_filing(
                     status="running",
                     message="Starting filing analysis",
                     progress=5,
+                    analysis_stage=AnalysisStage.INITIATING.value,
                 )
             except Exception as e:
                 logger.warning(f"Could not initialize task tracking: {e}")
@@ -476,6 +478,7 @@ async def retrieve_and_analyze_filing(
                 status="running",
                 message="Retrieving filing content",
                 progress=15,
+                analysis_stage=AnalysisStage.LOADING_FILING.value,
             )
 
         filing_content = await get_filing_content(accession_number, company_cik)
@@ -487,6 +490,7 @@ async def retrieve_and_analyze_filing(
                     status="failed",
                     message="Failed to retrieve filing content",
                     error=f"Unable to retrieve filing content for {accession_number}",
+                    analysis_stage=AnalysisStage.ERROR.value,
                 )
             raise ValueError(
                 f"Unable to retrieve filing content for {accession_number}. "
@@ -510,6 +514,7 @@ async def retrieve_and_analyze_filing(
                 status="running",
                 message="Setting up database connections",
                 progress=25,
+                analysis_stage=AnalysisStage.LOADING_FILING.value,
             )
 
         async with async_session_maker() as session:
@@ -650,6 +655,7 @@ async def retrieve_and_analyze_filing(
                     status="running",
                     message="Running LLM analysis",
                     progress=60,
+                    analysis_stage=AnalysisStage.ANALYZING_CONTENT.value,
                 )
 
             analysis = await orchestrator.orchestrate_filing_analysis(command)
@@ -661,6 +667,7 @@ async def retrieve_and_analyze_filing(
                     status="running",
                     message="Saving analysis results",
                     progress=90,
+                    analysis_stage=AnalysisStage.COMPLETING.value,
                 )
 
             await analysis_repo.update(analysis)
@@ -692,6 +699,7 @@ async def retrieve_and_analyze_filing(
                     message="Analysis completed successfully",
                     progress=100,
                     result=result,
+                    analysis_stage=AnalysisStage.COMPLETED.value,
                 )
 
             logger.info(
@@ -714,6 +722,7 @@ async def retrieve_and_analyze_filing(
                     status="failed",
                     message="Analysis failed",
                     error=error_msg,
+                    analysis_stage=AnalysisStage.ERROR.value,
                 )
             except Exception as update_error:
                 logger.warning(

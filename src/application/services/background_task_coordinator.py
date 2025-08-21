@@ -227,6 +227,7 @@ class BackgroundTaskCoordinator:
                 completed_at=task_data.get("completed_at"),
                 progress_percent=task_data.get("progress_percent"),
                 current_step=task_data.get("message", ""),
+                analysis_stage=task_data.get("analysis_stage"),
             )
 
         except Exception as e:

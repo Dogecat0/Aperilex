@@ -26,6 +26,9 @@ class TaskResponse:
         error_message: Error message (if task failed)
         started_at: When the task was started (optional)
         completed_at: When the task completed (optional)
+        progress_percent: Progress percentage (0-100)
+        current_step: Current step description
+        analysis_stage: Structured analysis stage (new field for frontend)
     """
 
     task_id: str
@@ -36,6 +39,7 @@ class TaskResponse:
     completed_at: datetime | None = None
     progress_percent: float | None = None
     current_step: str | None = None
+    analysis_stage: str | None = None  # Optional for backward compatibility
 
     @property
     def is_complete(self) -> bool:
