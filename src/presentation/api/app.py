@@ -8,6 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from src.presentation.api.dependencies import service_lifecycle
+from src.presentation.api.middleware import RateLimitMiddleware
 from src.presentation.api.routers import analyses, companies, filings, health, tasks
 from src.shared.config.settings import settings
 
@@ -116,6 +117,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Add rate limiting middleware
+app.add_middleware(RateLimitMiddleware)
 
 # Include routers
 app.include_router(health.router)
