@@ -203,7 +203,7 @@ const mapTaskToProgressState = (task: TaskResponse): AnalysisProgressState => {
     return 'error'
   }
 
-  if (task.status === 'success') {
+  if (task.status === 'success' || task.status === 'completed') {
     return 'completed'
   }
 
@@ -316,7 +316,7 @@ export const useProgressiveFilingAnalysis = () => {
         })
 
         // Handle final state based on whether we timed out or completed
-        if (finalTask.status === 'success') {
+        if (finalTask.status === 'success' || finalTask.status === 'completed') {
           setAnalysisProgress({
             state: 'completed',
             message: getProgressMessage('completed'),
@@ -334,14 +334,6 @@ export const useProgressiveFilingAnalysis = () => {
           queryClient.invalidateQueries({
             queryKey: ['filing', accessionNumber, 'analysis'],
           })
-
-          // Reset progress state after a short delay to show completion
-          setTimeout(() => {
-            setAnalysisProgress({
-              state: 'idle',
-              message: '',
-            })
-          }, 2000)
 
           return finalTask.result?.analysis
         } else if (finalTask.status === 'failure') {
@@ -379,7 +371,7 @@ export const useProgressiveFilingAnalysis = () => {
 
     try {
       const task = await checkAnalysisAfterTimeout(backgroundTaskId)
-      if (task?.status === 'success') {
+      if (task?.status === 'success' || task?.status === 'completed') {
         setAnalysisProgress({
           state: 'completed',
           message: getProgressMessage('completed'),

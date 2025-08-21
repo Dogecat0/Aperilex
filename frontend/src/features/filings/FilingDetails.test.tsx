@@ -237,7 +237,6 @@ describe('FilingDetails', () => {
   })
 
   describe('Navigation', () => {
-
     it('handles view on SEC button click', () => {
       // Mock window.open
       const mockOpen = vi.fn()

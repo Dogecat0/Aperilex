@@ -139,8 +139,14 @@ export const FilingAnalysisSection: React.FC<FilingAnalysisSectionProps> = ({
   onCheckBackgroundAnalysis,
   isBackgroundProcessing = false,
 }) => {
-  // Show progressive loading if we have analysis progress
-  if (analysisProgress && (isAnalyzing || analysisProgress.state !== 'idle')) {
+  // Show progressive loading if we have analysis progress (but not if completed)
+  if (
+    analysisProgress &&
+    (isAnalyzing ||
+      (analysisProgress.state !== 'idle' &&
+        analysisProgress.state !== 'completed' &&
+        analysisProgress.state !== 'error'))
+  ) {
     const isBackgroundState = analysisProgress.state === 'processing_background'
     const progressBarColor = isBackgroundState ? 'bg-amber-600' : 'bg-blue-600'
 
@@ -253,9 +259,9 @@ export const FilingAnalysisSection: React.FC<FilingAnalysisSectionProps> = ({
               }
             >
               {isAnalyzing ||
-                (analysisProgress &&
-                  analysisProgress.state !== 'idle' &&
-                  analysisProgress.state !== 'error') ? (
+              (analysisProgress &&
+                analysisProgress.state !== 'idle' &&
+                analysisProgress.state !== 'error') ? (
                 <>
                   <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
                   {analysisProgress?.message || 'Analyzing...'}
@@ -297,17 +303,15 @@ export const FilingAnalysisSection: React.FC<FilingAnalysisSectionProps> = ({
               }
             >
               {isAnalyzing ||
-                (analysisProgress &&
-                  analysisProgress.state !== 'idle' &&
-                  analysisProgress.state !== 'error') ? (
+              (analysisProgress &&
+                analysisProgress.state !== 'idle' &&
+                analysisProgress.state !== 'error') ? (
                 <>
                   <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
                   {analysisProgress?.message || 'Analyzing...'}
                 </>
               ) : (
-                <>
-                  Start Analysis
-                </>
+                <>Start Analysis</>
               )}
             </Button>
           )}
