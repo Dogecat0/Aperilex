@@ -14,7 +14,7 @@ from unittest.mock import patch
 
 import pytest
 
-from src.shared.rate_limiter import (
+from src.shared.sec_rate_limiter import (
     RateLimitConfig,
     RateLimitStats,
     SecRateLimiter,
