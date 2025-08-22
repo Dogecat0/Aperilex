@@ -1,1 +1,0 @@
-"""Infrastructure tasks integration tests."""
