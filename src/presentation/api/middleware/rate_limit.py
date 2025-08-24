@@ -38,8 +38,12 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
             daily_limit=settings.rate_limit_requests_per_day,
         )
 
-        # Set excluded paths
-        self.excluded_paths = excluded_paths or settings.rate_limit_excluded_paths
+        # Set excluded paths - use explicit None check to allow empty list
+        self.excluded_paths = (
+            excluded_paths
+            if excluded_paths is not None
+            else settings.rate_limit_excluded_paths
+        )
 
         logger.info(
             f"RateLimitMiddleware initialized: "
@@ -108,7 +112,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
 
         return response
 
-    def _is_path_excluded(self, path: str) -> bool:
+    def _is_path_excluded(self, path: str | None) -> bool:
         """Check if a path should be excluded from rate limiting.
 
         Args:
@@ -117,9 +121,17 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         Returns:
             True if path should be excluded from rate limiting
         """
+        if path is None or not self.excluded_paths:
+            return False
+
         for excluded_path in self.excluded_paths:
-            if path == excluded_path or path.startswith(
-                excluded_path.rstrip("/") + "/"
+            # Normalize both paths by removing trailing slashes for comparison
+            normalized_excluded = excluded_path.rstrip("/")
+            normalized_path = path.rstrip("/")
+
+            # Check for exact match or prefix match
+            if normalized_path == normalized_excluded or path.startswith(
+                normalized_excluded + "/"
             ):
                 return True
         return False

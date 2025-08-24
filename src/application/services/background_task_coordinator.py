@@ -193,7 +193,7 @@ class BackgroundTaskCoordinator:
                 )
 
             return TaskResponse(
-                task_id=task_id if "task_id" in locals() else str(uuid4()),
+                task_id=task_id if "task_id" in locals() else "unknown",
                 status="failed",
                 error_message=f"Failed to queue analysis: {str(e)}",
             )
@@ -220,7 +220,7 @@ class BackgroundTaskCoordinator:
 
             return TaskResponse(
                 task_id=task_id,
-                status=task_data.get("status", "unknown"),
+                status=task_data.get("status") or "unknown",
                 result=task_data.get("result"),
                 error_message=task_data.get("error"),
                 started_at=task_data.get("started_at"),
@@ -315,11 +315,15 @@ class BackgroundTaskCoordinator:
                 AnalysisTemplate,
                 AnalyzeFilingCommand,
             )
+            from src.domain.value_objects.accession_number import AccessionNumber
+            from src.domain.value_objects.cik import CIK
 
             try:
                 command = AnalyzeFilingCommand(
-                    company_cik=parameters.get("company_cik"),
-                    accession_number=parameters.get("accession_number"),
+                    company_cik=CIK(parameters.get("company_cik")),
+                    accession_number=AccessionNumber(
+                        parameters.get("accession_number")
+                    ),
                     analysis_template=AnalysisTemplate(
                         parameters.get("analysis_template")
                     ),

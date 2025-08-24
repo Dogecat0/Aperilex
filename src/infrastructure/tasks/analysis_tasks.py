@@ -189,6 +189,10 @@ async def get_filing_content(
         logger.error(f"Failed to download filing {accession_number} from EDGAR")
         return None
 
+    except asyncio.CancelledError:
+        # Re-raise cancellation to allow proper task cleanup
+        logger.debug(f"Filing content retrieval for {accession_number} was cancelled")
+        raise
     except Exception as e:
         logger.error(f"Error retrieving filing content: {e}")
         return None
@@ -828,6 +832,6 @@ async def validate_analysis_quality(analysis_id: UUID) -> dict[str, Any]:
         return {
             "status": "error",
             "analysis_id": str(analysis_id),
-            "error": str(e),
+            "error": error_msg,
             "processing_duration": duration,
         }

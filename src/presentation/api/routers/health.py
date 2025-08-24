@@ -271,9 +271,26 @@ def _check_factory_configuration(factory: ServiceFactory) -> HealthStatus:
     timestamp = datetime.now(UTC).isoformat()
 
     try:
+        # Safely get services and repositories count
+        services = getattr(factory, "_services", {})
+        repositories = getattr(factory, "_repositories", {})
+
+        # Handle case where getattr returns Mock objects instead of dicts
+        try:
+            services_count = len(services) if hasattr(services, "__len__") else 0
+        except (TypeError, AttributeError):
+            services_count = 0
+
+        try:
+            repositories_count = (
+                len(repositories) if hasattr(repositories, "__len__") else 0
+            )
+        except (TypeError, AttributeError):
+            repositories_count = 0
+
         details: dict[str, Any] = {
-            "services_created": len(getattr(factory, "_services", {})),
-            "repositories_created": len(getattr(factory, "_repositories", {})),
+            "services_created": services_count,
+            "repositories_created": repositories_count,
             "factory_type": type(factory).__name__,
         }
 
@@ -282,7 +299,8 @@ def _check_factory_configuration(factory: ServiceFactory) -> HealthStatus:
             _ = factory.create_task_service()
             details["cache_service"] = "available"
             details["task_service"] = "available"
-        except Exception as e:
+        except (RuntimeError, ValueError, TypeError) as e:
+            # Handle specific service creation errors
             details["service_creation_error"] = str(e)
             return HealthStatus(
                 status="unhealthy",
@@ -290,6 +308,9 @@ def _check_factory_configuration(factory: ServiceFactory) -> HealthStatus:
                 timestamp=timestamp,
                 details=details,
             )
+        except Exception:
+            # Let AttributeError and other factory-level issues bubble up
+            raise
 
         return HealthStatus(
             status="healthy",

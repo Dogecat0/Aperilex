@@ -280,13 +280,25 @@ class ServiceRegistry:
         health = {}
 
         if self._queue_service:
-            health["queue"] = await self._queue_service.health_check()
+            try:
+                health["queue"] = await self._queue_service.health_check()
+            except Exception as e:
+                logger.warning(f"Queue service health check failed: {e}")
+                health["queue"] = False
 
         if self._worker_service:
-            health["worker"] = await self._worker_service.health_check()
+            try:
+                health["worker"] = await self._worker_service.health_check()
+            except Exception as e:
+                logger.warning(f"Worker service health check failed: {e}")
+                health["worker"] = False
 
         if self._storage_service:
-            health["storage"] = await self._storage_service.health_check()
+            try:
+                health["storage"] = await self._storage_service.health_check()
+            except Exception as e:
+                logger.warning(f"Storage service health check failed: {e}")
+                health["storage"] = False
 
         return health
 

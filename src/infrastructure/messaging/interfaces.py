@@ -28,6 +28,30 @@ class TaskPriority(Enum):
     HIGH = 8
     CRITICAL = 10
 
+    def __lt__(self, other):
+        """Less than comparison for priority."""
+        if not isinstance(other, TaskPriority):
+            return NotImplemented
+        return self.value < other.value
+
+    def __le__(self, other):
+        """Less than or equal comparison for priority."""
+        if not isinstance(other, TaskPriority):
+            return NotImplemented
+        return self.value <= other.value
+
+    def __gt__(self, other):
+        """Greater than comparison for priority."""
+        if not isinstance(other, TaskPriority):
+            return NotImplemented
+        return self.value > other.value
+
+    def __ge__(self, other):
+        """Greater than or equal comparison for priority."""
+        if not isinstance(other, TaskPriority):
+            return NotImplemented
+        return self.value >= other.value
+
 
 @dataclass
 class TaskMessage:
@@ -66,6 +90,8 @@ class TaskResult:
     metadata: dict[str, Any] | None = None
 
     def __post_init__(self) -> None:
+        if self.task_id is None:
+            raise TypeError("task_id cannot be None")
         if self.metadata is None:
             self.metadata = {}
 

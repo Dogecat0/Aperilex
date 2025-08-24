@@ -3,7 +3,7 @@
 import asyncio
 import logging
 
-from edgar import Company, Filing, set_identity
+from edgar import Company, Filing, get_by_accession_number, set_identity
 
 from src.domain.value_objects import CIK, FilingType, Ticker
 from src.domain.value_objects.accession_number import AccessionNumber
@@ -391,7 +391,11 @@ class EdgarService:
         if ticker_value is None and hasattr(company, "ticker"):
             ticker_attr = getattr(company, "ticker", None)
             if ticker_attr is not None:
-                ticker_value = str(ticker_attr)
+                try:
+                    ticker_value = str(ticker_attr)
+                except (AttributeError, TypeError, ValueError):
+                    # Handle conversion errors gracefully
+                    ticker_value = None
 
         # If still None, try the tickers list attribute
         if ticker_value is None and hasattr(company, "tickers"):
@@ -407,7 +411,11 @@ class EdgarService:
             cik=str(company.cik),
             name=company.name or "Unknown Company",
             ticker=ticker_value,
-            sic_code=str(company.sic) if hasattr(company, "sic") else None,
+            sic_code=(
+                str(company.sic)
+                if hasattr(company, "sic") and company.sic is not None
+                else None
+            ),
             sic_description=(
                 str(getattr(company, "sic_description", None))
                 if hasattr(company, "sic_description")
@@ -527,9 +535,6 @@ class EdgarService:
             ValueError: If filing not found or cannot be accessed
         """
         try:
-            # Use edgar library's get_by_accession_number function
-            from edgar import get_by_accession_number
-
             # Get filing by accession number
             filing = get_by_accession_number(accession_number.value)
 

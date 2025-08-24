@@ -77,12 +77,19 @@ class SecRateLimiter:
         self.config = config or RateLimitConfig()
         self.stats = RateLimitStats()
         self._request_times: deque[float] = deque()
-        self._lock = asyncio.Lock()
+        self._lock: asyncio.Lock | None = None
 
         logger.info(
             f"SecRateLimiter initialized: {self.config.max_requests_per_second} req/sec, "
             f"max_backoff={self.config.max_backoff_seconds}s"
         )
+
+    @property
+    def lock(self) -> asyncio.Lock:
+        """Lazily create the asyncio lock when first accessed."""
+        if self._lock is None:
+            self._lock = asyncio.Lock()
+        return self._lock
 
     async def acquire(self) -> None:
         """Acquire permission to make a request.
@@ -93,7 +100,7 @@ class SecRateLimiter:
         - Exponential backoff if currently in backoff mode
         - Jitter to prevent synchronized requests
         """
-        async with self._lock:
+        async with self.lock:
             await self._wait_for_rate_limit()
             await self._apply_backoff_if_needed()
             await self._apply_jitter()
@@ -109,7 +116,7 @@ class SecRateLimiter:
             error: The error that was raised (typically a 429 response)
             retry_after: Optional retry-after header value from the response
         """
-        async with self._lock:
+        async with self.lock:
             self.stats.rate_limited_requests += 1
             self.stats.backoff_events += 1
             self.stats.current_backoff_level = min(
@@ -139,7 +146,7 @@ class SecRateLimiter:
 
     async def reset_backoff(self) -> None:
         """Reset exponential backoff to initial state."""
-        async with self._lock:
+        async with self.lock:
             if self.stats.current_backoff_level > 0:
                 logger.info(
                     f"Resetting backoff from level {self.stats.current_backoff_level}"

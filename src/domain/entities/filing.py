@@ -60,7 +60,7 @@ class Filing:
         self._filing_date = filing_date
         self._processing_status = processing_status
         self._processing_error = processing_error
-        self._metadata = metadata or {}
+        self._metadata = (metadata or {}).copy()
 
         self._validate_invariants()
 
@@ -108,7 +108,7 @@ class Filing:
         """Mark filing as currently being processed."""
         if not self._processing_status.can_transition_to(ProcessingStatus.PROCESSING):
             raise ValueError(
-                f"Cannot transition from {self._processing_status} to PROCESSING"
+                f"Cannot transition from {self._processing_status.name} to PROCESSING"
             )
         self._processing_status = ProcessingStatus.PROCESSING
         self._processing_error = None
@@ -117,7 +117,7 @@ class Filing:
         """Mark filing as successfully processed."""
         if not self._processing_status.can_transition_to(ProcessingStatus.COMPLETED):
             raise ValueError(
-                f"Cannot transition from {self._processing_status} to COMPLETED"
+                f"Cannot transition from {self._processing_status.name} to COMPLETED"
             )
         self._processing_status = ProcessingStatus.COMPLETED
         self._processing_error = None
@@ -136,7 +136,7 @@ class Filing:
 
         if not self._processing_status.can_transition_to(ProcessingStatus.FAILED):
             raise ValueError(
-                f"Cannot transition from {self._processing_status} to FAILED"
+                f"Cannot transition from {self._processing_status.name} to FAILED"
             )
 
         self._processing_status = ProcessingStatus.FAILED
@@ -188,8 +188,8 @@ class Filing:
     def __str__(self) -> str:
         """String representation."""
         return (
-            f"Filing: {self._filing_type} [{self._accession_number}] "
-            f"({self._processing_status})"
+            f"Filing: {self._filing_type.value} [{self._accession_number}] "
+            f"({self._processing_status.name})"
         )
 
     def __repr__(self) -> str:

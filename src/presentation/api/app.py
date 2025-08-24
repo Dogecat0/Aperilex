@@ -80,7 +80,9 @@ async def general_exception_handler(request: Request, exc: Exception) -> JSONRes
         extra={
             "method": request.method,
             "path": str(request.url.path),
-            "query_params": str(request.query_params),
+            "query_params": "&".join(
+                [f"{k}={v}" for k, v in request.query_params.items()]
+            ),
         },
     )
 
