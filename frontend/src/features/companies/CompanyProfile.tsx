@@ -21,16 +21,26 @@ const CompanyAnalysisCard = React.forwardRef<HTMLDivElement, CompanyAnalysisCard
       }
     }
 
+    const getTemplateDisplayName = (template: string | undefined) => {
+      if (!template) return 'Unknown Analysis'
+
+      const displayNames: Record<string, string> = {
+        comprehensive: 'Comprehensive Analysis',
+        filing_analysis: 'Filing Analysis',
+        custom_query: 'Custom Query',
+        comparison: 'Comparison Analysis',
+        historical_trend: 'Historical Trend Analysis'
+      }
+      return displayNames[template] || template.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
+    }
+
     return (
       <div ref={ref} className="rounded-lg border bg-card p-4 space-y-3">
         <div className="flex items-start justify-between">
           <div className="space-y-2">
             <div className="flex items-center space-x-2">
               <BarChart3 className="w-4 h-4 text-primary" />
-              <span className="font-medium text-sm">{analysis.analysis_template}</span>
-            </div>
-            <div className="text-xs text-muted-foreground">
-              Analysis ID: {analysis.analysis_id.slice(0, 8)}...
+              <span className="font-medium text-sm">{getTemplateDisplayName((analysis as any).analysis_type || analysis.analysis_template)}</span>
             </div>
           </div>
           <Button variant="outline" size="sm" onClick={handleViewAnalysis}>
@@ -160,10 +170,6 @@ export function CompanyProfile() {
   if (companyError) {
     return (
       <div className="space-y-4">
-        <Button variant="ghost" onClick={handleBack} className="mb-4">
-          <ArrowLeft className="w-4 h-4 mr-2" />
-          Back to Companies
-        </Button>
         <div className="rounded-lg border border-destructive/20 bg-destructive/5 p-6">
           <div className="flex items-center space-x-2">
             <AlertCircle className="w-5 h-5 text-destructive" />
@@ -182,10 +188,6 @@ export function CompanyProfile() {
   if (companyLoading) {
     return (
       <div className="space-y-6">
-        <Button variant="ghost" onClick={handleBack} className="mb-4">
-          <ArrowLeft className="w-4 h-4 mr-2" />
-          Back to Companies
-        </Button>
         <Skeleton className="h-48 w-full" />
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2 space-y-4">
@@ -210,12 +212,6 @@ export function CompanyProfile() {
 
   return (
     <div className="space-y-6">
-      {/* Back Button */}
-      <Button variant="ghost" onClick={handleBack} className="mb-4">
-        <ArrowLeft className="w-4 h-4 mr-2" />
-        Back to Companies
-      </Button>
-
       {/* Company Header */}
       <CompanyHeader
         company={company}
@@ -230,11 +226,6 @@ export function CompanyProfile() {
           <div className="rounded-lg border bg-card p-6">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-semibold">Company Analyses</h2>
-              {analysesArray.length > 0 && (
-                <Button variant="outline" size="sm" onClick={handleViewAllAnalyses}>
-                  View All ({analysesArray.length})
-                </Button>
-              )}
             </div>
 
             {analysesLoading && (

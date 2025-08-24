@@ -160,8 +160,8 @@ export function AnalysisDetails() {
   const comprehensiveAnalysis = analysis.full_results as ComprehensiveAnalysisResponse | undefined
   const hasComprehensiveResults = Boolean(
     comprehensiveAnalysis &&
-    'section_analyses' in comprehensiveAnalysis &&
-    Array.isArray(comprehensiveAnalysis.section_analyses)
+      'section_analyses' in comprehensiveAnalysis &&
+      Array.isArray(comprehensiveAnalysis.section_analyses)
   )
   const hasLegacyResults = Boolean(analysis.full_results && !hasComprehensiveResults)
 
@@ -361,7 +361,7 @@ export function AnalysisDetails() {
                         ? ('neutral' as const)
                         : ('negative' as const),
                 }))}
-                maxItems={10}
+                maxItems={5}
               />
             </div>
           )}
