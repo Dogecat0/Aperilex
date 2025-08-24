@@ -1,9 +1,14 @@
 import os
 import sys
+from typing import TYPE_CHECKING
 
-from mypy_boto3_s3.literals import BucketLocationConstraintType
 from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings
+
+if TYPE_CHECKING:
+    from mypy_boto3_s3.literals import BucketLocationConstraintType
+else:
+    BucketLocationConstraintType = str
 
 
 def _is_testing() -> bool:
@@ -74,7 +79,7 @@ class Settings(BaseSettings):
 
     # AWS Configuration (Production)
     # WARN: Same region as buckets to avoid latency
-    aws_region: BucketLocationConstraintType = Field(
+    aws_region: "BucketLocationConstraintType" = Field(
         default="us-east-2",
         validation_alias="AWS_REGION",
     )

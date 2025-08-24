@@ -7,13 +7,17 @@ from typing import TYPE_CHECKING, Any
 
 import boto3
 from botocore.exceptions import ClientError
-from mypy_boto3_s3.type_defs import ObjectIdentifierTypeDef
+
+from ..interfaces import IStorageService
 
 if TYPE_CHECKING:
     from mypy_boto3_s3 import S3Client
     from mypy_boto3_s3.literals import BucketLocationConstraintType
-
-from ..interfaces import IStorageService
+    from mypy_boto3_s3.type_defs import ObjectIdentifierTypeDef
+else:
+    S3Client = object
+    BucketLocationConstraintType = str
+    ObjectIdentifierTypeDef = dict[str, Any]
 
 logger = logging.getLogger(__name__)
 
@@ -28,7 +32,7 @@ class S3StorageService(IStorageService):
     def __init__(
         self,
         bucket_name: str,
-        aws_region: BucketLocationConstraintType = "us-east-2",
+        aws_region: "BucketLocationConstraintType" = "us-east-2",
         prefix: str = "cache/",
         aws_access_key_id: str | None = None,
         aws_secret_access_key: str | None = None,
