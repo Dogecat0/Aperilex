@@ -1,9 +1,7 @@
 import React from 'react'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor } from '@/test/utils'
 import userEvent from '@testing-library/user-event'
-import { BrowserRouter } from 'react-router-dom'
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { server } from '@/test/mocks/server'
 import { http, HttpResponse } from 'msw'
 import { CompanySearch } from './CompanySearch'
@@ -65,22 +63,6 @@ vi.mock('./components/CompanyCard', () => ({
   ),
 }))
 
-// Test wrapper with React Query and Router
-const createTestWrapper = () => {
-  const queryClient = new QueryClient({
-    defaultOptions: {
-      queries: { retry: false },
-      mutations: { retry: false },
-    },
-  })
-
-  return ({ children }: { children: React.ReactNode }) => (
-    <BrowserRouter>
-      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
-    </BrowserRouter>
-  )
-}
-
 // Mock company data
 const mockCompany: CompanyResponse = {
   company_id: '320193',
@@ -110,12 +92,10 @@ const mockCompany: CompanyResponse = {
 }
 
 describe('CompanySearch', () => {
-  let TestWrapper: ReturnType<typeof createTestWrapper>
   let user: ReturnType<typeof userEvent.setup>
 
   beforeEach(() => {
     vi.clearAllMocks()
-    TestWrapper = createTestWrapper()
     user = userEvent.setup()
   })
 
@@ -125,12 +105,12 @@ describe('CompanySearch', () => {
 
   describe('Basic Rendering', () => {
     it('renders without crashing', () => {
-      render(<CompanySearch />, { wrapper: TestWrapper })
+      render(<CompanySearch />)
       expect(screen.getByText('Search Companies')).toBeInTheDocument()
     })
 
     it('renders the search form elements', () => {
-      render(<CompanySearch />, { wrapper: TestWrapper })
+      render(<CompanySearch />)
 
       expect(screen.getByRole('heading', { name: 'Search Companies' })).toBeInTheDocument()
       expect(
@@ -140,7 +120,7 @@ describe('CompanySearch', () => {
     })
 
     it('shows help section by default', () => {
-      render(<CompanySearch />, { wrapper: TestWrapper })
+      render(<CompanySearch />)
 
       expect(screen.getByText('How to search')).toBeInTheDocument()
       expect(screen.getByText('Popular examples:')).toBeInTheDocument()
@@ -151,7 +131,7 @@ describe('CompanySearch', () => {
 
   describe('Search Input Handling', () => {
     it('updates search term when typing', async () => {
-      render(<CompanySearch />, { wrapper: TestWrapper })
+      render(<CompanySearch />)
 
       const input = screen.getByTestId('mock-input')
       await user.type(input, 'AAPL')
@@ -160,14 +140,14 @@ describe('CompanySearch', () => {
     })
 
     it('disables search button when input is empty', () => {
-      render(<CompanySearch />, { wrapper: TestWrapper })
+      render(<CompanySearch />)
 
       const searchButton = screen.getByRole('button', { name: /search/i })
       expect(searchButton).toBeDisabled()
     })
 
     it('enables search button when input has value', async () => {
-      render(<CompanySearch />, { wrapper: TestWrapper })
+      render(<CompanySearch />)
 
       const input = screen.getByTestId('mock-input')
       const searchButton = screen.getByRole('button', { name: /search/i })
@@ -186,7 +166,7 @@ describe('CompanySearch', () => {
         })
       )
 
-      render(<CompanySearch />, { wrapper: TestWrapper })
+      render(<CompanySearch />)
 
       const input = screen.getByTestId('mock-input')
       const searchButton = screen.getByRole('button', { name: /search/i })
@@ -210,7 +190,7 @@ describe('CompanySearch', () => {
         })
       )
 
-      render(<CompanySearch />, { wrapper: TestWrapper })
+      render(<CompanySearch />)
 
       const input = screen.getByTestId('mock-input')
       const searchButton = screen.getByRole('button', { name: /search/i })
@@ -228,7 +208,7 @@ describe('CompanySearch', () => {
 
   describe('Popular Examples', () => {
     it('renders popular ticker examples', () => {
-      render(<CompanySearch />, { wrapper: TestWrapper })
+      render(<CompanySearch />)
 
       const popularTickers = ['AAPL', 'MSFT', 'GOOGL', 'AMZN', 'TSLA', 'META']
       popularTickers.forEach((ticker) => {
@@ -243,7 +223,7 @@ describe('CompanySearch', () => {
         })
       )
 
-      render(<CompanySearch />, { wrapper: TestWrapper })
+      render(<CompanySearch />)
 
       const appleButton = screen.getByRole('button', { name: 'AAPL' })
       await user.click(appleButton)
@@ -264,7 +244,7 @@ describe('CompanySearch', () => {
         })
       )
 
-      render(<CompanySearch />, { wrapper: TestWrapper })
+      render(<CompanySearch />)
 
       const input = screen.getByTestId('mock-input')
       const searchButton = screen.getByRole('button', { name: /search/i })
@@ -289,7 +269,7 @@ describe('CompanySearch', () => {
         })
       )
 
-      render(<CompanySearch />, { wrapper: TestWrapper })
+      render(<CompanySearch />)
 
       const input = screen.getByTestId('mock-input')
       const searchButton = screen.getByRole('button', { name: /search/i })
@@ -315,7 +295,7 @@ describe('CompanySearch', () => {
         })
       )
 
-      render(<CompanySearch />, { wrapper: TestWrapper })
+      render(<CompanySearch />)
 
       const input = screen.getByTestId('mock-input')
       const searchButton = screen.getByRole('button', { name: /search/i })
@@ -344,7 +324,7 @@ describe('CompanySearch', () => {
         })
       )
 
-      render(<CompanySearch />, { wrapper: TestWrapper })
+      render(<CompanySearch />)
 
       const input = screen.getByTestId('mock-input')
       const searchButton = screen.getByRole('button', { name: /search/i })
@@ -373,7 +353,7 @@ describe('CompanySearch', () => {
         })
       )
 
-      render(<CompanySearch />, { wrapper: TestWrapper })
+      render(<CompanySearch />)
 
       const input = screen.getByTestId('mock-input')
       const searchButton = screen.getByRole('button', { name: /search/i })
@@ -400,7 +380,7 @@ describe('CompanySearch', () => {
         })
       )
 
-      render(<CompanySearch onCompanySelect={mockOnCompanySelect} />, { wrapper: TestWrapper })
+      render(<CompanySearch onCompanySelect={mockOnCompanySelect} />)
 
       const input = screen.getByTestId('mock-input')
       const searchButton = screen.getByRole('button', { name: /search/i })
@@ -428,7 +408,7 @@ describe('CompanySearch', () => {
         })
       )
 
-      render(<CompanySearch showAnalyses={true} />, { wrapper: TestWrapper })
+      render(<CompanySearch showAnalyses={true} />)
 
       const input = screen.getByTestId('mock-input')
       const searchButton = screen.getByRole('button', { name: /search/i })
@@ -444,7 +424,7 @@ describe('CompanySearch', () => {
     it('forwards ref correctly', () => {
       const ref = React.createRef<HTMLDivElement>()
 
-      render(<CompanySearch ref={ref} />, { wrapper: TestWrapper })
+      render(<CompanySearch ref={ref} />)
 
       expect(ref.current).toBeInstanceOf(HTMLDivElement)
     })
@@ -452,7 +432,7 @@ describe('CompanySearch', () => {
 
   describe('Accessibility', () => {
     it('uses proper semantic HTML structure', () => {
-      render(<CompanySearch />, { wrapper: TestWrapper })
+      render(<CompanySearch />)
 
       expect(screen.getByRole('heading', { level: 2 })).toBeInTheDocument()
       expect(screen.getByTestId('mock-input')).toBeInTheDocument()
@@ -460,7 +440,7 @@ describe('CompanySearch', () => {
     })
 
     it('provides descriptive text for search functionality', () => {
-      render(<CompanySearch />, { wrapper: TestWrapper })
+      render(<CompanySearch />)
 
       expect(
         screen.getByText(
@@ -479,7 +459,7 @@ describe('CompanySearch', () => {
         })
       )
 
-      render(<CompanySearch />, { wrapper: TestWrapper })
+      render(<CompanySearch />)
 
       const input = screen.getByTestId('mock-input')
       const searchButton = screen.getByRole('button', { name: /search/i })

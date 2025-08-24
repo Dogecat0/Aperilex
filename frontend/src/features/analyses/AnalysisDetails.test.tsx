@@ -444,11 +444,14 @@ describe('AnalysisDetails Component', () => {
       expect(screen.queryByText(/Created by/)).not.toBeInTheDocument()
     })
 
-    it('renders action buttons', () => {
+    it('renders header navigation elements', () => {
       const TestWrapper = createTestWrapper()
       render(<AnalysisDetails />, { wrapper: TestWrapper })
 
-      expect(screen.getByText('Export')).toBeInTheDocument()
+      // Check for breadcrumb navigation back to analyses
+      expect(screen.getByText('Analyses')).toBeInTheDocument()
+      const analysesLink = screen.getByText('Analyses')
+      expect(analysesLink.closest('a')).toHaveAttribute('href', '/analyses')
     })
   })
 
@@ -754,15 +757,15 @@ describe('AnalysisDetails Component', () => {
       expect(analysesLink).toHaveAttribute('href', '/analyses')
     })
 
-    it('handles export button click', async () => {
+    it('handles breadcrumb navigation click', async () => {
       const TestWrapper = createTestWrapper()
       render(<AnalysisDetails />, { wrapper: TestWrapper })
 
-      const exportButton = screen.getByText('Export')
-      expect(exportButton).toBeInTheDocument()
+      const analysesLink = screen.getByText('Analyses')
+      expect(analysesLink).toBeInTheDocument()
 
-      await user.click(exportButton)
-      // Export functionality would be tested separately
+      await user.click(analysesLink)
+      // Navigation functionality handled by react-router
     })
   })
 
@@ -966,33 +969,35 @@ describe('AnalysisDetails Component', () => {
     })
   })
 
-  describe('Action Button Functionality', () => {
-    it('renders export button with correct attributes', () => {
+  describe('Header Section Functionality', () => {
+    it('renders header with correct company information', () => {
       const TestWrapper = createTestWrapper()
       render(<AnalysisDetails />, { wrapper: TestWrapper })
 
-      const exportButton = screen.getByText('Export')
-      expect(exportButton.closest('button')).toHaveAttribute('data-variant', 'outline')
-      expect(exportButton.closest('button')).toHaveAttribute('data-size', 'sm')
+      const headerTitle = screen.getByText(/Apple Inc\..*10-K \(Annual Report\)/)
+      expect(headerTitle).toBeInTheDocument()
+      expect(headerTitle.tagName).toBe('H1')
     })
 
-    it('handles export button interaction', async () => {
+    it('displays filing metadata correctly', () => {
       const TestWrapper = createTestWrapper()
       render(<AnalysisDetails />, { wrapper: TestWrapper })
 
-      const exportButton = screen.getByText('Export')
-      await user.click(exportButton)
+      // Check for LLM model information
+      expect(screen.getAllByText('gpt-4-turbo')).toHaveLength(2) // Header and overview
 
-      // Button should remain clickable
-      expect(exportButton).toBeInTheDocument()
+      // Check for filing date
+      expect(screen.getByText('Filed: January 14, 2024')).toBeInTheDocument()
     })
 
-    it('displays action buttons on all screen sizes', () => {
+    it('maintains responsive header layout', () => {
       const TestWrapper = createTestWrapper()
       render(<AnalysisDetails />, { wrapper: TestWrapper })
 
-      const buttonContainer = screen.getByText('Export').closest('.flex')
-      expect(buttonContainer).toHaveClass('flex', 'items-center', 'gap-2')
+      const headerContainer = screen
+        .getByText(/Apple Inc\..*10-K \(Annual Report\)/)
+        .closest('.bg-card')
+      expect(headerContainer).toHaveClass('rounded-lg', 'border', 'shadow-sm', 'p-6')
     })
   })
 

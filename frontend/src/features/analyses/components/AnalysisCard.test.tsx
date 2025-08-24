@@ -1,7 +1,6 @@
 import React from 'react'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
-import { BrowserRouter } from 'react-router-dom'
+import { render, screen } from '@/test/utils'
 import userEvent from '@testing-library/user-event'
 import { AnalysisCard } from './AnalysisCard'
 import type { AnalysisResponse } from '@/api/types'
@@ -83,11 +82,6 @@ const minimalAnalysis: AnalysisResponse = {
   llm_model: undefined,
 }
 
-// Test wrapper component
-const TestWrapper = ({ children }: { children: React.ReactNode }) => (
-  <BrowserRouter>{children}</BrowserRouter>
-)
-
 describe('AnalysisCard Component', () => {
   const user = userEvent.setup()
 
@@ -102,42 +96,26 @@ describe('AnalysisCard Component', () => {
   describe('Initial Rendering', () => {
     it('renders without crashing', () => {
       expect(() => {
-        render(
-          <TestWrapper>
-            <AnalysisCard analysis={comprehensiveAnalysis} />
-          </TestWrapper>
-        )
+        render(<AnalysisCard analysis={comprehensiveAnalysis} />)
       }).not.toThrow()
     })
 
     it('renders as a clickable link', () => {
-      render(
-        <TestWrapper>
-          <AnalysisCard analysis={comprehensiveAnalysis} />
-        </TestWrapper>
-      )
+      render(<AnalysisCard analysis={comprehensiveAnalysis} />)
 
       const cardLink = screen.getByRole('link')
       expect(cardLink).toHaveAttribute('href', '/analyses/analysis-123')
     })
 
     it('applies correct CSS classes for hover effects', () => {
-      render(
-        <TestWrapper>
-          <AnalysisCard analysis={comprehensiveAnalysis} />
-        </TestWrapper>
-      )
+      render(<AnalysisCard analysis={comprehensiveAnalysis} />)
 
       const cardLink = screen.getByRole('link')
       expect(cardLink).toHaveClass('hover:shadow-md', 'hover:border-primary/30')
     })
 
     it('applies correct layout classes', () => {
-      render(
-        <TestWrapper>
-          <AnalysisCard analysis={comprehensiveAnalysis} />
-        </TestWrapper>
-      )
+      render(<AnalysisCard analysis={comprehensiveAnalysis} />)
 
       const cardLink = screen.getByRole('link')
       expect(cardLink).toHaveClass(
@@ -153,76 +131,48 @@ describe('AnalysisCard Component', () => {
 
   describe('Analysis Type Badge', () => {
     it('displays COMPREHENSIVE type with correct styling', () => {
-      render(
-        <TestWrapper>
-          <AnalysisCard analysis={comprehensiveAnalysis} />
-        </TestWrapper>
-      )
+      render(<AnalysisCard analysis={comprehensiveAnalysis} />)
 
       const badge = screen.getByText('Comprehensive')
       expect(badge).toHaveClass('bg-primary/10', 'text-primary', 'border-primary/20')
     })
 
     it('displays FINANCIAL_FOCUSED type with correct styling', () => {
-      render(
-        <TestWrapper>
-          <AnalysisCard analysis={financialAnalysis} />
-        </TestWrapper>
-      )
+      render(<AnalysisCard analysis={financialAnalysis} />)
 
       const badge = screen.getByText('Financial')
       expect(badge).toHaveClass('bg-emerald-50', 'text-emerald-700', 'border-emerald-200')
     })
 
     it('displays RISK_FOCUSED type with correct styling', () => {
-      render(
-        <TestWrapper>
-          <AnalysisCard analysis={riskAnalysis} />
-        </TestWrapper>
-      )
+      render(<AnalysisCard analysis={riskAnalysis} />)
 
       const badge = screen.getByText('Risk')
       expect(badge).toHaveClass('bg-red-50', 'text-red-700', 'border-red-200')
     })
 
     it('displays BUSINESS_FOCUSED type with correct styling', () => {
-      render(
-        <TestWrapper>
-          <AnalysisCard analysis={businessAnalysis} />
-        </TestWrapper>
-      )
+      render(<AnalysisCard analysis={businessAnalysis} />)
 
       const badge = screen.getByText('Business')
       expect(badge).toHaveClass('bg-teal-50', 'text-teal-700', 'border-teal-200')
     })
 
     it('displays appropriate icon for each analysis type', () => {
-      const { rerender } = render(
-        <TestWrapper>
-          <AnalysisCard analysis={comprehensiveAnalysis} />
-        </TestWrapper>
-      )
+      const { rerender } = render(<AnalysisCard analysis={comprehensiveAnalysis} />)
 
       // Check that icon exists (SVG should be present)
       let svgIcon = document.querySelector('svg')
       expect(svgIcon).toBeInTheDocument()
 
       // Test other types
-      rerender(
-        <TestWrapper>
-          <AnalysisCard analysis={financialAnalysis} />
-        </TestWrapper>
-      )
+      rerender(<AnalysisCard analysis={financialAnalysis} />)
       svgIcon = document.querySelector('svg')
       expect(svgIcon).toBeInTheDocument()
     })
 
     it('applies consistent badge styling', () => {
-      render(
-        <TestWrapper>
-          <AnalysisCard analysis={comprehensiveAnalysis} />
-        </TestWrapper>
-      )
+      render(<AnalysisCard analysis={comprehensiveAnalysis} />)
 
       const badge = screen.getByText('Comprehensive')
       expect(badge).toHaveClass(
@@ -263,11 +213,7 @@ describe('AnalysisCard Component', () => {
       ]
 
       templateMappingTests.forEach(({ analysis, expectedLabel, expectedColor }) => {
-        const { unmount } = render(
-          <TestWrapper>
-            <AnalysisCard analysis={analysis} />
-          </TestWrapper>
-        )
+        const { unmount } = render(<AnalysisCard analysis={analysis} />)
 
         // Verify the correct label is displayed
         expect(screen.getByText(expectedLabel)).toBeInTheDocument()
@@ -293,11 +239,7 @@ describe('AnalysisCard Component', () => {
         const analysis = { ...baseAnalysis, analysis_template: template }
 
         expect(() => {
-          const { unmount } = render(
-            <TestWrapper>
-              <AnalysisCard analysis={analysis} />
-            </TestWrapper>
-          )
+          const { unmount } = render(<AnalysisCard analysis={analysis} />)
           unmount()
         }).not.toThrow()
       })
@@ -309,11 +251,7 @@ describe('AnalysisCard Component', () => {
         analysis_template: 'unknown_template' as any,
       }
 
-      render(
-        <TestWrapper>
-          <AnalysisCard analysis={analysisWithUnknownTemplate} />
-        </TestWrapper>
-      )
+      render(<AnalysisCard analysis={analysisWithUnknownTemplate} />)
 
       // Should fall back to comprehensive styling
       const badge = screen.getByText('Comprehensive')
@@ -323,11 +261,7 @@ describe('AnalysisCard Component', () => {
 
   describe('Confidence Indicator', () => {
     it('renders confidence indicator with correct props', () => {
-      render(
-        <TestWrapper>
-          <AnalysisCard analysis={comprehensiveAnalysis} />
-        </TestWrapper>
-      )
+      render(<AnalysisCard analysis={comprehensiveAnalysis} />)
 
       const confidenceIndicator = screen.getByTestId('confidence-indicator')
       expect(confidenceIndicator).toHaveAttribute('data-score', '0.88')
@@ -341,11 +275,7 @@ describe('AnalysisCard Component', () => {
         confidence_score: null,
       }
 
-      render(
-        <TestWrapper>
-          <AnalysisCard analysis={analysisWithNullConfidence} />
-        </TestWrapper>
-      )
+      render(<AnalysisCard analysis={analysisWithNullConfidence} />)
 
       const confidenceIndicator = screen.getByTestId('confidence-indicator')
       expect(confidenceIndicator).toHaveTextContent('Confidence: N/A')
@@ -354,32 +284,20 @@ describe('AnalysisCard Component', () => {
 
   describe('Content Preview', () => {
     it('displays executive summary when available', () => {
-      render(
-        <TestWrapper>
-          <AnalysisCard analysis={comprehensiveAnalysis} />
-        </TestWrapper>
-      )
+      render(<AnalysisCard analysis={comprehensiveAnalysis} />)
 
       expect(screen.getByText(/comprehensive insights into the company/)).toBeInTheDocument()
     })
 
     it('does not display executive summary section when not available', () => {
-      render(
-        <TestWrapper>
-          <AnalysisCard analysis={minimalAnalysis} />
-        </TestWrapper>
-      )
+      render(<AnalysisCard analysis={minimalAnalysis} />)
 
       // Should not have the paragraph that would contain executive summary
       expect(screen.queryByText(/comprehensive insights/)).not.toBeInTheDocument()
     })
 
     it('applies correct styling to executive summary', () => {
-      render(
-        <TestWrapper>
-          <AnalysisCard analysis={comprehensiveAnalysis} />
-        </TestWrapper>
-      )
+      render(<AnalysisCard analysis={comprehensiveAnalysis} />)
 
       const summaryText = screen.getByText(/comprehensive insights into the company/)
       expect(summaryText).toHaveClass(
@@ -393,42 +311,26 @@ describe('AnalysisCard Component', () => {
 
   describe('Key Metrics Display', () => {
     it('displays sections analyzed count when available', () => {
-      render(
-        <TestWrapper>
-          <AnalysisCard analysis={comprehensiveAnalysis} />
-        </TestWrapper>
-      )
+      render(<AnalysisCard analysis={comprehensiveAnalysis} />)
 
       expect(screen.getByText('5 sections')).toBeInTheDocument()
     })
 
     it('displays insights count when available', () => {
-      render(
-        <TestWrapper>
-          <AnalysisCard analysis={comprehensiveAnalysis} />
-        </TestWrapper>
-      )
+      render(<AnalysisCard analysis={comprehensiveAnalysis} />)
 
       expect(screen.getByText('3 insights')).toBeInTheDocument()
     })
 
     it('does not display metrics when not available', () => {
-      render(
-        <TestWrapper>
-          <AnalysisCard analysis={minimalAnalysis} />
-        </TestWrapper>
-      )
+      render(<AnalysisCard analysis={minimalAnalysis} />)
 
       expect(screen.queryByText(/sections/)).not.toBeInTheDocument()
       expect(screen.queryByText(/insights/)).not.toBeInTheDocument()
     })
 
     it('applies correct styling to metrics', () => {
-      render(
-        <TestWrapper>
-          <AnalysisCard analysis={comprehensiveAnalysis} />
-        </TestWrapper>
-      )
+      render(<AnalysisCard analysis={comprehensiveAnalysis} />)
 
       const sectionsMetric = screen.getByText('5 sections')
       expect(sectionsMetric.parentElement).toHaveClass(
@@ -443,42 +345,26 @@ describe('AnalysisCard Component', () => {
 
   describe('Quick Insights Preview', () => {
     it('displays first two insights when available', () => {
-      render(
-        <TestWrapper>
-          <AnalysisCard analysis={comprehensiveAnalysis} />
-        </TestWrapper>
-      )
+      render(<AnalysisCard analysis={comprehensiveAnalysis} />)
 
       expect(screen.getByText(/Revenue growth of 15%/)).toBeInTheDocument()
       expect(screen.getByText(/Strong cash position/)).toBeInTheDocument()
     })
 
     it('shows additional insights count when more than two available', () => {
-      render(
-        <TestWrapper>
-          <AnalysisCard analysis={comprehensiveAnalysis} />
-        </TestWrapper>
-      )
+      render(<AnalysisCard analysis={comprehensiveAnalysis} />)
 
       expect(screen.getByText('+1 more insights')).toBeInTheDocument()
     })
 
     it('does not show additional count when two or fewer insights', () => {
-      render(
-        <TestWrapper>
-          <AnalysisCard analysis={financialAnalysis} />
-        </TestWrapper>
-      )
+      render(<AnalysisCard analysis={financialAnalysis} />)
 
       expect(screen.queryByText(/more insights/)).not.toBeInTheDocument()
     })
 
     it('applies correct styling to insights', () => {
-      render(
-        <TestWrapper>
-          <AnalysisCard analysis={comprehensiveAnalysis} />
-        </TestWrapper>
-      )
+      render(<AnalysisCard analysis={comprehensiveAnalysis} />)
 
       const insightText = screen.getByText(/Revenue growth of 15%/)
       expect(insightText).toHaveClass('line-clamp-1')
@@ -491,11 +377,7 @@ describe('AnalysisCard Component', () => {
     })
 
     it('does not render insights section when no insights available', () => {
-      render(
-        <TestWrapper>
-          <AnalysisCard analysis={minimalAnalysis} />
-        </TestWrapper>
-      )
+      render(<AnalysisCard analysis={minimalAnalysis} />)
 
       // No insights bullet points should be visible
       expect(screen.queryByText(/Revenue growth/)).not.toBeInTheDocument()
@@ -504,52 +386,32 @@ describe('AnalysisCard Component', () => {
 
   describe('Metadata Footer', () => {
     it('displays formatted creation date', () => {
-      render(
-        <TestWrapper>
-          <AnalysisCard analysis={comprehensiveAnalysis} />
-        </TestWrapper>
-      )
+      render(<AnalysisCard analysis={comprehensiveAnalysis} />)
 
       expect(screen.getByText('Jan 15, 2024')).toBeInTheDocument()
     })
 
     it('displays processing time when available', () => {
-      render(
-        <TestWrapper>
-          <AnalysisCard analysis={comprehensiveAnalysis} />
-        </TestWrapper>
-      )
+      render(<AnalysisCard analysis={comprehensiveAnalysis} />)
 
       expect(screen.getByText('32s')).toBeInTheDocument()
     })
 
     it('does not display processing time when not available', () => {
-      render(
-        <TestWrapper>
-          <AnalysisCard analysis={minimalAnalysis} />
-        </TestWrapper>
-      )
+      render(<AnalysisCard analysis={minimalAnalysis} />)
 
       expect(screen.queryByText(/\d+s$/)).not.toBeInTheDocument()
     })
 
     it('displays chevron icon for navigation', () => {
-      render(
-        <TestWrapper>
-          <AnalysisCard analysis={comprehensiveAnalysis} />
-        </TestWrapper>
-      )
+      render(<AnalysisCard analysis={comprehensiveAnalysis} />)
 
       const chevronIcon = screen.getByRole('link').querySelector('svg[class*="h-4 w-4"]')
       expect(chevronIcon).toBeInTheDocument()
     })
 
     it('applies correct styling to metadata footer', () => {
-      render(
-        <TestWrapper>
-          <AnalysisCard analysis={comprehensiveAnalysis} />
-        </TestWrapper>
-      )
+      render(<AnalysisCard analysis={comprehensiveAnalysis} />)
 
       const dateText = screen.getByText('Jan 15, 2024')
       const footerContainer = dateText.closest('.justify-between')
@@ -568,31 +430,19 @@ describe('AnalysisCard Component', () => {
 
   describe('LLM Model Badge', () => {
     it('displays LLM model when available', () => {
-      render(
-        <TestWrapper>
-          <AnalysisCard analysis={comprehensiveAnalysis} />
-        </TestWrapper>
-      )
+      render(<AnalysisCard analysis={comprehensiveAnalysis} />)
 
       expect(screen.getByText('gpt-4')).toBeInTheDocument()
     })
 
     it('does not display LLM model when not available', () => {
-      render(
-        <TestWrapper>
-          <AnalysisCard analysis={minimalAnalysis} />
-        </TestWrapper>
-      )
+      render(<AnalysisCard analysis={minimalAnalysis} />)
 
       expect(screen.queryByText('gpt-4')).not.toBeInTheDocument()
     })
 
     it('applies correct styling to LLM model badge', () => {
-      render(
-        <TestWrapper>
-          <AnalysisCard analysis={comprehensiveAnalysis} />
-        </TestWrapper>
-      )
+      render(<AnalysisCard analysis={comprehensiveAnalysis} />)
 
       const modelBadge = screen.getByText('gpt-4')
       const badgeContainer = modelBadge.closest('.bg-muted')
@@ -612,11 +462,7 @@ describe('AnalysisCard Component', () => {
 
   describe('User Interactions', () => {
     it('handles click navigation', async () => {
-      render(
-        <TestWrapper>
-          <AnalysisCard analysis={comprehensiveAnalysis} />
-        </TestWrapper>
-      )
+      render(<AnalysisCard analysis={comprehensiveAnalysis} />)
 
       const cardLink = screen.getByRole('link')
       await user.click(cardLink)
@@ -626,11 +472,7 @@ describe('AnalysisCard Component', () => {
     })
 
     it('handles hover interactions', async () => {
-      render(
-        <TestWrapper>
-          <AnalysisCard analysis={comprehensiveAnalysis} />
-        </TestWrapper>
-      )
+      render(<AnalysisCard analysis={comprehensiveAnalysis} />)
 
       const cardLink = screen.getByRole('link')
 
@@ -641,11 +483,7 @@ describe('AnalysisCard Component', () => {
     })
 
     it('provides keyboard navigation support', () => {
-      render(
-        <TestWrapper>
-          <AnalysisCard analysis={comprehensiveAnalysis} />
-        </TestWrapper>
-      )
+      render(<AnalysisCard analysis={comprehensiveAnalysis} />)
 
       const cardLink = screen.getByRole('link')
       expect(cardLink).not.toHaveAttribute('tabindex', '-1')
@@ -654,22 +492,14 @@ describe('AnalysisCard Component', () => {
 
   describe('Responsive Design', () => {
     it('applies responsive layout classes', () => {
-      render(
-        <TestWrapper>
-          <AnalysisCard analysis={comprehensiveAnalysis} />
-        </TestWrapper>
-      )
+      render(<AnalysisCard analysis={comprehensiveAnalysis} />)
 
       const cardContent = screen.getByRole('link').firstChild
       expect(cardContent).toHaveClass('p-6')
     })
 
     it('handles different screen sizes gracefully', () => {
-      render(
-        <TestWrapper>
-          <AnalysisCard analysis={comprehensiveAnalysis} />
-        </TestWrapper>
-      )
+      render(<AnalysisCard analysis={comprehensiveAnalysis} />)
 
       // Text should be responsive
       const summaryText = screen.getByText(/comprehensive insights/)
@@ -684,11 +514,7 @@ describe('AnalysisCard Component', () => {
         key_insights: [],
       }
 
-      render(
-        <TestWrapper>
-          <AnalysisCard analysis={analysisWithEmptyInsights} />
-        </TestWrapper>
-      )
+      render(<AnalysisCard analysis={analysisWithEmptyInsights} />)
 
       expect(screen.queryByText(/more insights/)).not.toBeInTheDocument()
     })
@@ -700,11 +526,7 @@ describe('AnalysisCard Component', () => {
           'This is a very long executive summary that should be truncated appropriately when displayed in the card format to ensure good user experience and consistent layout across all cards in the grid view.',
       }
 
-      render(
-        <TestWrapper>
-          <AnalysisCard analysis={analysisWithLongContent} />
-        </TestWrapper>
-      )
+      render(<AnalysisCard analysis={analysisWithLongContent} />)
 
       const summaryText = screen.getByText(/very long executive summary/)
       expect(summaryText).toHaveClass('line-clamp-3')
@@ -716,11 +538,7 @@ describe('AnalysisCard Component', () => {
         processing_time_seconds: 0,
       }
 
-      render(
-        <TestWrapper>
-          <AnalysisCard analysis={analysisWithZeroTime} />
-        </TestWrapper>
-      )
+      render(<AnalysisCard analysis={analysisWithZeroTime} />)
 
       // When processing_time_seconds is 0, it's falsy, so it won't be displayed
       expect(screen.queryByText('0s')).not.toBeInTheDocument()
@@ -732,11 +550,7 @@ describe('AnalysisCard Component', () => {
         sections_analyzed: undefined,
       }
 
-      render(
-        <TestWrapper>
-          <AnalysisCard analysis={analysisWithUndefinedSections} />
-        </TestWrapper>
-      )
+      render(<AnalysisCard analysis={analysisWithUndefinedSections} />)
 
       expect(screen.queryByText(/sections/)).not.toBeInTheDocument()
     })
@@ -744,22 +558,14 @@ describe('AnalysisCard Component', () => {
 
   describe('Accessibility', () => {
     it('uses proper semantic HTML elements', () => {
-      render(
-        <TestWrapper>
-          <AnalysisCard analysis={comprehensiveAnalysis} />
-        </TestWrapper>
-      )
+      render(<AnalysisCard analysis={comprehensiveAnalysis} />)
 
       const link = screen.getByRole('link')
       expect(link).toBeInTheDocument()
     })
 
     it('provides accessible link text through content', () => {
-      render(
-        <TestWrapper>
-          <AnalysisCard analysis={comprehensiveAnalysis} />
-        </TestWrapper>
-      )
+      render(<AnalysisCard analysis={comprehensiveAnalysis} />)
 
       const link = screen.getByRole('link')
       expect(link).toHaveTextContent('Comprehensive')
@@ -767,11 +573,7 @@ describe('AnalysisCard Component', () => {
     })
 
     it('maintains proper color contrast', () => {
-      render(
-        <TestWrapper>
-          <AnalysisCard analysis={comprehensiveAnalysis} />
-        </TestWrapper>
-      )
+      render(<AnalysisCard analysis={comprehensiveAnalysis} />)
 
       const badge = screen.getByText('Comprehensive')
       expect(badge).toHaveClass('text-primary')
@@ -782,11 +584,7 @@ describe('AnalysisCard Component', () => {
     })
 
     it('supports keyboard navigation', () => {
-      render(
-        <TestWrapper>
-          <AnalysisCard analysis={comprehensiveAnalysis} />
-        </TestWrapper>
-      )
+      render(<AnalysisCard analysis={comprehensiveAnalysis} />)
 
       const link = screen.getByRole('link')
       expect(link).not.toHaveAttribute('tabindex', '-1')
@@ -803,29 +601,17 @@ describe('AnalysisCard Component', () => {
 
       const startTime = performance.now()
 
-      render(
-        <TestWrapper>
-          <AnalysisCard analysis={analysisWithLargeData} />
-        </TestWrapper>
-      )
+      render(<AnalysisCard analysis={analysisWithLargeData} />)
 
       const endTime = performance.now()
       expect(endTime - startTime).toBeLessThan(100) // Should render quickly
     })
 
     it('handles component updates without issues', () => {
-      const { rerender } = render(
-        <TestWrapper>
-          <AnalysisCard analysis={comprehensiveAnalysis} />
-        </TestWrapper>
-      )
+      const { rerender } = render(<AnalysisCard analysis={comprehensiveAnalysis} />)
 
       // Re-render with different analysis
-      rerender(
-        <TestWrapper>
-          <AnalysisCard analysis={financialAnalysis} />
-        </TestWrapper>
-      )
+      rerender(<AnalysisCard analysis={financialAnalysis} />)
 
       expect(screen.getByText('Financial')).toBeInTheDocument()
     })

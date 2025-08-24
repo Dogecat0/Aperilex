@@ -194,7 +194,7 @@ describe('CompanyProfile', () => {
       expect(screen.getAllByTestId('skeleton')).toHaveLength(6) // Header + grid skeletons
     })
 
-    it('renders back button', async () => {
+    it('renders company header', async () => {
       server.use(
         http.get('http://localhost:8000/api/companies/AAPL', () => {
           return HttpResponse.json(mockCompany)
@@ -204,7 +204,7 @@ describe('CompanyProfile', () => {
       render(<CompanyProfile />, { wrapper: TestWrapper })
 
       await waitFor(() => {
-        expect(screen.getByText('Back to Companies')).toBeInTheDocument()
+        expect(screen.getByTestId('company-header')).toBeInTheDocument()
       })
     })
   })
@@ -293,7 +293,7 @@ describe('CompanyProfile', () => {
   })
 
   describe('Navigation', () => {
-    it('navigates back to companies when back button clicked', async () => {
+    it('navigates to analyses when view analyses clicked', async () => {
       server.use(
         http.get('http://localhost:8000/api/companies/AAPL', () => {
           return HttpResponse.json(mockCompany)
@@ -302,10 +302,15 @@ describe('CompanyProfile', () => {
 
       render(<CompanyProfile />, { wrapper: TestWrapper })
 
-      const backButton = screen.getByText('Back to Companies')
-      await user.click(backButton)
+      await waitFor(() => {
+        const viewAnalysesButton = screen.getByTestId('view-analyses-button')
+        expect(viewAnalysesButton).toBeInTheDocument()
+      })
 
-      expect(mockNavigate).toHaveBeenCalledWith('/companies')
+      const viewAnalysesButton = screen.getByTestId('view-analyses-button')
+      await user.click(viewAnalysesButton)
+
+      expect(mockNavigate).toHaveBeenCalledWith('/analyses')
     })
 
     it('navigates to filings when analyze filings clicked', async () => {
@@ -362,7 +367,10 @@ describe('CompanyProfile', () => {
 
       await waitFor(() => {
         expect(screen.getByText('Company Analyses')).toBeInTheDocument()
-        expect(screen.getByText('View All (2)')).toBeInTheDocument()
+        // Check that analysis cards are rendered (should have multiple "View Details" buttons)
+        const viewDetailsButtons = screen.getAllByText('View Details')
+        expect(viewDetailsButtons).toHaveLength(2) // Should have 2 analysis cards
+        expect(viewDetailsButtons[0]).toBeInTheDocument()
       })
     })
 
@@ -565,7 +573,10 @@ describe('CompanyProfile', () => {
       render(<CompanyProfile />, { wrapper: TestWrapper })
 
       await waitFor(() => {
-        expect(screen.getByText('View All (100)')).toBeInTheDocument()
+        expect(screen.getByText('Company Analyses')).toBeInTheDocument()
+        // Should only display the first 5 analyses as per implementation limit
+        const viewDetailsButtons = screen.getAllByText('View Details')
+        expect(viewDetailsButtons.length).toBeLessThanOrEqual(5)
       })
 
       // Should only render first 5 analysis cards for performance

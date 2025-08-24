@@ -29,9 +29,12 @@ const CompanyAnalysisCard = React.forwardRef<HTMLDivElement, CompanyAnalysisCard
         filing_analysis: 'Filing Analysis',
         custom_query: 'Custom Query',
         comparison: 'Comparison Analysis',
-        historical_trend: 'Historical Trend Analysis'
+        historical_trend: 'Historical Trend Analysis',
       }
-      return displayNames[template] || template.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
+      return (
+        displayNames[template] ||
+        template.replace(/_/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase())
+      )
     }
 
     return (
@@ -40,7 +43,11 @@ const CompanyAnalysisCard = React.forwardRef<HTMLDivElement, CompanyAnalysisCard
           <div className="space-y-2">
             <div className="flex items-center space-x-2">
               <BarChart3 className="w-4 h-4 text-primary" />
-              <span className="font-medium text-sm">{getTemplateDisplayName((analysis as any).analysis_type || analysis.analysis_template)}</span>
+              <span className="font-medium text-sm">
+                {getTemplateDisplayName(
+                  (analysis as any).analysis_type || analysis.analysis_template
+                )}
+              </span>
             </div>
           </div>
           <Button variant="outline" size="sm" onClick={handleViewAnalysis}>

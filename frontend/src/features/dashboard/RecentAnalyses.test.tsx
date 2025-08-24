@@ -1,8 +1,6 @@
 import React from 'react'
-import { render, screen } from '@testing-library/react'
+import { render, screen } from '@/test/utils'
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { BrowserRouter } from 'react-router-dom'
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { RecentAnalyses } from './RecentAnalyses'
 
 // Mock the Skeleton component
@@ -28,28 +26,10 @@ vi.mock('@/hooks/useAnalysis', () => ({
 }))
 
 // Test wrapper with React Query and Router
-const createTestWrapper = () => {
-  const queryClient = new QueryClient({
-    defaultOptions: {
-      queries: {
-        retry: false,
-      },
-    },
-  })
-
-  return ({ children }: { children: React.ReactNode }) => (
-    <QueryClientProvider client={queryClient}>
-      <BrowserRouter>{children}</BrowserRouter>
-    </QueryClientProvider>
-  )
-}
 
 describe('RecentAnalyses', () => {
-  let TestWrapper: React.ComponentType<{ children: React.ReactNode }>
-
   beforeEach(() => {
     vi.clearAllMocks()
-    TestWrapper = createTestWrapper()
   })
 
   describe('Basic Rendering', () => {
@@ -60,7 +40,7 @@ describe('RecentAnalyses', () => {
         error: null,
       })
 
-      const { container } = render(<RecentAnalyses />, { wrapper: TestWrapper })
+      const { container } = render(<RecentAnalyses />)
       expect(container.firstChild).toBeInTheDocument()
     })
 
@@ -71,7 +51,7 @@ describe('RecentAnalyses', () => {
         error: null,
       })
 
-      const { container } = render(<RecentAnalyses />, { wrapper: TestWrapper })
+      const { container } = render(<RecentAnalyses />)
       const cardElement = container.firstChild as HTMLElement
 
       expect(cardElement).toHaveClass('rounded-lg', 'border', 'bg-card', 'p-6')
@@ -86,7 +66,7 @@ describe('RecentAnalyses', () => {
         error: null,
       })
 
-      render(<RecentAnalyses />, { wrapper: TestWrapper })
+      render(<RecentAnalyses />)
 
       expect(mockUseAnalyses).toHaveBeenCalledWith({
         page: 1,
@@ -101,7 +81,7 @@ describe('RecentAnalyses', () => {
         error: null,
       })
 
-      render(<RecentAnalyses />, { wrapper: TestWrapper })
+      render(<RecentAnalyses />)
 
       // Should show loading skeletons
       const skeletons = screen.getAllByTestId('skeleton')
@@ -117,7 +97,7 @@ describe('RecentAnalyses', () => {
         error: mockError,
       })
 
-      render(<RecentAnalyses />, { wrapper: TestWrapper })
+      render(<RecentAnalyses />)
 
       expect(screen.getByText('Error loading recent analyses')).toBeInTheDocument()
       expect(screen.getByText('Failed to fetch analyses')).toBeInTheDocument()
@@ -132,7 +112,7 @@ describe('RecentAnalyses', () => {
         error: null,
       })
 
-      render(<RecentAnalyses />, { wrapper: TestWrapper })
+      render(<RecentAnalyses />)
 
       const title = screen.getByRole('heading', { level: 2 })
       expect(title).toBeInTheDocument()
@@ -146,7 +126,7 @@ describe('RecentAnalyses', () => {
         error: null,
       })
 
-      render(<RecentAnalyses />, { wrapper: TestWrapper })
+      render(<RecentAnalyses />)
 
       const viewAllButton = screen.getByRole('button', { name: 'View all' })
       expect(viewAllButton).toBeInTheDocument()
@@ -161,7 +141,7 @@ describe('RecentAnalyses', () => {
         error: null,
       })
 
-      render(<RecentAnalyses />, { wrapper: TestWrapper })
+      render(<RecentAnalyses />)
 
       expect(screen.getByText('No analyses yet')).toBeInTheDocument()
       expect(
@@ -176,7 +156,7 @@ describe('RecentAnalyses', () => {
         error: null,
       })
 
-      render(<RecentAnalyses />, { wrapper: TestWrapper })
+      render(<RecentAnalyses />)
 
       const findAnalysisButton = screen.getByRole('button', { name: 'Find Analysis' })
       expect(findAnalysisButton).toBeInTheDocument()
@@ -193,7 +173,7 @@ describe('RecentAnalyses', () => {
         error: null,
       })
 
-      render(<RecentAnalyses />, { wrapper: TestWrapper })
+      render(<RecentAnalyses />)
 
       const analysisCards = screen.getAllByTestId('analysis-card')
       expect(analysisCards).toHaveLength(2)

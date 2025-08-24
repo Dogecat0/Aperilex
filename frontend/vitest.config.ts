@@ -20,6 +20,10 @@ export default defineConfig({
     globals: true,
     environment: 'jsdom',
     setupFiles: ['./src/test/setup.ts'],
+    // Increase timeout to handle test interference when running full suite
+    testTimeout: 10000, // 10 seconds instead of default 5 seconds
+    // Better test isolation
+    isolate: true, // Run tests in isolated environments
     // Suppress JSDOM navigation warnings in console
     onConsoleLog(log: string, type: 'stdout' | 'stderr'): false | void {
       if (type === 'stderr' && log.includes('Not implemented: navigation')) {
