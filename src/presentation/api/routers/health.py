@@ -216,7 +216,7 @@ async def _perform_messaging_health_check() -> HealthStatus:
                 message="All messaging services are healthy",
                 timestamp=timestamp,
                 details={
-                    "environment": registry.environment.value,
+                    "environment": registry.settings.environment,
                     "services": health_results,
                     "connected": registry.is_connected,
                     "cached": False,
@@ -228,7 +228,7 @@ async def _perform_messaging_health_check() -> HealthStatus:
                 message=f"Some messaging services are unhealthy: {', '.join(unhealthy_services)}",
                 timestamp=timestamp,
                 details={
-                    "environment": registry.environment.value,
+                    "environment": registry.settings.environment,
                     "services": health_results,
                     "unhealthy_services": unhealthy_services,
                     "connected": registry.is_connected,

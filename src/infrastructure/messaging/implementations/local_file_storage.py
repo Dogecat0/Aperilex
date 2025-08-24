@@ -312,7 +312,7 @@ class LocalFileStorageService(IStorageService):
         if not self._connected:
             return {"error": "Not connected"}
 
-        stats = {
+        stats: dict[str, Any] = {
             "base_path": str(self.base_path),
             "connected": self._connected,
             "content_counts": {},
@@ -323,13 +323,16 @@ class LocalFileStorageService(IStorageService):
             subdir_path = self.base_path / subdir
             if subdir_path.exists():
                 files = list(subdir_path.glob("*.json"))
-                stats["content_counts"][subdir] = len(files)
+                content_counts = stats["content_counts"]
+                content_counts[subdir] = len(files)
 
                 # Calculate total size
                 for file_path in files:
-                    stats["total_size_bytes"] += file_path.stat().st_size
+                    current_size = stats["total_size_bytes"]
+                    stats["total_size_bytes"] = current_size + file_path.stat().st_size
 
-        stats["total_size_mb"] = round(stats["total_size_bytes"] / (1024 * 1024), 2)
+        total_bytes = stats["total_size_bytes"]
+        stats["total_size_mb"] = round(total_bytes / (1024 * 1024), 2)
 
         return stats
 

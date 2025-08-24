@@ -4,11 +4,20 @@ import asyncio
 import json
 import logging
 from datetime import datetime
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from uuid import UUID
 
 import aio_pika
-from aio_pika import Channel, Connection, ExchangeType, Message, Queue
+from aio_pika import ExchangeType, Message
+from aio_pika.abc import (
+    AbstractChannel,
+    AbstractExchange,
+    AbstractQueue,
+    AbstractRobustConnection,
+)
+
+if TYPE_CHECKING:
+    from pamqp.common import Arguments
 
 from src.application.patterns.circuit_breaker import CircuitBreaker
 
@@ -22,9 +31,11 @@ class RabbitMQQueueService(IQueueService):
 
     def __init__(self, connection_url: str = "amqp://localhost:5672/") -> None:
         self.connection_url = connection_url
-        self.connection: Connection | None = None
-        self.channel: Channel | None = None
-        self.queues: dict[str, Queue] = {}
+        self.connection: AbstractRobustConnection | None = None
+        self.channel: AbstractChannel | None = None
+        self.exchange: AbstractExchange | None = None
+        self.dlx: AbstractExchange | None = None
+        self.queues: dict[str, AbstractQueue] = {}
         self.task_statuses: dict[UUID, TaskStatus] = {}
         self._connected = False
 
@@ -92,13 +103,13 @@ class RabbitMQQueueService(IQueueService):
         if not self._connected:
             await self.connect()
 
-    async def _ensure_queue(self, queue_name: str) -> Queue:
+    async def _ensure_queue(self, queue_name: str) -> AbstractQueue:
         """Ensure queue exists and is configured properly."""
         if queue_name not in self.queues:
             await self._ensure_connected()
 
             # Arguments for dead letter routing and retry handling
-            queue_args = {
+            queue_args: Arguments = {
                 "x-dead-letter-exchange": "aperilex_dlx",
                 "x-dead-letter-routing-key": f"{queue_name}.dead",
                 "x-message-ttl": 3600000,  # 1 hour TTL for messages
@@ -106,15 +117,24 @@ class RabbitMQQueueService(IQueueService):
             }
 
             # Declare main queue
+            if self.channel is None:
+                raise RuntimeError("Channel not initialized")
             queue = await self.channel.declare_queue(
                 queue_name, durable=True, arguments=queue_args
             )
 
             # Bind to exchange
+            if self.exchange is None:
+                raise RuntimeError("Exchange not initialized")
             await queue.bind(self.exchange, routing_key=queue_name)
 
             # Declare dead letter queue
+            if self.channel is None:
+                raise RuntimeError("Channel not initialized")
             dlq = await self.channel.declare_queue(f"{queue_name}.dead", durable=True)
+
+            if self.dlx is None:
+                raise RuntimeError("Dead Letter Exchange not initialized")
             await dlq.bind(self.dlx, routing_key=f"{queue_name}.dead")
 
             self.queues[queue_name] = queue
@@ -164,9 +184,10 @@ class RabbitMQQueueService(IQueueService):
 
         # Use circuit breaker for message operations
         try:
-            return await self._message_circuit_breaker.call(
+            result = await self._message_circuit_breaker.call(
                 self._perform_send_task, message
             )
+            return UUID(str(result))
         except Exception as e:
             logger.error(
                 f"Failed to send task {message.task_id} through circuit breaker: {e}"
@@ -175,6 +196,9 @@ class RabbitMQQueueService(IQueueService):
 
     async def _perform_send_task(self, message: TaskMessage) -> UUID:
         """Perform the actual task sending operation."""
+        if self.exchange is None:
+            raise RuntimeError("Exchange not initialized")
+
         _ = await self._ensure_queue(message.queue)
 
         # Convert priority (higher number = higher priority in RabbitMQ)
@@ -301,8 +325,9 @@ class RabbitMQQueueService(IQueueService):
         await self._ensure_connected()
         queue_obj = await self._ensure_queue(queue)
         result = await queue_obj.purge()
-        logger.info(f"Purged {result} messages from queue {queue}")
-        return result
+        purge_count: int = result.message_count if result.message_count else 0
+        logger.info(f"Purged {purge_count} messages from queue {queue}")
+        return purge_count
 
     async def get_queue_size(self, queue: str) -> int:
         """Get number of messages in queue."""
@@ -310,8 +335,8 @@ class RabbitMQQueueService(IQueueService):
         queue_obj = await self._ensure_queue(queue)
 
         # Get queue info
-        queue_info = await queue_obj.declare(passive=True)
-        message_count = queue_info.message_count
+        queue_info = await queue_obj.declare()
+        message_count: int = queue_info.message_count if queue_info.message_count else 0
 
         logger.debug(f"Queue {queue} has {message_count} messages")
         return message_count
@@ -320,7 +345,8 @@ class RabbitMQQueueService(IQueueService):
         """Check if RabbitMQ connection is healthy with circuit breaker protection."""
         try:
             # Use circuit breaker to protect health check operation
-            return await self._health_circuit_breaker.call(self._perform_health_check)
+            result = await self._health_circuit_breaker.call(self._perform_health_check)
+            return bool(result)
         except Exception as e:
             logger.warning(f"RabbitMQ health check failed through circuit breaker: {e}")
             return False
@@ -335,6 +361,8 @@ class RabbitMQQueueService(IQueueService):
 
         # Try to declare a test exchange to verify connection with timeout
         try:
+            if self.channel is None:
+                raise ConnectionError("Channel not initialized")
             test_exchange = await asyncio.wait_for(
                 self.channel.declare_exchange(
                     "health_check_test", ExchangeType.DIRECT, auto_delete=True

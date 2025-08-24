@@ -3,18 +3,14 @@
 import json
 import logging
 from datetime import datetime
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from uuid import UUID
 
-try:
-    import boto3
-    from botocore.exceptions import ClientError
+import boto3
+from botocore.exceptions import ClientError
 
-    BOTO3_AVAILABLE = True
-except ImportError:
-    boto3 = None
-    ClientError = Exception
-    BOTO3_AVAILABLE = False
+if TYPE_CHECKING:
+    from mypy_boto3_sqs import SQSClient
 
 from ..interfaces import IQueueService, TaskMessage, TaskPriority, TaskStatus
 
@@ -31,14 +27,9 @@ class SQSQueueService(IQueueService):
         aws_access_key_id: str | None = None,
         aws_secret_access_key: str | None = None,
     ):
-        if not BOTO3_AVAILABLE:
-            raise ImportError(
-                "boto3 is required for SQSQueueService. Install with: poetry add boto3"
-            )
-
         self.aws_region = aws_region
         self.queue_prefix = queue_prefix
-        self.sqs_client = None
+        self.sqs_client: SQSClient
         self.queue_urls: dict[str, str] = {}
         self.task_statuses: dict[UUID, TaskStatus] = {}
         self._connected = False
@@ -99,60 +90,11 @@ class SQSQueueService(IQueueService):
         try:
             # Try to get existing queue URL
             response = self.sqs_client.get_queue_url(QueueName=full_queue_name)
-            queue_url = response["QueueUrl"]
+            queue_url: str = response["QueueUrl"]
 
         except ClientError as e:
-            if e.response["Error"]["Code"] == "AWS.SimpleQueueService.NonExistentQueue":
-                # Create FIFO queue with deduplication
-                logger.info(f"Creating FIFO queue: {full_queue_name}")
-
-                attributes = {
-                    "FifoQueue": "true",
-                    "ContentBasedDeduplication": "true",  # Enable deduplication
-                    "MessageRetentionPeriod": "1209600",  # 14 days
-                    "VisibilityTimeoutSeconds": "300",  # 5 minutes
-                    "DeadLetterTargetArn": "",  # Will be set up separately
-                    "maxReceiveCount": "3",
-                }
-
-                response = self.sqs_client.create_queue(
-                    QueueName=full_queue_name,
-                    Attributes=attributes,
-                )
-                queue_url = response["QueueUrl"]
-
-                # Create corresponding dead letter queue
-                dlq_name = f"{full_queue_name}-dlq"
-                try:
-                    dlq_response = self.sqs_client.create_queue(
-                        QueueName=dlq_name,
-                        Attributes={
-                            "FifoQueue": "true",
-                            "ContentBasedDeduplication": "true",
-                        },
-                    )
-
-                    # Configure main queue to use DLQ
-                    dlq_arn = self.sqs_client.get_queue_attributes(
-                        QueueUrl=dlq_response["QueueUrl"], AttributeNames=["QueueArn"]
-                    )["Attributes"]["QueueArn"]
-
-                    redrive_policy = {
-                        "deadLetterTargetArn": dlq_arn,
-                        "maxReceiveCount": 3,
-                    }
-
-                    self.sqs_client.set_queue_attributes(
-                        QueueUrl=queue_url,
-                        Attributes={"RedrivePolicy": json.dumps(redrive_policy)},
-                    )
-
-                    logger.info(f"Created DLQ: {dlq_name}")
-
-                except Exception as dlq_error:
-                    logger.warning(f"Failed to create DLQ: {dlq_error}")
-            else:
-                raise
+            logger.error(f"Failed to get queue URL for {full_queue_name}: {e}")
+            raise
 
         self.queue_urls[queue_name] = queue_url
         logger.debug(f"Queue URL for {queue_name}: {queue_url}")
@@ -261,6 +203,10 @@ class SQSQueueService(IQueueService):
             sqs_message = response["Messages"][0]
 
             # Parse message body
+            if "Body" not in sqs_message:
+                raise ValueError("Received SQS message without Body")
+            if "ReceiptHandle" not in sqs_message:
+                raise ValueError("Received SQS message without ReceiptHandle")
             body = json.loads(sqs_message["Body"])
             task = self._message_body_to_task(body)
 

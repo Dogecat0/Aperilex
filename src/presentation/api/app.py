@@ -121,7 +121,7 @@ app.add_middleware(
 )
 
 # Add rate limiting middleware
-app.add_middleware(RateLimitMiddleware)
+app.add_middleware(RateLimitMiddleware, rate_limiter=None, excluded_paths=None)
 
 # Include routers
 app.include_router(health.router)

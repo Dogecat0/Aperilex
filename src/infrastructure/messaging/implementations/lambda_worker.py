@@ -4,21 +4,27 @@ import json
 import logging
 from collections.abc import Callable
 from datetime import datetime
-from typing import Any
+from typing import TYPE_CHECKING, Any, TypedDict
 
-try:
-    import boto3
-    from botocore.exceptions import ClientError
+import boto3
+from botocore.exceptions import ClientError
 
-    BOTO3_AVAILABLE = True
-except ImportError:
-    boto3 = None
-    ClientError = Exception
-    BOTO3_AVAILABLE = False
+if TYPE_CHECKING:
+    from mypy_boto3_lambda import LambdaClient
+    from mypy_boto3_lambda.literals import InvocationTypeType
 
 from ..interfaces import IWorkerService, TaskResult, TaskStatus
 
 logger = logging.getLogger(__name__)
+
+
+class WorkerStats(TypedDict):
+    """Type definition for worker statistics."""
+
+    tasks_invoked: int
+    tasks_succeeded: int
+    tasks_failed: int
+    started_at: datetime | None
 
 
 class LambdaWorkerService(IWorkerService):
@@ -35,19 +41,14 @@ class LambdaWorkerService(IWorkerService):
         aws_access_key_id: str | None = None,
         aws_secret_access_key: str | None = None,
     ):
-        if not BOTO3_AVAILABLE:
-            raise ImportError(
-                "boto3 is required for LambdaWorkerService. Install with: poetry add boto3"
-            )
-
         self.aws_region = aws_region
         self.function_prefix = function_prefix
-        self.lambda_client = None
+        self.lambda_client: LambdaClient
         self.task_handlers: dict[str, str] = (
             {}
         )  # Maps task names to Lambda function names
         self.running = False
-        self.stats = {
+        self.stats: WorkerStats = {
             "tasks_invoked": 0,
             "tasks_succeeded": 0,
             "tasks_failed": 0,
@@ -62,7 +63,7 @@ class LambdaWorkerService(IWorkerService):
         )
         self.lambda_client = session.client("lambda")
 
-    async def start(self, queues: list[str] = None) -> None:
+    async def start(self, queues: list[str] | None = None) -> None:
         """Start the Lambda worker service (setup event source mappings)."""
         if self.running:
             logger.warning("Lambda worker service is already running")
@@ -81,7 +82,7 @@ class LambdaWorkerService(IWorkerService):
         self.running = False
         logger.info("Lambda worker service stopped")
 
-    def register_task(self, name: str, handler: Callable) -> None:
+    def register_task(self, name: str, handler: Callable[..., Any]) -> None:
         """Register a task handler (maps to Lambda function).
 
         Args:
@@ -149,9 +150,7 @@ class LambdaWorkerService(IWorkerService):
                 try:
                     self.lambda_client.get_function(FunctionName=function_name)
                 except ClientError as e:
-                    if e.response["Error"]["Code"] == "ResourceNotFoundException":
-                        logger.warning(f"Lambda function {function_name} not found")
-                        return False
+                    logger.error(f"Lambda function {function_name} not found", e)
                     raise
 
             return True
@@ -164,7 +163,7 @@ class LambdaWorkerService(IWorkerService):
         self,
         task_name: str,
         payload: dict[str, Any],
-        invocation_type: str = "Event",  # Asynchronous by default
+        invocation_type: "InvocationTypeType" = "Event",  # Asynchronous by default
     ) -> dict[str, Any]:
         """Directly invoke a Lambda function for a task.
 

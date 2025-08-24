@@ -5,8 +5,8 @@ from collections.abc import Awaitable, Callable
 
 from fastapi import Request, Response, status
 from fastapi.responses import JSONResponse
-from starlette.applications import Starlette
 from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.types import ASGIApp
 
 from src.infrastructure.rate_limiting import APIRateLimiter
 from src.shared.config.settings import settings
@@ -19,7 +19,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
 
     def __init__(
         self,
-        app: Starlette,
+        app: ASGIApp,
         rate_limiter: APIRateLimiter | None = None,
         excluded_paths: list[str] | None = None,
     ) -> None:

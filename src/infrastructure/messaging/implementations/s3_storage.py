@@ -3,17 +3,15 @@
 import json
 import logging
 from datetime import datetime, timedelta
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-try:
-    import boto3
-    from botocore.exceptions import ClientError
+import boto3
+from botocore.exceptions import ClientError
+from mypy_boto3_s3.type_defs import ObjectIdentifierTypeDef
 
-    BOTO3_AVAILABLE = True
-except ImportError:
-    boto3 = None
-    ClientError = Exception
-    BOTO3_AVAILABLE = False
+if TYPE_CHECKING:
+    from mypy_boto3_s3 import S3Client
+    from mypy_boto3_s3.literals import BucketLocationConstraintType
 
 from ..interfaces import IStorageService
 
@@ -30,18 +28,13 @@ class S3StorageService(IStorageService):
     def __init__(
         self,
         bucket_name: str,
-        aws_region: str = "us-east-1",
+        aws_region: BucketLocationConstraintType = "us-east-2",
         prefix: str = "cache/",
         aws_access_key_id: str | None = None,
         aws_secret_access_key: str | None = None,
     ):
-        if not BOTO3_AVAILABLE:
-            raise ImportError(
-                "boto3 is required for S3StorageService. Install with: poetry add boto3"
-            )
-
         self.bucket_name = bucket_name
-        self.aws_region = aws_region
+        self.aws_region: BucketLocationConstraintType = aws_region
         self.prefix = prefix
         self._connected = False
 
@@ -51,7 +44,7 @@ class S3StorageService(IStorageService):
             aws_secret_access_key=aws_secret_access_key,
             region_name=aws_region,
         )
-        self.s3_client = session.client("s3")
+        self.s3_client: S3Client = session.client("s3")
 
     async def connect(self) -> None:
         """Connect to AWS S3."""
@@ -61,27 +54,6 @@ class S3StorageService(IStorageService):
             self._connected = True
             logger.info(f"Connected to S3 bucket: {self.bucket_name}")
 
-        except ClientError as e:
-            if e.response["Error"]["Code"] == "404":
-                # Try to create bucket
-                try:
-                    if self.aws_region == "us-east-1":
-                        self.s3_client.create_bucket(Bucket=self.bucket_name)
-                    else:
-                        self.s3_client.create_bucket(
-                            Bucket=self.bucket_name,
-                            CreateBucketConfiguration={
-                                "LocationConstraint": self.aws_region
-                            },
-                        )
-                    logger.info(f"Created S3 bucket: {self.bucket_name}")
-                    self._connected = True
-                except Exception as create_error:
-                    logger.error(f"Failed to create S3 bucket: {create_error}")
-                    raise
-            else:
-                logger.error(f"Failed to connect to S3: {e}")
-                raise
         except Exception as e:
             logger.error(f"Failed to connect to S3: {e}")
             self._connected = False
@@ -141,11 +113,8 @@ class S3StorageService(IStorageService):
             return json.loads(content)
 
         except ClientError as e:
-            if e.response["Error"]["Code"] == "NoSuchKey":
-                return None
-            else:
-                logger.error(f"Failed to get S3 object {s3_key}: {e}")
-                return None
+            logger.error(f"Failed to get S3 object {s3_key}: {e}")
+            return None
         except Exception as e:
             logger.error(f"Failed to get key {key}: {e}")
             return None
@@ -216,11 +185,8 @@ class S3StorageService(IStorageService):
             return True
 
         except ClientError as e:
-            if e.response["Error"]["Code"] == "404":
-                return False
-            else:
-                logger.error(f"Failed to check S3 object {s3_key}: {e}")
-                return False
+            logger.error(f"Failed to check S3 object {s3_key}: {e}")
+            return False
         except Exception as e:
             logger.error(f"Failed to check key {key}: {e}")
             return False
@@ -271,11 +237,11 @@ class S3StorageService(IStorageService):
 
             deleted_count = 0
 
-            for page in page_iterator:
+            for page in iter(page_iterator):
                 if "Contents" in page:
                     # Delete objects in batches
-                    objects_to_delete = [
-                        {"Key": obj["Key"]} for obj in page["Contents"]
+                    objects_to_delete: list[ObjectIdentifierTypeDef] = [
+                        {"Key": obj["Key"]} for obj in page["Contents"] if "Key" in obj
                     ]
 
                     if objects_to_delete:
@@ -347,7 +313,7 @@ class S3StorageService(IStorageService):
 
             return {
                 "bucket_name": self.bucket_name,
-                "region": location.get("LocationConstraint", "us-east-1"),
+                "region": location.get("LocationConstraint", "unknown"),
                 "bucket_size_bytes": bucket_size,
                 "prefix": self.prefix,
             }
@@ -367,15 +333,17 @@ class S3StorageService(IStorageService):
                 Bucket=self.bucket_name, Prefix=self.prefix
             )
 
-            expired_objects = []
+            expired_objects: list[ObjectIdentifierTypeDef] = []
 
-            for page in page_iterator:
+            for page in iter(page_iterator):
                 if "Contents" not in page:
                     continue
 
                 for obj in page["Contents"]:
                     # Get object metadata
                     try:
+                        if "Key" not in obj:
+                            raise ValueError("Missing Key in S3 object")
                         response = self.s3_client.head_object(
                             Bucket=self.bucket_name, Key=obj["Key"]
                         )
@@ -385,7 +353,7 @@ class S3StorageService(IStorageService):
                             expired_objects.append({"Key": obj["Key"]})
 
                     except Exception as e:
-                        logger.warning(f"Failed to check object {obj['Key']}: {e}")
+                        logger.warning(f"Failed to check object: {e}")
 
             # Delete expired objects
             deleted_count = 0

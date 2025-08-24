@@ -28,25 +28,25 @@ class TaskPriority(Enum):
     HIGH = 8
     CRITICAL = 10
 
-    def __lt__(self, other):
+    def __lt__(self, other: object) -> bool:
         """Less than comparison for priority."""
         if not isinstance(other, TaskPriority):
             return NotImplemented
         return self.value < other.value
 
-    def __le__(self, other):
+    def __le__(self, other: object) -> bool:
         """Less than or equal comparison for priority."""
         if not isinstance(other, TaskPriority):
             return NotImplemented
         return self.value <= other.value
 
-    def __gt__(self, other):
+    def __gt__(self, other: object) -> bool:
         """Greater than comparison for priority."""
         if not isinstance(other, TaskPriority):
             return NotImplemented
         return self.value > other.value
 
-    def __ge__(self, other):
+    def __ge__(self, other: object) -> bool:
         """Greater than or equal comparison for priority."""
         if not isinstance(other, TaskPriority):
             return NotImplemented

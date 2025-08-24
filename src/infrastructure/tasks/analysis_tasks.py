@@ -549,8 +549,8 @@ async def retrieve_and_analyze_filing(
                         name=company_data.name,
                         metadata={
                             "ticker": company_data.ticker,
-                            "sic": company_data.sic,
-                            "sector": company_data.sector,
+                            "sic_code": company_data.sic_code,
+                            "sic_description": company_data.sic_description,
                             "auto_populated": True,
                             "auto_populated_date": filing_content.get("filing_date"),
                             "source": "edgar_api",

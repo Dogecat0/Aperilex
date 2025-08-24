@@ -5,7 +5,7 @@ import logging
 import traceback
 from collections.abc import Callable
 from datetime import datetime
-from typing import Any
+from typing import Any, TypedDict
 from uuid import uuid4
 
 from src.shared.config.settings import settings
@@ -21,15 +21,24 @@ from ..interfaces import (
 logger = logging.getLogger(__name__)
 
 
+class WorkerStats(TypedDict):
+    """Type definition for worker statistics."""
+
+    tasks_processed: int
+    tasks_succeeded: int
+    tasks_failed: int
+    started_at: datetime | None
+
+
 class LocalWorkerService(IWorkerService):
     """Local worker service for development and testing."""
 
     def __init__(self, queue_service: IQueueService, worker_id: str | None = None):
         self.queue_service = queue_service
         self.worker_id = worker_id or f"worker_{uuid4().hex[:8]}"
-        self.task_handlers: dict[str, Callable] = {}
+        self.task_handlers: dict[str, Callable[..., Any]] = {}
         self.running = False
-        self.worker_task: asyncio.Task | None = None
+        self.worker_task: asyncio.Task[None] | None = None
 
         # Load polling configuration from settings
         self.queue_timeout = settings.worker_queue_timeout
@@ -38,14 +47,14 @@ class LocalWorkerService(IWorkerService):
         self.backoff_factor = settings.worker_backoff_factor
         self.current_sleep = self.min_sleep
 
-        self.stats = {
+        self.stats: WorkerStats = {
             "tasks_processed": 0,
             "tasks_succeeded": 0,
             "tasks_failed": 0,
             "started_at": None,
         }
 
-    async def start(self, queues: list[str] = None) -> None:
+    async def start(self, queues: list[str] | None = None) -> None:
         """Start the worker service."""
         if self.running:
             logger.warning(f"Worker {self.worker_id} is already running")
@@ -76,7 +85,7 @@ class LocalWorkerService(IWorkerService):
 
         logger.info(f"Worker {self.worker_id} stopped")
 
-    def register_task(self, name: str, handler: Callable) -> None:
+    def register_task(self, name: str, handler: Callable[..., Any]) -> None:
         """Register a task handler."""
         self.task_handlers[name] = handler
         logger.debug(f"Registered task handler: {name}")
@@ -146,7 +155,11 @@ class LocalWorkerService(IWorkerService):
                     # Try to get a task from this queue
                     task = await self.queue_service.receive_task(
                         queue=queue_name,
-                        timeout=self.queue_timeout,
+                        timeout=(
+                            int(self.queue_timeout)
+                            if self.queue_timeout is not None
+                            else None
+                        ),
                     )
 
                     if task:
@@ -250,7 +263,9 @@ class LocalWorkerService(IWorkerService):
             # Submit the result
             await self.submit_task_result(result)
 
-    async def _execute_handler(self, handler: Callable, task: TaskMessage) -> Any:
+    async def _execute_handler(
+        self, handler: Callable[..., Any], task: TaskMessage
+    ) -> Any:
         """Execute task handler with proper async/sync handling."""
         try:
             if asyncio.iscoroutinefunction(handler):
@@ -302,7 +317,11 @@ class LocalWorkerService(IWorkerService):
             eta=task.eta,
             expires=task.expires,
             queue=task.queue,
-            metadata={**task.metadata, "retry_reason": error_msg, "retry_delay": delay},
+            metadata={
+                **(task.metadata or {}),
+                "retry_reason": error_msg,
+                "retry_delay": delay,
+            },
         )
 
         # First nack the current message

@@ -20,7 +20,7 @@ from ..interfaces import (
 class MockQueueService(IQueueService):
     """Mock queue service for testing."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.queues: dict[str, list[TaskMessage]] = {}
         self.task_statuses: dict[UUID, TaskStatus] = {}
         self.connected = False
@@ -108,8 +108,8 @@ class MockQueueService(IQueueService):
 class MockWorkerService(IWorkerService):
     """Mock worker service for testing."""
 
-    def __init__(self):
-        self.task_handlers: dict[str, Callable] = {}
+    def __init__(self) -> None:
+        self.task_handlers: dict[str, Callable[..., Any]] = {}
         self.running = False
         self.results: list[TaskResult] = []
         self.call_log: list[tuple[str, Any]] = []
@@ -119,7 +119,7 @@ class MockWorkerService(IWorkerService):
             "tasks_failed": 0,
         }
 
-    async def start(self, queues: list[str] = None) -> None:
+    async def start(self, queues: list[str] | None = None) -> None:
         self.running = True
         self.call_log.append(("start", queues))
 
@@ -127,7 +127,7 @@ class MockWorkerService(IWorkerService):
         self.running = False
         self.call_log.append(("stop", None))
 
-    def register_task(self, name: str, handler: Callable) -> None:
+    def register_task(self, name: str, handler: Callable[..., Any]) -> None:
         self.task_handlers[name] = handler
         self.call_log.append(("register_task", {"name": name, "handler": handler}))
 
@@ -196,7 +196,7 @@ class MockWorkerService(IWorkerService):
 class MockStorageService(IStorageService):
     """Mock storage service for testing."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.data: dict[str, Any] = {}
         self.ttl: dict[str, datetime] = {}
         self.connected = False
@@ -308,8 +308,8 @@ def create_mock_storage_service() -> MockStorageService:
 
 async def create_test_task_message(
     task_name: str = "test_task",
-    args: list = None,
-    kwargs: dict = None,
+    args: list[Any] | None = None,
+    kwargs: dict[str, Any] | None = None,
     queue: str = "default",
     priority: TaskPriority = TaskPriority.NORMAL,
 ) -> TaskMessage:

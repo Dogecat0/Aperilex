@@ -1,6 +1,7 @@
 import os
 import sys
 
+from mypy_boto3_s3.literals import BucketLocationConstraintType
 from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings
 
@@ -72,8 +73,9 @@ class Settings(BaseSettings):
     )
 
     # AWS Configuration (Production)
-    aws_region: str = Field(
-        default="us-east-1",
+    # WARN: Same region as buckets to avoid latency
+    aws_region: BucketLocationConstraintType = Field(
+        default="us-east-2",
         validation_alias="AWS_REGION",
     )
     aws_access_key_id: str = Field(
