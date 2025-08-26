@@ -1,0 +1,10 @@
+name: aperilex
+description: Secure SEC Filing Analysis Engine
+runtime:
+  name: python
+  options:
+    toolchain: poetry
+config:
+  pulumi:tags:
+    value:
+      pulumi:template: aws-python
