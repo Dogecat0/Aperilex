@@ -1,12 +1,34 @@
-# Aperilex - AI-Powered Financial Analysis Platform
+# Aperilex - AI-Powered Financial Analysis Platform (v2.0.0)
 
 **Democratize financial analysis by making SEC filings as easy to understand as reading a news article.**
 
 Aperilex is an open-source financial analysis platform that transforms complex SEC filings into clear, actionable insights. Whether you're an investor, analyst, student, or simply curious about public companies, Aperilex provides AI-powered analysis through an intuitive web interface and powerful developer API.
 
+## 🔄 Current Status
+
+**Version**: 2.0.0 - Production-Ready Architecture
+
+**✅ Completed:**
+
+- Clean Domain-Driven Design with CQRS pattern implementation
+- Flexible messaging system with pluggable backends (local/RabbitMQ/AWS)
+- Full-stack application with React 19 frontend and FastAPI backend
+- Comprehensive API with OpenAPI documentation
+- Multi-provider LLM support (OpenAI, Google AI)
+- AWS deployment infrastructure with Pulumi
+
+**🔧 Recent Updates:**
+
+- Removed Redis/Celery dependencies for simplified architecture
+- Implemented flexible messaging system for different deployment scenarios
+- Added batch analysis capabilities for processing multiple filings
+- Enhanced error handling with circuit breaker patterns
+- Improved test coverage and code quality metrics
+
 ## 🚀 What Aperilex Does
 
 **For Everyone:**
+
 - **🔍 Smart Company Research**: Search any public company and get instant insights
 - **📊 AI-Powered Analysis**: Automatic extraction of key risks, opportunities, and financial trends
 - **📈 Interactive Dashboards**: Comprehensive analysis tracking with visual progress indicators
@@ -14,11 +36,13 @@ Aperilex is an open-source financial analysis platform that transforms complex S
 - **📱 Responsive Design**: Works seamlessly on desktop and mobile devices
 
 **For Developers:**
-- **🔌 REST API**: Complete API with 13+ endpoints for financial data integration
-- **⚡ Background Processing**: Scalable async analysis with progress tracking
-- **📚 TypeScript Support**: Full type definitions for seamless integration
+
+- **🔌 REST API**: FastAPI with automatic OpenAPI documentation and type safety
+- **⚡ Flexible Processing**: Pluggable messaging backends (local, RabbitMQ, AWS SQS/Lambda)
+- **📚 TypeScript Support**: Full type definitions with auto-generated API types
 
 **Key Features:**
+
 - Complete web application with React 19 interface
 - AI-powered SEC filing analysis (10-K, 10-Q)
 - Plain-English summaries of complex financial documents
@@ -34,12 +58,12 @@ Aperilex is a **complete full-stack application** built with clean architecture 
 ┌─────────────────────────────────────────────────────────────────┐
 │                        Frontend Layer                           │
 │              React 19 + TypeScript + Tailwind CSS              │
-│          (47+ Components, Dashboards, Visualizations)          │
+│          (Components, Dashboards, Visualizations)               │
 └───────────────────────────────┬─────────────────────────────────┘
                                 │ REST API + TypeScript Client
 ┌───────────────────────────────▼─────────────────────────────────┐
 │                      Presentation Layer                         │
-│          FastAPI REST API (13+ Endpoints + OpenAPI)            │
+│            FastAPI REST API with OpenAPI Documentation         │
 └───────────────────────────────┬─────────────────────────────────┘
                                 │
 ┌───────────────────────────────▼─────────────────────────────────┐
@@ -54,7 +78,7 @@ Aperilex is a **complete full-stack application** built with clean architecture 
                                 │
 ┌───────────────────────────────▼─────────────────────────────────┐
 │                    Infrastructure Layer                         │
-│       (PostgreSQL + Redis + EdgarTools + OpenAI + Celery)      │
+│    (PostgreSQL + EdgarTools + OpenAI/Google AI + Messaging)    │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
@@ -64,9 +88,9 @@ Aperilex is a **complete full-stack application** built with clean architecture 
 
 ```
 aperilex/
-├── frontend/                # 🎨 REACT WEB APPLICATION (COMPLETED)
+├── frontend/                # 🎨 REACT WEB APPLICATION
 │   ├── src/
-│   │   ├── components/      # 47+ React components
+│   │   ├── components/      # React components
 │   │   │   ├── analysis/    # Analysis results & visualizations
 │   │   │   ├── charts/      # Financial data charts (Recharts)
 │   │   │   ├── layout/      # App shell, header, navigation
@@ -81,14 +105,14 @@ aperilex/
 │   │   ├── lib/            # React Query, Zustand config
 │   │   └── utils/          # Helper functions
 │   ├── coverage/           # Test coverage reports
-│   └── tests/              # 1,444+ frontend tests
-├── src/                    # 🔧 BACKEND API (COMPLETED)
+│   └── tests/              # Frontend test suite
+├── src/                    # 🔧 BACKEND API
 │   ├── domain/             # Business logic & entities
 │   │   ├── entities/       # Analysis, Company, Filing
 │   │   └── value_objects/  # Money, ProcessingStatus, Ticker
 │   ├── application/        # CQRS application services
 │   │   ├── commands/       # Command handlers (analysis orchestration)
-│   │   ├── queries/        # Query handlers (8 implemented)
+│   │   ├── queries/        # Query handlers
 │   │   ├── schemas/        # Pydantic DTOs & validation
 │   │   ├── services/       # Application orchestrators
 │   │   └── patterns/       # Circuit breaker, resilience
@@ -97,11 +121,11 @@ aperilex/
 │   │   ├── repositories/   # Async repository pattern
 │   │   ├── llm/           # OpenAI provider & analysis schemas
 │   │   ├── edgar/         # SEC filing integration (edgartools)
-│   │   ├── cache/         # Redis multi-level caching
-│   │   └── tasks/         # Celery background processing
+│   │   ├── cache/         # Multi-level caching infrastructure
+│   │   └── messaging/     # Flexible messaging (local/RabbitMQ/SQS)
 │   ├── presentation/      # FastAPI REST API
 │   │   └── api/
-│   │       └── routers/   # 13+ API endpoints
+│   │       └── routers/   # API endpoints
 │   └── shared/            # Cross-cutting concerns
 ├── tests/                 # 🧪 COMPREHENSIVE TESTING
 │   ├── unit/             # Layer-specific unit tests
@@ -112,32 +136,45 @@ aperilex/
 │   ├── phases/           # Development phase tracking
 │   ├── architecture/     # Architecture decisions
 │   └── implementation/   # Feature implementation summaries
-└── scripts/              # Development & validation tools
+├── scripts/              # 🔧 Development & deployment tools
+│   ├── batch_analyze_filings.py  # Batch analysis for multiple filings
+│   ├── import_snp500.sh          # S&P 500 company data import
+│   ├── aws-entrypoint.sh         # AWS deployment entry point
+│   └── reset_database.sh         # Database management utilities
+└── pulumi/               # ☁️ Infrastructure as Code (AWS)
+    ├── backend.py        # Backend Elastick Beanstalk configuration
+    ├── frontend.py       # Frontend S3/CloudFront setup
+    ├── database.py       # RDS PostgreSQL configuration
+    └── orchestration.py  # AWS resource orchestration
 ```
 
 ## ⚡ Technology Stack
 
 ### 🎨 Frontend Technologies
+
 - **Framework**: React 19 with React Compiler for optimal performance
 - **Language**: TypeScript 5.7 with strict mode and comprehensive type checking
-- **Build Tool**: Vite 6 (160ms dev server startup time)
+- **Build Tool**: Vite 6 for fast development and optimized production builds
 - **Styling**: Tailwind CSS 4 with semantic design tokens and responsive design
 - **State Management**:
   - **Client State**: Zustand for lightweight, type-safe state management
   - **Server State**: React Query (TanStack Query) for intelligent data fetching and caching
 - **Charts & Visualization**: Recharts for interactive financial data visualization
-- **Testing**: Vitest with React Testing Library (1,444+ tests, 85%+ coverage)
+- **Testing**: Vitest with React Testing Library for comprehensive component testing
 - **Type Safety**: Full TypeScript integration with auto-generated API types
 
 ### 🔧 Backend Technologies
-- **Language**: Python 3.12 with strict type checking (MyPy 95%+ coverage)
+
+- **Language**: Python 3.12 with strict type checking via MyPy
 - **Web Framework**: FastAPI with async/await support and automatic OpenAPI generation
 - **Database**: PostgreSQL 16 with async SQLAlchemy 2.0+ ORM
-- **Cache**: Redis 7 with multi-level caching and intelligent TTL strategies
-- **Task Queue**: Celery with Redis broker for scalable background processing
+- **Cache**: Multi-level caching with intelligent TTL strategies
+- **Messaging**: Flexible messaging system with pluggable backends (local, RabbitMQ, AWS SQS)
+- **Cloud Infrastructure**: AWS services (S3, RDS, ECS, CloudFront) via Pulumi IaC
 - **API Documentation**: Auto-generated OpenAPI 3.0 specification with interactive docs
 
 ### 🏗️ Architecture & Patterns
+
 - **Full-Stack Architecture**: Complete frontend + backend separation with REST API
 - **Clean Architecture**: Domain-driven design with four distinct layers
 - **CQRS Pattern**: Command/query separation with dedicated handlers
@@ -146,15 +183,17 @@ aperilex/
 - **Dependency Injection**: Constructor injection with interface-based abstractions
 
 ### 🔌 External Integrations
+
 - **SEC Data**: edgartools library for direct SEC EDGAR database access
-- **AI Analysis**: OpenAI GPT-4 with structured output schemas for financial insights
-- **Background Processing**: Async task queues for long-running LLM analysis operations
-- **Export Features**: PDF generation (WeasyPrint) and Excel exports (openpyxl)
+- **AI Analysis**: Multiple LLM providers (OpenAI GPT-4, Google AI) with structured output schemas
+- **Messaging System**: Pluggable backends - local (development), RabbitMQ (staging), AWS SQS/Lambda (production)
+- **Storage**: Flexible storage backends - local filesystem, AWS S3
 
 ### 🧪 Development & Quality
+
 - **Testing Strategy**:
-  - **Backend**: pytest with 86.21%+ coverage, async testing, realistic fixtures
-  - **Frontend**: Vitest + React Testing Library with 85%+ coverage
+  - **Backend**: pytest with comprehensive test coverage, async testing, realistic fixtures
+  - **Frontend**: Vitest + React Testing Library for component and integration testing
   - **Integration**: End-to-end API and workflow testing
 - **Type Safety**:
   - **Backend**: Strict MyPy with comprehensive type annotations
@@ -162,39 +201,52 @@ aperilex/
 - **Code Quality**:
   - **Backend**: Ruff linting, Black formatting, isort import organization
   - **Frontend**: ESLint, Prettier, TypeScript compiler checks
-- **Security**: Bandit security scanning, dependency vulnerability checking
+- **Security**: Bandit security scanning, dependency vulnerability checkingF
 - **Infrastructure**: Docker & Docker Compose for development and production
 
 ### 🚀 Production Features
+
 - **Performance**:
-  - React 19 compiler optimizations for optimal rendering
-  - Async-first backend architecture with connection pooling
-  - Intelligent caching strategies at multiple levels
+  - React 19 with optimized rendering and code splitting
+  - Async-first backend with PostgreSQL connection pooling
+  - Multi-level caching with configurable TTL strategies
 - **Scalability**:
-  - Background task processing for heavy LLM analysis workloads
-  - Horizontal scaling ready with stateless design
-- **Monitoring**: Health endpoints, service status monitoring, and comprehensive logging
-- **Reliability**: Circuit breaker patterns, comprehensive error handling, graceful degradation
+  - Pluggable messaging backends for different deployment scenarios
+  - Stateless design enabling horizontal scaling
+  - Support for AWS Lambda for serverless processing
+- **Monitoring**:
+  - Comprehensive health checks for all services
+  - Structured logging with context propagation
+  - OpenTelemetry instrumentation ready
+- **Reliability**:
+  - Circuit breaker patterns for external services
+  - Graceful degradation when services are unavailable
+  - Comprehensive error handling with retry logic
 
 ## 🚀 Getting Started
 
 ### Prerequisites
 
 **System Requirements:**
+
 - **Python 3.12+** for backend development
 - **Node.js 18+** for frontend development
-- **Docker & Docker Compose** for services (PostgreSQL, Redis)
+- **Docker & Docker Compose** for services (PostgreSQL)
 - **Poetry** for Python dependency management
+- **AWS CLI** (optional) for cloud deployment
+- **Pulumi** (optional) for infrastructure as code
 
 ### Quick Start (Full-Stack Setup)
 
 **1. Clone and Setup**
+
 ```bash
 git clone https://github.com/Dogecat0/Aperilex.git
 cd aperilex
 ```
 
 **2. Backend Setup**
+
 ```bash
 # Install Python dependencies
 poetry install
@@ -203,14 +255,15 @@ poetry install
 cp .env.example .env
 # Edit .env with your OpenAI API key and other settings
 
-# Start infrastructure services (PostgreSQL, Redis)
-docker-compose up -d
+# Start infrastructure services (PostgreSQL)
+docker-compose up -d postgres
 
 # Run database migrations
 alembic upgrade head
 ```
 
 **3. Frontend Setup**
+
 ```bash
 # Navigate to frontend directory
 cd frontend
@@ -225,6 +278,7 @@ cd ..
 **4. Start the Application**
 
 **Terminal: Frontend Application**
+
 ```bash
 cd frontend
 npm run dev
@@ -232,14 +286,18 @@ npm run dev
 ```
 
 **5. Verify Installation**
+
 - **Web App**: Open http://localhost:3000 for the complete user interface
 
 ### Development Workflow
 
-**Full-Stack Development:**
+**Quality Checks:**
+
 ```bash
 # Backend quality checks
-poetry run mypy src/ && poetry run ruff check src/
+poetry run mypy src/
+poetry run ruff check src/
+poetry run black src/ --check
 
 # Frontend quality checks
 cd frontend
@@ -254,10 +312,11 @@ poetry run black src/ && poetry run isort src/  # Backend
 cd frontend && npm run format                   # Frontend
 ```
 
-**Development Scripts:**
+**Development Commands:**
+
 ```bash
-# Backend development
-poetry run uvicorn src.presentation.api.app:app --reload
+# Start backend API server
+poetry run uvicorn src.presentation.api.app:app --reload --port 8000
 
 # Frontend development
 cd frontend && npm run dev
@@ -272,24 +331,28 @@ cd frontend && npm run test:coverage
 ## 💼 Use Cases
 
 **For Individual Investors:**
+
 - Research companies before making investment decisions
 - Get plain-English explanations of complex SEC filings
 - Track key financial metrics and trends over time
 - Identify risks and opportunities in investment targets
 
 **For Financial Analysts:**
+
 - Streamline SEC filing analysis with AI-powered insights
 - Generate comprehensive reports with export functionality
 - Compare companies across industries and timeframes
 - Access structured financial data through REST API
 
 **For Students & Educators:**
+
 - Learn financial analysis through interactive examples
 - Understand SEC filing structures and content
 - Practice financial research with real company data
 - Export analysis results for assignments and presentations
 
 **For Developers:**
+
 - Integrate financial analysis into existing applications
 - Build custom dashboards with comprehensive REST API
 - Access structured SEC data with TypeScript support
@@ -298,18 +361,21 @@ cd frontend && npm run test:coverage
 ## 🌟 Key Features in Detail
 
 ### 🔍 Smart Company Research
+
 - **Universal Search**: Find companies by ticker symbol, name, or CIK number
 - **Company Profiles**: Comprehensive company information with filing history
 - **Recent Filings**: Quick access to latest 10-K, 10-Q, and 8-K filings
 - **Analysis History**: Track all previous analyses and results
 
 ### 🤖 AI-Powered SEC Filing Analysis
+
 - **Comprehensive Analysis**: Complete filing breakdown with executive summary
 - **Section Analysis**: Detailed insights into business operations, financials, and risks
 - **Plain-English Summaries**: Complex financial language translated for everyone
 - **Confidence Scoring**: AI confidence levels for analysis reliability
 
 ### ⚡ Performance & Reliability
+
 - **Background Processing**: Long-running analyses don't block the interface
 - **Intelligent Caching**: Smart caching reduces API calls and improves speed
 - **Fault Tolerance**: Circuit breaker patterns ensure system reliability
@@ -318,59 +384,105 @@ cd frontend && npm run test:coverage
 ## 🛠️ Development Features
 
 ### 🧪 Comprehensive Testing
-- **Backend**: 86.21% test coverage with pytest, realistic fixtures, async testing
-- **Frontend**: 85%+ test coverage with Vitest, React Testing Library, MSW mocking
+
+- **Backend**: High test coverage with pytest, realistic fixtures, async testing
+- **Frontend**: Comprehensive test coverage with Vitest, React Testing Library, MSW mocking
 - **Integration**: End-to-end API testing and workflow validation
 - **Performance**: Load testing and performance benchmarking
 
 ### 📋 Quality Assurance
-- **Type Safety**: 95%+ MyPy coverage, TypeScript strict mode throughout
+
+- **Type Safety**: Comprehensive MyPy coverage, TypeScript strict mode throughout
 - **Code Quality**: Automated formatting, linting, and style enforcement
 - **Security Scanning**: Dependency vulnerability checking and security audits
 - **Pre-commit Hooks**: Automated quality checks before every commit
 
-## API Endpoints (LIVE)
+## API Endpoints
 
-**Complete REST API implemented with 8 core endpoints:**
+**Complete REST API with FastAPI backend:**
 
-### Filing Analysis
-```bash
-# Trigger comprehensive filing analysis
-POST /api/filings/{accession}/analyze
-{
-  "analysis_template": "COMPREHENSIVE",
-  "sections": ["business", "financials", "risks", "mda"]
-}
+The API is organized into 5 main resource groups:
 
-# Get filing details and metadata
-GET /api/filings/{accession}
+### 1. Filing Analysis (`/api/filings`)
 
-# Get analysis results for a filing
-GET /api/filings/{accession}/analysis
-```
+### 2. Analysis Management (`/api/analyses`)
 
-### Analysis Management
-```bash
-# List all analyses with pagination and filtering
-GET /api/analyses?page=1&limit=10&company_ticker=AAPL
+### 3. Company Research (`/api/companies`)
 
-# Get specific analysis by ID
-GET /api/analyses/{analysis_id}
+### 4. Task Management (`/api/tasks`)
 
-# Get available analysis templates
-GET /api/analyses/templates
-```
-
-### Company Research
-```bash
-# Get company information by ticker
-GET /api/companies/{ticker}
-
-# Get all analyses for a company
-GET /api/companies/{ticker}/analyses
-```
+### 5. Health Monitoring (`/api/health`)
 
 **🔗 Project Documentation**: See `docs/phases/` for detailed development history and architectural decisions.
+
+## 🚀 Deployment
+
+### Deployment Options
+
+#### Local Development
+
+```bash
+# Using Docker Compose
+docker-compose up -d
+
+# Access the application
+# API: http://localhost:8000
+# Frontend: http://localhost:3000
+```
+
+#### AWS Deployment (Production)
+
+Aperilex includes complete infrastructure as code for AWS deployment using Pulumi:
+
+**Infrastructure Components:**
+
+- **Frontend**: S3 + CloudFront CDN for React application
+- **Backend**: Elastic Beanstalk or Lambda for API services
+- **Database**: RDS PostgreSQL with automated backups
+- **Messaging**: SQS for task queues, Lambda for workers
+- **Storage**: S3 for analysis results and file storage
+- **Networking**: VPC with public/private subnets and security groups
+
+**Deployment Steps:**
+
+```bash
+# Navigate to infrastructure directory
+cd pulumi
+
+# Install Pulumi dependencies
+pip install -r requirements.txt
+
+# Configure AWS credentials
+export AWS_PROFILE=your-profile
+
+# Deploy infrastructure
+pulumi up --stack prod
+
+# View deployment outputs
+pulumi stack output
+```
+
+### Batch Processing
+
+**Process Multiple SEC Filings:**
+
+```bash
+# Import S&P 500 companies to database
+./scripts/import_snp500.sh
+
+# Run batch analysis with concurrent processing
+poetry run python scripts/batch_analyze_filings.py \
+  --tickers AAPL,MSFT,GOOGL \
+  --filing-type 10-K \
+  --max-concurrent 5
+```
+
+**Available Scripts:**
+
+- `batch_analyze_filings.py` - Process multiple company filings concurrently
+- `import_snp500.sh` - Import S&P 500 company data
+- `reset_database.sh` - Database management utilities
+- `aws-entrypoint.sh` - AWS deployment entry point
 
 ## 🔒 Security
 
@@ -384,10 +496,13 @@ Aperilex implements comprehensive security measures:
 - **CORS Configuration**: Secure cross-origin resource sharing setup
 - **Environment Security**: Proper secrets management and environment isolation
 
+## 🔗 Resources
+
+- **Documentation**: See `docs/` for architecture decisions and implementation details
+- **API Documentation**: Available at `/docs` when running the API
+- **Issues**: Report bugs and request features on GitHub
+- **Contributing**: Contributions welcome! Please read contributing guidelines
+
 ## 📄 License
 
 MIT License - See [LICENSE](LICENSE) file for details.
-
-Copyright (c) 2024 Aperilex Contributors.
-
----
