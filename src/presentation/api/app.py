@@ -124,9 +124,8 @@ app.add_middleware(
 app.add_middleware(RateLimitMiddleware, rate_limiter=None, excluded_paths=None)
 
 # Include routers
-app.include_router(health.router)
-
 # API v1 routers with /api prefix
+app.include_router(health.router, prefix="/api")
 app.include_router(filings.router, prefix="/api")
 app.include_router(analyses.router, prefix="/api")
 app.include_router(companies.router, prefix="/api")
@@ -140,15 +139,4 @@ async def root() -> dict[str, Any]:
         "message": "Welcome to Aperilex API",
         "version": settings.app_version,
         "environment": settings.environment,
-    }
-
-
-@app.get("/health")
-async def health_check() -> dict[str, Any]:
-    """Basic health check endpoint."""
-    return {
-        "status": "healthy",
-        "environment": settings.environment,
-        "debug": settings.debug,
-        "version": settings.app_version,
     }

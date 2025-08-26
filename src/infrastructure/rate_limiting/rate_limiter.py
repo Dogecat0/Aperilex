@@ -14,15 +14,15 @@ class APIRateLimiter:
 
     def __init__(
         self,
-        hourly_limit: int = 8,
-        daily_limit: int = 24,
+        hourly_limit: int | None = 8,
+        daily_limit: int | None = 24,
         storage: InMemoryRateLimitStorage | None = None,
     ) -> None:
         """Initialize the API rate limiter.
 
         Args:
-            hourly_limit: Maximum requests per hour per IP
-            daily_limit: Maximum requests per day per IP
+            hourly_limit: Maximum requests per hour per IP (None = unlimited)
+            daily_limit: Maximum requests per day per IP (None = unlimited)
             storage: Storage backend for rate limit counters
         """
         self.hourly_limit = hourly_limit

@@ -18,6 +18,17 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/health", tags=["health"])
 
 
+@router.get("/", response_model=dict)
+async def health_check() -> dict[str, Any]:
+    """Basic health check endpoint."""
+    return {
+        "status": "healthy",
+        "environment": settings.environment,
+        "debug": settings.debug,
+        "version": settings.app_version,
+    }
+
+
 class HealthStatus(BaseModel):
     """Health status response model."""
 

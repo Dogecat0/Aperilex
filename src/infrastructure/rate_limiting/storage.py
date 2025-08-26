@@ -22,8 +22,8 @@ class RateLimitResult:
     allowed: bool
     current_hourly_count: int
     current_daily_count: int
-    hourly_limit: int
-    daily_limit: int
+    hourly_limit: int | None
+    daily_limit: int | None
     retry_after_seconds: int | None = None
     limit_type: str | None = None  # "hourly" or "daily"
 
@@ -37,14 +37,14 @@ class InMemoryRateLimitStorage:
         self._lock = Lock()
 
     def check_rate_limit(
-        self, client_id: str, hourly_limit: int, daily_limit: int
+        self, client_id: str, hourly_limit: int | None, daily_limit: int | None
     ) -> RateLimitResult:
         """Check if request is allowed within rate limits.
 
         Args:
             client_id: Unique identifier for the client (typically IP address)
-            hourly_limit: Maximum requests allowed per hour
-            daily_limit: Maximum requests allowed per day
+            hourly_limit: Maximum requests allowed per hour (None = unlimited)
+            daily_limit: Maximum requests allowed per day (None = unlimited)
 
         Returns:
             RateLimitResult with rate limit decision and metadata
@@ -61,7 +61,7 @@ class InMemoryRateLimitStorage:
             daily_count = len(counter.daily_requests)
 
             # Check hourly limit
-            if hourly_count >= hourly_limit:
+            if hourly_limit is not None and hourly_count >= hourly_limit:
                 # Calculate retry after based on oldest hourly request
                 if counter.hourly_requests:
                     oldest_hourly = counter.hourly_requests[0]
@@ -80,7 +80,7 @@ class InMemoryRateLimitStorage:
                 )
 
             # Check daily limit
-            if daily_count >= daily_limit:
+            if daily_limit is not None and daily_count >= daily_limit:
                 # Calculate retry after based on oldest daily request
                 if counter.daily_requests:
                     oldest_daily = counter.daily_requests[0]
