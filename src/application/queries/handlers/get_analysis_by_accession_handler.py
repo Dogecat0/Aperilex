@@ -77,22 +77,42 @@ class GetAnalysisByAccessionQueryHandler(
                     f"Filing with accession number {query.accession_number} not found"
                 )
 
-            # Step 2: Get latest analysis for the filing
-            analysis = await self.analysis_repository.get_latest_analysis_for_filing(
-                filing.id
+            # Step 2: Get latest analysis for the filing with results from storage
+            analyses_with_results = (
+                await self.analysis_repository.get_by_filing_id_with_results(filing.id)
             )
 
-            if not analysis:
+            if not analyses_with_results:
                 raise ResourceNotFoundError("Analysis", str(query.accession_number))
+
+            # Get the latest analysis (first in list since repository orders by created_at desc)
+            analysis, results = analyses_with_results[0]
+
+            # With transactional consistency, missing results indicates data corruption
+            if not results:
+                logger.critical(
+                    f"Data inconsistency detected: Analysis for filing {query.accession_number} "
+                    f"exists in database but results missing from storage.",
+                    extra={
+                        "accession_number": str(query.accession_number),
+                        "filing_id": str(filing.id),
+                        "analysis_id": str(analysis.id),
+                        "created_at": analysis.created_at.isoformat(),
+                    },
+                )
+                raise ResourceNotFoundError(
+                    "Analysis results",
+                    f"{query.accession_number} (metadata exists but results missing - please contact support)",
+                )
 
             # Convert to response DTO based on requested detail level
             if query.include_full_results:
                 response = AnalysisResponse.from_domain(
-                    analysis, include_full_results=True
+                    analysis, include_full_results=True, results=results
                 )
             else:
                 response = AnalysisResponse.from_domain(
-                    analysis, include_full_results=False
+                    analysis, include_full_results=False, results=results
                 )
 
             logger.info(

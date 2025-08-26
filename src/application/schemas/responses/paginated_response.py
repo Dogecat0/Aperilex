@@ -236,3 +236,34 @@ class PaginatedResponse[T]:
                 self.pagination.total_pages if self.pagination.total_pages > 0 else None
             ),
         }
+
+    # Convenience properties for accessing pagination metadata directly
+    @property
+    def page(self) -> int:
+        """Get current page number."""
+        return self.pagination.page
+
+    @property
+    def page_size(self) -> int:
+        """Get page size."""
+        return self.pagination.page_size
+
+    @property
+    def total_items(self) -> int:
+        """Get total number of items."""
+        return self.pagination.total_items
+
+    @property
+    def total_pages(self) -> int:
+        """Get total number of pages."""
+        return self.pagination.total_pages
+
+    @property
+    def has_next(self) -> bool:
+        """Check if there is a next page."""
+        return self.pagination.has_next
+
+    @property
+    def has_previous(self) -> bool:
+        """Check if there is a previous page."""
+        return self.pagination.has_previous

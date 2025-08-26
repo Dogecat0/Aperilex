@@ -153,7 +153,7 @@ async def list_analyses(
 
         # Get dependencies and dispatcher
         dispatcher = factory.create_dispatcher()
-        dependencies = factory.get_handler_dependencies(session)
+        dependencies = await factory.get_handler_dependencies(session)
 
         # Dispatch query
         results: PaginatedResponse[AnalysisResponse] = await dispatcher.dispatch_query(
@@ -234,7 +234,7 @@ async def get_analysis_templates(
 
         # Get dependencies and dispatcher
         dispatcher = factory.create_dispatcher()
-        dependencies = factory.get_handler_dependencies(session)
+        dependencies = await factory.get_handler_dependencies(session)
 
         # Dispatch query
         result: TemplatesResponse = await dispatcher.dispatch_query(query, dependencies)
@@ -301,7 +301,7 @@ async def get_analysis(
 
         # Get dependencies and dispatcher
         dispatcher = factory.create_dispatcher()
-        dependencies = factory.get_handler_dependencies(session)
+        dependencies = await factory.get_handler_dependencies(session)
 
         # Dispatch query
         result: AnalysisResponse = await dispatcher.dispatch_query(query, dependencies)

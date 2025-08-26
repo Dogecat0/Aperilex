@@ -1,8 +1,14 @@
 import os
 import sys
+from typing import TYPE_CHECKING
 
 from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings
+
+if TYPE_CHECKING:
+    from mypy_boto3_s3.literals import BucketLocationConstraintType
+else:
+    BucketLocationConstraintType = str
 
 
 def _is_testing() -> bool:
@@ -12,6 +18,30 @@ def _is_testing() -> bool:
         or "PYTEST_CURRENT_TEST" in os.environ
         or os.environ.get("TESTING", "").lower() in ("true", "1", "yes")
     )
+
+
+def _get_default_queue_service() -> str:
+    """Determine default queue service type based on environment."""
+    if _is_testing():
+        return "mock"
+    env = os.environ.get("ENVIRONMENT", "development").lower()
+    return "sqs" if env == "production" else "rabbitmq"
+
+
+def _get_default_storage_service() -> str:
+    """Determine default storage service type based on environment."""
+    if _is_testing():
+        return "mock"
+    env = os.environ.get("ENVIRONMENT", "development").lower()
+    return "s3" if env == "production" else "local"
+
+
+def _get_default_worker_service() -> str:
+    """Determine default worker service type based on environment."""
+    if _is_testing():
+        return "mock"
+    env = os.environ.get("ENVIRONMENT", "development").lower()
+    return "lambda" if env == "production" else "local"
 
 
 class Settings(BaseSettings):
@@ -27,44 +57,80 @@ class Settings(BaseSettings):
         validation_alias="DATABASE_URL",
     )
 
-    # Redis
-    redis_url: str = Field(
-        default="redis://localhost:6379/1" if _is_testing() else "",
-        validation_alias="REDIS_URL",
+    # Messaging Service Configuration
+    queue_service_type: str = Field(
+        default_factory=_get_default_queue_service,
+        validation_alias="QUEUE_SERVICE_TYPE",
+    )
+    storage_service_type: str = Field(
+        default_factory=_get_default_storage_service,
+        validation_alias="STORAGE_SERVICE_TYPE",
+    )
+    worker_service_type: str = Field(
+        default_factory=_get_default_worker_service,
+        validation_alias="WORKER_SERVICE_TYPE",
     )
 
-    # Celery
-    celery_broker_url: str = Field(
-        default="redis://localhost:6379/2" if _is_testing() else "",
-        validation_alias="CELERY_BROKER_URL",
+    # RabbitMQ (Development)
+    rabbitmq_url: str = Field(
+        default="amqp://guest:guest@localhost:5672/",
+        validation_alias="RABBITMQ_URL",
     )
-    celery_result_backend: str = Field(
-        default="redis://localhost:6379/3" if _is_testing() else "",
-        validation_alias="CELERY_RESULT_BACKEND",
+
+    # AWS Configuration (Production)
+    # WARN: Same region as buckets to avoid latency
+    aws_region: "BucketLocationConstraintType" = Field(
+        default="us-east-2",
+        validation_alias="AWS_REGION",
     )
-    celery_worker_concurrency: int = Field(
-        default=4, validation_alias="CELERY_WORKER_CONCURRENCY"
+    aws_access_key_id: str = Field(
+        default="",
+        validation_alias="AWS_ACCESS_KEY_ID",
     )
-    celery_task_serializer: str = Field(
-        default="json", validation_alias="CELERY_TASK_SERIALIZER"
+    aws_secret_access_key: str = Field(
+        default="",
+        validation_alias="AWS_SECRET_ACCESS_KEY",
     )
-    celery_result_serializer: str = Field(
-        default="json", validation_alias="CELERY_RESULT_SERIALIZER"
+    aws_sqs_queue_url: str = Field(
+        default="",
+        validation_alias="AWS_SQS_QUEUE_URL",
     )
-    celery_accept_content: list[str] = Field(
-        default=["json"], validation_alias="CELERY_ACCEPT_CONTENT"
+    aws_s3_bucket: str = Field(
+        default="",
+        validation_alias="AWS_S3_BUCKET",
     )
-    celery_timezone: str = Field(default="UTC", validation_alias="CELERY_TIMEZONE")
-    celery_enable_utc: bool = Field(default=True, validation_alias="CELERY_ENABLE_UTC")
-    celery_task_track_started: bool = Field(
-        default=True, validation_alias="CELERY_TASK_TRACK_STARTED"
+
+    # Worker Polling Configuration
+    worker_queue_timeout: float = Field(
+        default=0.2,
+        validation_alias="WORKER_QUEUE_TIMEOUT",
     )
-    celery_task_time_limit: int = Field(
-        default=3600, validation_alias="CELERY_TASK_TIME_LIMIT"
-    )  # 1 hour
-    celery_task_soft_time_limit: int = Field(
-        default=3300, validation_alias="CELERY_TASK_SOFT_TIME_LIMIT"
-    )  # 55 minutes
+    worker_min_sleep: float = Field(
+        default=0.1,
+        validation_alias="WORKER_MIN_SLEEP",
+    )
+    worker_max_sleep: float = Field(
+        default=30.0,
+        validation_alias="WORKER_MAX_SLEEP",
+    )
+    worker_backoff_factor: float = Field(
+        default=1.5,
+        validation_alias="WORKER_BACKOFF_FACTOR",
+    )
+
+    # Task Retry Configuration
+    task_retry_base_delay: float = Field(
+        default=2.0,
+        validation_alias="TASK_RETRY_BASE_DELAY",
+    )
+    task_retry_max_delay: float = Field(
+        default=300.0,  # 5 minutes
+        validation_alias="TASK_RETRY_MAX_DELAY",
+    )
+    task_default_max_retries: int = Field(
+        default=3,
+        validation_alias="TASK_DEFAULT_MAX_RETRIES",
+    )
 
     # Security
     secret_key: str = Field(
@@ -122,6 +188,21 @@ class Settings(BaseSettings):
         default=False, validation_alias="OPENTELEMETRY_ENABLED"
     )
 
+    # Rate Limiting
+    rate_limiting_enabled: bool = Field(
+        default=True, validation_alias="RATE_LIMITING_ENABLED"
+    )
+    rate_limit_requests_per_hour: int | None = Field(
+        default=None, validation_alias="RATE_LIMIT_REQUESTS_PER_HOUR"
+    )
+    rate_limit_requests_per_day: int | None = Field(
+        default=None, validation_alias="RATE_LIMIT_REQUESTS_PER_DAY"
+    )
+    rate_limit_excluded_paths: list[str] = Field(
+        default=["/health", "/", "/docs", "/openapi.json", "/redoc"],
+        validation_alias="RATE_LIMIT_EXCLUDED_PATHS",
+    )
+
     @field_validator("encryption_key")
     @classmethod
     def validate_encryption_key(cls, v: str) -> str:
@@ -129,6 +210,30 @@ class Settings(BaseSettings):
             return "test_encryption_key_32_chars_long"
         if len(v) < 32:
             raise ValueError("Encryption key must be at least 32 characters long")
+        return v
+
+    @field_validator("queue_service_type")
+    @classmethod
+    def validate_queue_service_type(cls, v: str) -> str:
+        valid_types = ["rabbitmq", "sqs", "mock"]
+        if v not in valid_types:
+            raise ValueError(f"queue_service_type must be one of {valid_types}")
+        return v
+
+    @field_validator("storage_service_type")
+    @classmethod
+    def validate_storage_service_type(cls, v: str) -> str:
+        valid_types = ["local", "s3", "mock"]
+        if v not in valid_types:
+            raise ValueError(f"storage_service_type must be one of {valid_types}")
+        return v
+
+    @field_validator("worker_service_type")
+    @classmethod
+    def validate_worker_service_type(cls, v: str) -> str:
+        valid_types = ["local", "lambda", "mock"]
+        if v not in valid_types:
+            raise ValueError(f"worker_service_type must be one of {valid_types}")
         return v
 
     class Config:

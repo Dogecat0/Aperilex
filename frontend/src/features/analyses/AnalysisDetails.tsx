@@ -1,35 +1,14 @@
 import { useParams, Link } from 'react-router-dom'
-import { useState, useEffect } from 'react'
-import {
-  ArrowLeft,
-  Target,
-  Brain,
-  Lightbulb,
-  Building,
-  Calendar,
-  Download,
-  FileText,
-  ChevronDown,
-  Loader2,
-  AlertCircle,
-  Check,
-} from 'lucide-react'
+import { useEffect } from 'react'
+import { ArrowLeft, Target, Brain, Lightbulb, Building, Calendar } from 'lucide-react'
 import { useAnalysis } from '@/hooks/useAnalysis'
 import { useFilingAnalysis, useFiling, useFilingById } from '@/hooks/useFiling'
-import { Button } from '@/components/ui/Button'
 import { AnalysisViewer } from './components/AnalysisViewer'
 import { SectionResults } from './components/SectionResults'
 import { AnalysisOverview } from './components/AnalysisOverview'
 import { MetricsVisualization } from '@/components/analysis/MetricsVisualization'
 import { InsightGroup } from '@/components/analysis/InsightHighlight'
 import type { AnalysisResponse, ComprehensiveAnalysisResponse } from '@/api/types'
-import {
-  exportAnalysis,
-  type ExportFormat,
-  type ExportOptions,
-  isExportSupported,
-  getFormatInfo,
-} from '@/utils/exportUtils'
 
 export function AnalysisDetails() {
   const { analysisId, accessionNumber } = useParams<{
@@ -73,20 +52,12 @@ export function AnalysisDetails() {
   const filingData = filingDataByAccession || filingDataById
   const filingLoading = filingLoadingByAccession || filingLoadingById
 
-  // Export state management
-  const [isExporting, setIsExporting] = useState(false)
-  const [exportDropdownOpen, setExportDropdownOpen] = useState(false)
-  const [feedback, setFeedback] = useState<{
-    type: 'success' | 'error'
-    message: string
-  } | null>(null)
-
   // Close dropdowns when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       const target = event.target as Element
       if (!target.closest('.relative')) {
-        setExportDropdownOpen(false)
+        // Future dropdown handling can go here
       }
     }
 
@@ -272,59 +243,6 @@ export function AnalysisDetails() {
 
   const overviewMetrics = generateOverviewMetrics(analysis)
 
-  // Show feedback messages
-  const showFeedback = (message: string, type: 'success' | 'error') => {
-    setFeedback({ message, type })
-    setTimeout(() => setFeedback(null), 5000)
-  }
-
-  // Export handler
-  const handleExport = async (format: ExportFormat) => {
-    if (!analysis) return
-
-    setIsExporting(true)
-    setExportDropdownOpen(false)
-
-    try {
-      const exportOptions: ExportOptions = {
-        includeMetadata: true,
-        includeFullResults: format === 'json',
-        companyName: comprehensiveAnalysis?.company_name,
-        customFilename: `${comprehensiveAnalysis?.company_name || 'analysis'}_${format}`,
-        pdfOptions: {
-          format: 'a4',
-          orientation: 'portrait',
-          includeCharts: true,
-          includeLogo: true,
-        },
-      }
-
-      await exportAnalysis(
-        analysis,
-        format,
-        exportOptions,
-        'analysis-content' // Element ID for PDF export
-      )
-
-      showFeedback(`Analysis exported as ${getFormatInfo(format).name} successfully!`, 'success')
-    } catch (error) {
-      console.error('Export failed:', error)
-      showFeedback(
-        `Failed to export as ${getFormatInfo(format).name}: ${
-          error instanceof Error ? error.message : 'Unknown error'
-        }`,
-        'error'
-      )
-    } finally {
-      setIsExporting(false)
-    }
-  }
-
-  // Available export formats
-  const exportFormats: ExportFormat[] = (['json', 'csv', 'xlsx', 'pdf'] as ExportFormat[]).filter(
-    isExportSupported
-  )
-
   return (
     <div className="space-y-4">
       {/* Breadcrumb */}
@@ -337,32 +255,11 @@ export function AnalysisDetails() {
         <span className="text-foreground font-medium">Analysis Details</span>
       </nav>
 
-      {/* Feedback notification */}
-      {feedback && (
-        <div
-          className={`fixed top-4 right-4 z-50 p-4 rounded-lg border shadow-lg transition-all duration-300 ${
-            feedback.type === 'success'
-              ? 'bg-green-50 border-green-200 text-green-800 dark:bg-green-950 dark:border-green-800 dark:text-green-200'
-              : 'bg-red-50 border-red-200 text-red-800 dark:bg-red-950 dark:border-red-800 dark:text-red-200'
-          }`}
-        >
-          <div className="flex items-center gap-2">
-            {feedback.type === 'success' ? (
-              <Check className="h-4 w-4" />
-            ) : (
-              <AlertCircle className="h-4 w-4" />
-            )}
-            <span className="text-sm font-medium">{feedback.message}</span>
-          </div>
-        </div>
-      )}
-
       {/* Header */}
       <div className="bg-card rounded-lg border border-border shadow-sm p-6 mb-8">
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
           <div className="flex-1">
             <div className="flex items-center gap-3 mb-2">
-              <FileText className="h-6 w-6 text-blue-600 dark:text-blue-400" />
               <h1 className="text-2xl font-bold text-foreground">
                 {comprehensiveAnalysis?.company_name || 'Unknown Company'} -{' '}
                 {comprehensiveAnalysis?.filing_type
@@ -402,64 +299,11 @@ export function AnalysisDetails() {
               )}
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            {/* Export Button with Dropdown */}
-            <div className="relative">
-              <Button
-                variant="outline"
-                size="sm"
-                className="flex items-center gap-2"
-                onClick={() => setExportDropdownOpen(!exportDropdownOpen)}
-                disabled={isExporting}
-              >
-                {isExporting ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Download className="h-4 w-4" />
-                )}
-                Export
-                <ChevronDown className="h-3 w-3" />
-              </Button>
-
-              {exportDropdownOpen && (
-                <div className="absolute right-0 top-full mt-1 w-64 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md shadow-lg z-50">
-                  <div className="py-1">
-                    {exportFormats.map((format) => {
-                      const formatInfo = getFormatInfo(format)
-                      return (
-                        <button
-                          key={format}
-                          className="w-full px-4 py-3 text-left hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                          onClick={() => handleExport(format)}
-                          disabled={isExporting || !isExportSupported(format)}
-                        >
-                          <div className="flex items-start justify-between">
-                            <div>
-                              <div className="text-sm font-medium flex items-center gap-2">
-                                <Download className="h-4 w-4" />
-                                {formatInfo.name}
-                              </div>
-                              <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                                {formatInfo.description}
-                              </div>
-                            </div>
-                            <div className="text-xs text-gray-400 dark:text-gray-500">
-                              {formatInfo.fileSize}
-                            </div>
-                          </div>
-                        </button>
-                      )
-                    })}
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
         </div>
       </div>
 
       {/* Analysis Overview Section */}
-      <div id="analysis-content">
+      <div>
         {analysis && (
           <AnalysisOverview
             analysis={analysis}
@@ -517,7 +361,7 @@ export function AnalysisDetails() {
                         ? ('neutral' as const)
                         : ('negative' as const),
                 }))}
-                maxItems={10}
+                maxItems={5}
               />
             </div>
           )}

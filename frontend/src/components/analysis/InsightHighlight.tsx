@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import {
   TrendingUp,
   TrendingDown,
@@ -7,8 +8,13 @@ import {
   Info,
   CheckCircle,
   XCircle,
-  Clock,
   BarChart3,
+  ChevronDown,
+  ChevronUp,
+  Shield,
+  Eye,
+  Zap,
+  Minus,
 } from 'lucide-react'
 
 export type InsightType = 'financial' | 'risk' | 'opportunity' | 'general'
@@ -216,12 +222,48 @@ export function InsightHighlight({
             )}
           </div>
 
-          {/* Sentiment/status indicator */}
+          {/* Sentiment/status indicator - contextual to insight type */}
           {sentiment && (
             <div className="flex-shrink-0">
-              {sentiment === 'positive' && <CheckCircle className="h-4 w-4 text-success" />}
-              {sentiment === 'negative' && <XCircle className="h-4 w-4 text-destructive" />}
-              {sentiment === 'neutral' && <Clock className="h-4 w-4 text-muted-foreground" />}
+              {(() => {
+                // Financial insights
+                if (type === 'financial') {
+                  if (sentiment === 'positive')
+                    return <TrendingUp className="h-4 w-4 text-success" />
+                  if (sentiment === 'negative')
+                    return <TrendingDown className="h-4 w-4 text-destructive" />
+                  if (sentiment === 'neutral')
+                    return <Minus className="h-4 w-4 text-muted-foreground" />
+                }
+
+                // Risk insights
+                if (type === 'risk') {
+                  if (sentiment === 'positive') return <Shield className="h-4 w-4 text-success" />
+                  if (sentiment === 'negative')
+                    return <AlertTriangle className="h-4 w-4 text-destructive" />
+                  if (sentiment === 'neutral')
+                    return <Eye className="h-4 w-4 text-muted-foreground" />
+                }
+
+                // Opportunity insights
+                if (type === 'opportunity') {
+                  if (sentiment === 'positive') return <Zap className="h-4 w-4 text-success" />
+                  if (sentiment === 'negative')
+                    return <Minus className="h-4 w-4 text-destructive" />
+                  if (sentiment === 'neutral')
+                    return <Target className="h-4 w-4 text-muted-foreground" />
+                }
+
+                // General insights (fallback)
+                if (sentiment === 'positive')
+                  return <CheckCircle className="h-4 w-4 text-success" />
+                if (sentiment === 'negative')
+                  return <XCircle className="h-4 w-4 text-destructive" />
+                if (sentiment === 'neutral')
+                  return <Info className="h-4 w-4 text-muted-foreground" />
+
+                return null
+              })()}
             </div>
           )}
         </div>
@@ -251,7 +293,9 @@ export function InsightGroup({
   compact = false,
   maxItems,
 }: InsightGroupProps) {
-  const displayInsights = maxItems ? insights.slice(0, maxItems) : insights
+  const [isExpanded, setIsExpanded] = useState(false)
+
+  const displayInsights = maxItems && !isExpanded ? insights.slice(0, maxItems) : insights
   const hasMore = maxItems && insights.length > maxItems
 
   // Sort by priority (critical -> high -> medium -> low)
@@ -261,6 +305,10 @@ export function InsightGroup({
     const bPriority = priorityWeights[b.priority || 'medium']
     return bPriority - aPriority
   })
+
+  const handleToggle = () => {
+    setIsExpanded(!isExpanded)
+  }
 
   return (
     <div className={className}>
@@ -291,9 +339,23 @@ export function InsightGroup({
 
         {hasMore && (
           <div className="text-center py-2">
-            <span className="text-sm text-muted-foreground">
-              +{insights.length - maxItems!} more insights
-            </span>
+            <button
+              onClick={handleToggle}
+              className="inline-flex items-center gap-1.5 text-sm text-primary hover:text-primary/80 transition-colors duration-200 cursor-pointer rounded-md px-2 py-1 hover:bg-primary/5"
+              aria-label={isExpanded ? 'Show fewer insights' : 'Show more insights'}
+            >
+              {isExpanded ? (
+                <>
+                  <ChevronUp className="h-3 w-3" />
+                  <span>Show less</span>
+                </>
+              ) : (
+                <>
+                  <ChevronDown className="h-3 w-3" />
+                  <span>+{insights.length - maxItems!} more insights</span>
+                </>
+              )}
+            </button>
           </div>
         )}
       </div>

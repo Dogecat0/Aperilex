@@ -1,9 +1,7 @@
 import React from 'react'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { useAnalyses } from '@/hooks/useAnalysis'
-import { render, screen, waitFor, fireEvent } from '@testing-library/react'
-import { BrowserRouter } from 'react-router-dom'
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { render, screen, waitFor, fireEvent } from '@/test/utils'
 import userEvent from '@testing-library/user-event'
 import { AnalysesList } from './AnalysesList'
 import type { AnalysisResponse, PaginatedResponse } from '@/api/types'
@@ -135,22 +133,6 @@ const mockPaginatedResponse: PaginatedResponse<AnalysisResponse> = {
   },
 }
 
-// Test wrapper component
-const createTestWrapper = () => {
-  const queryClient = new QueryClient({
-    defaultOptions: {
-      queries: { retry: false },
-      mutations: { retry: false },
-    },
-  })
-
-  return ({ children }: { children: React.ReactNode }) => (
-    <BrowserRouter>
-      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
-    </BrowserRouter>
-  )
-}
-
 describe('AnalysesList Component', () => {
   const user = userEvent.setup()
 
@@ -186,15 +168,13 @@ describe('AnalysesList Component', () => {
 
   describe('Initial Rendering', () => {
     it('renders without crashing', () => {
-      const TestWrapper = createTestWrapper()
       expect(() => {
-        render(<AnalysesList />, { wrapper: TestWrapper })
+        render(<AnalysesList />)
       }).not.toThrow()
     })
 
     it('renders the header section correctly', () => {
-      const TestWrapper = createTestWrapper()
-      render(<AnalysesList />, { wrapper: TestWrapper })
+      render(<AnalysesList />)
 
       expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Analysis Library')
       expect(screen.getByText(/Browse and explore all financial analyses/)).toBeInTheDocument()
@@ -202,8 +182,7 @@ describe('AnalysesList Component', () => {
     })
 
     it('renders search input with placeholder', () => {
-      const TestWrapper = createTestWrapper()
-      render(<AnalysesList />, { wrapper: TestWrapper })
+      render(<AnalysesList />)
 
       const searchInput = screen.getByPlaceholderText(/Search by ticker.*or CIK/)
       expect(searchInput).toBeInTheDocument()
@@ -211,8 +190,7 @@ describe('AnalysesList Component', () => {
     })
 
     it('renders filters button', () => {
-      const TestWrapper = createTestWrapper()
-      render(<AnalysesList />, { wrapper: TestWrapper })
+      render(<AnalysesList />)
 
       const filtersButton = screen.getByText('Filters')
       expect(filtersButton).toBeInTheDocument()
@@ -220,8 +198,7 @@ describe('AnalysesList Component', () => {
     })
 
     it('applies correct accessibility attributes', () => {
-      const TestWrapper = createTestWrapper()
-      render(<AnalysesList />, { wrapper: TestWrapper })
+      render(<AnalysesList />)
 
       const heading = screen.getByRole('heading', { level: 1 })
       expect(heading).toBeInTheDocument()
@@ -231,8 +208,7 @@ describe('AnalysesList Component', () => {
     })
 
     it('renders calendar icons in date inputs', async () => {
-      const TestWrapper = createTestWrapper()
-      render(<AnalysesList />, { wrapper: TestWrapper })
+      render(<AnalysesList />)
 
       const filtersButton = screen.getByText('Filters')
       await userEvent.setup().click(filtersButton)
@@ -263,8 +239,7 @@ describe('AnalysesList Component', () => {
         error: null,
       })
 
-      const TestWrapper = createTestWrapper()
-      render(<AnalysesList />, { wrapper: TestWrapper })
+      render(<AnalysesList />)
 
       // Check for loading skeleton elements
       const skeletonElements = document.querySelectorAll('.animate-pulse')
@@ -272,8 +247,7 @@ describe('AnalysesList Component', () => {
     })
 
     it('renders analysis cards when data is loaded', () => {
-      const TestWrapper = createTestWrapper()
-      render(<AnalysesList />, { wrapper: TestWrapper })
+      render(<AnalysesList />)
 
       expect(screen.getByTestId('analysis-card-1')).toBeInTheDocument()
       expect(screen.getByTestId('analysis-card-2')).toBeInTheDocument()
@@ -286,8 +260,7 @@ describe('AnalysesList Component', () => {
         error: null,
       })
 
-      const TestWrapper = createTestWrapper()
-      render(<AnalysesList />, { wrapper: TestWrapper })
+      render(<AnalysesList />)
 
       expect(screen.getByText('No analyses found')).toBeInTheDocument()
       expect(screen.getByText(/No financial analyses are available yet/)).toBeInTheDocument()
@@ -303,8 +276,7 @@ describe('AnalysesList Component', () => {
         error: new Error(errorMessage),
       })
 
-      const TestWrapper = createTestWrapper()
-      render(<AnalysesList />, { wrapper: TestWrapper })
+      render(<AnalysesList />)
 
       expect(screen.getByText('Error loading analyses')).toBeInTheDocument()
       expect(screen.getByText(errorMessage)).toBeInTheDocument()
@@ -317,8 +289,7 @@ describe('AnalysesList Component', () => {
         error: 'String error',
       })
 
-      const TestWrapper = createTestWrapper()
-      render(<AnalysesList />, { wrapper: TestWrapper })
+      render(<AnalysesList />)
 
       expect(screen.getByText('Error loading analyses')).toBeInTheDocument()
       expect(screen.getByText('An unexpected error occurred')).toBeInTheDocument()
@@ -332,8 +303,7 @@ describe('AnalysesList Component', () => {
         error: templateError,
       })
 
-      const TestWrapper = createTestWrapper()
-      render(<AnalysesList />, { wrapper: TestWrapper })
+      render(<AnalysesList />)
 
       expect(screen.getByText('Error loading analyses')).toBeInTheDocument()
       expect(
@@ -351,8 +321,7 @@ describe('AnalysesList Component', () => {
         error: validationError,
       })
 
-      const TestWrapper = createTestWrapper()
-      render(<AnalysesList />, { wrapper: TestWrapper })
+      render(<AnalysesList />)
 
       expect(screen.getByText('Error loading analyses')).toBeInTheDocument()
       expect(screen.getByText(/analysis_template must be one of/)).toBeInTheDocument()
@@ -368,16 +337,14 @@ describe('AnalysesList Component', () => {
         error: compatibilityError,
       })
 
-      const TestWrapper = createTestWrapper()
-      render(<AnalysesList />, { wrapper: TestWrapper })
+      render(<AnalysesList />)
 
       expect(screen.getByText('Error loading analyses')).toBeInTheDocument()
       expect(screen.getByText(/analysis_type is deprecated/)).toBeInTheDocument()
     })
 
     it('recovers gracefully when template filter causes errors', async () => {
-      const TestWrapper = createTestWrapper()
-      render(<AnalysesList />, { wrapper: TestWrapper })
+      render(<AnalysesList />)
 
       // Initially successful
       expect(screen.getByTestId('analysis-card-1')).toBeInTheDocument()
@@ -406,8 +373,7 @@ describe('AnalysesList Component', () => {
     })
 
     it('handles network errors during template filtering', async () => {
-      const TestWrapper = createTestWrapper()
-      render(<AnalysesList />, { wrapper: TestWrapper })
+      render(<AnalysesList />)
 
       const filtersButton = screen.getByText('Filters')
       await user.click(filtersButton)
@@ -431,8 +397,7 @@ describe('AnalysesList Component', () => {
 
   describe('Search Functionality', () => {
     it('updates search term when user types', async () => {
-      const TestWrapper = createTestWrapper()
-      render(<AnalysesList />, { wrapper: TestWrapper })
+      render(<AnalysesList />)
 
       const searchInput = screen.getByPlaceholderText(/Search by ticker.*or CIK/)
 
@@ -452,8 +417,7 @@ describe('AnalysesList Component', () => {
     })
 
     it('clears search term and resets filters', async () => {
-      const TestWrapper = createTestWrapper()
-      render(<AnalysesList />, { wrapper: TestWrapper })
+      render(<AnalysesList />)
 
       const searchInput = screen.getByPlaceholderText(/Search by ticker.*or CIK/)
       await user.type(searchInput, 'AAPL')
@@ -488,8 +452,7 @@ describe('AnalysesList Component', () => {
     })
 
     it('converts search term to uppercase for ticker search', async () => {
-      const TestWrapper = createTestWrapper()
-      render(<AnalysesList />, { wrapper: TestWrapper })
+      render(<AnalysesList />)
 
       const searchInput = screen.getByPlaceholderText(/Search by ticker.*or CIK/)
       await user.type(searchInput, 'aapl')
@@ -506,8 +469,7 @@ describe('AnalysesList Component', () => {
 
   describe('Filters Functionality', () => {
     it('toggles filters visibility when filters button is clicked', async () => {
-      const TestWrapper = createTestWrapper()
-      render(<AnalysesList />, { wrapper: TestWrapper })
+      render(<AnalysesList />)
 
       const filtersButton = screen.getByText('Filters')
 
@@ -523,8 +485,7 @@ describe('AnalysesList Component', () => {
     })
 
     it('calendar icons are clickable and properly styled', async () => {
-      const TestWrapper = createTestWrapper()
-      render(<AnalysesList />, { wrapper: TestWrapper })
+      render(<AnalysesList />)
 
       const filtersButton = screen.getByText('Filters')
       await userEvent.setup().click(filtersButton)
@@ -546,8 +507,7 @@ describe('AnalysesList Component', () => {
     })
 
     it('calendar icons trigger date picker functionality', async () => {
-      const TestWrapper = createTestWrapper()
-      render(<AnalysesList />, { wrapper: TestWrapper })
+      render(<AnalysesList />)
 
       const filtersButton = screen.getByText('Filters')
       await userEvent.setup().click(filtersButton)
@@ -600,8 +560,7 @@ describe('AnalysesList Component', () => {
     })
 
     it('updates analysis type filter', async () => {
-      const TestWrapper = createTestWrapper()
-      render(<AnalysesList />, { wrapper: TestWrapper })
+      render(<AnalysesList />)
 
       const filtersButton = screen.getByText('Filters')
       await user.click(filtersButton)
@@ -620,8 +579,7 @@ describe('AnalysesList Component', () => {
     })
 
     it('updates date filters', async () => {
-      const TestWrapper = createTestWrapper()
-      render(<AnalysesList />, { wrapper: TestWrapper })
+      render(<AnalysesList />)
 
       const filtersButton = screen.getByText('Filters')
       await user.click(filtersButton)
@@ -655,8 +613,7 @@ describe('AnalysesList Component', () => {
     })
 
     it('renders all analysis type options', async () => {
-      const TestWrapper = createTestWrapper()
-      render(<AnalysesList />, { wrapper: TestWrapper })
+      render(<AnalysesList />)
 
       const filtersButton = screen.getByText('Filters')
       await user.click(filtersButton)
@@ -670,8 +627,7 @@ describe('AnalysesList Component', () => {
     })
 
     it('sends correct lowercase template values in API calls', async () => {
-      const TestWrapper = createTestWrapper()
-      render(<AnalysesList />, { wrapper: TestWrapper })
+      render(<AnalysesList />)
 
       const filtersButton = screen.getByText('Filters')
       await user.click(filtersButton)
@@ -695,8 +651,7 @@ describe('AnalysesList Component', () => {
     })
 
     it('never sends uppercase values in API requests', async () => {
-      const TestWrapper = createTestWrapper()
-      render(<AnalysesList />, { wrapper: TestWrapper })
+      render(<AnalysesList />)
 
       const filtersButton = screen.getByText('Filters')
       await user.click(filtersButton)
@@ -729,8 +684,7 @@ describe('AnalysesList Component', () => {
     })
 
     it('uses correct default value behavior', async () => {
-      const TestWrapper = createTestWrapper()
-      render(<AnalysesList />, { wrapper: TestWrapper })
+      render(<AnalysesList />)
 
       // Initially, no analysis_template should be sent (undefined)
       expect(mockUseAnalyses).toHaveBeenCalledWith({
@@ -756,8 +710,7 @@ describe('AnalysesList Component', () => {
     })
 
     it('renders filter dropdown options with correct new template values', async () => {
-      const TestWrapper = createTestWrapper()
-      render(<AnalysesList />, { wrapper: TestWrapper })
+      render(<AnalysesList />)
 
       const filtersButton = screen.getByText('Filters')
       await user.click(filtersButton)
@@ -782,8 +735,7 @@ describe('AnalysesList Component', () => {
     })
 
     it('correctly renders analysis cards with new template values', () => {
-      const TestWrapper = createTestWrapper()
-      render(<AnalysesList />, { wrapper: TestWrapper })
+      render(<AnalysesList />)
 
       // Verify that analysis cards are rendered with the new template values
       const card1 = screen.getByTestId('analysis-card-1')
@@ -821,8 +773,7 @@ describe('AnalysesList Component', () => {
         error: null,
       })
 
-      const TestWrapper = createTestWrapper()
-      render(<AnalysesList />, { wrapper: TestWrapper })
+      render(<AnalysesList />)
 
       expect(screen.getByText('Previous')).toBeInTheDocument()
       expect(screen.getByText('Next')).toBeInTheDocument()
@@ -846,8 +797,7 @@ describe('AnalysesList Component', () => {
         error: null,
       })
 
-      const TestWrapper = createTestWrapper()
-      render(<AnalysesList />, { wrapper: TestWrapper })
+      render(<AnalysesList />)
 
       const prevButton = screen.getByText('Previous')
       expect(prevButton).toBeDisabled()
@@ -870,8 +820,7 @@ describe('AnalysesList Component', () => {
         error: null,
       })
 
-      const TestWrapper = createTestWrapper()
-      render(<AnalysesList />, { wrapper: TestWrapper })
+      render(<AnalysesList />)
 
       const nextButton = screen.getByText('Next')
       expect(nextButton).toBeDisabled()
@@ -884,8 +833,7 @@ describe('AnalysesList Component', () => {
         error: null,
       })
 
-      const TestWrapper = createTestWrapper()
-      render(<AnalysesList />, { wrapper: TestWrapper })
+      render(<AnalysesList />)
 
       expect(screen.getByText('Showing 2 to 2 of 3 analyses')).toBeInTheDocument()
     })
@@ -897,8 +845,7 @@ describe('AnalysesList Component', () => {
         error: null,
       })
 
-      const TestWrapper = createTestWrapper()
-      render(<AnalysesList />, { wrapper: TestWrapper })
+      render(<AnalysesList />)
 
       const nextButton = screen.getByText('Next')
       await user.click(nextButton)
@@ -915,8 +862,7 @@ describe('AnalysesList Component', () => {
 
   describe('User Interactions', () => {
     it('handles rapid filter changes without errors', async () => {
-      const TestWrapper = createTestWrapper()
-      render(<AnalysesList />, { wrapper: TestWrapper })
+      render(<AnalysesList />)
 
       const filtersButton = screen.getByText('Filters')
 
@@ -929,8 +875,7 @@ describe('AnalysesList Component', () => {
     })
 
     it('maintains search state when toggling filters', async () => {
-      const TestWrapper = createTestWrapper()
-      render(<AnalysesList />, { wrapper: TestWrapper })
+      render(<AnalysesList />)
 
       const searchInput = screen.getByPlaceholderText(/Search by ticker.*or CIK/)
       await user.type(searchInput, 'AAPL')
@@ -943,8 +888,7 @@ describe('AnalysesList Component', () => {
     })
 
     it('resets page to 1 when filters change', async () => {
-      const TestWrapper = createTestWrapper()
-      render(<AnalysesList />, { wrapper: TestWrapper })
+      render(<AnalysesList />)
 
       const filtersButton = screen.getByText('Filters')
       await user.click(filtersButton)
@@ -963,8 +907,7 @@ describe('AnalysesList Component', () => {
     })
 
     it('handles keyboard navigation in search input', async () => {
-      const TestWrapper = createTestWrapper()
-      render(<AnalysesList />, { wrapper: TestWrapper })
+      render(<AnalysesList />)
 
       const searchInput = screen.getByPlaceholderText(/Search by ticker.*or CIK/)
 
@@ -983,8 +926,7 @@ describe('AnalysesList Component', () => {
     })
 
     it('handles empty search gracefully', async () => {
-      const TestWrapper = createTestWrapper()
-      render(<AnalysesList />, { wrapper: TestWrapper })
+      render(<AnalysesList />)
 
       const searchInput = screen.getByPlaceholderText(/Search by ticker.*or CIK/)
 
@@ -1006,8 +948,7 @@ describe('AnalysesList Component', () => {
 
   describe('Advanced Filtering', () => {
     beforeEach(async () => {
-      const TestWrapper = createTestWrapper()
-      render(<AnalysesList />, { wrapper: TestWrapper })
+      render(<AnalysesList />)
 
       // Open filters
       const filtersButton = screen.getByText('Filters')
@@ -1083,16 +1024,14 @@ describe('AnalysesList Component', () => {
 
   describe('Analytics Card Integration', () => {
     it('renders correct number of analysis cards', () => {
-      const TestWrapper = createTestWrapper()
-      render(<AnalysesList />, { wrapper: TestWrapper })
+      render(<AnalysesList />)
 
       const cards = screen.getAllByTestId(/analysis-card-/)
       expect(cards).toHaveLength(2) // Based on mockPaginatedResponse
     })
 
     it('passes correct props to analysis cards', () => {
-      const TestWrapper = createTestWrapper()
-      render(<AnalysesList />, { wrapper: TestWrapper })
+      render(<AnalysesList />)
 
       expect(screen.getByTestId('analysis-card-1')).toBeInTheDocument()
       expect(screen.getByTestId('analysis-card-2')).toBeInTheDocument()
@@ -1121,8 +1060,7 @@ describe('AnalysesList Component', () => {
         error: null,
       })
 
-      const TestWrapper = createTestWrapper()
-      render(<AnalysesList />, { wrapper: TestWrapper })
+      render(<AnalysesList />)
 
       expect(screen.getByTestId('analysis-card-incomplete-1')).toBeInTheDocument()
     })
@@ -1130,8 +1068,7 @@ describe('AnalysesList Component', () => {
 
   describe('Data Refresh and Updates', () => {
     it('handles data updates correctly', () => {
-      const TestWrapper = createTestWrapper()
-      const { rerender } = render(<AnalysesList />, { wrapper: TestWrapper })
+      const { rerender } = render(<AnalysesList />)
 
       // Update mock data
       const updatedAnalyses = [
@@ -1163,8 +1100,7 @@ describe('AnalysesList Component', () => {
         error: null,
       })
 
-      const TestWrapper = createTestWrapper()
-      render(<AnalysesList />, { wrapper: TestWrapper })
+      render(<AnalysesList />)
 
       const loadingElements = document.querySelectorAll('.animate-pulse')
       expect(loadingElements.length).toBe(6) // 6 skeleton cards
@@ -1174,8 +1110,7 @@ describe('AnalysesList Component', () => {
   describe('URL Query Parameters', () => {
     it('applies initial filters from URL parameters', () => {
       // This would be tested with URL routing integration
-      const TestWrapper = createTestWrapper()
-      render(<AnalysesList />, { wrapper: TestWrapper })
+      render(<AnalysesList />)
 
       // Test that useAnalyses is called with default parameters
       expect(mockUseAnalyses).toHaveBeenCalledWith({
@@ -1186,8 +1121,7 @@ describe('AnalysesList Component', () => {
 
     it('updates URL when filters change', async () => {
       // This would be tested with react-router integration
-      const TestWrapper = createTestWrapper()
-      render(<AnalysesList />, { wrapper: TestWrapper })
+      render(<AnalysesList />)
 
       const searchInput = screen.getByPlaceholderText(/Search by ticker.*or CIK/)
       await user.type(searchInput, 'AAPL')
@@ -1226,16 +1160,14 @@ describe('AnalysesList Component', () => {
 
       const startTime = performance.now()
 
-      const TestWrapper = createTestWrapper()
-      render(<AnalysesList />, { wrapper: TestWrapper })
+      render(<AnalysesList />)
 
       const endTime = performance.now()
       expect(endTime - startTime).toBeLessThan(1000) // Should render within 1 second
     })
 
     it('handles component unmounting gracefully', () => {
-      const TestWrapper = createTestWrapper()
-      const { unmount } = render(<AnalysesList />, { wrapper: TestWrapper })
+      const { unmount } = render(<AnalysesList />)
 
       expect(() => unmount()).not.toThrow()
     })
@@ -1243,8 +1175,7 @@ describe('AnalysesList Component', () => {
 
   describe('Accessibility Features', () => {
     it('provides proper ARIA labels', () => {
-      const TestWrapper = createTestWrapper()
-      render(<AnalysesList />, { wrapper: TestWrapper })
+      render(<AnalysesList />)
 
       const searchInput = screen.getByPlaceholderText(/Search by ticker.*or CIK/)
       expect(searchInput).toHaveAttribute('type', 'text')
@@ -1254,8 +1185,7 @@ describe('AnalysesList Component', () => {
     })
 
     it('maintains focus management', async () => {
-      const TestWrapper = createTestWrapper()
-      render(<AnalysesList />, { wrapper: TestWrapper })
+      render(<AnalysesList />)
 
       const searchInput = screen.getByPlaceholderText(/Search by ticker.*or CIK/)
       const filtersButton = screen.getByText('Filters')
@@ -1269,8 +1199,7 @@ describe('AnalysesList Component', () => {
     })
 
     it('supports screen readers', () => {
-      const TestWrapper = createTestWrapper()
-      render(<AnalysesList />, { wrapper: TestWrapper })
+      render(<AnalysesList />)
 
       const heading = screen.getByRole('heading', { level: 1 })
       expect(heading).toHaveTextContent('Analysis Library')

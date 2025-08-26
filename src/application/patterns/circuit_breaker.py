@@ -101,7 +101,10 @@ class CircuitBreaker:
             return True
 
         time_since_failure = datetime.now(UTC) - self.last_failure_time
-        return time_since_failure.total_seconds() >= self.recovery_timeout
+        # Use a dynamic buffer that won't exceed the recovery timeout
+        # For very small timeouts, use no buffer; for larger ones, use up to 10% buffer
+        buffer = min(0.05, self.recovery_timeout * 0.1)
+        return time_since_failure.total_seconds() >= (self.recovery_timeout - buffer)
 
     def _transition_to_half_open(self) -> None:
         """Transition circuit breaker to half-open state."""

@@ -139,8 +139,14 @@ export const FilingAnalysisSection: React.FC<FilingAnalysisSectionProps> = ({
   onCheckBackgroundAnalysis,
   isBackgroundProcessing = false,
 }) => {
-  // Show progressive loading if we have analysis progress
-  if (analysisProgress && (isAnalyzing || analysisProgress.state !== 'idle')) {
+  // Show progressive loading if we have analysis progress (but not if completed)
+  if (
+    analysisProgress &&
+    (isAnalyzing ||
+      (analysisProgress.state !== 'idle' &&
+        analysisProgress.state !== 'completed' &&
+        analysisProgress.state !== 'error'))
+  ) {
     const isBackgroundState = analysisProgress.state === 'processing_background'
     const progressBarColor = isBackgroundState ? 'bg-amber-600' : 'bg-blue-600'
 
@@ -222,6 +228,29 @@ export const FilingAnalysisSection: React.FC<FilingAnalysisSectionProps> = ({
     )
   }
 
+  // Handle completed or error analysis progress states
+  if (
+    analysisProgress &&
+    (analysisProgress.state === 'completed' || analysisProgress.state === 'error')
+  ) {
+    const isCompleted = analysisProgress.state === 'completed'
+    return (
+      <div className="rounded-lg border bg-card p-6">
+        <h3 className="text-lg font-semibold mb-4 flex items-center space-x-2">
+          <span>Analysis Results</span>
+        </h3>
+        <div className="text-center py-8">
+          {isCompleted ? (
+            <CheckCircle className="mx-auto w-12 h-12 text-green-600 mb-4" />
+          ) : (
+            <XCircle className="mx-auto w-12 h-12 text-red-600 mb-4" />
+          )}
+          <h4 className="text-lg font-medium text-foreground mb-2">{analysisProgress.message}</h4>
+        </div>
+      </div>
+    )
+  }
+
   // Only show error for real failures, not background processing or timeouts
   // Also don't show error if there's active analysis progress
   if (
@@ -253,9 +282,9 @@ export const FilingAnalysisSection: React.FC<FilingAnalysisSectionProps> = ({
               }
             >
               {isAnalyzing ||
-                (analysisProgress &&
-                  analysisProgress.state !== 'idle' &&
-                  analysisProgress.state !== 'error') ? (
+              (analysisProgress &&
+                analysisProgress.state !== 'idle' &&
+                analysisProgress.state !== 'error') ? (
                 <>
                   <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
                   {analysisProgress?.message || 'Analyzing...'}
@@ -297,17 +326,15 @@ export const FilingAnalysisSection: React.FC<FilingAnalysisSectionProps> = ({
               }
             >
               {isAnalyzing ||
-                (analysisProgress &&
-                  analysisProgress.state !== 'idle' &&
-                  analysisProgress.state !== 'error') ? (
+              (analysisProgress &&
+                analysisProgress.state !== 'idle' &&
+                analysisProgress.state !== 'error') ? (
                 <>
                   <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
                   {analysisProgress?.message || 'Analyzing...'}
                 </>
               ) : (
-                <>
-                  Start Analysis
-                </>
+                <>Start Analysis</>
               )}
             </Button>
           )}

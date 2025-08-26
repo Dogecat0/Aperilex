@@ -2,11 +2,12 @@
 
 import asyncio
 import json
+import logging
 import time
 from datetime import UTC, datetime
 from typing import Any
 
-from celery.utils.log import get_task_logger  # type: ignore[import-untyped]
+# Removed Celery dependency - using standard logging
 from google import genai
 from google.genai import types
 from pydantic import BaseModel as PydanticBaseModel
@@ -33,7 +34,7 @@ from src.infrastructure.llm.base import (
 )
 from src.shared.config.settings import settings
 
-logger = get_task_logger(__name__)
+logger = logging.getLogger(__name__)
 
 # Configuration for Google Gemini API
 GENERATE_CONFIG: dict[str, Any] = {

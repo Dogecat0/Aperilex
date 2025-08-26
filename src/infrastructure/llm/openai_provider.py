@@ -2,10 +2,11 @@
 
 import asyncio
 import json
+import logging
 from datetime import UTC
 from typing import Any
 
-from celery.utils.log import get_task_logger  # type: ignore[import-untyped]
+# Removed Celery dependency - using standard logging
 from openai import AsyncOpenAI
 from openai.types.chat import ParsedChatCompletion
 from pydantic import BaseModel as PydanticBaseModel
@@ -35,7 +36,7 @@ from .base import (
     run_concurrent_subsection_analysis,
 )
 
-logger = get_task_logger(__name__)
+logger = logging.getLogger(__name__)
 
 GENERATION_CONFIG: dict[str, Any] = {
     "temperature": settings.llm_temperature,

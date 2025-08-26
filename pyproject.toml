@@ -17,6 +17,7 @@ classifiers = [
     "Topic :: Office/Business :: Financial",
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
 ]
+package-mode = false
 
 [tool.poetry.dependencies]
 python = "^3.12"
@@ -36,10 +37,10 @@ passlib = { extras = ["bcrypt"], version = "^1.7.4" }
 cryptography = "^42.0.0"
 # HTTP Client
 httpx = "^0.28.0"
-# Cache
-redis = "^5.0.1"
-# Task Queue
-celery = { extras = ["redis"], version = "^5.3.6" }
+# Messaging and Queue (development dependencies)
+aio-pika = { version = "^9.4.0" }
+# AWS services (production dependencies)
+boto3 = { version = "1.40.16" }
 # Monitoring
 prometheus-client = "^0.20.0"
 opentelemetry-api = "^1.22.0"
@@ -75,6 +76,9 @@ mypy = "^1.16.1"
 ruff = "^0.12.2"
 black = "^25.1.0"
 isort = "^5.13.0"
+# Type stubs removed due to compatibility issues
+boto3-stubs = { extras = ["full"], version = "1.40.16" }
+types-boto3 = "1.40.16"
 # Security
 bandit = "^1.7.7"
 safety = "^3.0.0"
@@ -83,6 +87,9 @@ ipython = "^8.21.0"
 rich = "^13.7.0"
 pre-commit = "^3.6.0"
 
+[tool.poetry.group.deployment.dependencies]
+pulumi = "3.191.0"
+pulumi-aws = "7.5.0"
 
 [tool.poetry.group.test.dependencies]
 
@@ -153,27 +160,16 @@ module = "src.infrastructure.database.models"
 disable_error_code = ["assignment"]
 
 [[tool.mypy.overrides]]
-module = "celery"
+module = "aio_pika"
 ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
-module = "src.infrastructure.celery_app"
-disable_error_code = ["import-untyped"]
+module = "boto3"
+ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
-module = "src.infrastructure.tasks.*"
-disable_error_code = [
-    "import-untyped",
-    "attr-defined",
-    "call-arg",
-    "arg-type",
-    "misc",
-    "no-any-return",
-]
-
-[[tool.mypy.overrides]]
-module = "src.infrastructure.cache.*"
-disable_error_code = ["union-attr", "no-any-return", "misc", "no-untyped-call"]
+module = "src.infrastructure.messaging.*"
+disable_error_code = ["import-untyped", "misc"]
 
 [[tool.mypy.overrides]]
 module = "edgar.*"

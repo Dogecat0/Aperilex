@@ -61,10 +61,10 @@ export function FilingDetails() {
 
   // Auto-refetch analysis when it completes
   React.useEffect(() => {
-    if (analysisProgress.state === 'completed' && !analysis) {
+    if (analysisProgress.state === 'completed') {
       refetchAnalysis()
     }
-  }, [analysisProgress.state, analysis, refetchAnalysis])
+  }, [analysisProgress.state, refetchAnalysis])
 
   const handleAnalyze = async (options?: AnalyzeFilingRequest) => {
     if (!accessionNumber) return

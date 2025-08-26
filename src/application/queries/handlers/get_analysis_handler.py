@@ -58,20 +58,43 @@ class GetAnalysisQueryHandler(QueryHandler[GetAnalysisQuery, AnalysisResponse]):
             if query.analysis_id is None:
                 raise ValueError("Analysis ID is required")
 
-            # Retrieve analysis entity from repository
-            analysis = await self.analysis_repository.get_by_id(query.analysis_id)
+            # Retrieve analysis entity and results from repository with storage
+            analysis, results = await self.analysis_repository.get_by_id_with_results(
+                query.analysis_id
+            )
 
             if not analysis:
                 raise ResourceNotFoundError("Analysis", str(query.analysis_id))
 
+            # With transactional consistency, this should rarely happen
+            # If no results found in storage but metadata exists, it indicates:
+            # 1. Storage was deleted/corrupted after successful analysis
+            # 2. Manual database manipulation
+            # Log this as a critical error for investigation
+            if not results:
+                logger.critical(
+                    f"Data inconsistency detected: Analysis {query.analysis_id} exists in database "
+                    f"but results missing from storage. This should not happen with transactional consistency.",
+                    extra={
+                        "analysis_id": str(query.analysis_id),
+                        "filing_id": str(analysis.filing_id),
+                        "created_at": analysis.created_at.isoformat(),
+                    },
+                )
+                # Return a more informative error
+                raise ResourceNotFoundError(
+                    "Analysis results",
+                    f"{query.analysis_id} (metadata exists but results missing - please contact support)",
+                )
+
             # Convert to response DTO based on requested detail level
             if query.include_full_results:
                 response = AnalysisResponse.from_domain(
-                    analysis, include_full_results=True
+                    analysis, include_full_results=True, results=results
                 )
             else:
                 response = AnalysisResponse.from_domain(
-                    analysis, include_full_results=False
+                    analysis, include_full_results=False, results=results
                 )
 
             logger.info(

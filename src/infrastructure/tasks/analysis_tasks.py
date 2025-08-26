@@ -1,13 +1,10 @@
-"""Background tasks for filing analysis using LLM providers."""
+"""Background tasks for filing retrieval and analysis using LLM providers and new messaging system."""
 
 import asyncio
 import logging
-import threading
-from datetime import date
+import os
 from typing import Any
 from uuid import UUID, uuid4
-
-from celery import Task
 
 from src.application.schemas.commands.analyze_filing import (
     AnalysisTemplate,
@@ -15,788 +12,826 @@ from src.application.schemas.commands.analyze_filing import (
 )
 from src.application.services.analysis_orchestrator import AnalysisOrchestrator
 from src.application.services.analysis_template_service import AnalysisTemplateService
-from src.domain.entities.company import Company
 from src.domain.entities.filing import Filing
+from src.domain.value_objects import CIK
 from src.domain.value_objects.accession_number import AccessionNumber
-from src.domain.value_objects.cik import CIK
+from src.domain.value_objects.analysis_stage import AnalysisStage
 from src.domain.value_objects.filing_type import FilingType
 from src.domain.value_objects.processing_status import ProcessingStatus
 from src.infrastructure.database.base import async_session_maker
 from src.infrastructure.edgar.service import EdgarService
-from src.infrastructure.llm import OpenAIProvider
-from src.infrastructure.llm.base import BaseLLMProvider
-from src.infrastructure.llm.google_provider import GoogleProvider
+from src.infrastructure.llm import BaseLLMProvider, GoogleProvider, OpenAIProvider
+from src.infrastructure.messaging import TaskPriority, task
+from src.infrastructure.messaging.interfaces import IStorageService
 from src.infrastructure.repositories.analysis_repository import AnalysisRepository
 from src.infrastructure.repositories.company_repository import CompanyRepository
 from src.infrastructure.repositories.filing_repository import FilingRepository
-from src.infrastructure.tasks.celery_app import celery_app
-from src.shared.config.settings import settings
+from src.shared.config.settings import Settings
 
 logger = logging.getLogger(__name__)
 
+# File storage configuration
+USE_S3_STORAGE = os.getenv("USE_S3_STORAGE", "false").lower() == "true"
+MAX_CONCURRENT_FILING_DOWNLOADS = 1  # Limit to 1 concurrent download from EDGAR
+MAX_FILE_SIZE = 50 * 1024 * 1024  # 50MB limit for filing files
 
-def get_llm_provider(
-    llm_provider: str = settings.default_llm_provider,
-) -> BaseLLMProvider:
-    """Get LLM provider instance.
+# Storage service (replaces direct file operations)
+_local_storage_service: IStorageService | None = None
 
-    Args:
-        llm_provider: Provider name (default: google)
 
-    Returns:
-        LLM provider instance
+async def get_local_storage_service() -> IStorageService:
+    """Get local storage service instance."""
+    global _local_storage_service
+    if _local_storage_service is None:
+        from src.infrastructure.messaging.factory import MessagingFactory
+        from src.shared.config.settings import Settings
+
+        # Create a settings instance with local storage type for development tasks
+        task_settings = Settings()
+        task_settings.storage_service_type = "local"
+        _local_storage_service = MessagingFactory.create_storage_service(task_settings)
+        await _local_storage_service.connect()
+    return _local_storage_service
+
+
+def _validate_s3_configuration() -> None:
+    """Validate S3 configuration when S3 storage is enabled.
 
     Raises:
-        ValueError: If provider is not supported
+        ValueError: If required S3 configuration is missing
     """
-    # TODO: Make into an enum in settings...
-    if llm_provider == "openai":
-        return OpenAIProvider()
-    if llm_provider == "google":
-        return GoogleProvider()
+    if USE_S3_STORAGE:
+        settings = Settings()
+        if not settings.aws_s3_bucket:
+            raise ValueError(
+                "AWS_S3_BUCKET must be set when USE_S3_STORAGE=true. "
+                "Check your environment configuration."
+            )
+        if not settings.aws_region:
+            raise ValueError(
+                "AWS_REGION must be set when USE_S3_STORAGE=true. "
+                "Check your environment configuration."
+            )
+        logger.info(
+            f"Using S3 storage: bucket={settings.aws_s3_bucket}, "
+            f"region={settings.aws_region}"
+        )
     else:
-        raise ValueError(f"Unsupported LLM provider: {llm_provider}")
+        logger.info("Using local storage service (development mode)")
 
 
-class AsyncTask(Task):
-    """Base task class that supports async operations with persistent event loop management.
+async def get_filing_content(
+    accession_number: AccessionNumber, company_cik: CIK
+) -> dict[str, Any] | None:
+    """Retrieve filing content from storage or download from EDGAR.
 
-    This class implements a thread-safe persistent event loop strategy to handle async operations
-    efficiently in Celery worker processes. The key features include:
+    Retrieval priority:
+    1. Local file storage (development)
+    2. AWS S3 storage (production)
+    3. Download from EDGAR (with rate limiting)
 
-    - Thread-local event loop persistence across task executions
-    - Automatic loop creation and recovery for closed/corrupted loops
-    - Thread-safe loop management for concurrent Celery workers
-    - Comprehensive error handling and logging for debugging
-    - Backward compatibility with synchronous tasks
-    - Proper handling of nested event loop scenarios
+    Args:
+        accession_number: SEC accession number
+        company_cik: Company CIK
 
-    The persistent event loop approach prevents "Event loop is closed" errors
-    that occur when loops are created and destroyed for each task execution,
-    which is particularly problematic in long-running Celery worker processes.
+    Returns:
+        Filing content dictionary or None if not found
     """
+    try:
+        # Clean accession number for file path
+        clean_accession = str(accession_number).replace("-", "")
 
-    # Thread-local storage for event loops to ensure thread safety
-    _local = threading.local()
-    _creation_lock = threading.Lock()
-
-    @classmethod
-    def _cleanup_corrupted_loop(cls, thread_id: int) -> None:
-        """Clean up a corrupted event loop with proper error handling and logging.
-
-        Args:
-            thread_id: Thread identifier for logging purposes
-        """
-        if hasattr(cls._local, "loop") and cls._local.loop is not None:
+        if USE_S3_STORAGE:
+            # Production: Try S3 storage first
             try:
-                if not cls._local.loop.is_closed():
-                    logger.debug(f"Closing corrupted event loop in thread {thread_id}")
-                    cls._local.loop.close()
-                    logger.info(
-                        f"Successfully closed corrupted event loop in thread {thread_id}"
-                    )
-            except Exception as cleanup_e:
-                logger.warning(
-                    f"Error closing event loop during cleanup in thread {thread_id}: {cleanup_e}"
-                )
-            finally:
-                cls._local.loop = None
-                logger.debug(
-                    f"Cleared corrupted event loop reference in thread {thread_id}"
+                from src.infrastructure.messaging.implementations.s3_storage import (
+                    S3StorageService,
                 )
 
-    @classmethod
-    def get_or_create_loop(cls) -> asyncio.AbstractEventLoop:
-        """Get existing event loop or create a new one if needed.
+                # Validate S3 configuration before creating service
+                _validate_s3_configuration()
 
-        This method implements the core persistent loop strategy while being compatible
-        with test mocking:
-        1. Return existing thread-local loop if it's valid (not closed, not None)
-        2. Check current event loop via asyncio.get_event_loop() for test compatibility
-        3. Create new loop if none exists or current is closed
-        4. Handle RuntimeError and other exceptions gracefully
-        5. Use thread-safe patterns for Celery workers
-        6. Handle nested event loop scenarios properly
+                settings = Settings()
+                s3_service = S3StorageService(
+                    bucket_name=settings.aws_s3_bucket,
+                    aws_region=settings.aws_region,
+                    prefix=f"filings/{company_cik}/",
+                )
+                await s3_service.connect()
 
-        Returns:
-            A valid, ready-to-use event loop
-
-        Raises:
-            RuntimeError: If event loop creation fails after multiple attempts
-        """
-        thread_id = threading.get_ident()
-
-        # Check if we have a valid existing loop for this thread
-        # (this preserves persistence across calls)
-        if hasattr(cls._local, "loop") and cls._local.loop is not None:
-            try:
-                if not cls._local.loop.is_closed():
-                    logger.debug(
-                        f"Reusing existing persistent event loop for AsyncTask execution in thread {thread_id}"
-                    )
-                    return cls._local.loop
-                else:
-                    logger.warning(
-                        f"Existing persistent event loop is closed in thread {thread_id}, will create new one"
-                    )
-                    # Clear the closed loop
-                    cls._local.loop = None
+                filing_content = await s3_service.get(clean_accession)
+                if filing_content:
+                    logger.info(f"Retrieved filing {accession_number} from S3 storage")
+                    return filing_content  # type: ignore[no-any-return]
             except Exception as e:
-                logger.warning(
-                    f"Error checking existing event loop status in thread {thread_id}: {str(e)}, will create new one"
-                )
-                cls._local.loop = None
-
-        # Thread-safe loop creation
-        with cls._creation_lock:
-            # Double-check pattern - another thread might have created a loop
-            if hasattr(cls._local, "loop") and cls._local.loop is not None:
-                try:
-                    if not cls._local.loop.is_closed():
-                        return cls._local.loop
-                except Exception:
-                    cls._local.loop = None  # Clear invalid loop
-
-            # Need to create a new event loop for this thread
-            try:
-                # Always try to get the current event loop first (for test compatibility)
-                current_loop = None
-                try:
-                    current_loop = asyncio.get_event_loop()
-                    logger.debug(
-                        f"Retrieved current event loop in thread {thread_id}: {id(current_loop)}"
-                    )
-
-                    # Check if it's in a usable state
-                    if current_loop.is_running():
-                        logger.debug(
-                            f"Current event loop is running in thread {thread_id}, will create separate loop"
-                        )
-                        current_loop = None
-                    elif current_loop.is_closed():
-                        logger.warning(
-                            f"Current event loop is closed in thread {thread_id}, will create new one"
-                        )
-                        current_loop = None
-
-                except RuntimeError as e:
-                    logger.debug(
-                        f"No current event loop available in thread {thread_id} ({str(e)}), creating new one"
-                    )
-                    current_loop = None
-
-                if current_loop is not None:
-                    # Use the existing valid loop and make it persistent
-                    cls._local.loop = current_loop
-                    logger.debug(
-                        f"Using existing event loop as persistent AsyncTask loop in thread {thread_id}: {id(current_loop)}"
-                    )
-                    return cls._local.loop
-                else:
-                    # Create a new event loop
-                    new_loop = asyncio.new_event_loop()
-                    asyncio.set_event_loop(new_loop)
-                    cls._local.loop = new_loop
-
-                    logger.info(
-                        f"Created new persistent event loop for AsyncTask execution in thread {thread_id}: {id(new_loop)}"
-                    )
-                    return cls._local.loop
-
-            except Exception as e:
-                logger.error(
-                    f"Failed to create event loop for AsyncTask in thread {thread_id}: {str(e)}",
-                    exc_info=True,
-                )
-                raise RuntimeError(
-                    f"Unable to create event loop for async task execution in thread {thread_id}: {str(e)}"
-                ) from e
-
-    def __call__(self, *args: Any, **kwargs: Any) -> Any:
-        """Run the task with async support using persistent event loop.
-
-        This method handles both synchronous and asynchronous tasks:
-        - For sync tasks: calls run() directly without event loop overhead
-        - For async tasks: uses the persistent event loop from get_or_create_loop()
-
-        The persistent loop strategy ensures that:
-        - Event loops are reused across multiple task calls within the same thread
-        - Closed or corrupted loops are automatically replaced
-        - Errors are handled gracefully with comprehensive logging
-        - Thread safety is maintained in Celery worker processes
-        - Nested event loop scenarios are handled properly
-
-        Args:
-            *args: Positional arguments to pass to the task's run method
-            **kwargs: Keyword arguments to pass to the task's run method
-
-        Returns:
-            The result of the task execution
-
-        Raises:
-            Exception: Any exception raised by the task's run method or loop management
-        """
-        if asyncio.iscoroutinefunction(self.run):
-            # Handle async task execution with persistent event loop
-            max_attempts = 3
-            last_exception = None
-            thread_id = threading.get_ident()
-
-            for attempt in range(max_attempts):
-                try:
-                    # Get or create the persistent event loop
-                    loop = self.get_or_create_loop()
-
-                    logger.debug(
-                        f"Executing async task (attempt {attempt + 1}/{max_attempts}) "
-                        f"using event loop: {id(loop)} in thread {thread_id}"
-                    )
-
-                    # Check if the loop is currently running (nested scenario)
-                    if loop.is_running():
-                        # Handle nested event loop scenario with thread pool
-                        logger.debug(
-                            f"Event loop is running in thread {thread_id}, using thread pool approach"
-                        )
-                        # Use a thread pool to run the async operation
-                        import concurrent.futures
-
-                        with concurrent.futures.ThreadPoolExecutor() as executor:
-                            future = executor.submit(
-                                lambda: asyncio.run(self.run(*args, **kwargs))
-                            )
-                            result = future.result()
-                    else:
-                        # Normal case - run the coroutine directly
-                        result = loop.run_until_complete(self.run(*args, **kwargs))
-
-                    logger.debug(
-                        f"Successfully completed async task using event loop: {id(loop)} in thread {thread_id}"
-                    )
-
-                    return result
-
-                except Exception as e:
-                    last_exception = e
-                    logger.warning(
-                        f"Async task execution failed (attempt {attempt + 1}/{max_attempts}) in thread {thread_id}: {str(e)}"
-                    )
-
-                    # Check if this is an event loop related error
-                    error_str = str(e).lower()
-                    if any(
-                        keyword in error_str
-                        for keyword in ["event loop", "loop", "running"]
-                    ):
-                        logger.warning(
-                            f"Event loop error detected in thread {thread_id}, clearing persistent loop for retry"
-                        )
-                        # Clear the corrupted loop to force recreation
-                        self._cleanup_corrupted_loop(thread_id)
-
-                        if attempt < max_attempts - 1:
-                            logger.info(
-                                f"Retrying async task execution (attempt {attempt + 2}) in thread {thread_id}"
-                            )
-                            continue
-
-                    # For non-loop errors or final attempt, re-raise
-                    if attempt == max_attempts - 1:
-                        logger.error(
-                            f"Async task execution failed after {max_attempts} attempts in thread {thread_id}: {str(e)}",
-                            exc_info=True,
-                        )
-                        raise
-
-            # This should never be reached, but included for completeness
-            if last_exception:
-                raise last_exception
+                logger.warning(f"Failed to retrieve from S3: {e}")
         else:
-            # Handle synchronous task execution (no event loop needed)
-            logger.debug("Executing synchronous task")
-            return self.run(*args, **kwargs)
+            # Development: Try local storage service first
+            try:
+                storage_service = await get_local_storage_service()
+                filing_key = f"filing:{company_cik}/{clean_accession}"
+                filing_content = await storage_service.get(filing_key)
+
+                if filing_content:
+                    logger.info(
+                        f"Retrieved filing {accession_number} from local storage service"
+                    )
+                    return filing_content  # type: ignore[no-any-return]
+            except Exception as e:
+                logger.warning(f"Failed to retrieve from local storage service: {e}")
+
+        # If not in storage, download from EDGAR (with rate limiting)
+        logger.info(
+            f"Filing {accession_number} not found in storage, downloading from EDGAR"
+        )
+
+        # Use EdgarService to download filing
+        edgar_service = EdgarService()
+
+        # Get filing data
+        filing_data = edgar_service.get_filing_by_accession(accession_number)
+
+        if filing_data:
+            # Prepare filing content for storage
+            filing_content = {
+                "accession_number": str(accession_number),
+                "company_cik": str(company_cik),
+                "filing_type": filing_data.filing_type,
+                "filing_date": filing_data.filing_date,
+                "company_name": filing_data.company_name,
+                "ticker": filing_data.ticker,
+                "content_text": filing_data.content_text,
+                "sections": filing_data.sections,
+                "raw_html": filing_data.raw_html,
+                "metadata": {
+                    "downloaded_at": asyncio.get_event_loop().time(),
+                    "source": "edgar_service",
+                },
+            }
+
+            # Store for future use - MUST succeed for data consistency
+            storage_success = await store_filing_content(
+                accession_number, company_cik, filing_content
+            )
+
+            if not storage_success:
+                logger.error(
+                    f"Failed to store filing {accession_number} to storage. "
+                    f"Filing will not be available for future use."
+                )
+                # Still return the content for immediate use, but storage failed
+                # This is acceptable as we can re-download from EDGAR if needed
+            else:
+                logger.info(f"Successfully stored filing {accession_number} to storage")
+
+            return filing_content
+
+        logger.error(f"Failed to download filing {accession_number} from EDGAR")
+        return None
+
+    except asyncio.CancelledError:
+        # Re-raise cancellation to allow proper task cleanup
+        logger.debug(f"Filing content retrieval for {accession_number} was cancelled")
+        raise
+    except Exception as e:
+        logger.error(f"Error retrieving filing content: {e}")
+        return None
 
 
-@celery_app.task(bind=True, base=AsyncTask, name="analyze_filing")
-async def analyze_filing_task(
-    self: AsyncTask,
-    filing_id: str,
-    analysis_template: str,
-    created_by: str,
-    force_reprocess: bool = False,
-    llm_provider: str = settings.default_llm_provider,
-    llm_model: str = settings.llm_model,
-) -> dict[str, Any]:
-    """
-    Analyze a filing using the specified LLM provider.
+async def get_analysis_results(
+    analysis_id: UUID, company_cik: CIK, accession_number: AccessionNumber
+) -> dict[str, Any] | None:
+    """Retrieve analysis results from storage.
 
     Args:
-        filing_id: Accession number or UUID of the filing to analyze
-        analysis_template: Analysis template to use (e.g., 'comprehensive', 'financial_focused')
-        created_by: Identifier of user/system creating the analysis
-        force_reprocess: Whether to reprocess even if analysis exists
-        llm_provider: LLM provider to use (default: openai)
-        llm_model: Specific model to use
+        analysis_id: Analysis ID
+        company_cik: Company CIK for storage path
+        accession_number: Accession number for storage path
 
     Returns:
-        Task result with analysis information
+        Analysis results dictionary or None if not found
     """
-    task_id = self.request.id
-    logger.info(
-        f"Starting analysis task {task_id} for filing {filing_id}, "
-        f"template: {analysis_template}, provider: {llm_provider}, "
-        f"force_reprocess: {force_reprocess}"
-    )
-
-    # Update task state to indicate it has started with timing information
-    from datetime import datetime
-
-    start_time = datetime.utcnow()
-    self.update_state(
-        state="STARTED",
-        meta={
-            "current_progress": 0.0,
-            "current_step": "Initializing analysis task",
-            "started_at": start_time.isoformat(),
-        },
-    )
-
-    # Create a fresh database session for this task
-    session = None
     try:
-        # Create session using the factory directly to avoid context manager issues
-        session = async_session_maker()
+        # Create storage key for analysis results
+        analysis_key = f"analysis_{analysis_id}"
 
-        # Initialize repositories and services
-        filing_repo = FilingRepository(session)
-        analysis_repo = AnalysisRepository(session)
-        edgar_service = EdgarService()
-        llm_provider_instance = get_llm_provider(llm_provider)
-        template_service = AnalysisTemplateService()
-
-        # Parse filing_id to determine if it's UUID or accession number
-        accession_number = None
-        company_cik = None
-        filing = None
-
-        # Try to parse as UUID first
-        try:
-            filing_uuid = UUID(filing_id)
-            filing = await filing_repo.get_by_id(filing_uuid)
-            if filing:
-                accession_number = filing.accession_number
-                # Get company CIK from filing
-                from src.infrastructure.repositories.company_repository import (
-                    CompanyRepository,
+        if USE_S3_STORAGE:
+            # Production: Try S3 storage first
+            try:
+                from src.infrastructure.messaging.implementations.s3_storage import (
+                    S3StorageService,
                 )
 
-                company_repo = CompanyRepository(session)
-                company = await company_repo.get_by_id(filing.company_id)
-                if company:
-                    company_cik = company.cik
-        except ValueError:
-            # Not a UUID, try as accession number
+                _validate_s3_configuration()
+                settings = Settings()
+                s3_service = S3StorageService(
+                    bucket_name=settings.aws_s3_bucket,
+                    aws_region=settings.aws_region,
+                    prefix=f"analyses/{company_cik}/{accession_number.value.replace('-', '')}/",
+                )
+                await s3_service.connect()
+
+                analysis_results = await s3_service.get(analysis_key)
+                if analysis_results:
+                    logger.debug(f"Retrieved analysis {analysis_id} from S3 storage")
+                    return analysis_results  # type: ignore[no-any-return]
+            except Exception as e:
+                logger.warning(f"Failed to retrieve analysis from S3: {e}")
+        else:
+            # Development: Try local storage service
             try:
-                accession_number = AccessionNumber(filing_id)
-                # Try to find existing filing by accession number
-                filing = await filing_repo.get_by_accession_number(accession_number)
-                if filing:
-                    from src.infrastructure.repositories.company_repository import (
-                        CompanyRepository,
+                storage_service = await get_local_storage_service()
+                clean_accession = accession_number.value.replace("-", "")
+                analysis_storage_key = (
+                    f"analysis:{company_cik}/{clean_accession}/{analysis_key}"
+                )
+                analysis_results = await storage_service.get(analysis_storage_key)
+
+                if analysis_results:
+                    logger.debug(
+                        f"Retrieved analysis {analysis_id} from local storage service"
+                    )
+                    return analysis_results  # type: ignore[no-any-return]
+            except Exception as e:
+                logger.warning(
+                    f"Failed to retrieve analysis from local storage service: {e}"
+                )
+
+        return None
+
+    except Exception as e:
+        logger.error(f"Error retrieving analysis results: {e}")
+        return None
+
+
+async def store_analysis_results(
+    analysis_id: UUID,
+    company_cik: CIK,
+    accession_number: AccessionNumber,
+    analysis_results: dict[str, Any],
+) -> bool:
+    """Store analysis results to appropriate storage backend.
+
+    Args:
+        analysis_id: Analysis ID
+        company_cik: Company CIK for storage path
+        accession_number: Accession number for storage path
+        analysis_results: Analysis results to store
+
+    Returns:
+        True if successfully stored, False otherwise
+    """
+    try:
+        # Create storage key for analysis results
+        analysis_key = f"analysis_{analysis_id}"
+
+        if USE_S3_STORAGE:
+            # Production: Store in S3
+            try:
+                from src.infrastructure.messaging.implementations.s3_storage import (
+                    S3StorageService,
+                )
+
+                _validate_s3_configuration()
+                settings = Settings()
+                s3_service = S3StorageService(
+                    bucket_name=settings.aws_s3_bucket,
+                    aws_region=settings.aws_region,
+                    prefix=f"analyses/{company_cik}/{accession_number.value.replace('-', '')}/",
+                )
+                await s3_service.connect()
+
+                success = await s3_service.set(analysis_key, analysis_results)
+                if success:
+                    logger.info(f"Stored analysis {analysis_id} to S3 storage")
+                return success
+            except Exception as e:
+                logger.error(f"Failed to store analysis to S3: {e}")
+                return False
+        else:
+            # Development: Store in local storage service
+            try:
+                storage_service = await get_local_storage_service()
+                clean_accession = accession_number.value.replace("-", "")
+                analysis_storage_key = (
+                    f"analysis:{company_cik}/{clean_accession}/{analysis_key}"
+                )
+                success = await storage_service.set(
+                    analysis_storage_key, analysis_results
+                )
+
+                if success:
+                    logger.info(
+                        f"Stored analysis {analysis_id} to local storage service"
+                    )
+                return success
+            except Exception as e:
+                logger.error(f"Failed to store analysis to local storage service: {e}")
+                return False
+
+    except Exception as e:
+        logger.error(f"Error storing analysis results: {e}")
+        return False
+
+
+async def store_filing_content(
+    accession_number: AccessionNumber,
+    company_cik: CIK,
+    filing_content: dict[str, Any],
+) -> bool:
+    """Store filing content to appropriate storage backend.
+
+    Args:
+        accession_number: SEC accession number
+        company_cik: Company CIK
+        filing_content: Filing content to store
+
+    Returns:
+        True if successfully stored, False otherwise
+    """
+    try:
+        # Clean accession number for file path
+        clean_accession = str(accession_number).replace("-", "")
+
+        if USE_S3_STORAGE:
+            # Production: Store in S3
+            try:
+                from src.infrastructure.messaging.implementations.s3_storage import (
+                    S3StorageService,
+                )
+
+                # Validate S3 configuration before creating service
+                _validate_s3_configuration()
+
+                settings = Settings()
+                s3_service = S3StorageService(
+                    bucket_name=settings.aws_s3_bucket,
+                    aws_region=settings.aws_region,
+                    prefix=f"filings/{company_cik}/",
+                )
+                await s3_service.connect()
+
+                success = await s3_service.set(clean_accession, filing_content)
+                if success:
+                    logger.info(f"Stored filing {accession_number} to S3 storage")
+                return success
+            except Exception as e:
+                logger.error(f"Failed to store to S3: {e}")
+                return False
+        else:
+            # Development: Store in local storage service
+            try:
+                storage_service = await get_local_storage_service()
+                filing_key = f"filing:{company_cik}/{clean_accession}"
+                success = await storage_service.set(filing_key, filing_content)
+
+                if success:
+                    logger.info(
+                        f"Stored filing {accession_number} to local storage service"
+                    )
+                return success
+            except Exception as e:
+                logger.error(f"Failed to store to local storage service: {e}")
+                return False
+
+    except Exception as e:
+        logger.error(f"Error storing filing content: {e}")
+        return False
+
+
+@task(
+    name="retrieve_and_analyze_filing",
+    queue="analysis_queue",
+    priority=TaskPriority.HIGH,
+    max_retries=3,
+)
+async def retrieve_and_analyze_filing(
+    company_cik: CIK | str,
+    accession_number: AccessionNumber | str,
+    analysis_template: AnalysisTemplate | str,
+    force_reprocess: bool = False,
+    llm_schemas: list[str] | None = None,
+    llm_provider: str | None = None,
+    llm_model: str | None = None,
+    task_id: str | None = None,  # Add task ID parameter
+) -> dict[str, Any]:
+    """Retrieve filing content and analyze using the specified LLM provider.
+
+    This unified task:
+    1. Retrieves filing content from storage or EDGAR
+    2. Stores filing content for future use
+    3. Performs LLM analysis on the filing
+
+    Args:
+        company_cik: Company CIK to identify the filing
+        accession_number: SEC accession number to identify the filing
+        analysis_template: Analysis template to use
+        force_reprocess: Whether to reprocess if analysis already exists
+        llm_schemas: List of LLM schema class names to use for analysis
+        llm_provider: LLM provider to use (openai, google)
+        llm_model: Specific model to use
+        user_id: ID of the user requesting the analysis
+
+    Returns:
+        Analysis result with status and findings
+    """
+    start_time = asyncio.get_event_loop().time()
+
+    # Convert string arguments to value objects if needed (for messaging serialization)
+    if isinstance(company_cik, str):
+        company_cik = CIK(company_cik)
+    if isinstance(accession_number, str):
+        accession_number = AccessionNumber(accession_number)
+    if isinstance(analysis_template, str):
+        analysis_template = AnalysisTemplate(analysis_template)
+
+    # Initialize settings and set defaults if not provided
+    settings = Settings()
+    if llm_provider is None:
+        llm_provider = settings.default_llm_provider
+    if llm_model is None:
+        llm_model = settings.llm_model
+
+    try:
+        logger.info(
+            f"Starting analysis for filing {company_cik}/{accession_number} with template {analysis_template}"
+        )
+
+        # Initialize task tracking
+        task_service = None
+        if task_id:
+            try:
+                from src.application.services.task_service import TaskService
+
+                task_service = TaskService()
+                await task_service.update_task_status(
+                    task_id=task_id,
+                    status="running",
+                    message="Starting filing analysis",
+                    progress=5,
+                    analysis_stage=AnalysisStage.INITIATING.value,
+                )
+            except Exception as e:
+                logger.warning(f"Could not initialize task tracking: {e}")
+
+        # Step 1: Retrieve filing content from storage or EDGAR
+        if task_service and task_id:
+            await task_service.update_task_status(
+                task_id=task_id,
+                status="running",
+                message="Retrieving filing content",
+                progress=15,
+                analysis_stage=AnalysisStage.LOADING_FILING.value,
+            )
+
+        filing_content = await get_filing_content(accession_number, company_cik)
+
+        if not filing_content:
+            if task_service and task_id:
+                await task_service.update_task_status(
+                    task_id=task_id,
+                    status="failed",
+                    message="Failed to retrieve filing content",
+                    error=f"Unable to retrieve filing content for {accession_number}",
+                    analysis_stage=AnalysisStage.ERROR.value,
+                )
+            raise ValueError(
+                f"Unable to retrieve filing content for {accession_number}. "
+                f"Filing could not be found in storage or downloaded from EDGAR."
+            )
+
+        logger.debug(
+            f"Retrieved filing content for {accession_number} "
+            f"(source: {filing_content.get('metadata', {}).get('source', 'unknown')})"
+        )
+
+        # Step 2: Filing content is now passed directly to orchestrator
+        # No need to cache since orchestrator retrieves from storage directly
+        logger.debug(
+            f"Filing content retrieved for {accession_number}, proceeding with analysis"
+        )
+
+        if task_service and task_id:
+            await task_service.update_task_status(
+                task_id=task_id,
+                status="running",
+                message="Setting up database connections",
+                progress=25,
+                analysis_stage=AnalysisStage.LOADING_FILING.value,
+            )
+
+        async with async_session_maker() as session:
+            # Get repositories
+            filing_repo = FilingRepository(session)
+            analysis_repo = AnalysisRepository(session)
+            company_repo = CompanyRepository(session)
+
+            # Get Edgar service
+            edgar_service = EdgarService()
+
+            # Step 3: Ensure company and filing records exist in database
+            # Get company from database, auto-populate if not found
+            company = await company_repo.get_by_cik(company_cik)
+            if not company:
+                logger.info(
+                    f"Company with CIK {company_cik} not found, fetching from EDGAR"
+                )
+                try:
+                    # Fetch company data from SEC EDGAR
+                    company_data = edgar_service.get_company_by_cik(company_cik)
+
+                    # Create new company entity
+                    from src.domain.entities.company import Company
+
+                    company = Company(
+                        id=uuid4(),
+                        cik=company_cik,
+                        name=company_data.name,
+                        metadata={
+                            "ticker": company_data.ticker,
+                            "sic_code": company_data.sic_code,
+                            "sic_description": company_data.sic_description,
+                            "auto_populated": True,
+                            "auto_populated_date": filing_content.get("filing_date"),
+                            "source": "edgar_api",
+                        },
                     )
 
-                    company_repo = CompanyRepository(session)
-                    company = await company_repo.get_by_id(filing.company_id)
-                    if company:
-                        company_cik = company.cik
-            except ValueError as e:
-                raise ValueError(
-                    f"Invalid filing identifier: {filing_id}. Must be accession number or valid UUID"
-                ) from e
+                    # Save to database
+                    await company_repo.update(company)
+                    await session.commit()
 
-        # If we don't have company_cik yet, we need to get it from Edgar
-        if not company_cik and accession_number:
-            try:
-                # Get filing data from Edgar to extract CIK
-                filing_data = edgar_service.get_filing_by_accession(accession_number)
-                company_cik = CIK(filing_data.cik)
+                    logger.info(
+                        f"Successfully created company record for CIK {company_cik}: {company_data.name}"
+                    )
+
+                except Exception as company_error:
+                    raise ValueError(
+                        f"Company with CIK {company_cik} not found in database and could not be auto-populated from EDGAR: {str(company_error)}"
+                    ) from company_error
+
+            filing = await filing_repo.get_by_accession_number(
+                accession_number=accession_number
+            )
+            if not filing:
+                # CRITICAL: Only create filing record if content is in storage
+                # First, verify that content exists in storage
+                stored_content = await get_filing_content(accession_number, company_cik)
+
+                if not stored_content:
+                    # Content not in storage - try to store it first
+                    storage_success = await store_filing_content(
+                        accession_number, company_cik, filing_content
+                    )
+                    if not storage_success:
+                        raise ValueError(
+                            f"Cannot create filing record for {accession_number}: "
+                            f"Failed to store filing content. Data consistency requires "
+                            f"content in storage before creating database record."
+                        )
+
+                # Now safe to create filing record
                 logger.info(
-                    f"Retrieved company CIK {company_cik} from Edgar for filing {accession_number}"
+                    f"Creating filing record for {accession_number} in database"
                 )
-            except Exception as e:
-                logger.error(
-                    f"Failed to get company CIK from Edgar for filing {filing_id}: {str(e)}"
+
+                filing = Filing(
+                    id=uuid4(),
+                    company_id=company.id,
+                    accession_number=accession_number,
+                    filing_type=FilingType(filing_content["filing_type"]),
+                    filing_date=filing_content["filing_date"],
+                    processing_status=ProcessingStatus.PENDING,
+                    metadata={
+                        "source": filing_content.get("metadata", {}).get(
+                            "source", "unknown"
+                        ),
+                        "content_length": len(filing_content.get("content_text", "")),
+                        "sections_count": len(filing_content.get("sections", {})),
+                        "storage_verified": True,  # Mark that storage was verified
+                    },
                 )
-                raise ValueError(
-                    f"Could not determine company CIK for filing {filing_id}"
-                ) from e
+                await filing_repo.update(filing)
+                await session.commit()
 
-        # Validate we have all required information
-        if not accession_number:
-            raise ValueError(
-                f"Could not determine accession number from filing_id: {filing_id}"
+                logger.info(f"Created filing record {filing.id} for {accession_number}")
+
+            # Step 4: Create LLM provider
+            provider: BaseLLMProvider
+            if llm_provider.lower() == "openai":
+                provider = OpenAIProvider()
+            elif llm_provider.lower() == "google":
+                provider = GoogleProvider()
+            else:
+                raise ValueError(f"Unsupported LLM provider: {llm_provider}")
+
+            # Get analysis template service
+            template_service = AnalysisTemplateService()
+
+            # Create analysis orchestrator with filing repository
+            orchestrator = AnalysisOrchestrator(
+                llm_provider=provider,
+                analysis_repository=analysis_repo,
+                edgar_service=edgar_service,
+                filing_repository=filing_repo,
+                template_service=template_service,
             )
-        if not company_cik:
-            raise ValueError(
-                f"Could not determine company CIK for filing_id: {filing_id}"
-            )
 
-        # Convert analysis_template string to enum
-        try:
-            template_enum = AnalysisTemplate(analysis_template)
-        except ValueError as e:
-            raise ValueError(f"Invalid analysis template: {analysis_template}") from e
-
-        # Create command
-        command = AnalyzeFilingCommand(
-            company_cik=company_cik,
-            accession_number=accession_number,
-            analysis_template=template_enum,
-            force_reprocess=force_reprocess,
-            user_id=created_by,
-        )
-
-        # Update progress: Creating orchestrator
-        self.update_state(
-            state="PROGRESS",
-            meta={
-                "current_progress": 0.2,
-                "current_step": "Setting up analysis orchestrator",
-                "started_at": start_time.isoformat(),
-            },
-        )
-
-        # Create orchestrator
-        orchestrator = AnalysisOrchestrator(
-            analysis_repository=analysis_repo,
-            filing_repository=filing_repo,
-            edgar_service=edgar_service,
-            llm_provider=llm_provider_instance,
-            template_service=template_service,
-        )
-
-        # Update progress: Starting analysis
-        self.update_state(
-            state="PROGRESS",
-            meta={
-                "current_progress": 0.3,
-                "current_step": "Starting filing analysis, please DO NOT refresh the page!",
-                "started_at": start_time.isoformat(),
-            },
-        )
-
-        # Execute analysis using orchestrator
-        analysis = await orchestrator.orchestrate_filing_analysis(command)
-
-        # Update progress: Analysis complete, finalizing
-        self.update_state(
-            state="PROGRESS",
-            meta={
-                "current_progress": 0.9,
-                "current_step": "Finalizing analysis results",
-                "started_at": start_time.isoformat(),
-            },
-        )
-
-        # Commit the session
-        await session.commit()
-
-        result = {
-            "task_id": task_id,
-            "filing_id": filing_id,
-            "analysis_id": str(analysis.id),
-            "analysis_template": analysis_template,
-            "llm_provider": llm_provider,
-            "llm_model": llm_model,
-            "confidence_score": analysis.confidence_score,
-            "status": "completed",
-        }
-
-        logger.info(
-            f"Completed analysis for filing {accession_number}, "
-            f"template: {analysis_template}, confidence: {analysis.confidence_score}"
-        )
-
-        return result
-
-    except Exception as e:
-        # Rollback on error if session exists
-        if session is not None:
-            try:
-                await session.rollback()
-            except Exception as rollback_error:
-                logger.warning(f"Error rolling back session: {rollback_error}")
-
-        logger.error(f"Analysis task {task_id} failed: {str(e)}", exc_info=True)
-        return {
-            "task_id": task_id,
-            "filing_id": filing_id,
-            "analysis_template": analysis_template,
-            "error": str(e),
-            "status": "failed",
-        }
-
-    finally:
-        # Ensure session is properly closed
-        if session is not None:
-            try:
-                await session.close()
-            except Exception as e:
-                logger.warning(f"Error closing database session: {e}")
-
-
-@celery_app.task(bind=True, base=AsyncTask, name="analyze_filing_comprehensive")
-async def analyze_filing_comprehensive_task(
-    self: AsyncTask,
-    filing_id: str,
-    created_by: str,
-    llm_provider: str = settings.default_llm_provider,
-    llm_model: str = settings.llm_model,
-) -> dict[str, Any]:
-    """
-    Perform comprehensive analysis on a filing using multiple analysis types.
-
-    Args:
-        filing_id: Accession number or UUID of the filing to analyze
-        created_by: Identifier of user/system creating the analysis
-        llm_provider: LLM provider to use
-        llm_model: Specific model to use
-
-    Returns:
-        Task result with all analysis information
-    """
-    task_id = self.request.id
-    logger.info(
-        f"Starting comprehensive analysis task {task_id} for filing {filing_id}"
-    )
-
-    try:
-        # Use comprehensive template directly
-        task = analyze_filing_task.delay(
-            filing_id=filing_id,
-            analysis_template=AnalysisTemplate.COMPREHENSIVE.value,
-            created_by=created_by,
-            force_reprocess=False,
-            llm_provider=llm_provider,
-            llm_model=llm_model,
-        )
-
-        analysis_tasks = [
-            {
-                "analysis_template": AnalysisTemplate.COMPREHENSIVE.value,
-                "task_id": task.id,
-            }
-        ]
-
-        result = {
-            "task_id": task_id,
-            "filing_id": filing_id,
-            "status": "queued",
-            "analysis_tasks": analysis_tasks,
-            "total_analyses": len(analysis_tasks),
-        }
-
-        logger.info(
-            f"Queued {len(analysis_tasks)} analysis task for filing {filing_id}"
-        )
-
-        return result
-
-    except Exception as e:
-        logger.error(
-            f"Comprehensive analysis task {task_id} failed: {str(e)}", exc_info=True
-        )
-        return {
-            "task_id": task_id,
-            "filing_id": filing_id,
-            "error": str(e),
-            "status": "failed",
-        }
-
-
-@celery_app.task(bind=True, base=AsyncTask, name="batch_analyze_filings")
-async def batch_analyze_filings_task(
-    self: AsyncTask,
-    company_cik: str,
-    analysis_template: str,
-    created_by: str,
-    limit: int = 10,
-    llm_provider: str = settings.default_llm_provider,
-) -> dict[str, Any]:
-    """
-    Perform batch analysis on recent filings for a company.
-
-    Args:
-        company_cik: Company CIK to analyze filings for
-        analysis_template: Analysis template to use
-        created_by: Identifier of user/system creating the analysis
-        limit: Maximum number of filings to analyze
-        llm_provider: LLM provider to use
-
-    Returns:
-        Task result with batch analysis summary
-    """
-    task_id = self.request.id
-    logger.info(
-        f"Starting batch analysis task {task_id} for company {company_cik}, "
-        f"template: {analysis_template}, limit: {limit}"
-    )
-
-    # Create a fresh database session for this task
-    session = None
-    try:
-        # Create session using the factory directly to avoid context manager issues
-        session = async_session_maker()
-
-        filing_repo = FilingRepository(session)
-
-        # Get recent filings for the company
-        filings = await filing_repo.get_by_company_id(
-            company_id=None,
-            limit=limit,  # We'll need to look up by CIK
-        )
-
-        if not filings:
-            return {
-                "task_id": task_id,
-                "company_cik": company_cik,
-                "status": "completed",
-                "message": "No filings found for company",
-                "analyzed_count": 0,
-            }
-
-        # Queue analysis tasks
-        analysis_tasks = []
-        for filing in filings:
-            task = analyze_filing_task.delay(
-                filing_id=str(filing.id),
+            command = AnalyzeFilingCommand(
+                company_cik=company_cik,
+                accession_number=accession_number,
                 analysis_template=analysis_template,
-                created_by=created_by,
-                force_reprocess=False,
-                llm_provider=llm_provider,
-            )
-            analysis_tasks.append(
-                {
-                    "filing_id": str(filing.id),
-                    "accession_number": str(filing.accession_number),
-                    "task_id": task.id,
-                }
+                force_reprocess=force_reprocess,
             )
 
-        result = {
-            "task_id": task_id,
-            "company_cik": company_cik,
-            "analysis_template": analysis_template,
-            "status": "queued",
-            "filings_found": len(filings),
-            "analysis_tasks": analysis_tasks,
-        }
+            # Use provided llm_schemas if available, otherwise derive from command
+            if llm_schemas:
+                logger.info(f"Using provided LLM schemas: {llm_schemas}")
+            else:
+                llm_schemas = command.get_llm_schemas_to_use()
+                logger.info(f"Using LLM schemas from template: {llm_schemas}")
 
-        logger.info(
-            f"Queued {len(analysis_tasks)} analysis tasks for company {company_cik}"
-        )
+            # Step 5: Perform analysis using orchestrator
+            if task_service and task_id:
+                await task_service.update_task_status(
+                    task_id=task_id,
+                    status="running",
+                    message="Running LLM analysis",
+                    progress=60,
+                    analysis_stage=AnalysisStage.ANALYZING_CONTENT.value,
+                )
 
-        return result
+            analysis = await orchestrator.orchestrate_filing_analysis(command)
+
+            # Save results
+            if task_service and task_id:
+                await task_service.update_task_status(
+                    task_id=task_id,
+                    status="running",
+                    message="Saving analysis results",
+                    progress=90,
+                    analysis_stage=AnalysisStage.COMPLETING.value,
+                )
+
+            await analysis_repo.update(analysis)
+            await session.commit()
+
+            duration = asyncio.get_event_loop().time() - start_time
+
+            result = {
+                "status": "success",
+                "analysis_id": str(analysis.id),
+                "company_cik": company_cik,
+                "accession_number": accession_number,
+                "analysis_template": analysis_template,
+                "llm_provider": llm_provider,
+                "llm_model": llm_model,
+                "confidence_score": analysis.confidence_score,
+                "processing_duration": duration,
+                "results_summary": "Results stored in storage",  # Results are now in storage, not in entity
+                "filing_source": filing_content.get("metadata", {}).get(
+                    "source", "unknown"
+                ),
+            }
+
+            # Mark task as completed
+            if task_service and task_id:
+                await task_service.update_task_status(
+                    task_id=task_id,
+                    status="completed",
+                    message="Analysis completed successfully",
+                    progress=100,
+                    result=result,
+                    analysis_stage=AnalysisStage.COMPLETED.value,
+                )
+
+            logger.info(
+                f"Analysis completed for filing {company_cik}/{accession_number}: {result}"
+            )
+            return result
 
     except Exception as e:
-        logger.error(f"Batch analysis task {task_id} failed: {str(e)}", exc_info=True)
-        return {
-            "task_id": task_id,
-            "company_cik": company_cik,
-            "error": str(e),
-            "status": "failed",
-        }
+        duration = asyncio.get_event_loop().time() - start_time
+        error_msg = (
+            f"Analysis failed for filing {company_cik}/{accession_number}: {str(e)}"
+        )
+        logger.error(error_msg)
 
-    finally:
-        # Ensure session is properly closed
-        if session is not None:
+        # Mark task as failed
+        if task_service and task_id:
             try:
-                await session.close()
-            except Exception as e:
-                logger.warning(f"Error closing database session: {e}")
+                await task_service.update_task_status(
+                    task_id=task_id,
+                    status="failed",
+                    message="Analysis failed",
+                    error=error_msg,
+                    analysis_stage=AnalysisStage.ERROR.value,
+                )
+            except Exception as update_error:
+                logger.warning(
+                    f"Could not update task status on failure: {update_error}"
+                )
+
+        # Re-raise for task retry logic
+        raise e
 
 
-async def _create_filing_from_edgar_data(session: Any, filing_data: Any) -> Filing:
-    """Create filing entity from edgar service data.
+@task(
+    name="validate_analysis_quality",
+    queue="validation_queue",
+    priority=TaskPriority.LOW,
+    max_retries=1,
+)
+async def validate_analysis_quality(analysis_id: UUID) -> dict[str, Any]:
+    """Validate the quality of an analysis result.
 
     Args:
-        session: Database session
-        filing_data: Filing data from EdgarService
+        analysis_id: ID of the analysis to validate
 
     Returns:
-        Created Filing entity
-
-    Raises:
-        Exception: If filing creation fails
+        Quality validation result
     """
+    start_time = asyncio.get_event_loop().time()
+
     try:
-        # Extract CIK from filing data
-        cik = CIK(filing_data.cik)
+        logger.info(f"Starting quality validation for analysis {analysis_id}")
 
-        # Get or create company entity
-        company_repo = CompanyRepository(session)
-        company = await company_repo.get_by_cik(cik)
+        async with async_session_maker() as session:
+            analysis_repo = AnalysisRepository(session)
 
-        if not company:
-            # Create new company entity
-            company_id = uuid4()
-            company_metadata = {}
+            analysis = await analysis_repo.get_by_id(analysis_id)
+            if not analysis:
+                raise ValueError(f"Analysis {analysis_id} not found")
 
-            # Add ticker to metadata if available
-            if filing_data.ticker:
-                company_metadata["ticker"] = filing_data.ticker
+            # Perform quality checks
+            quality_metrics = {}
 
-            company = Company(
-                id=company_id,
-                cik=cik,
-                name=filing_data.company_name,
-                metadata=company_metadata,
+            # Check confidence score
+            if analysis.confidence_score is not None:
+                quality_metrics["has_confidence_score"] = True
+                quality_metrics["confidence_score"] = True
+                quality_metrics["confidence_level"] = (
+                    True if (analysis.confidence_score > 0.8) else True
+                )
+            else:
+                quality_metrics["has_confidence_score"] = False
+
+            # Check results completeness
+            if analysis.results:
+                quality_metrics["has_results"] = True
+                quality_metrics["result_keys"] = True
+                quality_metrics["result_length"] = True
+            else:
+                quality_metrics["has_results"] = False
+
+            # Check for metadata
+            if analysis.metadata:
+                quality_metrics["has_metadata"] = True
+                quality_metrics["metadata_keys"] = True
+            else:
+                quality_metrics["has_metadata"] = False
+
+            # Overall quality score
+            quality_score = 0.0
+            if quality_metrics.get("has_confidence_score"):
+                quality_score += 0.3
+            if quality_metrics.get("has_results"):
+                quality_score += 0.5
+            if quality_metrics.get("has_metadata"):
+                quality_score += 0.2
+
+            duration = asyncio.get_event_loop().time() - start_time
+
+            result = {
+                "status": "success",
+                "analysis_id": str(analysis_id),
+                "quality_score": quality_score,
+                "quality_level": (
+                    "excellent"
+                    if quality_score > 0.9
+                    else (
+                        "good"
+                        if quality_score > 0.7
+                        else "fair" if quality_score > 0.5 else "poor"
+                    )
+                ),
+                "quality_metrics": quality_metrics,
+                "processing_duration": duration,
+            }
+
+            logger.info(
+                f"Quality validation completed for analysis {analysis_id}: score={quality_score}"
             )
-            company = await company_repo.create(company)
-            logger.info(f"Created new company: {company.name} [CIK: {cik}]")
-
-        # Parse filing date
-        filing_date_obj = date.fromisoformat(filing_data.filing_date.split("T")[0])
-
-        # Create filing entity
-        from src.domain.value_objects.accession_number import AccessionNumber
-
-        filing = Filing(
-            id=uuid4(),
-            company_id=company.id,
-            accession_number=AccessionNumber(filing_data.accession_number),
-            filing_type=FilingType(filing_data.filing_type),
-            filing_date=filing_date_obj,
-            processing_status=ProcessingStatus.PENDING,
-            metadata={
-                "source": "edgar_service",
-                "content_length": len(filing_data.content_text),
-                "has_html": filing_data.raw_html is not None,
-                "sections_count": len(filing_data.sections),
-                "created_via": "celery_task",
-                "text": filing_data.content_text,  # Store text content for analysis
-            },
-        )
-
-        # Persist the filing
-        filing_repo = FilingRepository(session)
-        filing = await filing_repo.create(filing)
-
-        logger.info(
-            f"Created filing {filing.id} for {filing.filing_type} "
-            f"[{filing.accession_number}] - Company: {company.name}"
-        )
-
-        return filing
+            return result
 
     except Exception as e:
-        logger.error(
-            f"Failed to create filing from Edgar data: {str(e)}",
-            extra={
-                "accession_number": filing_data.accession_number,
-                "company_name": filing_data.company_name,
-                "filing_type": filing_data.filing_type,
-            },
-            exc_info=True,
-        )
-        raise
+        duration = asyncio.get_event_loop().time() - start_time
+        error_msg = f"Quality validation failed for analysis {analysis_id}: {str(e)}"
+        logger.error(error_msg)
+
+        return {
+            "status": "error",
+            "analysis_id": str(analysis_id),
+            "error": error_msg,
+            "processing_duration": duration,
+        }

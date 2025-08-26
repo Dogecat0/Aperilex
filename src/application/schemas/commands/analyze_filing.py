@@ -58,6 +58,20 @@ class AnalyzeFilingCommand(BaseCommand):
         if self.accession_number is None:
             raise ValueError("accession_number is required")
 
+        # Basic format validation
+        if not str(self.company_cik).strip():
+            raise ValueError("company_cik cannot be empty")
+
+        accession_str = str(self.accession_number).strip()
+        if not accession_str:
+            raise ValueError("accession_number cannot be empty")
+
+        # Check basic accession number format
+        if '-' not in accession_str:
+            raise ValueError(
+                "accession_number must contain dashes (format: XXXXXXXXXX-XX-XXXXXX)"
+            )
+
     @property
     def filing_identifier(self) -> str:
         """Get a human-readable identifier for the filing being analyzed.

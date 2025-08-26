@@ -110,7 +110,7 @@ async def get_company(
 
         # Get dependencies and dispatcher
         dispatcher = factory.create_dispatcher()
-        dependencies = factory.get_handler_dependencies(session)
+        dependencies = await factory.get_handler_dependencies(session)
 
         # Dispatch query
         result: CompanyResponse = await dispatcher.dispatch_query(query, dependencies)
@@ -223,7 +223,7 @@ async def list_company_analyses(
         # This is needed because ListAnalysesQuery filters by CIK, not ticker
         company_query = GetCompanyQuery(ticker=ticker_normalized)
         dispatcher = factory.create_dispatcher()
-        dependencies = factory.get_handler_dependencies(session)
+        dependencies = await factory.get_handler_dependencies(session)
 
         try:
             company_info: CompanyResponse = await dispatcher.dispatch_query(
@@ -434,7 +434,7 @@ async def list_company_filings(
 
         # Get dependencies and dispatcher
         dispatcher = factory.create_dispatcher()
-        dependencies = factory.get_handler_dependencies(session)
+        dependencies = await factory.get_handler_dependencies(session)
 
         # Dispatch query
         result: PaginatedResponse[FilingResponse] = await dispatcher.dispatch_query(

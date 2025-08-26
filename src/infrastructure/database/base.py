@@ -38,7 +38,7 @@ database_url = settings.database_url
 if database_url.startswith("sqlite://"):
     database_url = database_url.replace("sqlite://", "sqlite+aiosqlite://")
 
-# Create async engine with better connection handling for Celery context
+# Create async engine with better connection handling
 engine_kwargs = {
     "echo": settings.debug,
     "future": True,
@@ -46,7 +46,7 @@ engine_kwargs = {
     "connect_args": (
         {
             "server_settings": {
-                "application_name": "aperilex_celery",
+                "application_name": "aperilex",
             }
         }
         if "postgresql" in database_url
@@ -66,12 +66,12 @@ if not database_url.startswith("sqlite"):
 
 engine = create_async_engine(database_url, **engine_kwargs)
 
-# Create async session factory with Celery-friendly settings
+# Create async session factory with async-friendly settings
 async_session_maker = async_sessionmaker(
     engine,
     class_=AsyncSession,
     expire_on_commit=False,
-    # Important for async tasks: prevent stale connections
+    # Important for background tasks: prevent stale connections
     autoflush=True,
     autocommit=False,
 )

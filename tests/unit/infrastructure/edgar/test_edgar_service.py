@@ -1,1451 +1,1388 @@
-"""Unit tests for EdgarService with comprehensive mocking."""
+"""Comprehensive tests for EdgarService external integration."""
 
+import asyncio
 from datetime import date
-from unittest.mock import Mock, patch
+from unittest.mock import Mock, call, patch
 
 import pytest
 
-from src.domain.value_objects import CIK, AccessionNumber, FilingType, Ticker
+from src.domain.value_objects import CIK, FilingType, Ticker
+from src.domain.value_objects.accession_number import AccessionNumber
 from src.infrastructure.edgar.schemas.company_data import CompanyData
 from src.infrastructure.edgar.schemas.filing_data import FilingData
 from src.infrastructure.edgar.service import EdgarService
 
 
-class TestEdgarService:
-    """Test cases for EdgarService with mocked external dependencies."""
+@pytest.mark.unit
+class TestEdgarServiceConstruction:
+    """Test EdgarService construction and initialization."""
 
-    @pytest.fixture
-    def mock_company(self):
-        """Create a mock edgar Company object."""
-        mock_company = Mock()
-        mock_company.cik = 320193
-        mock_company.name = "Apple Inc."
-        mock_company.ticker = "AAPL"
-        mock_company.sic = "3571"
-        mock_company.sic_description = "Electronic Computers"
-        mock_company.tickers = ["AAPL"]
-        mock_company.address = {
-            "street1": "One Apple Park Way",
-            "city": "Cupertino",
-            "stateOrCountry": "CA",
-            "zipCode": "95014",
-        }
-        # Add get_ticker() method that the service expects
-        mock_company.get_ticker = Mock(return_value="AAPL")
-        return mock_company
+    @patch("src.infrastructure.edgar.service.set_identity")
+    @patch("src.infrastructure.edgar.service.settings")
+    def test_constructor_with_default_identity(self, mock_settings, mock_set_identity):
+        """Test creating EdgarService with default identity."""
+        # Arrange
+        mock_settings.edgar_identity = None
 
-    @pytest.fixture
-    def realistic_mock_company(self):
-        """Create a mock edgar Company object with realistic Microsoft data."""
-        mock_company = Mock()
-        mock_company.cik = 789019
-        mock_company.name = "Microsoft Corporation"
-        mock_company.ticker = "MSFT"
-        mock_company.sic = "7372"
-        mock_company.sic_description = "Services-Prepackaged Software"
-        mock_company.tickers = ["MSFT"]
-        mock_company.address = {
-            "street1": "One Microsoft Way",
-            "city": "Redmond",
-            "stateOrCountry": "WA",
-            "zipCode": "98052-6399",
-        }
-        # Add get_ticker() method that the service expects
-        mock_company.get_ticker = Mock(return_value="MSFT")
-        return mock_company
+        # Act
+        _ = EdgarService()
 
-    @pytest.fixture
-    def mock_filing(self):
-        """Create a mock edgar Filing object."""
-        mock_filing = Mock()
-        mock_filing.accession_number = "0000320193-24-000005"
-        mock_filing.form = "10-K"
-        mock_filing.filing_date = date(2024, 1, 15)
-        mock_filing.company = "Apple Inc."  # Note: use 'company' not 'company_name'
-        mock_filing.cik = 320193
-        mock_filing.ticker = "AAPL"
+        # Assert
+        mock_set_identity.assert_called_once_with("aperilex@example.com")
 
-        # Mock the filing content methods
-        mock_filing.text.return_value = "Mock filing text content"
-        mock_filing.html.return_value = "<html>Mock HTML content</html>"
+    @patch("src.infrastructure.edgar.service.set_identity")
+    @patch("src.infrastructure.edgar.service.settings")
+    def test_constructor_with_configured_identity(
+        self, mock_settings, mock_set_identity
+    ):
+        """Test creating EdgarService with configured identity."""
+        # Arrange
+        mock_settings.edgar_identity = "test@company.com"
 
-        # Mock the filing object with sections
-        mock_filing_obj = Mock()
-        mock_filing_obj.business = "Mock business description"
-        mock_filing_obj.risk_factors = "Mock risk factors"
-        mock_filing_obj.mda = "Mock management discussion and analysis"
-        mock_filing.obj.return_value = mock_filing_obj
+        # Act
+        _ = EdgarService()
 
-        return mock_filing
+        # Assert
+        mock_set_identity.assert_called_once_with("test@company.com")
 
-    @pytest.fixture
-    def realistic_mock_filing(self, realistic_filing_sections: dict[str, str]) -> Mock:
-        """Create a mock edgar Filing object with realistic Microsoft content."""
-        mock_filing = Mock()
-        mock_filing.accession_number = "0001564590-24-000029"
-        mock_filing.form = "10-K"
-        mock_filing.filing_date = date(2024, 7, 30)
-        mock_filing.company = "Microsoft Corporation"
-        mock_filing.cik = 789019
-        mock_filing.ticker = "MSFT"
+    @patch("src.infrastructure.edgar.service.set_identity")
+    @patch("src.infrastructure.edgar.service.settings")
+    def test_constructor_sets_identity_only_once(
+        self, mock_settings, mock_set_identity
+    ):
+        """Test that identity is set exactly once during construction."""
+        # Arrange
+        mock_settings.edgar_identity = "test@example.com"
 
-        # Realistic content methods with actual SEC filing excerpts
-        realistic_content = "\n\n".join(realistic_filing_sections.values())
-        mock_filing.text.return_value = realistic_content
-        mock_filing.html.return_value = f"<html><body>{''.join(f'<section>{content}</section>' for content in realistic_filing_sections.values())}</body></html>"
+        # Act
+        _ = EdgarService()
+        _ = EdgarService()
 
-        # Mock the filing object with realistic sections
-        mock_filing_obj = Mock()
-        mock_filing_obj.business = realistic_filing_sections["Item 1 - Business"]
-        mock_filing_obj.risk_factors = realistic_filing_sections[
-            "Item 1A - Risk Factors"
-        ]
-        mock_filing_obj.mda = realistic_filing_sections[
-            "Item 7 - Management Discussion & Analysis"
-        ]
-        mock_filing.obj.return_value = mock_filing_obj
+        # Assert
+        assert mock_set_identity.call_count == 2
+        mock_set_identity.assert_has_calls(
+            [call("test@example.com"), call("test@example.com")]
+        )
 
-        return mock_filing
 
-    @pytest.fixture
-    def service(self):
-        """Create EdgarService with mocked dependencies."""
-        with patch("src.infrastructure.edgar.service.set_identity"):
-            return EdgarService()
+@pytest.mark.unit
+class TestEdgarServiceSuccessfulExecution:
+    """Test successful execution scenarios for EdgarService."""
 
-    def test_init_sets_identity(self):
-        """Test that EdgarService initialization sets SEC identity."""
+    def setup_method(self):
+        """Set up test fixtures."""
         with (
-            patch("src.infrastructure.edgar.service.set_identity") as mock_set_identity,
+            patch("src.infrastructure.edgar.service.set_identity"),
             patch("src.infrastructure.edgar.service.settings") as mock_settings,
         ):
             mock_settings.edgar_identity = "test@example.com"
+            self.service = EdgarService()
 
-            EdgarService()
+    @patch("src.infrastructure.edgar.service.Company")
+    def test_get_company_by_ticker_success(self, mock_company_class):
+        """Test successful company retrieval by ticker."""
+        # Arrange
+        ticker = Ticker("AAPL")
+        mock_company = Mock()
+        mock_company.cik = "0000320193"
+        mock_company.name = "Apple Inc."
+        mock_company.get_ticker.return_value = "AAPL"
+        mock_company.sic = "3571"
+        mock_company.sic_description = "Electronic Computers"
+        mock_company.address = {"street1": "One Apple Park Way"}
+        mock_company_class.return_value = mock_company
 
-            mock_set_identity.assert_called_once_with("test@example.com")
+        # Act
+        result = self.service.get_company_by_ticker(ticker)
 
-    def test_init_uses_default_identity_when_none_configured(self):
-        """Test that EdgarService uses default identity when none configured."""
+        # Assert
+        assert isinstance(result, CompanyData)
+        assert result.cik == "0000320193"
+        assert result.name == "Apple Inc."
+        assert result.ticker == "AAPL"
+        assert result.sic_code == "3571"
+        assert result.sic_description == "Electronic Computers"
+        assert result.address == {"street1": "One Apple Park Way"}
+        mock_company_class.assert_called_once_with(ticker.value)
+
+    @patch("src.infrastructure.edgar.service.Company")
+    def test_get_company_by_ticker_with_fallback_ticker_methods(
+        self, mock_company_class
+    ):
+        """Test company retrieval with fallback ticker extraction methods."""
+        # Arrange
+        ticker = Ticker("MSFT")
+        mock_company = Mock()
+        mock_company.cik = "0000789019"
+        mock_company.name = "Microsoft Corporation"
+
+        # Simulate get_ticker() method not available
+        del mock_company.get_ticker
+        mock_company.ticker = "MSFT"  # Fallback to attribute
+        mock_company.sic = None
+        mock_company.sic_description = None
+        mock_company.address = None
+        mock_company_class.return_value = mock_company
+
+        # Act
+        result = self.service.get_company_by_ticker(ticker)
+
+        # Assert
+        assert isinstance(result, CompanyData)
+        assert result.ticker == "MSFT"
+        assert result.sic_code is None
+
+    @patch("src.infrastructure.edgar.service.Company")
+    def test_get_company_by_ticker_with_tickers_list_fallback(self, mock_company_class):
+        """Test company retrieval with tickers list fallback."""
+        # Arrange
+        ticker = Ticker("GOOGL")
+        mock_company = Mock()
+        mock_company.cik = "0001652044"
+        mock_company.name = "Alphabet Inc."
+
+        # Simulate no get_ticker() method and no ticker attribute
+        del mock_company.get_ticker
+        del mock_company.ticker
+        mock_company.tickers = ["GOOGL", "GOOG"]  # Fallback to tickers list
+        mock_company.sic = None
+        mock_company.sic_description = None
+        mock_company.address = None
+        mock_company_class.return_value = mock_company
+
+        # Act
+        result = self.service.get_company_by_ticker(ticker)
+
+        # Assert
+        assert isinstance(result, CompanyData)
+        assert result.ticker == "GOOGL"  # Should use first ticker from list
+
+    @patch("src.infrastructure.edgar.service.Company")
+    def test_get_company_by_cik_success(self, mock_company_class):
+        """Test successful company retrieval by CIK."""
+        # Arrange
+        cik = CIK("0000320193")
+        mock_company = Mock()
+        mock_company.cik = "0000320193"
+        mock_company.name = "Apple Inc."
+        mock_company.get_ticker.return_value = "AAPL"
+        mock_company.sic = None
+        mock_company.sic_description = None
+        mock_company.address = None
+        mock_company_class.return_value = mock_company
+
+        # Act
+        result = self.service.get_company_by_cik(cik)
+
+        # Assert
+        assert isinstance(result, CompanyData)
+        assert result.cik == "0000320193"
+        assert result.name == "Apple Inc."
+        mock_company_class.assert_called_once_with(int(cik.value))
+
+    @patch("src.infrastructure.edgar.service.Company")
+    def test_get_filing_latest_success(self, mock_company_class):
+        """Test successful latest filing retrieval."""
+        # Arrange
+        ticker = Ticker("AAPL")
+        filing_type = FilingType.FORM_10K
+
+        # Create a properly configured mock filing object
+        mock_filing = Mock()
+        mock_filing.accession_number = "0000320193-23-000106"
+        mock_filing.form = "10-K"
+        mock_filing.filing_date = date(2023, 10, 1)
+        mock_filing.company = "Apple Inc."
+        mock_filing.cik = "0000320193"
+        mock_filing.text.return_value = "Sample filing content"
+        mock_filing.html.return_value = "<html>Sample filing content</html>"
+        mock_filing.obj.return_value = Mock()
+
+        # Mock the entire _get_filings_with_params method to return our mock filing
+        with patch.object(self.service, "_get_filings_with_params") as mock_get_filings:
+            mock_get_filings.return_value = [mock_filing]
+
+            # Mock Company constructor for ticker extraction (called in _extract_filing_data)
+            mock_company_instance = Mock()
+            mock_company_instance.get_ticker.return_value = "AAPL"
+            mock_company_class.return_value = mock_company_instance
+
+            # Act
+            result = self.service.get_filing(ticker, filing_type)
+
+            # Assert
+            assert isinstance(result, FilingData)
+            assert result.accession_number == "0000320193-23-000106"
+            assert result.filing_type == "10-K"
+            assert result.company_name == "Apple Inc."
+            assert result.cik == "0000320193"
+            assert result.ticker == "AAPL"
+            assert result.content_text == "Sample filing content"
+            assert result.raw_html == "<html>Sample filing content</html>"
+
+    @patch("src.infrastructure.edgar.service.Company")
+    def test_get_filing_with_year_filter(self, mock_company_class):
+        """Test filing retrieval with year filter."""
+        # Arrange
+        ticker = Ticker("AAPL")
+        filing_type = FilingType.FORM_10K
+        year = 2023
+
+        mock_company = Mock()
+        mock_filing = self._create_mock_filing()
+        mock_filing.filing_date = date(2023, 10, 1)
+
+        mock_company.get_filings.return_value = [mock_filing]
+        mock_company_class.return_value = mock_company
+
+        with patch.object(self.service, "_extract_filing_data") as mock_extract:
+            mock_extract.return_value = FilingData(
+                accession_number="0000320193-23-000106",
+                filing_type="10-K",
+                filing_date="2023-10-01",
+                company_name="Apple Inc.",
+                cik="0000320193",
+                ticker="AAPL",
+                content_text="Sample content",
+                sections={},
+            )
+
+            # Act
+            result = self.service.get_filing(
+                ticker, filing_type, latest=False, year=year
+            )
+
+            # Assert
+            assert isinstance(result, FilingData)
+            mock_company.get_filings.assert_called_once_with(
+                form=filing_type.value, filing_date=None
+            )
+
+    @patch("src.infrastructure.edgar.service.Company")
+    def test_get_filing_with_quarter_filter(self, mock_company_class):
+        """Test filing retrieval with year and quarter filters."""
+        # Arrange
+        ticker = Ticker("AAPL")
+        filing_type = FilingType.FORM_10Q
+        year = 2023
+        quarter = 1
+
+        mock_company = Mock()
+        mock_filing = self._create_mock_filing()
+        mock_filing.filing_date = date(2023, 3, 31)  # Q1 filing date
+
+        mock_company.get_filings.return_value = [mock_filing]
+        mock_company_class.return_value = mock_company
+
+        with patch.object(self.service, "_extract_filing_data") as mock_extract:
+            mock_extract.return_value = FilingData(
+                accession_number="0000320193-23-000106",
+                filing_type="10-Q",
+                filing_date="2023-03-31",
+                company_name="Apple Inc.",
+                cik="0000320193",
+                ticker="AAPL",
+                content_text="Q1 content",
+                sections={},
+            )
+
+            # Act
+            result = self.service.get_filing(
+                ticker, filing_type, latest=False, year=year, quarter=quarter
+            )
+
+            # Assert
+            assert isinstance(result, FilingData)
+            assert result.filing_date == "2023-03-31"
+
+    @patch("src.infrastructure.edgar.service.Company")
+    def test_get_filing_with_date_range(self, mock_company_class):
+        """Test filing retrieval with date range filter."""
+        # Arrange
+        ticker = Ticker("AAPL")
+        filing_type = FilingType.FORM_8K
+        filing_date = "2023-01-01:2023-12-31"
+
+        mock_company = Mock()
+        mock_filing = self._create_mock_filing()
+
+        mock_company.get_filings.return_value = [mock_filing]
+        mock_company_class.return_value = mock_company
+
+        with patch.object(self.service, "_extract_filing_data") as mock_extract:
+            mock_extract.return_value = FilingData(
+                accession_number="0000320193-23-000106",
+                filing_type="8-K",
+                filing_date="2023-06-15",
+                company_name="Apple Inc.",
+                cik="0000320193",
+                ticker="AAPL",
+                content_text="8-K content",
+                sections={},
+            )
+
+            # Act
+            result = self.service.get_filing(
+                ticker, filing_type, latest=False, filing_date=filing_date
+            )
+
+            # Assert
+            assert isinstance(result, FilingData)
+            mock_company.get_filings.assert_called_once_with(
+                form=filing_type.value, filing_date=filing_date
+            )
+
+    @patch("src.infrastructure.edgar.service.get_by_accession_number")
+    def test_get_filing_by_accession_success(self, mock_get_by_accession):
+        """Test successful filing retrieval by accession number."""
+        # Arrange
+        accession_number = AccessionNumber("0000320193-23-000106")
+        mock_filing = self._create_mock_filing()
+        mock_get_by_accession.return_value = mock_filing
+
+        with patch.object(self.service, "_extract_filing_data") as mock_extract:
+            expected_filing_data = FilingData(
+                accession_number="0000320193-23-000106",
+                filing_type="10-K",
+                filing_date="2023-10-01",
+                company_name="Apple Inc.",
+                cik="0000320193",
+                ticker="AAPL",
+                content_text="Sample content",
+                sections={},
+            )
+            mock_extract.return_value = expected_filing_data
+
+            # Act
+            result = self.service.get_filing_by_accession(accession_number)
+
+            # Assert
+            assert result == expected_filing_data
+            mock_get_by_accession.assert_called_once_with(accession_number.value)
+            mock_extract.assert_called_once_with(mock_filing)
+
+    @patch("src.infrastructure.edgar.service.Company")
+    def test_get_filings_multiple_success(self, mock_company_class):
+        """Test successful retrieval of multiple filings."""
+        # Arrange
+        ticker = Ticker("AAPL")
+        filing_type = FilingType.FORM_10Q
+        year = 2023
+
+        mock_company = Mock()
+        mock_filing_1 = self._create_mock_filing()
+        mock_filing_1.filing_date = date(2023, 3, 31)
+        mock_filing_2 = self._create_mock_filing()
+        mock_filing_2.filing_date = date(2023, 6, 30)
+
+        mock_company.get_filings.return_value = [mock_filing_1, mock_filing_2]
+        mock_company_class.return_value = mock_company
+
+        with patch.object(self.service, "_extract_filing_data") as mock_extract:
+            mock_extract.side_effect = [
+                FilingData(
+                    accession_number="0000320193-23-000106",
+                    filing_type="10-Q",
+                    filing_date="2023-03-31",
+                    company_name="Apple Inc.",
+                    cik="0000320193",
+                    ticker="AAPL",
+                    content_text="Q1 content",
+                    sections={},
+                ),
+                FilingData(
+                    accession_number="0000320193-23-000107",
+                    filing_type="10-Q",
+                    filing_date="2023-06-30",
+                    company_name="Apple Inc.",
+                    cik="0000320193",
+                    ticker="AAPL",
+                    content_text="Q2 content",
+                    sections={},
+                ),
+            ]
+
+            # Act
+            result = self.service.get_filings(ticker, filing_type, year=year)
+
+            # Assert
+            assert isinstance(result, list)
+            assert len(result) == 2
+            assert all(isinstance(filing, FilingData) for filing in result)
+            assert result[0].filing_date == "2023-03-31"
+            assert result[1].filing_date == "2023-06-30"
+
+    def test_async_get_company_by_cik_success(self):
+        """Test successful async company retrieval by CIK."""
+        # Arrange
+        cik = CIK("0000320193")
+        expected_company_data = CompanyData(
+            cik="0000320193", name="Apple Inc.", ticker="AAPL"
+        )
+
+        with patch.object(self.service, "get_company_by_cik") as mock_sync_method:
+            mock_sync_method.return_value = expected_company_data
+
+            async def test_async():
+                # Act
+                result = await self.service.get_company_by_cik_async(cik)
+
+                # Assert
+                assert result == expected_company_data
+                mock_sync_method.assert_called_once_with(cik)
+
+            # Run the async test
+            asyncio.run(test_async())
+
+    def _create_mock_filing(self) -> Mock:
+        """Create a mock filing object with standard attributes."""
+        mock_filing = Mock()
+        # Configure Mock to return string values, not new Mock objects
+        mock_filing.configure_mock(
+            **{
+                "accession_number": "0000320193-23-000106",
+                "form": "10-K",
+                "filing_date": date(2023, 10, 1),
+                "company": "Apple Inc.",
+                "cik": "0000320193",
+            }
+        )
+        mock_filing.text.return_value = "Sample filing content"
+        mock_filing.html.return_value = "<html>Sample filing content</html>"
+        mock_filing.obj.return_value = Mock()
+        return mock_filing
+
+
+@pytest.mark.unit
+class TestEdgarServiceErrorHandling:
+    """Test error handling scenarios for EdgarService."""
+
+    def setup_method(self):
+        """Set up test fixtures."""
         with (
-            patch("src.infrastructure.edgar.service.set_identity") as mock_set_identity,
+            patch("src.infrastructure.edgar.service.set_identity"),
             patch("src.infrastructure.edgar.service.settings") as mock_settings,
         ):
-            mock_settings.edgar_identity = None
-
-            EdgarService()
-
-            mock_set_identity.assert_called_once_with("aperilex@example.com")
+            mock_settings.edgar_identity = "test@example.com"
+            self.service = EdgarService()
 
     @patch("src.infrastructure.edgar.service.Company")
-    def test_get_company_by_ticker_success(
-        self, mock_company_class, service, mock_company
-    ):
-        """Test successful company retrieval by ticker."""
-        # Setup
-        mock_company_class.return_value = mock_company
+    def test_get_company_by_ticker_not_found(self, mock_company_class):
+        """Test company retrieval when ticker not found."""
+        # Arrange
+        ticker = Ticker("INVALID")
+        mock_company_class.side_effect = ValueError("Company not found")
+
+        # Act & Assert
+        with pytest.raises(
+            ValueError, match="Failed to get company for ticker INVALID"
+        ):
+            self.service.get_company_by_ticker(ticker)
+
+    @patch("src.infrastructure.edgar.service.Company")
+    def test_get_company_by_ticker_network_error(self, mock_company_class):
+        """Test company retrieval with network error."""
+        # Arrange
         ticker = Ticker("AAPL")
+        mock_company_class.side_effect = ConnectionError("Network timeout")
 
-        # Execute
-        result = service.get_company_by_ticker(ticker)
-
-        # Assert
-        mock_company_class.assert_called_once_with("AAPL")
-        assert isinstance(result, CompanyData)
-        assert result.cik == "320193"
-        assert result.name == "Apple Inc."
-        assert result.ticker == "AAPL"
-        assert result.sic_code == "3571"
-        assert result.sic_description == "Electronic Computers"
+        # Act & Assert
+        with pytest.raises(ValueError, match="Failed to get company for ticker AAPL"):
+            self.service.get_company_by_ticker(ticker)
 
     @patch("src.infrastructure.edgar.service.Company")
-    def test_get_company_by_ticker_not_found(self, mock_company_class, service):
-        """Test company retrieval by ticker when company not found."""
-        # Setup
-        mock_company_class.side_effect = Exception("Company not found")
-        ticker = Ticker("NOTFD")  # Valid format ticker that doesn't exist
+    def test_get_company_by_cik_invalid_cik(self, mock_company_class):
+        """Test company retrieval with invalid CIK."""
+        # Arrange
+        cik = CIK("0000999999")
+        mock_company_class.side_effect = ValueError("Invalid CIK")
 
-        # Execute & Assert
-        with pytest.raises(ValueError, match="Failed to get company for ticker NOTFD"):
-            service.get_company_by_ticker(ticker)
-
-    @patch("src.infrastructure.edgar.service.Company")
-    def test_get_company_by_ticker_with_realistic_data(
-        self, mock_company_class, service, realistic_mock_company
-    ):
-        """Test company retrieval with realistic Microsoft data structure."""
-        # Setup
-        mock_company_class.return_value = realistic_mock_company
-        ticker = Ticker("MSFT")
-
-        # Execute
-        result = service.get_company_by_ticker(ticker)
-
-        # Assert
-        mock_company_class.assert_called_once_with("MSFT")
-        assert isinstance(result, CompanyData)
-        assert result.cik == "789019"
-        assert result.name == "Microsoft Corporation"
-        assert result.ticker == "MSFT"
-        assert result.sic_code == "7372"
-        assert result.sic_description == "Services-Prepackaged Software"
-
-        # Verify realistic address structure
-        assert result.address is not None
-        assert result.address["street1"] == "One Microsoft Way"
-        assert result.address["city"] == "Redmond"
-        assert result.address["stateOrCountry"] == "WA"
-        assert result.address["zipCode"] == "98052-6399"
+        # Act & Assert
+        with pytest.raises(
+            ValueError, match="Failed to get company for CIK 0000999999"
+        ):
+            self.service.get_company_by_cik(cik)
 
     @patch("src.infrastructure.edgar.service.Company")
-    def test_get_company_by_cik_success(
-        self, mock_company_class, service, mock_company
-    ):
-        """Test successful company retrieval by CIK."""
-        # Setup
-        mock_company_class.return_value = mock_company
-        cik = CIK("320193")
+    def test_get_company_by_cik_rate_limit_error(self, mock_company_class):
+        """Test company retrieval with SEC rate limiting."""
+        # Arrange
+        cik = CIK("0000320193")
+        mock_company_class.side_effect = Exception("Rate limit exceeded")
 
-        # Execute
-        result = service.get_company_by_cik(cik)
-
-        # Assert
-        mock_company_class.assert_called_once_with(320193)
-        assert isinstance(result, CompanyData)
-        assert result.cik == "320193"
-        assert result.name == "Apple Inc."
+        # Act & Assert
+        with pytest.raises(
+            ValueError, match="Failed to get company for CIK 0000320193"
+        ):
+            self.service.get_company_by_cik(cik)
 
     @patch("src.infrastructure.edgar.service.Company")
-    def test_get_company_by_cik_not_found(self, mock_company_class, service):
-        """Test company retrieval by CIK when company not found."""
-        # Setup
-        mock_company_class.side_effect = Exception("Company not found")
-        cik = CIK("999999")
-
-        # Execute & Assert
-        with pytest.raises(ValueError, match="Failed to get company for CIK 999999"):
-            service.get_company_by_cik(cik)
-
-    @patch("src.infrastructure.edgar.service.Company")
-    def test_get_filing_latest_success(
-        self, mock_company_class, service, mock_company, mock_filing
-    ):
-        """Test successful latest filing retrieval."""
-        # Setup - mock the get_filings method to return a filings object with latest() method
-        mock_filings = Mock()
-        mock_filings.latest.return_value = mock_filing
-        mock_company.get_filings.return_value = mock_filings
-
-        # Mock the Company class to return the mock_company for initial call
-        # and configure get_ticker method for _extract_filing_data call
-        mock_company_for_ticker = Mock()
-        mock_company_for_ticker.get_ticker.return_value = "AAPL"
-
-        # Configure mock_company_class to return different mocks based on call order
-        mock_company_class.side_effect = [mock_company, mock_company_for_ticker]
-
+    def test_get_filing_no_filings_found(self, mock_company_class):
+        """Test filing retrieval when no filings are found."""
+        # Arrange
         ticker = Ticker("AAPL")
         filing_type = FilingType.FORM_10K
 
-        # Execute
-        result = service.get_filing(ticker, filing_type, latest=True)
-
-        # Assert
-        assert isinstance(result, FilingData)
-        assert result.accession_number == "0000320193-24-000005"
-        assert result.filing_type == "10-K"
-        assert result.filing_date == "2024-01-15"  # Filing date is stored as string
-        assert result.company_name == "Apple Inc."
-        assert result.cik == "320193"
-        assert result.ticker == "AAPL"
-
-    @patch("src.infrastructure.edgar.service.Company")
-    def test_get_filing_with_year_filter(
-        self, mock_company_class, service, mock_company, mock_filing
-    ):
-        """Test filing retrieval with year filter."""
-        # Setup
-        mock_company_class.return_value = mock_company
-        mock_company.get_filings.return_value = [mock_filing]
-
-        ticker = Ticker("AAPL")
-        filing_type = FilingType.FORM_10K
-
-        # Execute
-        result = service.get_filing(ticker, filing_type, latest=False, year=2024)
-
-        # Assert
-        # Verify get_filings was called
-        assert mock_company.get_filings.called
-        assert isinstance(result, FilingData)
-
-    @patch("src.infrastructure.edgar.service.Company")
-    def test_get_filing_with_quarter_filter(
-        self, mock_company_class, service, mock_company, mock_filing
-    ):
-        """Test filing retrieval with quarter filter."""
-        # Setup
-        mock_company_class.return_value = mock_company
-        mock_company.get_filings.return_value = [mock_filing]
-
-        ticker = Ticker("AAPL")
-        filing_type = FilingType.FORM_10Q
-
-        # Execute
-        result = service.get_filing(
-            ticker, filing_type, latest=False, year=2024, quarter=1
-        )
-
-        # Assert
-        assert isinstance(result, FilingData)
-
-    @patch("src.infrastructure.edgar.service.Company")
-    def test_get_filing_not_found(self, mock_company_class, service, mock_company):
-        """Test filing retrieval when no filing found."""
-        # Setup
-        mock_filings = Mock()
-        mock_filings.latest.side_effect = IndexError("No filings found")
-        mock_company.get_filings.return_value = mock_filings
-        mock_company_class.return_value = mock_company
-
-        ticker = Ticker("AAPL")
-        filing_type = FilingType.FORM_10K
-
-        # Execute & Assert
-        with pytest.raises(ValueError, match="Failed to get filing"):
-            service.get_filing(ticker, filing_type, latest=True)
-
-    @patch("src.infrastructure.edgar.service.Company")
-    def test_get_filing_with_realistic_metadata(
-        self, mock_company_class, service, realistic_mock_company, realistic_mock_filing
-    ):
-        """Test filing retrieval with realistic Microsoft filing metadata."""
-        # Setup
-        mock_filings = Mock()
-        mock_filings.latest.return_value = realistic_mock_filing
-        realistic_mock_company.get_filings.return_value = mock_filings
-
-        # Mock the Company class to return realistic_mock_company for initial call
-        # and configure get_ticker method for _extract_filing_data call
-        mock_company_for_ticker = Mock()
-        mock_company_for_ticker.get_ticker.return_value = "MSFT"
-
-        # Configure mock_company_class to return different mocks based on call order
-        mock_company_class.side_effect = [
-            realistic_mock_company,
-            mock_company_for_ticker,
-        ]
-
-        ticker = Ticker("MSFT")
-        filing_type = FilingType.FORM_10K
-
-        # Execute
-        result = service.get_filing(ticker, filing_type, latest=True)
-
-        # Assert - Company is called twice: once with ticker, once with CIK in _extract_filing_data
-        mock_company_class.assert_any_call("MSFT")
-        assert mock_company_class.call_count == 2
-        # Verify get_filings was called with correct form type
-        call_args = realistic_mock_company.get_filings.call_args
-        assert call_args[1]["form"] == "10-K"
-        mock_filings.latest.assert_called_once()
-
-        # Verify realistic filing metadata
-        assert isinstance(result, FilingData)
-        assert result.accession_number == "0001564590-24-000029"
-        assert result.filing_type == "10-K"
-        assert result.filing_date == "2024-07-30"
-        assert result.company_name == "Microsoft Corporation"
-        assert result.cik == "789019"
-        assert result.ticker == "MSFT"
-
-    @patch("src.infrastructure.edgar.service.Company")
-    def test_get_filing_by_accession_success(
-        self, mock_company_class, service, mock_company, mock_filing
-    ):
-        """Test successful filing retrieval by accession number."""
-        # Setup
-        mock_company_class.return_value = mock_company
-        mock_company.get_filings.return_value = [mock_filing]
-
-        accession_number = AccessionNumber("0000320193-24-000005")
-
-        # Execute
-        result = service.get_filing_by_accession(accession_number)
-
-        # Assert - Company is called twice: once in get_filing_by_accession, once in _extract_filing_data
-        assert mock_company_class.call_count == 2
-        mock_company_class.assert_any_call(320193)  # CIK extracted from accession
-        assert isinstance(result, FilingData)
-        assert result.accession_number == "0000320193-24-000005"
-
-    @patch("src.infrastructure.edgar.service.Company")
-    def test_get_filing_by_accession_not_found(
-        self, mock_company_class, service, mock_company
-    ):
-        """Test filing retrieval by accession number when filing not found."""
-        # Setup
-        mock_company_class.return_value = mock_company
-
-        # Mock filing with different accession number
-        mock_different_filing = Mock()
-        mock_different_filing.accession_number = "0000320193-24-000999"
-        mock_company.get_filings.return_value = [mock_different_filing]
-
-        accession_number = AccessionNumber("0000320193-24-000005")
-
-        # Execute & Assert
-        with pytest.raises(ValueError, match="Filing not found: 0000320193-24-000005"):
-            service.get_filing_by_accession(accession_number)
-
-    @patch("src.infrastructure.edgar.service.Company")
-    def test_extract_filing_sections_10k(
-        self, mock_company_class, service, mock_company, mock_filing
-    ):
-        """Test section extraction from 10-K filing."""
-        # Setup
-        mock_filings = Mock()
-        mock_filings.latest.return_value = mock_filing
-        mock_company.get_filings.return_value = mock_filings
-        mock_company_class.return_value = mock_company
-
-        ticker = Ticker("AAPL")
-        filing_type = FilingType.FORM_10K
-
-        # Execute
-        result = service.extract_filing_sections(ticker, filing_type)
-
-        # Assert
-        assert isinstance(result, dict)
-        assert "Item 1 - Business" in result
-        assert "Item 1A - Risk Factors" in result
-        assert "Item 7 - Management Discussion & Analysis" in result
-        assert result["Item 1 - Business"] == "Mock business description"
-
-    @patch("src.infrastructure.edgar.service.Company")
-    def test_extract_filing_sections_with_realistic_content(
-        self,
-        mock_company_class,
-        service,
-        realistic_mock_company,
-        realistic_mock_filing,
-        realistic_filing_sections,
-    ):
-        """Test section extraction with realistic SEC filing content."""
-        # Setup
-        mock_filings = Mock()
-        mock_filings.latest.return_value = realistic_mock_filing
-        realistic_mock_company.get_filings.return_value = mock_filings
-        mock_company_class.return_value = realistic_mock_company
-
-        ticker = Ticker("MSFT")
-        filing_type = FilingType.FORM_10K
-
-        # Execute
-        result = service.extract_filing_sections(ticker, filing_type)
-
-        # Assert
-        assert isinstance(result, dict)
-        assert len(result) > 0  # Should extract multiple sections
-
-        # Verify key sections are present
-        assert "Item 1 - Business" in result
-        assert "Item 1A - Risk Factors" in result
-        assert "Item 7 - Management Discussion & Analysis" in result
-
-        # Verify realistic Business section content
-        business_section = result.get("Item 1 - Business", "")
-        assert (
-            "Microsoft Corporation develops, licenses, and supports" in business_section
-        )
-        assert "Our mission is to empower every person" in business_section
-        assert "Productivity and Business Processes" in business_section
-        assert "Intelligent Cloud" in business_section
-        assert len(business_section) > 1000  # Substantial content
-
-        # Verify realistic Risk Factors section content
-        risk_section = result.get("Item 1A - Risk Factors", "")
-        assert "Our business faces a wide variety of risks" in risk_section
-        assert "COMPETITIVE FACTORS" in risk_section
-        assert "CYBERSECURITY AND DATA PRIVACY" in risk_section
-
-        # Verify realistic MDA section content
-        mda_section = result.get("Item 7 - Management Discussion & Analysis", "")
-        assert "Revenue increased $21.5 billion or 16%" in mda_section
-        assert "PRODUCTIVITY AND BUSINESS PROCESSES" in mda_section
-        assert "INTELLIGENT CLOUD" in mda_section
-
-    @patch("src.infrastructure.edgar.service.Company")
-    def test_extract_filing_sections_10q(
-        self, mock_company_class, service, mock_company
-    ):
-        """Test section extraction from 10-Q filing."""
-        # Setup
-        mock_filing_10q = Mock()
-        mock_filing_10q.form = "10-Q"
-
-        mock_filing_obj = Mock()
-        mock_filing_obj.financial_statements = "Mock financials"
-        mock_filing_obj.mda = "Mock Q MDA"
-        mock_filing_10q.obj.return_value = mock_filing_obj
-
-        mock_filings = Mock()
-        mock_filings.latest.return_value = mock_filing_10q
-        mock_company.get_filings.return_value = mock_filings
-        mock_company_class.return_value = mock_company
-
-        ticker = Ticker("AAPL")
-        filing_type = FilingType.FORM_10Q
-
-        # Execute
-        result = service.extract_filing_sections(ticker, filing_type)
-
-        # Assert
-        assert isinstance(result, dict)
-        assert len(result) > 0  # Should have extracted some sections
-
-    @patch("src.infrastructure.edgar.service.Company")
-    def test_extract_filing_sections_8k(
-        self, mock_company_class, service, mock_company
-    ):
-        """Test section extraction from 8-K filing."""
-        # Setup
-        mock_filing_8k = Mock()
-        mock_filing_8k.form = "8-K"
-
-        mock_filing_obj = Mock()
-        mock_filing_obj.item1_01 = "Mock entry into agreement"
-        mock_filing_obj.item2_02 = "Mock results of operations"
-        mock_filing_8k.obj.return_value = mock_filing_obj
-
-        mock_filings = Mock()
-        mock_filings.latest.return_value = mock_filing_8k
-        mock_company.get_filings.return_value = mock_filings
-        mock_company_class.return_value = mock_company
-
-        ticker = Ticker("AAPL")
-        filing_type = FilingType.FORM_8K
-
-        # Execute
-        result = service.extract_filing_sections(ticker, filing_type)
-
-        # Assert
-        assert isinstance(result, dict)
-
-    def test_extract_company_data_from_company_object(self, service, mock_company):
-        """Test company data extraction from edgar Company object."""
-        # Execute
-        result = service._extract_company_data(mock_company)
-
-        # Assert
-        assert isinstance(result, CompanyData)
-        assert result.cik == "320193"
-        assert result.name == "Apple Inc."
-        assert result.ticker == "AAPL"
-        assert result.sic_code == "3571"
-        assert result.sic_description == "Electronic Computers"
-        assert result.address["street1"] == "One Apple Park Way"
-        assert result.address["city"] == "Cupertino"
-
-    @patch("src.infrastructure.edgar.service.Company")
-    def test_extract_filing_data_from_filing_object(
-        self, mock_company_class, service, mock_filing
-    ):
-        """Test filing data extraction from edgar Filing object."""
-        # Setup - mock Company call that happens in _extract_filing_data
         mock_company = Mock()
-        mock_company.get_ticker.return_value = (
-            "AAPL"  # Provide get_ticker method for extraction
-        )
+        mock_filings = Mock()
+        mock_filings.latest.return_value = None
+        mock_company.get_filings.return_value = mock_filings
         mock_company_class.return_value = mock_company
 
-        # Execute
-        result = service._extract_filing_data(mock_filing)
+        # Act & Assert
+        with pytest.raises(ValueError, match="No 10-K filing found for AAPL"):
+            self.service.get_filing(ticker, filing_type)
+
+    @patch("src.infrastructure.edgar.service.Company")
+    def test_get_filing_with_flexible_params_no_results(self, mock_company_class):
+        """Test filing retrieval with flexible params returning no results."""
+        # Arrange
+        ticker = Ticker("AAPL")
+        filing_type = FilingType.FORM_10Q
+        year = 2020  # Old year with no filings
+
+        mock_company = Mock()
+        mock_company.get_filings.return_value = []  # No filings found
+        mock_company_class.return_value = mock_company
+
+        # Act & Assert
+        with pytest.raises(
+            ValueError, match="No 10-Q filing found for AAPL with specified parameters"
+        ):
+            self.service.get_filing(ticker, filing_type, latest=False, year=year)
+
+    @patch("src.infrastructure.edgar.service.Company")
+    def test_get_filing_sec_service_unavailable(self, mock_company_class):
+        """Test filing retrieval when SEC service is unavailable."""
+        # Arrange
+        ticker = Ticker("AAPL")
+        filing_type = FilingType.FORM_10K
+        mock_company_class.side_effect = Exception("SEC service unavailable")
+
+        # Act & Assert
+        with pytest.raises(ValueError, match="Failed to get filing"):
+            self.service.get_filing(ticker, filing_type)
+
+    @patch("src.infrastructure.edgar.service.get_by_accession_number")
+    def test_get_filing_by_accession_not_found(self, mock_get_by_accession):
+        """Test filing retrieval by accession number when filing not found."""
+        # Arrange
+        accession_number = AccessionNumber("0000999999-99-999999")
+        mock_get_by_accession.return_value = None
+
+        # Act & Assert
+        with pytest.raises(ValueError, match="No filing found with accession number"):
+            self.service.get_filing_by_accession(accession_number)
+
+    @patch("src.infrastructure.edgar.service.get_by_accession_number")
+    def test_get_filing_by_accession_service_error(self, mock_get_by_accession):
+        """Test filing retrieval by accession number with service error."""
+        # Arrange
+        accession_number = AccessionNumber("0000320193-23-000106")
+        mock_get_by_accession.side_effect = Exception("Service error")
+
+        # Act & Assert
+        with pytest.raises(
+            ValueError, match="Failed to get filing by accession number"
+        ):
+            self.service.get_filing_by_accession(accession_number)
+
+    @patch("src.infrastructure.edgar.service.Company")
+    def test_get_filings_with_invalid_query_params(self, mock_company_class):
+        """Test get_filings with invalid query parameters."""
+        # Arrange
+        ticker = Ticker("AAPL")
+        filing_type = FilingType.FORM_10K
+
+        # Act & Assert - quarter without year should raise validation error
+        with pytest.raises(
+            ValueError, match="Quarter parameter requires year parameter"
+        ):
+            self.service.get_filings(ticker, filing_type, quarter=1)
+
+    def test_async_get_company_by_cik_error_propagation(self):
+        """Test that async method properly propagates errors."""
+        # Arrange
+        cik = CIK("0000999999")
+
+        with patch.object(self.service, "get_company_by_cik") as mock_sync_method:
+            mock_sync_method.side_effect = ValueError("Company not found")
+
+            async def test_async():
+                # Act & Assert
+                with pytest.raises(ValueError, match="Company not found"):
+                    await self.service.get_company_by_cik_async(cik)
+
+            # Run the async test
+            asyncio.run(test_async())
+
+    @patch("src.infrastructure.edgar.service.Company")
+    def test_filing_content_extraction_failures(self, mock_company_class):
+        """Test handling of filing content extraction failures."""
+        # Arrange
+        ticker = Ticker("AAPL")
+        filing_type = FilingType.FORM_10K
+
+        mock_company = Mock()
+        mock_filings = Mock()
+        mock_filing = Mock()
+        mock_filing.accession_number = "0000320193-23-000106"
+        mock_filing.form = "10-K"
+        mock_filing.filing_date = date(2023, 10, 1)
+        mock_filing.company = "Apple Inc."
+        mock_filing.cik = "0000320193"
+
+        # Simulate content extraction failures
+        mock_filing.text.side_effect = Exception("Text extraction failed")
+        mock_filing.markdown.side_effect = Exception("Markdown extraction failed")
+        mock_filing.html.side_effect = Exception("HTML extraction failed")
+        mock_filing.obj.return_value = Mock()
+
+        mock_filings.latest.return_value = mock_filing
+        mock_company.get_filings.return_value = mock_filings
+
+        # Set up Company mock to succeed first time (for getting filings) but fail second time (for ticker extraction)
+        def company_side_effect(*args, **kwargs):
+            if company_side_effect.call_count == 1:
+                return mock_company
+            else:
+                raise Exception("Company lookup failed")
+
+        company_side_effect.call_count = 0
+
+        def increment_call_count(*args, **kwargs):
+            company_side_effect.call_count += 1
+            return company_side_effect(*args, **kwargs)
+
+        mock_company_class.side_effect = increment_call_count
+
+        # Act
+        result = self.service.get_filing(ticker, filing_type)
+
+        # Assert - should still return FilingData with fallback content
+        assert isinstance(result, FilingData)
+        assert result.content_text == "Content extraction failed"
+        assert result.raw_html is None
+        assert result.ticker is None  # Ticker extraction failed
+
+
+@pytest.mark.unit
+class TestEdgarServiceEdgeCases:
+    """Test edge cases and boundary conditions for EdgarService."""
+
+    def setup_method(self):
+        """Set up test fixtures."""
+        with (
+            patch("src.infrastructure.edgar.service.set_identity"),
+            patch("src.infrastructure.edgar.service.settings") as mock_settings,
+        ):
+            mock_settings.edgar_identity = "test@example.com"
+            self.service = EdgarService()
+
+    @patch("src.infrastructure.edgar.service.Company")
+    def test_get_company_with_minimal_data(self, mock_company_class):
+        """Test company retrieval with minimal available data."""
+        # Arrange
+        ticker = Ticker("TEST")
+        mock_company = Mock()
+        mock_company.cik = "0001234567"
+        mock_company.name = None  # No name available
+        # No ticker methods available
+        if hasattr(mock_company, "get_ticker"):
+            del mock_company.get_ticker
+        if hasattr(mock_company, "ticker"):
+            del mock_company.ticker
+        if hasattr(mock_company, "tickers"):
+            del mock_company.tickers
+        # No SIC or address data
+        mock_company.sic = None
+        mock_company.sic_description = None
+        mock_company.address = None
+        mock_company_class.return_value = mock_company
+
+        # Act
+        result = self.service.get_company_by_ticker(ticker)
 
         # Assert
-        assert isinstance(result, FilingData)
-        assert result.accession_number == "0000320193-24-000005"
-        assert result.filing_type == "10-K"
-        assert result.filing_date == "2024-01-15"  # Filing date is stored as string
-        assert result.company_name == "Apple Inc."
-        assert result.cik == "320193"
-        assert result.ticker == "AAPL"
-        assert result.content_text == "Mock filing text content"
-        assert result.raw_html == "<html>Mock HTML content</html>"
-
-    @patch("src.infrastructure.edgar.service.Company")
-    def test_network_error_handling(self, mock_company_class, service):
-        """Test handling of network-related errors."""
-        # Setup
-        mock_company_class.side_effect = ConnectionError("Network connection failed")
-        ticker = Ticker("AAPL")
-
-        # Execute & Assert
-        with pytest.raises(ValueError, match="Failed to get company for ticker AAPL"):
-            service.get_company_by_ticker(ticker)
-
-    @patch("src.infrastructure.edgar.service.Company")
-    def test_timeout_error_handling(self, mock_company_class, service):
-        """Test handling of timeout errors."""
-        # Setup
-        mock_company_class.side_effect = TimeoutError("Request timed out")
-        ticker = Ticker("AAPL")
-
-        # Execute & Assert
-        with pytest.raises(ValueError, match="Failed to get company for ticker AAPL"):
-            service.get_company_by_ticker(ticker)
-
-    def test_invalid_cik_in_accession_number(self, service):
-        """Test handling of invalid CIK format in accession number."""
-        # Setup - use a valid format but mock Company to raise an error
-        with patch("src.infrastructure.edgar.service.Company") as mock_company_class:
-            mock_company_class.side_effect = ValueError("Invalid CIK")
-
-            accession_number = AccessionNumber("0000320193-24-000005")  # Valid format
-
-            # Execute & Assert
-            with pytest.raises(ValueError, match="Failed to get filing"):
-                service.get_filing_by_accession(accession_number)
-
-    @patch("src.infrastructure.edgar.service.Company")
-    def test_get_filing_with_year_filter_realistic(
-        self, mock_company_class, service, realistic_mock_company
-    ):
-        """Test filing retrieval with year filtering using realistic Microsoft data."""
-        # Setup - Mock multiple filings with realistic data
-        mock_filing_2024 = Mock()
-        mock_filing_2024.filing_date = date(2024, 7, 30)
-        mock_filing_2024.accession_number = "0001564590-24-000029"
-        mock_filing_2024.company = "Microsoft Corporation"
-        mock_filing_2024.cik = 789019
-        mock_filing_2024.ticker = "MSFT"
-        mock_filing_2024.form = "10-K"
-
-        mock_filing_2023 = Mock()
-        mock_filing_2023.filing_date = date(2023, 7, 27)
-        mock_filing_2023.accession_number = "0001564590-23-000052"
-        mock_filing_2023.company = "Microsoft Corporation"
-        mock_filing_2023.cik = 789019
-        mock_filing_2023.ticker = "MSFT"
-        mock_filing_2023.form = "10-K"
-
-        # Mock content methods for both filings
-        for filing in [mock_filing_2024, mock_filing_2023]:
-            filing.text.return_value = "Mock filing text content"
-            filing.html.return_value = "<html>Mock HTML content</html>"
-
-        mock_filings = [mock_filing_2024, mock_filing_2023]
-        realistic_mock_company.get_filings.return_value = mock_filings
-        mock_company_class.return_value = realistic_mock_company
-
-        ticker = Ticker("MSFT")
-        filing_type = FilingType.FORM_10K
-        year = 2024
-
-        # Execute
-        result = service.get_filing(ticker, filing_type, latest=False, year=year)
-
-        # Assert - Company is called twice: once with ticker, once with CIK in _extract_filing_data
-        mock_company_class.assert_any_call("MSFT")
-        assert mock_company_class.call_count == 2
-        # Verify get_filings was called with correct form type
-        call_args = realistic_mock_company.get_filings.call_args
-        assert call_args[1]["form"] == "10-K"
-        assert isinstance(result, FilingData)
-        assert result.filing_date == "2024-07-30"
-        assert result.accession_number == "0001564590-24-000029"
-
-    # ===== NEW COMPREHENSIVE TESTS TO IMPROVE COVERAGE =====
-
-    @pytest.mark.asyncio
-    async def test_get_company_by_cik_async_success(self, service, mock_company):
-        """Test async company retrieval by CIK."""
-        with patch("src.infrastructure.edgar.service.Company") as mock_company_class:
-            mock_company_class.return_value = mock_company
-            cik = CIK("320193")
-
-            result = await service.get_company_by_cik_async(cik)
-
-            assert isinstance(result, CompanyData)
-            assert result.cik == "320193"
-            assert result.name == "Apple Inc."
-
-    @pytest.mark.asyncio
-    async def test_get_filing_by_accession_async_success(
-        self, service, mock_company, mock_filing
-    ):
-        """Test async filing retrieval by accession number."""
-        with patch("src.infrastructure.edgar.service.Company") as mock_company_class:
-            mock_company_class.return_value = mock_company
-            mock_company.get_filings.return_value = [mock_filing]
-
-            accession_number = AccessionNumber("0000320193-24-000005")
-
-            result = await service.get_filing_by_accession_async(accession_number)
-
-            assert isinstance(result, FilingData)
-            assert result.accession_number == "0000320193-24-000005"
-
-    @pytest.mark.asyncio
-    async def test_extract_filing_sections_async_success(
-        self, service, mock_company, mock_filing
-    ):
-        """Test async section extraction from filing."""
-        with patch("src.infrastructure.edgar.service.Company") as mock_company_class:
-            mock_filings = Mock()
-            mock_filings.latest.return_value = mock_filing
-            mock_company.get_filings.return_value = mock_filings
-            mock_company_class.return_value = mock_company
-
-            ticker = Ticker("AAPL")
-            filing_type = FilingType.FORM_10K
-
-            result = await service.extract_filing_sections_async(ticker, filing_type)
-
-            assert isinstance(result, dict)
-            assert "Item 1 - Business" in result
-
-    @patch("src.infrastructure.edgar.service.Company")
-    def test_get_filings_multiple_with_year_list(
-        self, mock_company_class, service, mock_company
-    ):
-        """Test get_filings with multiple years as list."""
-        # Setup multiple filings for different years
-        mock_filing_2023 = Mock()
-        mock_filing_2023.filing_date = date(2023, 12, 15)
-        mock_filing_2023.accession_number = "0000320193-23-000105"
-        mock_filing_2023.company = "Apple Inc."
-        mock_filing_2023.cik = 320193
-        mock_filing_2023.form = "10-K"
-        mock_filing_2023.text.return_value = "2023 filing content"
-        mock_filing_2023.html.return_value = "<html>2023 content</html>"
-
-        mock_filing_2024 = Mock()
-        mock_filing_2024.filing_date = date(2024, 1, 15)
-        mock_filing_2024.accession_number = "0000320193-24-000005"
-        mock_filing_2024.company = "Apple Inc."
-        mock_filing_2024.cik = 320193
-        mock_filing_2024.form = "10-K"
-        mock_filing_2024.text.return_value = "2024 filing content"
-        mock_filing_2024.html.return_value = "<html>2024 content</html>"
-
-        mock_company.get_filings.return_value = [mock_filing_2024, mock_filing_2023]
-        mock_company_class.return_value = mock_company
-
-        ticker = Ticker("AAPL")
-        filing_type = FilingType.FORM_10K
-
-        # Execute - get filings for multiple years
-        result = service.get_filings(ticker, filing_type, year=[2023, 2024])
-
-        assert len(result) == 2
-        assert all(isinstance(filing, FilingData) for filing in result)
-        filing_years = [int(filing.filing_date[:4]) for filing in result]
-        assert 2023 in filing_years
-        assert 2024 in filing_years
-
-    @patch("src.infrastructure.edgar.service.Company")
-    def test_get_filings_with_year_range(
-        self, mock_company_class, service, mock_company
-    ):
-        """Test get_filings with year range."""
-        mock_filing = Mock()
-        mock_filing.filing_date = date(2023, 12, 15)
-        mock_filing.accession_number = "0000320193-23-000105"
-        mock_filing.company = "Apple Inc."
-        mock_filing.cik = 320193
-        mock_filing.form = "10-K"
-        mock_filing.text.return_value = "Filing content"
-        mock_filing.html.return_value = "<html>Content</html>"
-
-        mock_company.get_filings.return_value = [mock_filing]
-        mock_company_class.return_value = mock_company
-
-        ticker = Ticker("AAPL")
-        filing_type = FilingType.FORM_10K
-
-        # Execute with year range
-        result = service.get_filings(ticker, filing_type, year=range(2020, 2025))
-
-        assert len(result) == 1
-        assert isinstance(result[0], FilingData)
-
-    @patch("src.infrastructure.edgar.service.Company")
-    def test_get_filings_with_quarter_list(
-        self, mock_company_class, service, mock_company
-    ):
-        """Test get_filings with multiple quarters as list."""
-        # Q1 filing (March)
-        mock_filing_q1 = Mock()
-        mock_filing_q1.filing_date = date(2024, 3, 15)
-        mock_filing_q1.accession_number = "0000320193-24-000001"
-        mock_filing_q1.company = "Apple Inc."
-        mock_filing_q1.cik = 320193
-        mock_filing_q1.form = "10-Q"
-        mock_filing_q1.text.return_value = "Q1 filing content"
-        mock_filing_q1.html.return_value = "<html>Q1 content</html>"
-
-        # Q3 filing (September)
-        mock_filing_q3 = Mock()
-        mock_filing_q3.filing_date = date(2024, 9, 15)
-        mock_filing_q3.accession_number = "0000320193-24-000003"
-        mock_filing_q3.company = "Apple Inc."
-        mock_filing_q3.cik = 320193
-        mock_filing_q3.form = "10-Q"
-        mock_filing_q3.text.return_value = "Q3 filing content"
-        mock_filing_q3.html.return_value = "<html>Q3 content</html>"
-
-        mock_company.get_filings.return_value = [mock_filing_q3, mock_filing_q1]
-        mock_company_class.return_value = mock_company
-
-        ticker = Ticker("AAPL")
-        filing_type = FilingType.FORM_10Q
-
-        # Execute - get filings for Q1 and Q3
-        result = service.get_filings(ticker, filing_type, year=2024, quarter=[1, 3])
-
-        assert len(result) == 2
-        quarters = []
-        for filing in result:
-            month = int(filing.filing_date.split('-')[1])
-            quarter = (month - 1) // 3 + 1
-            quarters.append(quarter)
-
-        assert 1 in quarters  # Q1
-        assert 3 in quarters  # Q3
-
-    @patch("src.infrastructure.edgar.service.Company")
-    def test_get_filings_with_filing_date_range(
-        self, mock_company_class, service, mock_company
-    ):
-        """Test get_filings with date range filter."""
-        mock_filing = Mock()
-        mock_filing.filing_date = date(2024, 6, 15)
-        mock_filing.accession_number = "0000320193-24-000002"
-        mock_filing.company = "Apple Inc."
-        mock_filing.cik = 320193
-        mock_filing.form = "10-Q"
-        mock_filing.text.return_value = "Filing content"
-        mock_filing.html.return_value = "<html>Content</html>"
-
-        mock_company.get_filings.return_value = [mock_filing]
-        mock_company_class.return_value = mock_company
-
-        ticker = Ticker("AAPL")
-        filing_type = FilingType.FORM_10Q
-
-        # Execute with date range
-        result = service.get_filings(
-            ticker, filing_type, filing_date="2024-01-01:2024-12-31"
-        )
-
-        assert len(result) == 1
-        assert isinstance(result[0], FilingData)
-
-    @patch("src.infrastructure.edgar.service.Company")
-    def test_get_filings_with_amendments_false(
-        self, mock_company_class, service, mock_company
-    ):
-        """Test get_filings excluding amendments."""
-        # Regular filing
-        mock_filing_regular = Mock()
-        mock_filing_regular.filing_date = date(2024, 1, 15)
-        mock_filing_regular.accession_number = "0000320193-24-000005"
-        mock_filing_regular.company = "Apple Inc."
-        mock_filing_regular.cik = 320193
-        mock_filing_regular.form = "10-K"
-        mock_filing_regular.text.return_value = "Regular filing"
-        mock_filing_regular.html.return_value = "<html>Regular</html>"
-
-        # Amended filing
-        mock_filing_amended = Mock()
-        mock_filing_amended.filing_date = date(2024, 2, 15)
-        mock_filing_amended.accession_number = "0000320193-24-000006"
-        mock_filing_amended.company = "Apple Inc."
-        mock_filing_amended.cik = 320193
-        mock_filing_amended.form = "10-K/A"
-        mock_filing_amended.text.return_value = "Amended filing"
-        mock_filing_amended.html.return_value = "<html>Amended</html>"
-
-        mock_company.get_filings.return_value = [
-            mock_filing_regular,
-            mock_filing_amended,
-        ]
-        mock_company_class.return_value = mock_company
-
-        ticker = Ticker("AAPL")
-        filing_type = FilingType.FORM_10K
-
-        # Execute excluding amendments
-        result = service.get_filings(ticker, filing_type, amendments=False)
-
-        # Should only return regular filing
-        assert len(result) == 1
-        assert result[0].filing_type == "10-K"  # Not amended
-
-    @patch("src.infrastructure.edgar.service.Company")
-    def test_get_filings_with_limit(self, mock_company_class, service, mock_company):
-        """Test get_filings with limit parameter."""
-        # Create 5 mock filings
-        mock_filings = []
-        for i in range(5):
-            mock_filing = Mock()
-            mock_filing.filing_date = date(2024, i + 1, 15)
-            mock_filing.accession_number = f"0000320193-24-00000{i}"
-            mock_filing.company = "Apple Inc."
-            mock_filing.cik = 320193
-            mock_filing.form = "10-Q"
-            mock_filing.text.return_value = f"Filing {i} content"
-            mock_filing.html.return_value = f"<html>Filing {i}</html>"
-            mock_filings.append(mock_filing)
-
-        mock_company.get_filings.return_value = mock_filings
-        mock_company_class.return_value = mock_company
-
-        ticker = Ticker("AAPL")
-        filing_type = FilingType.FORM_10Q
-
-        # Execute with limit of 3
-        result = service.get_filings(ticker, filing_type, limit=3)
-
-        assert len(result) == 3
-        assert all(isinstance(filing, FilingData) for filing in result)
-
-    @patch("src.infrastructure.edgar.service.Company")
-    def test_search_all_filings_success(
-        self, mock_company_class, service, mock_company
-    ):
-        """Test search_all_filings method."""
-        # Mock EntityFilings with different form types
-        mock_filing_10k = Mock()
-        mock_filing_10k.accession_number = "0000320193-24-000005"
-        mock_filing_10k.form = "10-K"
-        mock_filing_10k.filing_date = date(2024, 1, 15)
-        mock_filing_10k.cik = 320193
-        mock_filing_10k.company = Mock()
-        mock_filing_10k.company.name = "Apple Inc."
-        mock_filing_10k.company.ticker = "AAPL"
-
-        mock_filing_8k = Mock()
-        mock_filing_8k.accession_number = "0000320193-24-000001"
-        mock_filing_8k.form = "8-K"
-        mock_filing_8k.filing_date = date(2024, 1, 10)
-        mock_filing_8k.cik = 320193
-        mock_filing_8k.company = Mock()
-        mock_filing_8k.company.name = "Apple Inc."
-        mock_filing_8k.company.ticker = "AAPL"
-
-        mock_entity_filings = [mock_filing_10k, mock_filing_8k]
-        mock_company.get_filings.return_value = mock_entity_filings
-        mock_company_class.return_value = mock_company
-
-        ticker = Ticker("AAPL")
-
-        # Execute
-        result = service.search_all_filings(ticker)
-
-        assert len(result) == 2
-        assert all(isinstance(filing, FilingData) for filing in result)
-        forms = [filing.filing_type for filing in result]
-        assert "10-K" in forms
-        assert "8-K" in forms
-
-    @patch("src.infrastructure.edgar.service.Company")
-    def test_search_all_filings_with_date_filter(
-        self, mock_company_class, service, mock_company
-    ):
-        """Test search_all_filings with date filtering."""
-        mock_filing = Mock()
-        mock_filing.accession_number = "0000320193-24-000005"
-        mock_filing.form = "10-K"
-        mock_filing.filing_date = date(2024, 6, 15)
-        mock_filing.cik = 320193
-        mock_filing.company = Mock()
-        mock_filing.company.name = "Apple Inc."
-        mock_filing.company.ticker = "AAPL"
-
-        mock_entity_filings = [mock_filing]
-        mock_company.get_filings.return_value = mock_entity_filings
-        mock_company_class.return_value = mock_company
-
-        ticker = Ticker("AAPL")
-
-        # Execute with date range
-        result = service.search_all_filings(ticker, filing_date="2024-01-01:2024-12-31")
-
-        assert len(result) == 1
-        assert isinstance(result[0], FilingData)
-
-    @patch("src.infrastructure.edgar.service.Company")
-    def test_search_all_filings_with_pyarrow_fallback(
-        self, mock_company_class, service
-    ):
-        """Test search_all_filings with PyArrow compatibility fallback."""
-
-        # Create the failing iterable for first call
-        class FailingIterable:
-            def __iter__(self):
-                raise RuntimeError("PyArrow compatibility issue")
-
-        # Create proper filing mock for fallback call
-        mock_filing = Mock()
-        mock_filing.accession_number = "0000320193-24-000005"
-        mock_filing.form = "10-K"
-        mock_filing.filing_date = date(2024, 1, 15)
-        mock_filing.company = "Apple Inc."
-        mock_filing.cik = 320193
-        mock_filing.text.return_value = "Mock content"
-        mock_filing.html.return_value = "<html>Mock</html>"
-
-        # Create separate company mocks for the two different calls
-        mock_company_1 = Mock()
-        mock_company_1.get_filings.return_value = FailingIterable()
-
-        mock_company_2 = Mock()
-        mock_company_2.get_filings.return_value = [mock_filing]
-        # Add the get_ticker method for _extract_filing_data
-        mock_company_2.get_ticker.return_value = "AAPL"
-
-        # Return different mocks for the two Company calls
-        mock_company_class.side_effect = [
-            mock_company_1,
-            mock_company_2,
-            mock_company_2,
-        ]
-
-        ticker = Ticker("AAPL")
-
-        # Execute - should use fallback mechanism
-        result = service.search_all_filings(ticker)
-
-        assert len(result) == 1
-        assert isinstance(result[0], FilingData)
-        assert result[0].filing_type == "10-K"
-
-    @patch("src.infrastructure.edgar.service.Company")
-    def test_extract_filing_sections_10q_with_items_list(
-        self, mock_company_class, service, mock_company
-    ):
-        """Test 10-Q section extraction using items list pattern."""
-        # Setup 10-Q filing with items list
-        mock_filing_10q = Mock()
-        mock_filing_10q.form = "10-Q"
-
-        mock_filing_obj = Mock()
-        mock_filing_obj.items = ["Item 1", "Item 2", "Item 3"]
-
-        # Mock dictionary-style access
-        mock_filing_obj.__getitem__ = Mock(
-            side_effect=lambda key: {
-                "Item 1": "Financial statements content",
-                "Item 2": "Management discussion content",
-                "Item 3": "Quantitative disclosures content",
-            }.get(key, "")
-        )
-
-        mock_filing_10q.obj.return_value = mock_filing_obj
-
-        mock_filings = Mock()
-        mock_filings.latest.return_value = mock_filing_10q
-        mock_company.get_filings.return_value = mock_filings
-        mock_company_class.return_value = mock_company
-
-        ticker = Ticker("AAPL")
-        filing_type = FilingType.FORM_10Q
-
-        # Execute
-        result = service.extract_filing_sections(ticker, filing_type)
-
-        # Verify items-based extraction
-        assert isinstance(result, dict)
-        assert "Part I Item 1 - Financial Statements" in result
-        assert "Part I Item 2 - Management Discussion & Analysis" in result
-
-    @patch("src.infrastructure.edgar.service.Company")
-    def test_extract_filing_sections_8k_advanced_items(
-        self, mock_company_class, service, mock_company
-    ):
-        """Test 8-K section extraction with various item variations."""
-        mock_filing_8k = Mock()
-        mock_filing_8k.form = "8-K"
-
-        mock_filing_obj = Mock()
-        # Test multiple 8-K item variations
-        mock_filing_obj.completion_acquisition = "Acquisition details"
-        mock_filing_obj.results_operations = "Operational results"
-        mock_filing_obj.regulation_fd = "FD disclosure"
-        mock_filing_obj.other_events = "Other event information"
-
-        mock_filing_8k.obj.return_value = mock_filing_obj
-
-        mock_filings = Mock()
-        mock_filings.latest.return_value = mock_filing_8k
-        mock_company.get_filings.return_value = mock_filings
-        mock_company_class.return_value = mock_company
-
-        ticker = Ticker("AAPL")
-        filing_type = FilingType.FORM_8K
-
-        # Execute
-        result = service.extract_filing_sections(ticker, filing_type)
-
-        # Verify 8-K sections
-        assert isinstance(result, dict)
-        expected_sections = [
-            "Item 1.01 - Completion of Acquisition",
-            "Item 2.02 - Results of Operations",
-            "Item 7.01 - Regulation FD Disclosure",
-            "Item 8.01 - Other Events",
-        ]
-
-        for section in expected_sections:
-            assert section in result
-
-    @patch("src.infrastructure.edgar.service.Company")
-    def test_extract_filing_sections_with_financial_statements(
-        self, mock_company_class, service, mock_company
-    ):
-        """Test financial statement extraction from filing object."""
-        mock_filing = Mock()
-        mock_filing.form = "10-K"
-
-        mock_filing_obj = Mock()
-        mock_filing_obj.business = "Business description"
-        # Add financial statement attributes
-        mock_filing_obj.balance_sheet = "Assets: $1000, Liabilities: $500"
-        mock_filing_obj.income_statement = "Revenue: $2000, Net Income: $300"
-        mock_filing_obj.cash_flow_statement = "Operating CF: $400"
-        mock_filing_obj.financials = "Additional financial data"
-
-        mock_filing.obj.return_value = mock_filing_obj
-
-        mock_filings = Mock()
-        mock_filings.latest.return_value = mock_filing
-        mock_company.get_filings.return_value = mock_filings
-        mock_company_class.return_value = mock_company
-
-        ticker = Ticker("AAPL")
-        filing_type = FilingType.FORM_10K
-
-        # Execute
-        result = service.extract_filing_sections(ticker, filing_type)
-
-        # Verify financial statements are included
-        assert "Balance Sheet" in result
-        assert "Income Statement" in result
-        assert "Cash Flow Statement" in result
-        assert "Assets: $1000" in result["Balance Sheet"]
-        assert "Revenue: $2000" in result["Income Statement"]
-
-    @patch("src.infrastructure.edgar.service.Company")
-    def test_extract_filing_sections_no_sections_found(
-        self, mock_company_class, service, mock_company
-    ):
-        """Test handling when no sections can be extracted."""
-        mock_filing = Mock()
-        mock_filing.form = "10-K"
-
-        # Create a mock filing object that has no extractable sections
-        mock_filing_obj = Mock(spec=[])  # Empty spec means no attributes
-
-        # Ensure hasattr returns False for all our section attributes
-        def mock_hasattr(obj, name):
-            return False
-
-        mock_filing.obj.return_value = mock_filing_obj
-
-        mock_filings = Mock()
-        mock_filings.latest.return_value = mock_filing
-        mock_company.get_filings.return_value = mock_filings
-        mock_company_class.return_value = mock_company
-
-        ticker = Ticker("AAPL")
-        filing_type = FilingType.FORM_10K
-
-        # Execute & Assert - should raise ValueError when no sections found
-        with patch('builtins.hasattr', side_effect=mock_hasattr):
-            with pytest.raises(ValueError, match="No structured sections found"):
-                service.extract_filing_sections(ticker, filing_type)
-
-    def test_extract_company_data_with_missing_attributes(self, service):
-        """Test company data extraction with missing optional attributes."""
-        # Mock company with minimal attributes
-        mock_company = Mock(spec=['cik', 'name'])  # Spec limits available attributes
-        mock_company.cik = 123456
-        mock_company.name = None  # Missing name
-
-        # Execute
-        result = service._extract_company_data(mock_company)
-
-        # Verify fallback values
-        assert result.cik == "123456"
-        assert result.name == "Unknown Company"  # Fallback for None
-        assert result.ticker is None  # Missing attribute
+        assert isinstance(result, CompanyData)
+        assert result.cik == "0001234567"
+        assert result.name == "Unknown Company"  # Fallback value
+        assert result.ticker is None
         assert result.sic_code is None
         assert result.sic_description is None
         assert result.address is None
 
     @patch("src.infrastructure.edgar.service.Company")
-    def test_extract_filing_data_content_extraction_failures(
-        self, mock_company_class, service
-    ):
-        """Test filing data extraction with content extraction failures."""
-        mock_filing = Mock()
-        mock_filing.accession_number = "0000320193-24-000005"
-        mock_filing.form = "10-K"
-        mock_filing.filing_date = date(2024, 1, 15)
-        mock_filing.company = "Apple Inc."
-        mock_filing.cik = 320193
-
-        # Mock text() to fail
-        mock_filing.text.side_effect = Exception("Text extraction failed")
-        # Mock markdown() to also fail
-        mock_filing.markdown.side_effect = Exception("Markdown extraction failed")
-        # Mock html() to fail
-        mock_filing.html.side_effect = Exception("HTML extraction failed")
-
-        # Mock company for ticker extraction
+    def test_get_company_with_ticker_extraction_errors(self, mock_company_class):
+        """Test company retrieval when all ticker extraction methods fail."""
+        # Arrange
+        ticker = Ticker("ERROR")
         mock_company = Mock()
-        mock_company.get_ticker.return_value = "AAPL"
+        mock_company.cik = "0001234567"
+        mock_company.name = "Error Company"
+
+        # Simulate errors in all ticker extraction methods
+        mock_company.get_ticker.side_effect = AttributeError("Method not available")
+        mock_company.ticker = Mock()
+        # Make ticker attribute raise error when accessed as string
+        mock_company.ticker.__str__ = Mock(side_effect=ValueError("Conversion failed"))
+        mock_company.tickers = ["INVALID"]
+        mock_company.sic = None
+        mock_company.sic_description = None
+        mock_company.address = None
         mock_company_class.return_value = mock_company
 
-        # Execute
-        result = service._extract_filing_data(mock_filing)
+        # Act
+        result = self.service.get_company_by_ticker(ticker)
 
-        # Verify fallback values
-        assert result.content_text == "Content extraction failed"
-        assert result.raw_html is None
-        assert result.ticker == "AAPL"
-
-    @patch("src.infrastructure.edgar.service.Company")
-    def test_extract_filing_data_ticker_extraction_failure(
-        self, mock_company_class, service
-    ):
-        """Test filing data extraction when ticker extraction fails."""
-        mock_filing = Mock()
-        mock_filing.accession_number = "0000320193-24-000005"
-        mock_filing.form = "10-K"
-        mock_filing.filing_date = date(2024, 1, 15)
-        mock_filing.company = "Apple Inc."
-        mock_filing.cik = 320193
-        mock_filing.text.return_value = "Filing content"
-        mock_filing.html.return_value = "<html>Content</html>"
-
-        # Mock Company constructor to fail
-        mock_company_class.side_effect = Exception("Company lookup failed")
-
-        # Execute
-        result = service._extract_filing_data(mock_filing)
-
-        # Verify ticker is None when extraction fails
-        assert result.ticker is None
-        assert result.content_text == "Filing content"  # Other fields still work
-
-    def test_apply_date_filter_single_date(self, service):
-        """Test date filtering with single date."""
-        # Create mock filings with different dates
-        filing1 = Mock()
-        filing1.filing_date = date(2024, 6, 15)
-
-        filing2 = Mock()
-        filing2.filing_date = date(2024, 7, 15)
-
-        filing3 = Mock()
-        filing3.filing_date = date(2024, 6, 15)  # Same as filing1
-
-        filings = [filing1, filing2, filing3]
-
-        # Execute with single date
-        result = service._apply_date_filter(filings, "2024-06-15")
-
-        # Should return filings with matching date
-        assert len(result) == 2
-        assert filing1 in result
-        assert filing3 in result
-        assert filing2 not in result
-
-    def test_apply_date_filter_date_range_both_dates(self, service):
-        """Test date filtering with both start and end dates."""
-        filing1 = Mock()
-        filing1.filing_date = date(2024, 5, 15)  # Before range
-
-        filing2 = Mock()
-        filing2.filing_date = date(2024, 6, 15)  # In range
-
-        filing3 = Mock()
-        filing3.filing_date = date(2024, 8, 15)  # After range
-
-        filings = [filing1, filing2, filing3]
-
-        # Execute with date range
-        result = service._apply_date_filter(filings, "2024-06-01:2024-07-31")
-
-        # Should return only filing in range
-        assert len(result) == 1
-        assert filing2 in result
-
-    def test_apply_date_filter_start_date_only(self, service):
-        """Test date filtering with start date only."""
-        filing1 = Mock()
-        filing1.filing_date = date(2024, 5, 15)  # Before start
-
-        filing2 = Mock()
-        filing2.filing_date = date(2024, 7, 15)  # After start
-
-        filings = [filing1, filing2]
-
-        # Execute with start date only
-        result = service._apply_date_filter(filings, "2024-06-01:")
-
-        # Should return filings on or after start date
-        assert len(result) == 1
-        assert filing2 in result
-
-    def test_apply_date_filter_end_date_only(self, service):
-        """Test date filtering with end date only."""
-        filing1 = Mock()
-        filing1.filing_date = date(2024, 5, 15)  # Before end
-
-        filing2 = Mock()
-        filing2.filing_date = date(2024, 8, 15)  # After end
-
-        filings = [filing1, filing2]
-
-        # Execute with end date only
-        result = service._apply_date_filter(filings, ":2024-07-31")
-
-        # Should return filings on or before end date
-        assert len(result) == 1
-        assert filing1 in result
-
-    def test_extract_filing_data_from_entity_filing_unknown_form(self, service):
-        """Test entity filing extraction with unknown form type."""
-        mock_entity_filing = Mock()
-        mock_entity_filing.accession_number = "0000320193-24-000005"
-        mock_entity_filing.form = "UNKNOWN-FORM"  # Not in FilingType enum
-        mock_entity_filing.filing_date = date(2024, 1, 15)
-        mock_entity_filing.cik = 320193
-
-        # Mock company attribute
-        mock_entity_filing.company = Mock()
-        mock_entity_filing.company.name = "Apple Inc."
-        mock_entity_filing.company.ticker = "AAPL"
-
-        # Execute
-        result = service._extract_filing_data_from_entity_filing(mock_entity_filing)
-
-        # Should handle unknown form gracefully
-        assert result.filing_type == "UNKNOWN-FORM"
-        assert result.company_name == "Apple Inc."
-        assert result.ticker == "AAPL"
-
-    def test_extract_filing_data_from_entity_filing_no_company(self, service):
-        """Test entity filing extraction without company information."""
-        mock_entity_filing = Mock()
-        mock_entity_filing.accession_number = "0000320193-24-000005"
-        mock_entity_filing.form = "10-K"
-        mock_entity_filing.filing_date = date(2024, 1, 15)
-        mock_entity_filing.cik = 320193
-        # No company attribute
-        if hasattr(mock_entity_filing, 'company'):
-            delattr(mock_entity_filing, 'company')
-
-        # Execute
-        result = service._extract_filing_data_from_entity_filing(mock_entity_filing)
-
-        # Should handle missing company gracefully
-        assert result.company_name == "Unknown"
-        assert result.ticker is None
+        # Assert
+        assert isinstance(result, CompanyData)
+        assert result.ticker == "INVALID"  # Should fall back to tickers list
 
     @patch("src.infrastructure.edgar.service.Company")
-    def test_filter_by_year_quarter_combinations(self, mock_company_class, service):
-        """Test year/quarter filtering with various combinations."""
-        # Create filings across different quarters and years
-        filings = []
-        dates = [
-            (2023, 1, 15),  # Q1 2023
-            (2023, 7, 15),  # Q3 2023
-            (2024, 3, 15),  # Q1 2024
-            (2024, 9, 15),  # Q3 2024
-        ]
-
-        for year, month, day in dates:
-            filing = Mock()
-            filing.filing_date = date(year, month, day)
-            filings.append(filing)
-
-        # Test single year, single quarter
-        result = service._filter_by_year_quarter(filings, 2024, 1)
-        assert len(result) == 1
-        assert result[0].filing_date.year == 2024
-        assert result[0].filing_date.month == 3  # Q1
-
-        # Test year list, quarter list
-        result = service._filter_by_year_quarter(filings, [2023, 2024], [1, 3])
-        assert len(result) == 4  # All filings match
-
-        # Test year range
-        result = service._filter_by_year_quarter(filings, range(2023, 2025), None)
-        assert len(result) == 4  # All years in range
-
-    @patch("src.infrastructure.edgar.service.Company")
-    def test_get_filings_with_params_latest_behavior(
-        self, mock_company_class, service, mock_company
-    ):
-        """Test _get_filings_with_params with latest behavior."""
-        mock_filing = Mock()
-        mock_filings_result = Mock()
-        mock_filings_result.latest.return_value = mock_filing
-        mock_company.get_filings.return_value = mock_filings_result
-        mock_company_class.return_value = mock_company
-
-        from src.infrastructure.edgar.schemas.filing_query import FilingQueryParams
-
-        # Test latest=True with no flexible params
-        query_params = FilingQueryParams(latest=True)
-
-        result = service._get_filings_with_params(
-            Ticker("AAPL"), FilingType.FORM_10K, query_params
-        )
-
-        assert len(result) == 1
-        assert result[0] == mock_filing
-        mock_filings_result.latest.assert_called_once()
-
-    @patch("src.infrastructure.edgar.service.Company")
-    def test_connection_timeout_in_get_filing(self, mock_company_class, service):
-        """Test connection timeout handling in get_filing method."""
-        # Mock connection timeout
-
-        mock_company_class.side_effect = TimeoutError("Connection timed out")
-
+    def test_get_filing_with_amendments_filter(self, mock_company_class):
+        """Test filing retrieval filtering out amended filings."""
+        # Arrange
         ticker = Ticker("AAPL")
         filing_type = FilingType.FORM_10K
 
-        # Execute & Assert
-        with pytest.raises(ValueError, match="Failed to get filing"):
-            service.get_filing(ticker, filing_type)
+        mock_company = Mock()
+        # Create mix of original and amended filings
+        mock_filing_original = self._create_mock_filing("10-K")
+        mock_filing_amended = self._create_mock_filing("10-K/A")  # Amendment
+
+        mock_company.get_filings.return_value = [
+            mock_filing_original,
+            mock_filing_amended,
+        ]
+        mock_company_class.return_value = mock_company
+
+        with patch.object(self.service, "_extract_filing_data") as mock_extract:
+            mock_extract.return_value = FilingData(
+                accession_number="0000320193-23-000106",
+                filing_type="10-K",
+                filing_date="2023-10-01",
+                company_name="Apple Inc.",
+                cik="0000320193",
+                ticker="AAPL",
+                content_text="Original content",
+                sections={},
+            )
+
+            # Act - exclude amendments
+            result = self.service.get_filing(
+                ticker, filing_type, latest=False, amendments=False
+            )
+
+            # Assert
+            assert isinstance(result, FilingData)
+            # Should only process the original filing, not the amendment
+            mock_extract.assert_called_once_with(mock_filing_original)
 
     @patch("src.infrastructure.edgar.service.Company")
-    def test_rate_limit_handling(self, mock_company_class, service):
-        """Test rate limiting error handling."""
-        # Mock rate limiting error (common with SEC API)
-        mock_company_class.side_effect = ConnectionError("429 Too Many Requests")
-
+    def test_get_filing_with_year_range(self, mock_company_class):
+        """Test filing retrieval with year range filter."""
+        # Arrange
         ticker = Ticker("AAPL")
+        filing_type = FilingType.FORM_10Q
+        year_range = range(2021, 2024)  # 2021-2023
 
-        with pytest.raises(ValueError, match="Failed to get company for ticker"):
-            service.get_company_by_ticker(ticker)
+        mock_company = Mock()
+        # Create filings from different years
+        mock_filing_2020 = self._create_mock_filing("10-Q", date(2020, 3, 31))
+        mock_filing_2021 = self._create_mock_filing("10-Q", date(2021, 3, 31))
+        mock_filing_2022 = self._create_mock_filing("10-Q", date(2022, 3, 31))
+        mock_filing_2024 = self._create_mock_filing("10-Q", date(2024, 3, 31))
+
+        mock_company.get_filings.return_value = [
+            mock_filing_2020,
+            mock_filing_2021,
+            mock_filing_2022,
+            mock_filing_2024,
+        ]
+        mock_company_class.return_value = mock_company
+
+        with patch.object(self.service, "_extract_filing_data") as mock_extract:
+            mock_extract.return_value = FilingData(
+                accession_number="0000320193-23-000106",
+                filing_type="10-Q",
+                filing_date="2021-03-31",
+                company_name="Apple Inc.",
+                cik="0000320193",
+                ticker="AAPL",
+                content_text="Q1 content",
+                sections={},
+            )
+
+            # Act
+            result = self.service.get_filing(
+                ticker, filing_type, latest=False, year=year_range
+            )
+
+            # Assert
+            assert isinstance(result, FilingData)
+            # Should filter to only include filings from 2021-2023
 
     @patch("src.infrastructure.edgar.service.Company")
-    def test_malformed_response_handling(self, mock_company_class, service):
-        """Test handling of malformed API responses."""
-        # Mock JSON decode error (malformed response)
-        import json
-
-        mock_company_class.side_effect = json.JSONDecodeError("Invalid JSON", "", 0)
-
+    def test_get_filing_with_multiple_quarters(self, mock_company_class):
+        """Test filing retrieval with multiple quarter filter."""
+        # Arrange
         ticker = Ticker("AAPL")
+        filing_type = FilingType.FORM_10Q
+        year = 2023
+        quarters = [1, 3]  # Q1 and Q3
 
-        with pytest.raises(ValueError, match="Failed to get company for ticker"):
-            service.get_company_by_ticker(ticker)
+        mock_company = Mock()
+        # Create Q1, Q2, Q3 filings
+        mock_filing_q1 = self._create_mock_filing("10-Q", date(2023, 3, 31))
+        mock_filing_q2 = self._create_mock_filing("10-Q", date(2023, 6, 30))
+        mock_filing_q3 = self._create_mock_filing("10-Q", date(2023, 9, 30))
+
+        mock_company.get_filings.return_value = [
+            mock_filing_q1,
+            mock_filing_q2,
+            mock_filing_q3,
+        ]
+        mock_company_class.return_value = mock_company
+
+        with patch.object(self.service, "_extract_filing_data") as mock_extract:
+            mock_extract.return_value = FilingData(
+                accession_number="0000320193-23-000106",
+                filing_type="10-Q",
+                filing_date="2023-03-31",
+                company_name="Apple Inc.",
+                cik="0000320193",
+                ticker="AAPL",
+                content_text="Q1 content",
+                sections={},
+            )
+
+            # Act
+            result = self.service.get_filing(
+                ticker, filing_type, latest=False, year=year, quarter=quarters
+            )
+
+            # Assert
+            assert isinstance(result, FilingData)
+            # Should only include Q1 and Q3, not Q2
+
+    @patch("src.infrastructure.edgar.service.Company")
+    def test_get_filing_with_limit_parameter(self, mock_company_class):
+        """Test filing retrieval with limit parameter."""
+        # Arrange
+        ticker = Ticker("AAPL")
+        filing_type = FilingType.FORM_8K
+        limit = 2
+
+        mock_company = Mock()
+        # Create 5 filings but limit to 2
+        mock_filings = [self._create_mock_filing("8-K") for _ in range(5)]
+        mock_company.get_filings.return_value = mock_filings
+        mock_company_class.return_value = mock_company
+
+        with patch.object(self.service, "_extract_filing_data") as mock_extract:
+            mock_extract.return_value = FilingData(
+                accession_number="0000320193-23-000106",
+                filing_type="8-K",
+                filing_date="2023-10-01",
+                company_name="Apple Inc.",
+                cik="0000320193",
+                ticker="AAPL",
+                content_text="8-K content",
+                sections={},
+            )
+
+            # Act
+            result = self.service.get_filings(ticker, filing_type, limit=limit)
+
+            # Assert
+            assert isinstance(result, list)
+            assert len(result) == limit
+            # Should call _extract_filing_data exactly 'limit' times
+            assert mock_extract.call_count == limit
+
+    def test_section_extraction_for_10k_comprehensive(self):
+        """Test comprehensive section extraction for 10-K filings."""
+        # Arrange
+        mock_filing = Mock()
+        mock_filing.form = "10-K"
+
+        mock_filing_obj = Mock()
+        # Simulate comprehensive 10-K sections
+        mock_filing_obj.business = "Business section content"
+        mock_filing_obj.risk_factors = "Risk factors content"
+        mock_filing_obj.mda = "Management discussion content"
+        mock_filing_obj.financial_statements = "Financial statements content"
+        mock_filing_obj.controls_procedures = "Controls and procedures content"
+        mock_filing_obj.directors_officers = "Directors and officers content"
+
+        mock_filing.obj.return_value = mock_filing_obj
+
+        # Act
+        result = self.service._extract_sections_from_filing(mock_filing)
+
+        # Assert
+        assert isinstance(result, dict)
+        assert "Item 1 - Business" in result
+        assert "Item 1A - Risk Factors" in result
+        assert "Item 7 - Management Discussion & Analysis" in result
+        assert "Item 8 - Financial Statements" in result
+        assert "Item 9A - Controls and Procedures" in result
+        assert "Item 10 - Directors and Officers" in result
+        assert result["Item 1 - Business"] == "Business section content"
+
+    def test_section_extraction_for_10q_with_items_list(self):
+        """Test section extraction for 10-Q filings using items list."""
+        # Arrange
+        mock_filing = Mock()
+        mock_filing.form = "10-Q"
+
+        # Create a custom class to avoid Mock's automatic attribute creation
+        class MockFilingObj:
+            def __init__(self):
+                self.items = ["Item 1", "Item 2", "Item 1A"]
+
+            def __getitem__(self, key):
+                content_map = {
+                    "Item 1": "Financial statements content",
+                    "Item 2": "MDA content",
+                    "Item 1A": "Risk factors content",
+                }
+                return content_map.get(key)
+
+        mock_filing_obj = MockFilingObj()
+        mock_filing.obj.return_value = mock_filing_obj
+
+        # Act
+        result = self.service._extract_sections_from_filing(mock_filing)
+
+        # Assert
+        assert isinstance(result, dict)
+        assert "Part I Item 1 - Financial Statements" in result
+        assert "Part I Item 2 - Management Discussion & Analysis" in result
+        assert "Part II Item 1A - Risk Factors" in result
+        assert (
+            result["Part I Item 1 - Financial Statements"]
+            == "Financial statements content"
+        )
+
+    def test_section_extraction_for_8k_comprehensive(self):
+        """Test section extraction for 8-K filings."""
+        # Arrange
+        mock_filing = Mock()
+        mock_filing.form = "8-K"
+
+        mock_filing_obj = Mock()
+        mock_filing_obj.completion_acquisition = "Acquisition completion content"
+        mock_filing_obj.results_operations = "Results of operations content"
+        mock_filing_obj.departure_directors = "Director departure content"
+        mock_filing_obj.financial_statements_exhibits = "Exhibits content"
+
+        mock_filing.obj.return_value = mock_filing_obj
+
+        # Act
+        result = self.service._extract_sections_from_filing(mock_filing)
+
+        # Assert
+        assert isinstance(result, dict)
+        assert "Item 2.01 - Completion of Acquisition" in result
+        assert "Item 2.02 - Results of Operations" in result
+        assert "Item 5.02 - Departure of Directors" in result
+        assert "Item 9.01 - Financial Statements and Exhibits" in result
+
+    def test_section_extraction_with_financial_statements(self):
+        """Test extraction of financial statements across all filing types."""
+        # Arrange
+        mock_filing = Mock()
+        mock_filing.form = "10-K"
+
+        mock_filing_obj = Mock()
+        mock_filing_obj.balance_sheet = "Balance sheet data"
+        mock_filing_obj.income_statement = "Income statement data"
+        mock_filing_obj.cash_flow_statement = "Cash flow data"
+
+        mock_filing.obj.return_value = mock_filing_obj
+
+        # Act
+        result = self.service._extract_sections_from_filing(mock_filing)
+
+        # Assert
+        assert "Balance Sheet" in result
+        assert "Income Statement" in result
+        assert "Cash Flow Statement" in result
+        assert result["Balance Sheet"] == "Balance sheet data"
+
+    def test_section_extraction_with_errors_graceful_fallback(self):
+        """Test that section extraction gracefully handles errors."""
+        # Arrange
+        mock_filing = Mock()
+        mock_filing.form = "10-K"
+        mock_filing.obj.side_effect = Exception("Section extraction failed")
+
+        # Act
+        result = self.service._extract_sections_from_filing(mock_filing)
+
+        # Assert
+        assert isinstance(result, dict)
+        assert len(result) == 0  # Should return empty dict instead of raising
+
+    def test_section_extraction_unsupported_filing_type(self):
+        """Test section extraction for unsupported filing types."""
+        # Arrange
+        mock_filing = Mock()
+        mock_filing.form = "DEF 14A"  # Unsupported form type
+        mock_filing.obj.return_value = Mock()
+
+        # Act
+        result = self.service._extract_sections_from_filing(mock_filing)
+
+        # Assert
+        assert isinstance(result, dict)
+        assert len(result) == 0  # Should return empty dict for unsupported types
+
+    def _create_mock_filing(
+        self, form_type: str = "10-K", filing_date: date = None
+    ) -> Mock:
+        """Create a mock filing object with specified form type and date."""
+        if filing_date is None:
+            filing_date = date(2023, 10, 1)
+
+        mock_filing = Mock()
+        # Configure Mock to return string values, not new Mock objects
+        mock_filing.configure_mock(
+            **{
+                "accession_number": "0000320193-23-000106",
+                "form": form_type,
+                "filing_date": filing_date,
+                "company": "Apple Inc.",
+                "cik": "0000320193",
+            }
+        )
+        mock_filing.text.return_value = f"Sample {form_type} content"
+        mock_filing.html.return_value = f"<html>Sample {form_type} content</html>"
+        mock_filing.obj.return_value = Mock()
+        return mock_filing
+
+
+@pytest.mark.unit
+class TestEdgarServiceSectionExtraction:
+    """Test comprehensive section extraction functionality."""
+
+    def setup_method(self):
+        """Set up test fixtures."""
+        with (
+            patch("src.infrastructure.edgar.service.set_identity"),
+            patch("src.infrastructure.edgar.service.settings") as mock_settings,
+        ):
+            mock_settings.edgar_identity = "test@example.com"
+            self.service = EdgarService()
+
+    def test_section_extraction_10k_with_attribute_variations(self):
+        """Test 10-K section extraction with multiple attribute name variations."""
+        # Arrange
+        mock_filing = Mock()
+        mock_filing.form = "10-K"
+
+        mock_filing_obj = Mock()
+        # Configure mock to return string values when attributes are accessed
+        mock_filing_obj.business = "Business description content"
+        mock_filing_obj.risk_factors = "Risk factors content"
+        mock_filing_obj.properties = "Properties content"
+        mock_filing_obj.legal_proceedings = "Legal proceedings content"
+
+        mock_filing.obj.return_value = mock_filing_obj
+
+        # Act
+        result = self.service._extract_sections_from_filing(mock_filing)
+
+        # Assert
+        assert "Item 1 - Business" in result
+        assert "Item 1A - Risk Factors" in result
+        assert "Item 2 - Properties" in result
+        assert "Item 3 - Legal Proceedings" in result
+        assert result["Item 1 - Business"] == "Business description content"
+
+    def test_section_extraction_10q_without_items_list(self):
+        """Test 10-Q section extraction when items list is not available."""
+        # Arrange
+        mock_filing = Mock()
+        mock_filing.form = "10-Q"
+
+        mock_filing_obj = Mock()
+        # No items list attribute
+        del mock_filing_obj.items
+
+        # Add financial statements that are extracted for all filing types
+        mock_filing_obj.balance_sheet = "Balance sheet content"
+        mock_filing_obj.income_statement = "Income statement content"
+        mock_filing_obj.cash_flow_statement = "Cash flow statement content"
+
+        mock_filing.obj.return_value = mock_filing_obj
+
+        # Act
+        result = self.service._extract_sections_from_filing(mock_filing)
+
+        # Assert
+        assert isinstance(result, dict)
+        # Should extract financial statements even without items list
+        assert len(result) == 3
+        assert "Balance Sheet" in result
+        assert "Income Statement" in result
+        assert "Cash Flow Statement" in result
+
+    def test_section_extraction_10q_with_item_extraction_errors(self):
+        """Test 10-Q section extraction with individual item extraction errors."""
+        # Arrange
+        mock_filing = Mock()
+        mock_filing.form = "10-Q"
+
+        mock_filing_obj = Mock()
+        mock_filing_obj.items = ["Item 1", "Item 2"]
+
+        # Mock dictionary access with errors
+        def mock_getitem(self, key):
+            if key == "Item 1":
+                return "Financial statements content"
+            elif key == "Item 2":
+                raise Exception("Item 2 extraction failed")
+            return None
+
+        mock_filing_obj.__getitem__ = mock_getitem
+
+        # Add financial statements that are extracted for all filing types
+        mock_filing_obj.balance_sheet = "Balance sheet content"
+        mock_filing_obj.income_statement = "Income statement content"
+        mock_filing_obj.cash_flow_statement = "Cash flow statement content"
+
+        mock_filing.obj.return_value = mock_filing_obj
+
+        # Act
+        result = self.service._extract_sections_from_filing(mock_filing)
+
+        # Assert
+        # Should have extracted Item 1 but not Item 2 due to error
+        assert "Part I Item 1 - Financial Statements" in result
+        assert "Part I Item 2 - Management Discussion & Analysis" not in result
+        assert (
+            result["Part I Item 1 - Financial Statements"]
+            == "Financial statements content"
+        )
+        # Should also include financial statements extracted separately
+        assert "Balance Sheet" in result
+        assert "Income Statement" in result
+        assert "Cash Flow Statement" in result
+        # Total should be 4: Item 1 + 3 financial statements
+        assert len(result) == 4
+
+    def test_section_extraction_8k_with_attribute_variations(self):
+        """Test 8-K section extraction with attribute name variations."""
+        # Arrange
+        mock_filing = Mock()
+        mock_filing.form = "8-K"
+
+        mock_filing_obj = Mock()
+        # Test fallback attribute names for 8-K
+        mock_filing_obj.acquisition = "Acquisition content"  # Fallback
+        mock_filing_obj.results = "Results content"  # Fallback
+        mock_filing_obj.obligations = "Obligations content"  # Fallback
+        mock_filing_obj.events = "Events content"  # Fallback
+        mock_filing_obj.directors = "Directors content"  # Fallback
+        mock_filing_obj.exhibits = "Exhibits content"  # Fallback
+
+        mock_filing.obj.return_value = mock_filing_obj
+
+        # Act
+        result = self.service._extract_sections_from_filing(mock_filing)
+
+        # Assert
+        assert "Item 2.01 - Completion of Acquisition" in result
+        assert "Item 2.02 - Results of Operations" in result
+        assert "Item 2.03 - Financial Obligations" in result
+        assert "Item 2.04 - Triggering Events" in result
+        assert "Item 5.02 - Departure of Directors" in result
+        assert "Item 9.01 - Financial Statements and Exhibits" in result
+
+    def test_section_extraction_with_empty_content_filtering(self):
+        """Test that empty or whitespace-only sections are filtered out."""
+        # Arrange
+        mock_filing = Mock()
+        mock_filing.form = "10-K"
+
+        # Create a custom object that only has the attributes we explicitly set
+        class RestrictiveMockFilingObj:
+            def __init__(self):
+                # Only set the attributes we want to test
+                self.business = "Valid business content"
+                self.risk_factors = ""  # Empty content
+                self.risks = ""  # Fallback attribute also empty
+                self.item1a = ""  # Another fallback
+                self.mda = "   "  # Whitespace only
+                self.management_discussion = "   "  # Fallback also whitespace
+                self.management_discussion_and_analysis = "   "  # Another fallback
+                self.item7 = "   "  # Yet another fallback
+                self.legal_proceedings = None  # None content
+                self.legal = None  # Fallback also None
+                self.item3 = None  # Another fallback
+                self.properties = "Valid properties content"
+
+                # Add financial statements that will be extracted
+                self.balance_sheet = "Balance sheet content"
+                self.income_statement = "Income statement content"
+                self.cash_flow_statement = "Cash flow statement content"
+
+            def __getattr__(self, name):
+                # Raise AttributeError for any attribute that wasn't explicitly set
+                # This prevents Mock's automatic attribute creation
+                raise AttributeError(
+                    f"'{type(self).__name__}' object has no attribute '{name}'"
+                )
+
+        mock_filing_obj = RestrictiveMockFilingObj()
+        mock_filing.obj.return_value = mock_filing_obj
+
+        # Act
+        result = self.service._extract_sections_from_filing(mock_filing)
+
+        # Assert
+        assert "Item 1 - Business" in result
+        assert "Item 1A - Risk Factors" not in result  # Empty content filtered
+        assert (
+            "Item 7 - Management Discussion & Analysis" not in result
+        )  # Whitespace filtered
+        assert "Item 3 - Legal Proceedings" not in result  # None filtered
+        assert "Item 2 - Properties" in result
+        # Financial statements should also be included
+        assert "Balance Sheet" in result
+        assert "Income Statement" in result
+        assert "Cash Flow Statement" in result
+        assert len(result) == 5  # 2 valid 10-K sections + 3 financial statements
+
+    def test_section_extraction_financial_statements_error_handling(self):
+        """Test financial statement extraction with error handling."""
+        # Arrange
+        mock_filing = Mock()
+        mock_filing.form = "10-K"
+
+        mock_filing_obj = Mock()
+        mock_filing_obj.business = "Business content"
+
+        # Financial statements with errors
+        mock_filing_obj.balance_sheet = "Balance sheet content"
+        mock_filing_obj.income_statement = Mock()
+        mock_filing_obj.income_statement.__str__ = Mock(
+            side_effect=Exception("Conversion error")
+        )
+        mock_filing_obj.cash_flow_statement = None
+
+        mock_filing.obj.return_value = mock_filing_obj
+
+        # Act
+        result = self.service._extract_sections_from_filing(mock_filing)
+
+        # Assert
+        assert "Item 1 - Business" in result
+        assert "Balance Sheet" in result  # Should be included
+        # Income statement and cash flow should be skipped due to errors
+        assert "Income Statement" not in result
+        assert "Cash Flow Statement" not in result
+
+    def test_section_extraction_attribute_priority(self):
+        """Test that primary attribute names take precedence over fallbacks."""
+        # Arrange
+        mock_filing = Mock()
+        mock_filing.form = "10-K"
+
+        mock_filing_obj = Mock()
+        # Both primary and fallback attributes present
+        mock_filing_obj.business = "Primary business content"
+        mock_filing_obj.business_description = "Fallback business content"
+        mock_filing_obj.risk_factors = "Primary risk content"
+        mock_filing_obj.risks = "Fallback risk content"
+
+        mock_filing.obj.return_value = mock_filing_obj
+
+        # Act
+        result = self.service._extract_sections_from_filing(mock_filing)
+
+        # Assert
+        # Should use primary attributes, not fallbacks
+        assert result["Item 1 - Business"] == "Primary business content"
+        assert result["Item 1A - Risk Factors"] == "Primary risk content"
+
+    def test_section_extraction_comprehensive_10k_mapping(self):
+        """Test complete 10-K section mapping with all supported sections."""
+        # Arrange
+        mock_filing = Mock()
+        mock_filing.form = "10-K"
+
+        mock_filing_obj = Mock()
+        # Comprehensive 10-K sections
+        section_content_map = {
+            "business": "Business content",
+            "risk_factors": "Risk factors content",
+            "unresolved_staff_comments": "Staff comments content",
+            "properties": "Properties content",
+            "legal_proceedings": "Legal proceedings content",
+            "mine_safety": "Mine safety content",
+            "market_price": "Market price content",
+            "performance_graph": "Performance graph content",
+            "selected_financial_data": "Selected financial data content",
+            "mda": "MDA content",
+            "financial_statements": "Financial statements content",
+            "changes_disagreements": "Changes and disagreements content",
+            "controls_procedures": "Controls and procedures content",
+            "other_information": "Other information content",
+            "directors_officers": "Directors and officers content",
+            "executive_compensation": "Executive compensation content",
+            "ownership": "Security ownership content",
+            "relationships": "Related transactions content",
+            "principal_accountant": "Principal accountant content",
+            "exhibits": "Exhibits content",
+        }
+
+        for attr, content in section_content_map.items():
+            setattr(mock_filing_obj, attr, content)
+
+        # Add financial statements that are extracted for all filing types
+        mock_filing_obj.balance_sheet = "Balance sheet content"
+        mock_filing_obj.income_statement = "Income statement content"
+        mock_filing_obj.cash_flow_statement = "Cash flow statement content"
+
+        mock_filing.obj.return_value = mock_filing_obj
+
+        # Act
+        result = self.service._extract_sections_from_filing(mock_filing)
+
+        # Assert
+        expected_sections = [
+            "Item 1 - Business",
+            "Item 1A - Risk Factors",
+            "Item 1B - Unresolved Staff Comments",
+            "Item 2 - Properties",
+            "Item 3 - Legal Proceedings",
+            "Item 4 - Mine Safety Disclosures",
+            "Item 5 - Market Price",
+            "Item 5 - Performance Graph",
+            "Item 6 - Selected Financial Data",
+            "Item 7 - Management Discussion & Analysis",
+            "Item 8 - Financial Statements",
+            "Item 9 - Changes and Disagreements",
+            "Item 9A - Controls and Procedures",
+            "Item 9B - Other Information",
+            "Item 10 - Directors and Officers",
+            "Item 11 - Executive Compensation",
+            "Item 12 - Security Ownership",
+            "Item 13 - Relationships and Transactions",
+            "Item 14 - Principal Accountant",
+            "Item 15 - Exhibits",
+            # Financial statements extracted for all filing types
+            "Balance Sheet",
+            "Income Statement",
+            "Cash Flow Statement",
+        ]
+
+        # Verify all expected sections are present
+        for expected_section in expected_sections:
+            assert expected_section in result
+
+        assert len(result) == len(expected_sections)

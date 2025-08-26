@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen } from '@/test/utils'
 import { useAppStore } from '@/lib/store'
 import { DashboardHome } from './DashboardHome'
 
@@ -12,10 +12,7 @@ vi.mock('@/lib/store', () => ({
   })),
 }))
 
-// Mock child components to isolate DashboardHome testing
-vi.mock('./QuickActions', () => ({
-  QuickActions: () => <div data-testid="quick-actions">QuickActions Component</div>,
-}))
+// No QuickActions component in current implementation - removed mock
 
 vi.mock('./RecentAnalyses', () => ({
   RecentAnalyses: () => <div data-testid="recent-analyses">RecentAnalyses Component</div>,
@@ -44,17 +41,17 @@ describe('DashboardHome Component', () => {
     it('renders the correct root structure', () => {
       render(<DashboardHome />)
 
-      // Find the root container that has space-y-6 class (should be the outermost div)
-      const rootDiv = screen.getByText('Welcome to Aperilex').closest('[class*="space-y-6"]')
+      // Find the root container that has space-y-8 class (should be the outermost div)
+      const rootDiv = screen.getByText('Welcome to Aperilex').closest('[class*="space-y-8"]')
       expect(rootDiv).toBeInTheDocument()
-      expect(rootDiv).toHaveClass('space-y-6')
+      expect(rootDiv).toHaveClass('space-y-8')
     })
 
     it('applies correct spacing classes to root container', () => {
       render(<DashboardHome />)
 
-      const rootDiv = screen.getByText('Welcome to Aperilex').closest('[class*="space-y-6"]')
-      expect(rootDiv).toHaveClass('space-y-6')
+      const rootDiv = screen.getByText('Welcome to Aperilex').closest('[class*="space-y-8"]')
+      expect(rootDiv).toHaveClass('space-y-8')
     })
 
     it('renders all major sections without errors', () => {
@@ -62,7 +59,9 @@ describe('DashboardHome Component', () => {
 
       // Check that all main sections are present
       expect(screen.getByText('Welcome to Aperilex')).toBeInTheDocument()
-      expect(screen.getByTestId('quick-actions')).toBeInTheDocument()
+      expect(screen.getByRole('heading', { name: 'View SEC Filings' })).toBeInTheDocument()
+      expect(screen.getByRole('heading', { name: 'Search Companies' })).toBeInTheDocument()
+      expect(screen.getByRole('heading', { name: 'Find Analysis' })).toBeInTheDocument()
       expect(screen.getByTestId('recent-analyses')).toBeInTheDocument()
       expect(screen.getByTestId('system-health')).toBeInTheDocument()
     })
@@ -120,14 +119,14 @@ describe('DashboardHome Component', () => {
       render(<DashboardHome />)
 
       const title = screen.getByRole('heading', { level: 1 })
-      expect(title).toHaveClass('text-3xl', 'font-bold', 'text-foreground')
+      expect(title).toHaveClass('text-4xl', 'md:text-5xl', 'font-bold', 'text-foreground')
     })
 
     it('renders welcome description correctly', () => {
       render(<DashboardHome />)
 
       const description = screen.getByText(
-        'Your open-source platform for SEC filing analysis and financial insights.'
+        /Your open-source platform for SEC filing analysis and financial insights\. Analyze filings, discover company data, and generate comprehensive financial reports\./
       )
       expect(description).toBeInTheDocument()
       expect(description.tagName).toBe('P')
@@ -137,34 +136,41 @@ describe('DashboardHome Component', () => {
       render(<DashboardHome />)
 
       const description = screen.getByText(
-        'Your open-source platform for SEC filing analysis and financial insights.'
+        /Your open-source platform for SEC filing analysis and financial insights\. Analyze filings, discover company data, and generate comprehensive financial reports\./
       )
-      expect(description).toHaveClass('text-muted-foreground')
+      expect(description).toHaveClass(
+        'text-lg',
+        'text-muted-foreground',
+        'max-w-2xl',
+        'mx-auto',
+        'px-4'
+      )
     })
 
     it('maintains correct welcome section layout', () => {
       render(<DashboardHome />)
 
-      const welcomeSection = screen.getByText('Welcome to Aperilex').closest('[class*="space-y-2"]')
-      expect(welcomeSection).toHaveClass('space-y-2')
+      const welcomeSection = screen.getByText('Welcome to Aperilex').closest('[class*="space-y-4"]')
+      expect(welcomeSection).toHaveClass('text-center', 'space-y-4', 'py-12')
 
       // Verify both title and description are within the welcome section
       expect(welcomeSection).toContainElement(screen.getByText('Welcome to Aperilex'))
       expect(welcomeSection).toContainElement(
         screen.getByText(
-          'Your open-source platform for SEC filing analysis and financial insights.'
+          /Your open-source platform for SEC filing analysis and financial insights\. Analyze filings, discover company data, and generate comprehensive financial reports\./
         )
       )
     })
   })
 
   describe('Component Integration', () => {
-    it('renders QuickActions component', () => {
+    it('renders action sections for navigation', () => {
       render(<DashboardHome />)
 
-      const quickActions = screen.getByTestId('quick-actions')
-      expect(quickActions).toBeInTheDocument()
-      expect(quickActions).toHaveTextContent('QuickActions Component')
+      // Check for action sections instead of QuickActions component
+      expect(screen.getByRole('heading', { name: 'View SEC Filings' })).toBeInTheDocument()
+      expect(screen.getByRole('heading', { name: 'Search Companies' })).toBeInTheDocument()
+      expect(screen.getByRole('heading', { name: 'Find Analysis' })).toBeInTheDocument()
     })
 
     it('renders RecentAnalyses component', () => {
@@ -187,7 +193,9 @@ describe('DashboardHome Component', () => {
       render(<DashboardHome />)
 
       // All components should be present simultaneously
-      expect(screen.getByTestId('quick-actions')).toBeInTheDocument()
+      expect(screen.getByRole('heading', { name: 'View SEC Filings' })).toBeInTheDocument()
+      expect(screen.getByRole('heading', { name: 'Search Companies' })).toBeInTheDocument()
+      expect(screen.getByRole('heading', { name: 'Find Analysis' })).toBeInTheDocument()
       expect(screen.getByTestId('recent-analyses')).toBeInTheDocument()
       expect(screen.getByTestId('system-health')).toBeInTheDocument()
     })
@@ -223,7 +231,7 @@ describe('DashboardHome Component', () => {
     it('maintains correct component ordering in layout', () => {
       render(<DashboardHome />)
 
-      const rootContainer = screen.getByText('Welcome to Aperilex').closest('[class*="space-y-6"]')
+      const rootContainer = screen.getByText('Welcome to Aperilex').closest('[class*="space-y-8"]')
 
       // Get all child elements to verify order
       const children = Array.from(rootContainer!.children)
@@ -231,12 +239,18 @@ describe('DashboardHome Component', () => {
       // Welcome section should be first
       expect(children[0]).toContainElement(screen.getByText('Welcome to Aperilex'))
 
-      // QuickActions should be second
-      expect(children[1]).toBe(screen.getByTestId('quick-actions'))
+      // Action sections should follow
+      expect(rootContainer).toContainElement(
+        screen.getByRole('heading', { name: 'View SEC Filings' })
+      )
+      expect(rootContainer).toContainElement(
+        screen.getByRole('heading', { name: 'Search Companies' })
+      )
+      expect(rootContainer).toContainElement(screen.getByRole('heading', { name: 'Find Analysis' }))
 
-      // Grid container should be third
-      expect(children[2]).toContainElement(screen.getByTestId('recent-analyses'))
-      expect(children[2]).toContainElement(screen.getByTestId('system-health'))
+      // Grid container with RecentAnalyses and SystemHealth should be last
+      const gridContainer = screen.getByTestId('recent-analyses').closest('[class*="grid"]')
+      expect(rootContainer).toContainElement(gridContainer!)
     })
 
     it('applies responsive grid layout correctly', () => {
@@ -302,19 +316,21 @@ describe('DashboardHome Component', () => {
       rerender(<DashboardHome />)
 
       expect(screen.getByText('Welcome to Aperilex')).toBeInTheDocument()
-      expect(screen.getByTestId('quick-actions')).toBeInTheDocument()
+      expect(screen.getByRole('heading', { name: 'View SEC Filings' })).toBeInTheDocument()
     })
 
     it('maintains component structure across re-renders', () => {
       const { rerender } = render(<DashboardHome />)
 
       const _initialTitle = screen.getByText('Welcome to Aperilex')
-      const _initialQuickActions = screen.getByTestId('quick-actions')
+      const _initialActionSection = screen.getByRole('heading', { name: 'View SEC Filings' })
 
       rerender(<DashboardHome />)
 
       expect(screen.getByText('Welcome to Aperilex')).toBeInTheDocument()
-      expect(screen.getByTestId('quick-actions')).toBeInTheDocument()
+      expect(screen.getByRole('heading', { name: 'View SEC Filings' })).toBeInTheDocument()
+      expect(screen.getByRole('heading', { name: 'Search Companies' })).toBeInTheDocument()
+      expect(screen.getByRole('heading', { name: 'Find Analysis' })).toBeInTheDocument()
       expect(screen.getByTestId('recent-analyses')).toBeInTheDocument()
       expect(screen.getByTestId('system-health')).toBeInTheDocument()
     })
@@ -324,8 +340,8 @@ describe('DashboardHome Component', () => {
 
       rerender(<DashboardHome />)
 
-      const rootDiv = screen.getByText('Welcome to Aperilex').closest('[class*="space-y-6"]')
-      expect(rootDiv).toHaveClass('space-y-6')
+      const rootDiv = screen.getByText('Welcome to Aperilex').closest('[class*="space-y-8"]')
+      expect(rootDiv).toHaveClass('space-y-8')
 
       const gridContainer = screen.getByTestId('recent-analyses').closest('[class*="grid"]')
       expect(gridContainer).toHaveClass('grid', 'grid-cols-1', 'lg:grid-cols-3', 'gap-6')
@@ -420,7 +436,7 @@ describe('DashboardHome Component', () => {
       expect(heading).toHaveTextContent('Welcome to Aperilex')
 
       const description = screen.getByText(
-        'Your open-source platform for SEC filing analysis and financial insights.'
+        /Your open-source platform for SEC filing analysis and financial insights\. Analyze filings, discover company data, and generate comprehensive financial reports\./
       )
       expect(description.tagName).toBe('P')
     })
@@ -441,7 +457,7 @@ describe('DashboardHome Component', () => {
       // Main content should be organized in a logical structure
       const title = screen.getByText('Welcome to Aperilex')
       const description = screen.getByText(
-        'Your open-source platform for SEC filing analysis and financial insights.'
+        /Your open-source platform for SEC filing analysis and financial insights\. Analyze filings, discover company data, and generate comprehensive financial reports\./
       )
 
       // Description should come after title in DOM order
@@ -468,11 +484,11 @@ describe('DashboardHome Component', () => {
     it('maintains stable component references', () => {
       render(<DashboardHome />)
 
-      const quickActions1 = screen.getByTestId('quick-actions')
+      const actionSection = screen.getByRole('heading', { name: 'View SEC Filings' })
       const recentAnalyses1 = screen.getByTestId('recent-analyses')
 
       // Components should be stable across renders
-      expect(quickActions1).toBeInTheDocument()
+      expect(actionSection).toBeInTheDocument()
       expect(recentAnalyses1).toBeInTheDocument()
     })
 

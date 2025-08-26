@@ -8,6 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from src.presentation.api.dependencies import service_lifecycle
+from src.presentation.api.middleware import RateLimitMiddleware
 from src.presentation.api.routers import analyses, companies, filings, health, tasks
 from src.shared.config.settings import settings
 
@@ -79,7 +80,9 @@ async def general_exception_handler(request: Request, exc: Exception) -> JSONRes
         extra={
             "method": request.method,
             "path": str(request.url.path),
-            "query_params": str(request.query_params),
+            "query_params": "&".join(
+                [f"{k}={v}" for k, v in request.query_params.items()]
+            ),
         },
     )
 
@@ -111,16 +114,18 @@ app.add_exception_handler(Exception, general_exception_handler)
 # Configure CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.cors_allowed_origins,
-    allow_credentials=True,
+    allow_origins=["*"],
+    # allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Include routers
-app.include_router(health.router)
+# Add rate limiting middleware
+app.add_middleware(RateLimitMiddleware, rate_limiter=None, excluded_paths=None)
 
+# Include routers
 # API v1 routers with /api prefix
+app.include_router(health.router, prefix="/api")
 app.include_router(filings.router, prefix="/api")
 app.include_router(analyses.router, prefix="/api")
 app.include_router(companies.router, prefix="/api")
@@ -134,15 +139,4 @@ async def root() -> dict[str, Any]:
         "message": "Welcome to Aperilex API",
         "version": settings.app_version,
         "environment": settings.environment,
-    }
-
-
-@app.get("/health")
-async def health_check() -> dict[str, Any]:
-    """Basic health check endpoint."""
-    return {
-        "status": "healthy",
-        "environment": settings.environment,
-        "debug": settings.debug,
-        "version": settings.app_version,
     }

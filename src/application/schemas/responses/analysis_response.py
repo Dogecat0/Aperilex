@@ -62,13 +62,17 @@ class AnalysisResponse:
 
     @classmethod
     def from_domain(
-        cls, analysis: Analysis, include_full_results: bool = False
+        cls,
+        analysis: Analysis,
+        include_full_results: bool = False,
+        results: dict[str, Any] | None = None,
     ) -> "AnalysisResponse":
         """Create AnalysisResponse from domain Analysis entity.
 
         Args:
             analysis: Domain Analysis entity
             include_full_results: Whether to include complete analysis results
+            results: Analysis results from storage (required)
 
         Returns:
             AnalysisResponse with data from domain entity
@@ -83,40 +87,26 @@ class AnalysisResponse:
             llm_provider=analysis.llm_provider,
             llm_model=analysis.llm_model,
             processing_time_seconds=analysis.get_processing_time(),
-            # Extract key data from analysis results
-            filing_summary=(
-                analysis.get_filing_summary() if analysis.get_filing_summary() else None
-            ),
-            executive_summary=(
-                analysis.get_executive_summary()
-                if analysis.get_executive_summary()
-                else None
-            ),
-            key_insights=(
-                analysis.get_key_insights() if analysis.get_key_insights() else None
-            ),
-            risk_factors=(
-                analysis.get_risk_factors() if analysis.get_risk_factors() else None
-            ),
-            opportunities=(
-                analysis.get_opportunities() if analysis.get_opportunities() else None
-            ),
+            # Extract key data from storage results
+            filing_summary=results.get("filing_summary") if results else None,
+            executive_summary=results.get("executive_summary") if results else None,
+            key_insights=results.get("key_insights") if results else None,
+            risk_factors=results.get("risk_factors") if results else None,
+            opportunities=results.get("opportunities") if results else None,
             financial_highlights=(
-                analysis.get_financial_highlights()
-                if analysis.get_financial_highlights()
-                else None
+                results.get("financial_highlights") if results else None
             ),
             sections_analyzed=(
-                len(analysis.get_section_analyses())
-                if analysis.get_section_analyses()
-                else None
+                len(results.get("section_analyses", [])) if results else None
             ),
             # Include full results only if requested
-            full_results=analysis.results if include_full_results else None,
+            full_results=results if include_full_results else None,
         )
 
     @classmethod
-    def summary_from_domain(cls, analysis: Analysis) -> "AnalysisResponse":
+    def summary_from_domain(
+        cls, analysis: Analysis, results: dict[str, Any] | None = None
+    ) -> "AnalysisResponse":
         """Create a summary-only AnalysisResponse from domain Analysis entity.
 
         This method creates a lightweight response suitable for list views
@@ -139,11 +129,9 @@ class AnalysisResponse:
             llm_model=analysis.llm_model,
             processing_time_seconds=analysis.get_processing_time(),
             # Include only basic summary information
-            sections_analyzed=(
-                len(analysis.get_section_analyses())
-                if analysis.get_section_analyses()
-                else None
-            ),
+            # Note: sections_analyzed count would require loading from storage
+            # For list views, we'll omit this to avoid performance overhead
+            sections_analyzed=None,
         )
 
     @property

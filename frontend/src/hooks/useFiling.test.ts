@@ -680,7 +680,9 @@ describe('useFiling hooks', () => {
       expect(result.current.isAnalyzing).toBe(false)
 
       // Reset progress (should maintain idle state)
-      result.current.resetProgress()
+      act(() => {
+        result.current.resetProgress()
+      })
 
       expect(result.current.analysisProgress.state).toBe('idle')
       expect(result.current.analysisProgress.message).toBe('')

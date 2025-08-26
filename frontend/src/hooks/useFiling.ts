@@ -5,7 +5,7 @@ import { tasksApi } from '@/api/tasks'
 import type {
   AnalyzeFilingRequest,
   AnalysisProgress,
-  AnalysisProgressState,
+  AnalysisStage,
   TaskResponse,
 } from '@/api/types'
 import type { FilingSearchParams } from '@/api/filings'
@@ -170,7 +170,7 @@ export const usePollAnalysisCompletion = () => {
 /**
  * Get appropriate progress message for analysis state
  */
-const getProgressMessage = (state: AnalysisProgressState, currentStep?: string): string => {
+const getProgressMessage = (state: AnalysisStage, currentStep?: string): string => {
   if (currentStep) {
     return currentStep
   }
@@ -196,46 +196,45 @@ const getProgressMessage = (state: AnalysisProgressState, currentStep?: string):
 }
 
 /**
- * Map task status and current_step to our progress states
+ * Map task to analysis stage using structured analysis_stage field
+ * Falls back to basic task status if analysis_stage is not available
  */
-const mapTaskToProgressState = (task: TaskResponse): AnalysisProgressState => {
-  if (task.status === 'failure') {
-    return 'error'
-  }
-
-  if (task.status === 'success') {
-    return 'completed'
-  }
-
-  if (task.status === 'pending') {
-    return 'initiating'
-  }
-
-  if (task.status === 'started') {
-    const step = task.current_step?.toLowerCase() || ''
-
-    if (step.includes('filing') || step.includes('loading') || step.includes('fetch')) {
-      return 'loading_filing'
+const mapTaskToProgressState = (task: TaskResponse): AnalysisStage => {
+  // Use structured analysis_stage field from backend
+  if (task.analysis_stage) {
+    // Map backend AnalysisStage values to frontend AnalysisStage (with frontend extensions)
+    switch (task.analysis_stage) {
+      case 'idle':
+        return 'idle'
+      case 'initiating':
+        return 'initiating'
+      case 'loading_filing':
+        return 'loading_filing'
+      case 'analyzing_content':
+        return 'analyzing_content'
+      case 'completing':
+        return 'completing'
+      case 'completed':
+        return 'completed'
+      case 'error':
+        return 'error'
+      case 'background':
+        return 'processing_background'
+      default:
+        // If unknown analysis_stage, use a safe default based on task status
+        if (task.status === 'failure') return 'error'
+        if (task.status === 'success' || task.status === 'completed') return 'completed'
+        return 'analyzing_content' // Safe default for active tasks
     }
-
-    if (
-      step.includes('analysis') ||
-      step.includes('analyzing') ||
-      step.includes('llm') ||
-      step.includes('ai')
-    ) {
-      return 'analyzing_content'
-    }
-
-    if (step.includes('finaliz') || step.includes('complet') || step.includes('finish')) {
-      return 'completing'
-    }
-
-    // Default for started status
-    return 'analyzing_content'
   }
 
-  return 'initiating'
+  // If no analysis_stage field is provided, provide safe defaults based on basic task status
+  if (task.status === 'failure') return 'error'
+  if (task.status === 'success' || task.status === 'completed') return 'completed'
+  if (task.status === 'pending') return 'initiating'
+
+  // Default for any other status (like 'started' without analysis_stage)
+  return 'analyzing_content'
 }
 
 /**
@@ -316,7 +315,7 @@ export const useProgressiveFilingAnalysis = () => {
         })
 
         // Handle final state based on whether we timed out or completed
-        if (finalTask.status === 'success') {
+        if (finalTask.status === 'success' || finalTask.status === 'completed') {
           setAnalysisProgress({
             state: 'completed',
             message: getProgressMessage('completed'),
@@ -334,14 +333,6 @@ export const useProgressiveFilingAnalysis = () => {
           queryClient.invalidateQueries({
             queryKey: ['filing', accessionNumber, 'analysis'],
           })
-
-          // Reset progress state after a short delay to show completion
-          setTimeout(() => {
-            setAnalysisProgress({
-              state: 'idle',
-              message: '',
-            })
-          }, 2000)
 
           return finalTask.result?.analysis
         } else if (finalTask.status === 'failure') {
@@ -362,7 +353,7 @@ export const useProgressiveFilingAnalysis = () => {
         if (analysisProgress.state !== 'processing_background') {
           setAnalysisProgress({
             state: 'error',
-            message: error instanceof Error ? error.message : 'Analysis failed',
+            message: error instanceof Error ? error.message : 'Analysis is disabled for demonstration purposes. Try to view one of the complete analysis reports.',
           })
           setBackgroundTaskId(null)
         }
@@ -379,7 +370,7 @@ export const useProgressiveFilingAnalysis = () => {
 
     try {
       const task = await checkAnalysisAfterTimeout(backgroundTaskId)
-      if (task?.status === 'success') {
+      if (task?.status === 'success' || task?.status === 'completed') {
         setAnalysisProgress({
           state: 'completed',
           message: getProgressMessage('completed'),

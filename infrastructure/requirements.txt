@@ -1,0 +1,6 @@
+pulumi>=3.191.0
+pulumi-aws>=7.5.0
+pulumi-command>=1.1.0
+python-dotenv
+pulumi-docker>=4.8.2
+gitignore_parser>=0.1.13

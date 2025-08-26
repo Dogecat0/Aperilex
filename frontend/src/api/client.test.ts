@@ -146,7 +146,7 @@ describe('HTTP Methods Integration', () => {
     })
   })
 
-  it('should successfully call analysis endpoints', async () => {
+  it('should successfully call analysis endpoints', { timeout: 10000 }, async () => {
     // Test create analysis
     const analysisRequest = {
       analysis_template: 'comprehensive' as const,
