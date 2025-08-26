@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useAppStore } from '@/lib/store'
 import { Button } from '@/components/ui/Button'
 import { RecentAnalyses } from './RecentAnalyses'
-import { SystemHealth } from './SystemHealth'
+// import { SystemHealth } from './SystemHealth'
 
 export function DashboardHome() {
   const { setBreadcrumbs } = useAppStore()
@@ -127,9 +127,9 @@ export function DashboardHome() {
         </div>
 
         {/* Side Panel */}
-        <div className="space-y-6">
+        {/* <div className="space-y-6">
           <SystemHealth />
-        </div>
+        </div> */}
       </div>
     </div>
   )

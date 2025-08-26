@@ -5,7 +5,7 @@ import { useCompany, useCompanyAnalyses } from '@/hooks/useCompany'
 import { CompanyHeader } from './components/CompanyHeader'
 import { Button } from '@/components/ui/Button'
 import { Skeleton } from '@/components/ui/Skeleton'
-import { AlertCircle, BarChart3, Calendar, TrendingUp, ArrowLeft } from 'lucide-react'
+import { AlertCircle, BarChart3, Calendar, TrendingUp } from 'lucide-react'
 import type { AnalysisResponse } from '@/api/types'
 
 interface CompanyAnalysisCardProps {
@@ -141,10 +141,6 @@ export function CompanyProfile() {
       ])
     }
   }, [company, ticker, setBreadcrumbs])
-
-  const handleBack = () => {
-    navigate('/companies')
-  }
 
   const handleAnalyzeFilings = () => {
     navigate('/filings')

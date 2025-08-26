@@ -353,7 +353,7 @@ export const useProgressiveFilingAnalysis = () => {
         if (analysisProgress.state !== 'processing_background') {
           setAnalysisProgress({
             state: 'error',
-            message: error instanceof Error ? error.message : 'Analysis failed',
+            message: error instanceof Error ? error.message : 'Analysis is disabled for demonstration purposes. Try to view one of the complete analysis reports.',
           })
           setBackgroundTaskId(null)
         }
