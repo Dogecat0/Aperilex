@@ -26,11 +26,13 @@ Break complex work into 3-5 stages. Document in `IMPLEMENTATION_PLAN.md`:
 
 ```markdown
 ## Stage N: [Name]
+
 **Goal**: [Specific deliverable]
 **Success Criteria**: [Testable outcomes]
 **Tests**: [Specific test cases]
 **Status**: [Not Started|In Progress|Complete]
 ```
+
 - Update status as you progress
 - Remove file when all stages are done
 
@@ -47,15 +49,18 @@ Break complex work into 3-5 stages. Document in `IMPLEMENTATION_PLAN.md`:
 **CRITICAL**: Maximum 3 attempts per issue, then STOP.
 
 1. **Document what failed**:
+
    - What you tried
    - Specific error messages
    - Why you think it failed
 
 2. **Research alternatives**:
+
    - Find 2-3 similar implementations
    - Note different approaches used
 
 3. **Question fundamentals**:
+
    - Is this the right abstraction level?
    - Can this be split into smaller problems?
    - Is there a simpler approach entirely?
@@ -77,6 +82,7 @@ Break complex work into 3-5 stages. Document in `IMPLEMENTATION_PLAN.md`:
 ### Code Quality
 
 - **Every commit must**:
+
   - Compile successfully
   - Pass all existing tests
   - Include tests for new functionality
@@ -142,14 +148,17 @@ When multiple valid approaches exist, choose based on:
 ## Important Reminders
 
 **NEVER**:
+
 - Use `--no-verify` to bypass commit hooks
 - Disable tests instead of fixing them
 - Commit code that doesn't compile
 - Make assumptions - verify with existing code
 
 **ALWAYS**:
+
 - Commit working code incrementally
 - Update plan documentation as you go
 - Learn from existing implementations
 - Stop after 3 failed attempts and reassess
 - Always use 'poetry run python' for any module call or scripts executed
+- datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC)

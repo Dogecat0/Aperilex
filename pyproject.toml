@@ -17,6 +17,7 @@ classifiers = [
     "Topic :: Office/Business :: Financial",
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
 ]
+package-mode = false
 
 [tool.poetry.dependencies]
 python = "^3.12"
@@ -39,7 +40,7 @@ httpx = "^0.28.0"
 # Messaging and Queue (development dependencies)
 aio-pika = { version = "^9.4.0" }
 # AWS services (production dependencies)
-boto3 = { version = "^1.34.0" }
+boto3 = { version = "1.40.16" }
 # Monitoring
 prometheus-client = "^0.20.0"
 opentelemetry-api = "^1.22.0"
@@ -75,6 +76,9 @@ mypy = "^1.16.1"
 ruff = "^0.12.2"
 black = "^25.1.0"
 isort = "^5.13.0"
+# Type stubs removed due to compatibility issues
+boto3-stubs = { extras = ["full"], version = "1.40.16" }
+types-boto3 = "1.40.16"
 # Security
 bandit = "^1.7.7"
 safety = "^3.0.0"
@@ -83,6 +87,9 @@ ipython = "^8.21.0"
 rich = "^13.7.0"
 pre-commit = "^3.6.0"
 
+[tool.poetry.group.deployment.dependencies]
+pulumi = "3.191.0"
+pulumi-aws = "7.5.0"
 
 [tool.poetry.group.test.dependencies]
 
