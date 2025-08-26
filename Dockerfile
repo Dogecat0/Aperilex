@@ -24,15 +24,14 @@ ENV POETRY_NO_INTERACTION=1 \
 WORKDIR /app
 
 # Copy dependency files
-COPY pyproject.toml poetry.lock README.md ./
+COPY pyproject.toml poetry.lock ./
 
 # Configure Poetry and install dependencies
 RUN --mount=type=cache,target=/opt/poetry_cache \
     --mount=type=cache,target=/root/.cache/pypoetry \
     poetry config virtualenvs.create false && \
     poetry config virtualenvs.in-project false && \
-    poetry install --only=main --no-root && \
-    python -c "import uvicorn; import fastapi; print('All imports successful')"
+    poetry install --only=main --no-root
 
 # Create necessary directories
 RUN mkdir -p /tmp/edgar_data /app/data /home/appuser/.edgar /home/appuser/.cache && \
@@ -52,8 +51,12 @@ RUN chmod -R 755 /app && \
     find /app/scripts -name "*.sh" -exec chmod +x {} \; && \
     find /app/scripts -name "*.py" -exec chmod +x {} \;
 
-# Set entrypoint
-ENTRYPOINT ["/app/scripts/docker-entrypoint.sh"]
+# Install AWS CLI for production environment (needed for Secrets Manager)
+RUN --mount=type=cache,target=/root/.cache/pip \
+    pip install awscli
+
+# Use AWS entrypoint which will handle Secrets Manager and then call docker-entrypoint
+ENTRYPOINT ["/app/scripts/aws-entrypoint.sh"]
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=3s --start-period=40s --retries=3 \

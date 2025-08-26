@@ -20,10 +20,10 @@ if ! docker ps | grep -q "aperilex-postgres-1"; then
     exit 1
 fi
 
-if ! docker ps | grep -q "aperilex-rabbitmq-1"; then
-    echo -e "${RED}❌ RabbitMQ container is not running. Please start with 'docker-compose up -d'${NC}"
-    exit 1
-fi
+# if ! docker ps | grep -q "aperilex-rabbitmq-1"; then
+#     echo -e "${RED}❌ RabbitMQ container is not running. Please start with 'docker-compose up -d'${NC}"
+#     exit 1
+# fi
 
 if ! docker ps | grep -q "aperilex-app-1"; then
     echo -e "${RED}❌ App container is not running. Please start with 'docker-compose up -d'${NC}"
@@ -45,11 +45,11 @@ else
 fi
 
 # Step 2: Clear RabbitMQ Queues
-echo -e "\n${YELLOW}🧹 Clearing RabbitMQ queues...${NC}"
-docker exec aperilex-rabbitmq-1 rabbitmqctl purge_queue analysis_queue || echo "Queue analysis_queue not found (ok)"
-docker exec aperilex-rabbitmq-1 rabbitmqctl purge_queue validation_queue || echo "Queue validation_queue not found (ok)"
+# echo -e "\n${YELLOW}🧹 Clearing RabbitMQ queues...${NC}"
+# docker exec aperilex-rabbitmq-1 rabbitmqctl purge_queue analysis_queue || echo "Queue analysis_queue not found (ok)"
+# docker exec aperilex-rabbitmq-1 rabbitmqctl purge_queue validation_queue || echo "Queue validation_queue not found (ok)"
 
-echo -e "${GREEN}✅ RabbitMQ queues cleared${NC}"
+# echo -e "${GREEN}✅ RabbitMQ queues cleared${NC}"
 
 # Step 3: Clear local storage data
 echo -e "\n${YELLOW}🧹 Clearing local storage data...${NC}"
@@ -80,4 +80,4 @@ echo "🔄 Companies will be auto-populated from EDGAR when first filing is anal
 
 # Optional: Seed with test data (uncomment if needed)
 echo "Seeding test data..."
-docker exec aperilex-app-1 python scripts/import_filings.py --tickers AAPL --filing-types 10-K,10-Q --limit 5
+# docker exec aperilex-app-1 python scripts/import_filings.py --tickers AAPL --filing-types 10-K,10-Q --limit 5
