@@ -2,7 +2,7 @@
 
 import json
 import logging
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING, Any
 
 import boto3
@@ -75,11 +75,11 @@ class S3StorageService(IStorageService):
     def _create_metadata(self, ttl: timedelta | None = None) -> dict[str, str]:
         """Create S3 metadata with TTL information."""
         metadata = {
-            "created_at": datetime.utcnow().isoformat(),
+            "created_at": datetime.now(UTC).isoformat(),
         }
 
         if ttl:
-            expires_at = datetime.utcnow() + ttl
+            expires_at = datetime.now(UTC) + ttl
             metadata["expires_at"] = expires_at.isoformat()
 
         return metadata
@@ -91,7 +91,7 @@ class S3StorageService(IStorageService):
 
         try:
             expires_at = datetime.fromisoformat(metadata["expires_at"])
-            return datetime.utcnow() > expires_at
+            return datetime.now(UTC) > expires_at
         except (ValueError, KeyError):
             return False
 
@@ -301,8 +301,8 @@ class S3StorageService(IStorageService):
                         {"Name": "BucketName", "Value": self.bucket_name},
                         {"Name": "StorageType", "Value": "StandardStorage"},
                     ],
-                    StartTime=datetime.utcnow() - timedelta(days=2),
-                    EndTime=datetime.utcnow(),
+                    StartTime=datetime.now(UTC) - timedelta(days=2),
+                    EndTime=datetime.now(UTC),
                     Period=86400,  # 1 day
                     Statistics=["Average"],
                 )

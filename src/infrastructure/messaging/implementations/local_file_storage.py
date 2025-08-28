@@ -3,7 +3,7 @@
 import json
 import logging
 import shutil
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -98,10 +98,10 @@ class LocalFileStorageService(IStorageService):
 
     def _save_metadata(self, key: str, ttl: timedelta | None = None) -> None:
         """Save metadata for a key including TTL information."""
-        metadata = {"created_at": datetime.utcnow().isoformat(), "key": key}
+        metadata = {"created_at": datetime.now(UTC).isoformat(), "key": key}
 
         if ttl:
-            expires_at = datetime.utcnow() + ttl
+            expires_at = datetime.now(UTC) + ttl
             metadata["expires_at"] = expires_at.isoformat()
 
         metadata_path = self._get_metadata_path(key)
@@ -125,7 +125,7 @@ class LocalFileStorageService(IStorageService):
                 return False
 
             expires_at = datetime.fromisoformat(metadata["expires_at"])
-            return datetime.utcnow() > expires_at
+            return datetime.now(UTC) > expires_at
 
         except Exception as e:
             logger.warning(f"Failed to check expiry for {key}: {e}")
@@ -354,7 +354,7 @@ class LocalFileStorageService(IStorageService):
 
                 if "expires_at" in metadata:
                     expires_at = datetime.fromisoformat(metadata["expires_at"])
-                    if datetime.utcnow() > expires_at:
+                    if datetime.now(UTC) > expires_at:
                         key = metadata.get("key", "")
                         if key:
                             self._remove_expired(key)
