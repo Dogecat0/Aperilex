@@ -132,6 +132,13 @@ class Settings(BaseSettings):
         validation_alias="TASK_DEFAULT_MAX_RETRIES",
     )
 
+    # Feature Flags
+    analysis_enabled: bool = Field(
+        default=True,
+        validation_alias="ANALYSIS_ENABLED",
+        description="Whether filing analysis is enabled (set to False for demo mode)",
+    )
+
     # Security
     secret_key: str = Field(
         default="test_secret_key_for_testing_only" if _is_testing() else "",
