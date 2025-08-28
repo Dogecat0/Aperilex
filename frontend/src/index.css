@@ -60,6 +60,18 @@
   --color-chart-5: hsl(258 90% 66%);
   /* violet */
 
+  /* Dark mode chart colors - brighter for visibility on dark backgrounds */
+  --color-chart-1-dark: hsl(243 75% 70%);
+  /* brighter indigo */
+  --color-chart-2-dark: hsl(173 58% 50%);
+  /* brighter teal */
+  --color-chart-3-dark: hsl(43 96% 65%);
+  /* brighter amber */
+  --color-chart-4-dark: hsl(0 84% 70%);
+  /* brighter red */
+  --color-chart-5-dark: hsl(258 90% 75%);
+  /* brighter violet */
+
   /* Dark mode variants */
   --color-background-dark: hsl(222.2 84% 4.9%);
   --color-foreground-dark: hsl(0 0% 100%);
@@ -134,6 +146,13 @@
     --color-teal: var(--color-teal-dark);
     --color-outline-bg: var(--color-outline-bg-dark);
     --color-ghost-bg: var(--color-ghost-bg-dark);
+
+    /* Chart colors for dark mode */
+    --color-chart-1: var(--color-chart-1-dark);
+    --color-chart-2: var(--color-chart-2-dark);
+    --color-chart-3: var(--color-chart-3-dark);
+    --color-chart-4: var(--color-chart-4-dark);
+    --color-chart-5: var(--color-chart-5-dark);
   }
 
   /* Enhanced typography for financial data */

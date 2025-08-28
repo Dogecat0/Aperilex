@@ -204,7 +204,12 @@ export function MetricsVisualization({
               dataKey="value"
               stroke={chartColors[0]}
               strokeWidth={2}
-              dot={{ r: compact ? 3 : 4 }}
+              dot={{
+                r: compact ? 3 : 4,
+                fill: '#ef4444', // Neutral gray-500 that works in both themes
+                stroke: '#ef4444',
+                strokeWidth: 1,
+              }}
             />
           </LineChart>
         )

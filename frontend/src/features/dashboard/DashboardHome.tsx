@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useAppStore } from '@/lib/store'
 import { Button } from '@/components/ui/Button'
 import { RecentAnalyses } from './RecentAnalyses'
+import { Info } from 'lucide-react'
 // import { SystemHealth } from './SystemHealth'
 
 export function DashboardHome() {
@@ -28,6 +29,21 @@ export function DashboardHome() {
 
   return (
     <div className="space-y-8">
+      {/* S&P 500 Notice */}
+      <div className="rounded-lg border bg-blue-50 border-blue-200 p-4">
+        <div className="flex items-start space-x-3">
+          <Info className="w-5 h-5 text-blue-600 mt-0.5" />
+          <div>
+            <p className="text-sm font-medium text-blue-900">
+              Only S&P 500 companies are currently available
+            </p>
+            <p className="text-sm text-blue-700 mt-1">
+              We're currently focused on providing comprehensive analysis for S&P 500 companies.
+              More companies will be added in future updates.
+            </p>
+          </div>
+        </div>
+      </div>
       {/* Hero Section */}
       <div className="text-center space-y-4 py-12 bg-gradient-to-b from-primary/5 to-background rounded-lg border">
         <h1 className="text-4xl md:text-5xl font-bold text-foreground">Welcome to Aperilex</h1>
@@ -120,16 +136,11 @@ export function DashboardHome() {
       </div>
 
       {/* Main Content Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1">
         {/* Recent Analyses */}
         <div className="lg:col-span-2">
           <RecentAnalyses />
         </div>
-
-        {/* Side Panel */}
-        {/* <div className="space-y-6">
-          <SystemHealth />
-        </div> */}
       </div>
     </div>
   )
