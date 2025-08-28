@@ -120,7 +120,8 @@ async def get_filing_content(
                 )
                 await s3_service.connect()
 
-                filing_content = await s3_service.get(clean_accession)
+                # Add .json extension for S3 retrieval (migrated files have .json extension)
+                filing_content = await s3_service.get(f"{clean_accession}.json")
                 if filing_content:
                     logger.info(f"Retrieved filing {accession_number} from S3 storage")
                     return filing_content  # type: ignore[no-any-return]
@@ -232,7 +233,8 @@ async def get_analysis_results(
                 )
                 await s3_service.connect()
 
-                analysis_results = await s3_service.get(analysis_key)
+                # Add .json extension for S3 retrieval (migrated files have .json extension)
+                analysis_results = await s3_service.get(f"{analysis_key}.json")
                 if analysis_results:
                     logger.debug(f"Retrieved analysis {analysis_id} from S3 storage")
                     return analysis_results  # type: ignore[no-any-return]
