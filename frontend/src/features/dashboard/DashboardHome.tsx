@@ -2,7 +2,6 @@ import React from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAppStore } from '@/lib/store'
 import { Button } from '@/components/ui/Button'
-import { RecentAnalyses } from './RecentAnalyses'
 import { Info } from 'lucide-react'
 // import { SystemHealth } from './SystemHealth'
 
