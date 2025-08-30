@@ -40,7 +40,8 @@ export const CompanyCard = React.forwardRef<HTMLDivElement, CompanyCardProps>(
           </div>
           {effectiveTicker && onViewProfile && (
             <Button variant="outline" size="sm" onClick={handleViewProfile}>
-              View Profile
+              <span className="hidden sm:inline">View Profile</span>
+              <span className="sm:hidden">View</span>
             </Button>
           )}
         </div>

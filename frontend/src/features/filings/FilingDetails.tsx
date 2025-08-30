@@ -163,8 +163,9 @@ export function FilingDetails() {
           <h1 className="text-2xl font-bold">{filing.filing_type} Filing</h1>
           <div className="flex items-center space-x-2">
             <Button variant="outline" size="sm" onClick={handleViewOnSEC}>
-              <ExternalLink className="w-4 h-4 mr-2" />
-              View on SEC
+              <ExternalLink className="w-4 h-4 mr-1 sm:mr-2" />
+              <span className="hidden sm:inline">View on SEC</span>
+              <span className="sm:hidden">SEC</span>
             </Button>
           </div>
         </div>
