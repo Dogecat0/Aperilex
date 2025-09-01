@@ -262,4 +262,11 @@ repomix/
 
 docs/reports
 docs/deployment
+docs/batch_analyze_filings_logs
 context/
+
+# Database backups
+backups/
+
+# AWS session mananger
+session-manager-plugin.deb
