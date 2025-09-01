@@ -162,7 +162,7 @@ export const FilingMetadata: React.FC<FilingMetadataProps> = ({ filing }) => {
             <h4 className="text-sm font-medium text-foreground mb-2">Additional Information</h4>
             <div className="space-y-2">
               {Object.entries(filing.metadata)
-                .filter(([key]) => !['has_sections', 'section_count'].includes(key))
+                .filter(([key]) => !['has_sections', 'section_count', 'stored_in_storage'].includes(key))
                 .map(([key, value]) => (
                   <div key={key} className="grid grid-cols-3 gap-2 text-sm">
                     <p className="text-muted-foreground capitalize">{key.replace(/_/g, ' ')}</p>

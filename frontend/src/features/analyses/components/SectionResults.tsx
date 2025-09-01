@@ -30,6 +30,56 @@ export function SectionResults({ sections }: SectionResultsProps) {
     setExpandedSections(newExpanded)
   }
 
+  const getDisplaySectionName = (fullName: string): string => {
+    // Create shorter display names for common SEC filing sections
+    const sectionNameMap: Record<string, string> = {
+      'Item 1 - Business': 'Business',
+      'Item 1A - Risk Factors': 'Risk Factors',
+      'Item 7 - Management Discussion & Analysis': 'MD&A',
+      'Part I Item 2 - Management Discussion & Analysis': 'MD&A (Quarterly)',
+      'Part II Item 1A - Risk Factors': 'Risk Factors (Quarterly)',
+      'Item 8 - Financial Statements': 'Financial Statements',
+      'Balance Sheet': 'Balance Sheet',
+      'Income Statement': 'Income Statement',
+      'Cash Flow Statement': 'Cash Flow',
+    }
+
+    // Check if we have a mapped shorter name
+    for (const [pattern, shortName] of Object.entries(sectionNameMap)) {
+      if (fullName.startsWith(pattern)) {
+        // If there's additional context like company name, preserve it but simplify
+        const additionalContext = fullName.slice(pattern.length).trim()
+        if (additionalContext && additionalContext.startsWith('(')) {
+          // Extract company name from parentheses if present
+          const companyMatch = additionalContext.match(/\(([^)]+)\)/)
+          if (companyMatch) {
+            const companyName = companyMatch[1]
+            // Shorten company names if they're too long
+            const shortCompany = companyName.length > 15
+              ? companyName.slice(0, 12) + '...'
+              : companyName
+            return `${shortName} (${shortCompany})`
+          }
+        }
+        return shortName
+      }
+    }
+
+    // For unmapped names, try to shorten if too long
+    if (fullName.length > 30) {
+      // Try to extract the key part after "Item X - " pattern
+      const itemMatch = fullName.match(/Item \d+[A-Z]?\s*-\s*(.+)/)
+      if (itemMatch) {
+        const content = itemMatch[1]
+        return content.length > 25 ? content.slice(0, 22) + '...' : content
+      }
+      // Otherwise truncate
+      return fullName.slice(0, 27) + '...'
+    }
+
+    return fullName
+  }
+
   const getSectionIcon = (sectionName: string) => {
     const name = sectionName.toLowerCase()
     if (name.includes('business')) return Building
@@ -111,35 +161,40 @@ export function SectionResults({ sections }: SectionResultsProps) {
               <div key={section.section_name} className="p-6">
                 <button
                   onClick={() => toggleSection(section.section_name)}
-                  className="w-full flex items-center justify-between text-left hover:bg-muted/50 -m-2 p-2 rounded-lg transition-colors"
+                  className="w-full flex items-center justify-between text-left hover:bg-muted/50 -m-2 p-2 rounded-lg transition-colors overflow-hidden"
                 >
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-3 min-w-0 flex-1">
                     <div className="flex-shrink-0 w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center text-primary">
                       <SectionIcon className="h-5 w-5" />
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <h3 className="font-medium text-foreground truncate">
-                        {section.section_name}
+                    <div className="min-w-0 flex-1 overflow-hidden">
+                      <h3
+                        className="font-medium text-foreground truncate block"
+                        title={section.section_name}
+                      >
+                        {getDisplaySectionName(section.section_name)}
                       </h3>
-                      <div className="flex items-center gap-3 mt-1">
+                      <div className="flex items-center gap-3 mt-1 flex-wrap">
                         <div
                           className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium border ${getSentimentColor(section.overall_sentiment)}`}
                         >
                           {getSentimentLabel(section.overall_sentiment)}
                         </div>
                         {section.sub_section_count > 0 && (
-                          <span className="text-xs text-muted-foreground">
+                          <span className="text-xs text-muted-foreground whitespace-nowrap">
                             {section.sub_section_count} sub-sections
                           </span>
                         )}
                       </div>
                     </div>
                   </div>
-                  {isExpanded ? (
-                    <ChevronDown className="h-5 w-5 text-muted-foreground/50 flex-shrink-0" />
-                  ) : (
-                    <ChevronRight className="h-5 w-5 text-muted-foreground/50 flex-shrink-0" />
-                  )}
+                  <div className="flex-shrink-0 ml-2">
+                    {isExpanded ? (
+                      <ChevronDown className="h-5 w-5 text-muted-foreground/50" />
+                    ) : (
+                      <ChevronRight className="h-5 w-5 text-muted-foreground/50" />
+                    )}
+                  </div>
                 </button>
 
                 {isExpanded && (

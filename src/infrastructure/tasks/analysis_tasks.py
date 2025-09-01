@@ -2,7 +2,6 @@
 
 import asyncio
 import logging
-import os
 from typing import Any
 from uuid import UUID, uuid4
 
@@ -31,7 +30,9 @@ from src.shared.config.settings import Settings
 logger = logging.getLogger(__name__)
 
 # File storage configuration
-USE_S3_STORAGE = os.getenv("USE_S3_STORAGE", "false").lower() == "true"
+# Use Settings to get storage configuration consistently
+_settings = Settings()
+USE_S3_STORAGE = _settings.storage_service_type == "s3"
 MAX_CONCURRENT_FILING_DOWNLOADS = 1  # Limit to 1 concurrent download from EDGAR
 MAX_FILE_SIZE = 50 * 1024 * 1024  # 50MB limit for filing files
 
@@ -119,7 +120,8 @@ async def get_filing_content(
                 )
                 await s3_service.connect()
 
-                filing_content = await s3_service.get(clean_accession)
+                # Add .json extension for S3 retrieval (migrated files have .json extension)
+                filing_content = await s3_service.get(f"{clean_accession}.json")
                 if filing_content:
                     logger.info(f"Retrieved filing {accession_number} from S3 storage")
                     return filing_content  # type: ignore[no-any-return]
@@ -231,7 +233,8 @@ async def get_analysis_results(
                 )
                 await s3_service.connect()
 
-                analysis_results = await s3_service.get(analysis_key)
+                # Add .json extension for S3 retrieval (migrated files have .json extension)
+                analysis_results = await s3_service.get(f"{analysis_key}.json")
                 if analysis_results:
                     logger.debug(f"Retrieved analysis {analysis_id} from S3 storage")
                     return analysis_results  # type: ignore[no-any-return]

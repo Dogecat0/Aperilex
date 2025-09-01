@@ -51,7 +51,8 @@ const CompanyAnalysisCard = React.forwardRef<HTMLDivElement, CompanyAnalysisCard
             </div>
           </div>
           <Button variant="outline" size="sm" onClick={handleViewAnalysis}>
-            View Details
+            <span className="hidden sm:inline">View Details</span>
+            <span className="sm:hidden">View</span>
           </Button>
         </div>
 

@@ -183,8 +183,9 @@ export const FilingAnalysisSection: React.FC<FilingAnalysisSectionProps> = ({
                 onClick={onCheckBackgroundAnalysis}
                 className="flex-shrink-0"
               >
-                <RefreshCw className="w-4 h-4 mr-2" />
-                Check Status
+                <RefreshCw className="w-4 h-4 mr-1 sm:mr-2" />
+                <span className="hidden sm:inline">Check Status</span>
+                <span className="sm:hidden">Check</span>
               </Button>
             )}
           </div>
@@ -291,8 +292,9 @@ export const FilingAnalysisSection: React.FC<FilingAnalysisSectionProps> = ({
                 </>
               ) : (
                 <>
-                  <RefreshCw className="w-4 h-4 mr-2" />
-                  Retry Analysis
+                  <RefreshCw className="w-4 h-4 mr-1 sm:mr-2" />
+                  <span className="hidden sm:inline">Retry Analysis</span>
+                  <span className="sm:hidden">Retry</span>
                 </>
               )}
             </Button>
@@ -334,7 +336,10 @@ export const FilingAnalysisSection: React.FC<FilingAnalysisSectionProps> = ({
                   {analysisProgress?.message || 'Analyzing...'}
                 </>
               ) : (
-                <>Start Analysis</>
+                <>
+                  <span className="hidden sm:inline">Start Analysis</span>
+                  <span className="sm:hidden">Start</span>
+                </>
               )}
             </Button>
           )}
@@ -361,14 +366,16 @@ export const FilingAnalysisSection: React.FC<FilingAnalysisSectionProps> = ({
           {/* Show refresh button for background processing */}
           {isBackgroundProcessing && onCheckBackgroundAnalysis && (
             <Button variant="outline" size="sm" onClick={onCheckBackgroundAnalysis}>
-              <RefreshCw className="w-4 h-4 mr-2" />
-              Check Status
+              <RefreshCw className="w-4 h-4 mr-1 sm:mr-2" />
+              <span className="hidden sm:inline">Check Status</span>
+              <span className="sm:hidden">Check</span>
             </Button>
           )}
           {onViewFullAnalysis && !isBackgroundProcessing && (
             <Button variant="outline" size="sm" onClick={onViewFullAnalysis}>
-              <Eye className="w-4 h-4 mr-2" />
-              View Full Analysis
+              <Eye className="w-4 h-4 mr-1 sm:mr-2" />
+              <span className="hidden sm:inline">View Full Analysis</span>
+              <span className="sm:hidden">View Full</span>
             </Button>
           )}
         </div>

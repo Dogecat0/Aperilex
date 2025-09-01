@@ -234,7 +234,7 @@ def create_eb_environment(
 ) -> aws.elasticbeanstalk.Environment:
     """Create Elastic Beanstalk environment."""
     solution_stack = aws.elasticbeanstalk.get_solution_stack(
-        most_recent=True, name_regex="^64bit Amazon Linux 2 v.* running Docker$"
+        most_recent=True, name_regex="^64bit Amazon Linux 2023 v4.7.* running Docker$"
     )
 
     return aws.elasticbeanstalk.Environment(
@@ -407,6 +407,28 @@ def create_eb_environment(
                 namespace="aws:elasticbeanstalk:application:environment",
                 name="RATE_LIMIT_REQUESTS_PER_HOUR",
                 value="50",
+            ),
+            # Demo mode settings
+            aws.elasticbeanstalk.EnvironmentSettingArgs(
+                namespace="aws:elasticbeanstalk:application:environment",
+                name="ANALYSIS_ENABLED",
+                value="false",
+            ),
+            # Messaging service configuration (disabled for demo)
+            aws.elasticbeanstalk.EnvironmentSettingArgs(
+                namespace="aws:elasticbeanstalk:application:environment",
+                name="QUEUE_SERVICE_TYPE",
+                value="mock",
+            ),
+            aws.elasticbeanstalk.EnvironmentSettingArgs(
+                namespace="aws:elasticbeanstalk:application:environment",
+                name="WORKER_SERVICE_TYPE",
+                value="mock",
+            ),
+            aws.elasticbeanstalk.EnvironmentSettingArgs(
+                namespace="aws:elasticbeanstalk:application:environment",
+                name="STORAGE_SERVICE_TYPE",
+                value="s3",
             ),
         ],
         opts=pulumi.ResourceOptions(depends_on=[app_version, instance_profile]),

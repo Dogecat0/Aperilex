@@ -86,6 +86,9 @@ safety = "^3.0.0"
 ipython = "^8.21.0"
 rich = "^13.7.0"
 pre-commit = "^3.6.0"
+psycopg2-binary = "^2.9.10"
+sqlparse = "^0.5.3"
+tqdm = "^4.67.1"
 
 [tool.poetry.group.deployment.dependencies]
 pulumi = "3.191.0"

@@ -255,11 +255,24 @@ async def analyze_filing(
     )
 
     try:
+        # Check if analysis is disabled (demo mode)
+        from src.shared.config.settings import Settings
+
+        settings = Settings()
+        if not settings.analysis_enabled:
+            logger.info(
+                "Analysis disabled in demo mode",
+                extra={"accession_number": accession_number},
+            )
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Analysis is disabled for demonstration purposes. Try to view one of the complete analysis reports.",
+            )
         # Validate accession number format
         accession_num = AccessionNumber(accession_number)
 
         # Extract CIK from accession number (first 10 digits)
-        cik_str = accession_number.split('-')[0]
+        cik_str = accession_number.split("-")[0]
         # CIK expects string format, keep as string
         company_cik = CIK(cik_str)
 

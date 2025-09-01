@@ -44,32 +44,6 @@ export function MobileNav() {
               <li>
                 <NavMenu currentPath={location.pathname} onNavigate={toggleMobileNav} />
               </li>
-
-              {/* Recent Activity Section */}
-              <li>
-                <div className="text-xs font-semibold leading-6 text-muted-foreground">
-                  Recent Activity
-                </div>
-                <ul role="list" className="-mx-2 mt-2 space-y-1">
-                  <li>
-                    <div className="text-sm text-muted-foreground px-2 py-1">
-                      No recent activity
-                    </div>
-                  </li>
-                </ul>
-              </li>
-
-              {/* Quick Actions */}
-              <li className="mt-auto">
-                <div className="space-y-2">
-                  <button className="w-full rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90">
-                    Find Analysis
-                  </button>
-                  <button className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground">
-                    View Filings
-                  </button>
-                </div>
-              </li>
             </ul>
           </nav>
         </div>

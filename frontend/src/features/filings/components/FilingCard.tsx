@@ -115,7 +115,8 @@ export const FilingCard = React.forwardRef<HTMLDivElement, FilingCardProps>(
           <div className="flex items-center space-x-2">
             {onViewDetails && (
               <Button variant="outline" size="sm" onClick={handleViewDetails}>
-                View Details
+                <span className="hidden sm:inline">View Details</span>
+                <span className="sm:hidden">View</span>
               </Button>
             )}
             {onAnalyze && !hasAnalysis && !analysisLoading && (
