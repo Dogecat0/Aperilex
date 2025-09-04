@@ -1,6 +1,7 @@
 """High-level orchestration functions for infrastructure components."""
 
-from typing import Any
+from collections.abc import Awaitable
+from typing import Any, cast
 
 import pulumi
 import pulumi_aws as aws
@@ -57,8 +58,8 @@ class InfrastructureResources:
     def __init__(self) -> None:
         # Networking
         self.vpc: aws.ec2.Vpc
-        self.public_subnets = []
-        self.private_subnets = []
+        self.public_subnets: list[aws.ec2.Subnet] = []
+        self.private_subnets: list[aws.ec2.Subnet] = []
         self.eb_security_group: aws.ec2.SecurityGroup
         self.db_security_group: aws.ec2.SecurityGroup
 
@@ -130,7 +131,9 @@ def setup_networking() -> InfrastructureResources:
 def setup_database(networking_resources: InfrastructureResources) -> aws.rds.Cluster:
     """Set up Aurora database cluster."""
     private_subnet_ids = [subnet.id for subnet in networking_resources.private_subnets]
-    db_subnet_group = create_db_subnet_group(private_subnet_ids)
+    db_subnet_group = create_db_subnet_group(
+        cast("list[str | Awaitable[str] | pulumi.Output[str]]", private_subnet_ids)
+    )
     db_cluster, db_instance = create_aurora_cluster(
         db_subnet_group.name, networking_resources.db_security_group.id
     )
@@ -140,7 +143,7 @@ def setup_database(networking_resources: InfrastructureResources) -> aws.rds.Clu
 
 def setup_frontend(
     domain_certificate: aws.acm.CertificateValidation,
-    api_gateway: aws.apigatewayv2.Api = None,
+    api_gateway: aws.apigatewayv2.Api | None = None,
 ) -> tuple[
     aws.s3.Bucket, aws.s3.BucketWebsiteConfiguration, aws.cloudfront.Distribution
 ]:
@@ -155,7 +158,7 @@ def setup_frontend(
     upload_command = upload_frontend_files(frontend_bucket, build_command)
 
     # Create CloudFront distribution
-    api_domain_name = None
+    api_domain_name: pulumi.Input[str] | None = None
     if api_gateway:
         # Extract domain from API Gateway's invoke URL (remove https:// and /stage)
         api_domain_name = api_gateway.api_endpoint.apply(
@@ -209,7 +212,7 @@ def setup_backend(
         instance_profile,
         eb_role,
         networking_resources.vpc.id,
-        public_subnet_ids,
+        cast("list[str | Awaitable[str] | pulumi.Output[str]]", public_subnet_ids),
         networking_resources.eb_security_group.id,
         env_vars,
         db_cluster,
