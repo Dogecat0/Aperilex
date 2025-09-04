@@ -6,7 +6,7 @@ import os
 import pulumi
 import pulumi_aws as aws
 import pulumi_aws.cloudfront as cloudfront
-from gitignore_parser import parse_gitignore
+from gitignore_parser import parse_gitignore  # type: ignore[import-untyped]
 from pulumi_command import local
 
 
@@ -131,7 +131,7 @@ def create_web_distribution(
     website_config: aws.s3.BucketWebsiteConfiguration,
     cert_arn: pulumi.Input[str],
     upload_command: local.Command,
-    api_domain_name: pulumi.Input[str] = None,
+    api_domain_name: pulumi.Input[str] | None = None,
 ) -> cloudfront.Distribution:
     """Create CloudFront distribution for frontend and API routing."""
 
@@ -228,5 +228,24 @@ def create_web_distribution(
             minimum_protocol_version="TLSv1.2_2021",
         ),
         aliases=["aperilexlabs.com", "www.aperilexlabs.com"],
+        # Handle SPA routing - CloudFront custom error responses
+        # When users refresh on a frontend route (e.g., /filings/123/analysis),
+        # S3 returns 404 because that file doesn't exist. CloudFront intercepts
+        # these errors and serves index.html with a 200 status, allowing the
+        # React Router to take over client-side routing.
+        custom_error_responses=[
+            cloudfront.DistributionCustomErrorResponseArgs(
+                error_code=404,
+                response_code=200,
+                response_page_path="/index.html",
+                error_caching_min_ttl=0,  # Don't cache error responses
+            ),
+            cloudfront.DistributionCustomErrorResponseArgs(
+                error_code=403,
+                response_code=200,
+                response_page_path="/index.html",
+                error_caching_min_ttl=0,  # Don't cache error responses
+            ),
+        ],
         opts=pulumi.ResourceOptions(depends_on=[upload_command]),
     )

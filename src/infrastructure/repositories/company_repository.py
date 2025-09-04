@@ -1,17 +1,20 @@
 """Repository for Company entities."""
 
+from typing import cast
+
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.domain.entities.company import Company
 from src.domain.value_objects.cik import CIK
 from src.domain.value_objects.ticker import Ticker
+from src.infrastructure.database.cache import CacheRegionName, cache_manager
 from src.infrastructure.database.models import Company as CompanyModel
-from src.infrastructure.repositories.base import BaseRepository
+from src.infrastructure.repositories.cached_base import CachedRepository
 
 
-class CompanyRepository(BaseRepository[CompanyModel, Company]):
-    """Repository for managing Company entities."""
+class CompanyRepository(CachedRepository[CompanyModel, Company]):
+    """Repository for managing Company entities with caching."""
 
     def __init__(self, session: AsyncSession) -> None:
         """Initialize CompanyRepository.
@@ -19,7 +22,7 @@ class CompanyRepository(BaseRepository[CompanyModel, Company]):
         Args:
             session: Async database session
         """
-        super().__init__(session, CompanyModel)
+        super().__init__(session, CompanyModel, CacheRegionName.COMPANY)
 
     def to_entity(self, model: CompanyModel) -> Company:
         """Convert CompanyModel to Company entity.
@@ -54,7 +57,7 @@ class CompanyRepository(BaseRepository[CompanyModel, Company]):
         )
 
     async def get_by_cik(self, cik: CIK) -> Company | None:
-        """Get company by CIK.
+        """Get company by CIK with caching.
 
         Args:
             cik: Central Index Key
@@ -62,13 +65,21 @@ class CompanyRepository(BaseRepository[CompanyModel, Company]):
         Returns:
             Company if found, None otherwise
         """
-        stmt = select(CompanyModel).where(CompanyModel.cik == str(cik))
-        result = await self.session.execute(stmt)
-        model = result.scalar_one_or_none()
-        return self.to_entity(model) if model else None
+        cache_key = f"company:cik:{cik}"
+
+        async def fetch_from_db() -> Company | None:
+            stmt = select(CompanyModel).where(CompanyModel.cik == str(cik))
+            result = await self.session.execute(stmt)
+            model = result.scalar_one_or_none()
+            return self.to_entity(model) if model else None
+
+        result = await cache_manager.get_or_create_async(
+            CacheRegionName.COMPANY, cache_key, fetch_from_db
+        )
+        return cast("Company | None", result)
 
     async def get_by_ticker(self, ticker: Ticker) -> Company | None:
-        """Get company by ticker symbol.
+        """Get company by ticker symbol with caching.
 
         Args:
             ticker: Company ticker symbol
@@ -76,16 +87,24 @@ class CompanyRepository(BaseRepository[CompanyModel, Company]):
         Returns:
             Company if found, None otherwise
         """
-        # Search for ticker in the meta_data JSON field
-        stmt = select(CompanyModel).where(
-            CompanyModel.meta_data["ticker"].as_string() == str(ticker)
+        cache_key = f"company:ticker:{ticker}"
+
+        async def fetch_from_db() -> Company | None:
+            # Search for ticker in the meta_data JSON field
+            stmt = select(CompanyModel).where(
+                CompanyModel.meta_data["ticker"].as_string() == str(ticker)
+            )
+            result = await self.session.execute(stmt)
+            model = result.scalar_one_or_none()
+            return self.to_entity(model) if model else None
+
+        result = await cache_manager.get_or_create_async(
+            CacheRegionName.COMPANY, cache_key, fetch_from_db
         )
-        result = await self.session.execute(stmt)
-        model = result.scalar_one_or_none()
-        return self.to_entity(model) if model else None
+        return cast("Company | None", result)
 
     async def find_by_name(self, name: str) -> list[Company]:
-        """Find companies by name (case-insensitive partial match).
+        """Find companies by name (case-insensitive partial match) with caching.
 
         Args:
             name: Company name or partial name
@@ -93,11 +112,21 @@ class CompanyRepository(BaseRepository[CompanyModel, Company]):
         Returns:
             List of matching companies
         """
-        stmt = (
-            select(CompanyModel)
-            .where(CompanyModel.name.ilike(f"%{name}%"))
-            .order_by(CompanyModel.name)
+        cache_key = f"company:name_search:{name.lower()}"
+
+        async def fetch_from_db() -> list[Company]:
+            stmt = (
+                select(CompanyModel)
+                .where(CompanyModel.name.ilike(f"%{name}%"))
+                .order_by(CompanyModel.name)
+            )
+            result = await self.session.execute(stmt)
+            models = result.scalars().all()
+            return [self.to_entity(model) for model in models]
+
+        result = await cache_manager.get_or_create_async(
+            CacheRegionName.QUERY,  # Use query cache for search results
+            cache_key,
+            fetch_from_db,
         )
-        result = await self.session.execute(stmt)
-        models = result.scalars().all()
-        return [self.to_entity(model) for model in models]
+        return cast("list[Company]", result)

@@ -1,5 +1,6 @@
 from collections.abc import AsyncGenerator
 from datetime import datetime
+from typing import Any
 
 from sqlalchemy import DateTime, func
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
@@ -38,11 +39,14 @@ database_url = settings.database_url
 if database_url.startswith("sqlite://"):
     database_url = database_url.replace("sqlite://", "sqlite+aiosqlite://")
 
-# Create async engine with better connection handling
-engine_kwargs = {
+# Create async engine optimized for serverless databases
+# Key principle: Don't hold connections, close immediately after use
+
+engine_kwargs: dict[str, Any] = {
     "echo": settings.debug,
     "future": True,
-    "pool_pre_ping": True,  # Validate connections before use
+    # Disable pool_pre_ping - don't test connections, assume DB is healthy
+    "pool_pre_ping": False,
     "connect_args": (
         {
             "server_settings": {
@@ -54,33 +58,58 @@ engine_kwargs = {
     ),
 }
 
-# Only add pool settings for non-SQLite databases
+# Configure for serverless pattern - close connections immediately
 if not database_url.startswith("sqlite"):
-    engine_kwargs.update(
-        {
-            "pool_recycle": 3600,  # Recycle connections after 1 hour
-            "max_overflow": 20,  # Allow more connections during high load
-            "pool_size": 10,  # Base connection pool size
-        }
-    )
+    from sqlalchemy.pool import NullPool
+
+    # NullPool: Don't maintain a connection pool at all
+    # Each request gets a fresh connection that's closed immediately after use
+    engine_kwargs["poolclass"] = NullPool
+    # Short connection timeout for serverless - preserve existing connect_args
+    if "connect_args" in engine_kwargs and engine_kwargs["connect_args"]:
+        # Keep existing connect_args (PostgreSQL settings)
+        pass
+    else:
+        engine_kwargs["connect_args"] = {}
+else:
+    # For SQLite in development, use StaticPool for single connection
+    from sqlalchemy.pool import StaticPool
+
+    engine_kwargs["poolclass"] = StaticPool
+    engine_kwargs["connect_args"] = {"check_same_thread": False}
+
+# NullPool import is already handled above in the if block
 
 engine = create_async_engine(database_url, **engine_kwargs)
 
-# Create async session factory with async-friendly settings
+# Create async session factory optimized for serverless
 async_session_maker = async_sessionmaker(
     engine,
     class_=AsyncSession,
     expire_on_commit=False,
-    # Important for background tasks: prevent stale connections
-    autoflush=True,
+    # Disable autoflush to reduce round trips
+    autoflush=False,
     autocommit=False,
 )
 
 
 async def get_db() -> AsyncGenerator[AsyncSession, None]:
-    """Dependency to get database session."""
+    """Dependency to get database session.
+
+    Optimized for serverless databases:
+    - Creates a fresh connection for each request
+    - Ensures connection is closed immediately after use
+    - No connection pooling or persistent connections
+    """
     async with async_session_maker() as session:
         try:
             yield session
+            # Commit any pending changes before closing
+            await session.commit()
+        except Exception:
+            # Rollback on any error
+            await session.rollback()
+            raise
         finally:
+            # Always close the session and release the connection
             await session.close()
