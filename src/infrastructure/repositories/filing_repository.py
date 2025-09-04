@@ -1,7 +1,7 @@
 """Repository for Filing entities."""
 
 from datetime import date
-from typing import Any
+from typing import Any, cast
 from uuid import UUID
 
 from sqlalchemy import and_, desc, func, select
@@ -12,13 +12,14 @@ from src.domain.value_objects.accession_number import AccessionNumber
 from src.domain.value_objects.filing_type import FilingType
 from src.domain.value_objects.processing_status import ProcessingStatus
 from src.domain.value_objects.ticker import Ticker
+from src.infrastructure.database.cache import CacheRegionName, cache_manager
 from src.infrastructure.database.models import Company as CompanyModel
 from src.infrastructure.database.models import Filing as FilingModel
-from src.infrastructure.repositories.base import BaseRepository
+from src.infrastructure.repositories.cached_base import CachedRepository
 
 
-class FilingRepository(BaseRepository[FilingModel, Filing]):
-    """Repository for managing Filing entities."""
+class FilingRepository(CachedRepository[FilingModel, Filing]):
+    """Repository for managing Filing entities with caching."""
 
     def __init__(self, session: AsyncSession) -> None:
         """Initialize FilingRepository.
@@ -26,7 +27,7 @@ class FilingRepository(BaseRepository[FilingModel, Filing]):
         Args:
             session: Async database session
         """
-        super().__init__(session, FilingModel)
+        super().__init__(session, FilingModel, CacheRegionName.FILING)
 
     def to_entity(self, model: FilingModel) -> Filing:
         """Convert FilingModel to Filing entity.
@@ -71,7 +72,7 @@ class FilingRepository(BaseRepository[FilingModel, Filing]):
     async def get_by_accession_number(
         self, accession_number: AccessionNumber
     ) -> Filing | None:
-        """Get filing by accession number.
+        """Get filing by accession number with caching.
 
         Args:
             accession_number: SEC accession number
@@ -79,12 +80,20 @@ class FilingRepository(BaseRepository[FilingModel, Filing]):
         Returns:
             Filing if found, None otherwise
         """
-        stmt = select(FilingModel).where(
-            FilingModel.accession_number == str(accession_number)
+        cache_key = f"filing:accession:{accession_number}"
+
+        async def fetch_from_db() -> Filing | None:
+            stmt = select(FilingModel).where(
+                FilingModel.accession_number == str(accession_number)
+            )
+            result = await self.session.execute(stmt)
+            model = result.scalar_one_or_none()
+            return self.to_entity(model) if model else None
+
+        result = await cache_manager.get_or_create_async(
+            CacheRegionName.FILING, cache_key, fetch_from_db
         )
-        result = await self.session.execute(stmt)
-        model = result.scalar_one_or_none()
-        return self.to_entity(model) if model else None
+        return cast("Filing | None", result)
 
     async def get_by_company_id(
         self,
@@ -93,7 +102,7 @@ class FilingRepository(BaseRepository[FilingModel, Filing]):
         start_date: date | None = None,
         end_date: date | None = None,
     ) -> list[Filing]:
-        """Get filings by company ID with optional filters.
+        """Get filings by company ID with optional filters and caching.
 
         Args:
             company_id: Company ID
@@ -104,26 +113,44 @@ class FilingRepository(BaseRepository[FilingModel, Filing]):
         Returns:
             List of filings matching criteria
         """
-        conditions = [FilingModel.company_id == company_id]
-
+        # Create cache key with all parameters
+        cache_key_parts = [f"filing:company:{company_id}"]
         if filing_type:
-            conditions.append(FilingModel.filing_type == filing_type.value)
-
+            cache_key_parts.append(f"type:{filing_type.value}")
         if start_date:
-            conditions.append(FilingModel.filing_date >= start_date)
-
+            cache_key_parts.append(f"start:{start_date.isoformat()}")
         if end_date:
-            conditions.append(FilingModel.filing_date <= end_date)
+            cache_key_parts.append(f"end:{end_date.isoformat()}")
+        cache_key = ":".join(cache_key_parts)
 
-        stmt = (
-            select(FilingModel)
-            .where(and_(*conditions))
-            .order_by(FilingModel.filing_date.desc())
+        async def fetch_from_db() -> list[Filing]:
+            conditions = [FilingModel.company_id == company_id]
+
+            if filing_type:
+                conditions.append(FilingModel.filing_type == filing_type.value)
+
+            if start_date:
+                conditions.append(FilingModel.filing_date >= start_date)
+
+            if end_date:
+                conditions.append(FilingModel.filing_date <= end_date)
+
+            stmt = (
+                select(FilingModel)
+                .where(and_(*conditions))
+                .order_by(FilingModel.filing_date.desc())
+            )
+
+            result = await self.session.execute(stmt)
+            models = result.scalars().all()
+            return [self.to_entity(model) for model in models]
+
+        result = await cache_manager.get_or_create_async(
+            CacheRegionName.QUERY,  # Use query cache for filtered lists
+            cache_key,
+            fetch_from_db,
         )
-
-        result = await self.session.execute(stmt)
-        models = result.scalars().all()
-        return [self.to_entity(model) for model in models]
+        return cast("list[Filing]", result)
 
     async def get_by_status(
         self, status: ProcessingStatus, limit: int | None = None

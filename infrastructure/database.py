@@ -32,8 +32,10 @@ def create_aurora_cluster(
         serverlessv2_scaling_configuration=aws.rds.ClusterServerlessv2ScalingConfigurationArgs(
             min_capacity=0,  # Changed from 0 to 0.5 as minimum
             max_capacity=1.0,
+            seconds_until_auto_pause=300,  # Auto-pause after 5 minutes of inactivity
         ),
         tags={"Name": "aperilex-db-cluster"},
+        apply_immediately=True,
         opts=pulumi.ResourceOptions(protect=True),  # Protect from accidental deletion
     )
 

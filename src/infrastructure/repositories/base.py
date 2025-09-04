@@ -49,16 +49,16 @@ class BaseRepository[ModelType: Base, EntityType](ABC):
         """
         ...
 
-    async def get_by_id(self, id: UUID) -> EntityType | None:
+    async def get_by_id(self, entity_id: UUID) -> EntityType | None:
         """Get entity by ID.
 
         Args:
-            id: Entity ID
+            entity_id: Entity ID
 
         Returns:
             Entity if found, None otherwise
         """
-        result = await self.session.get(self.model_class, id)
+        result = await self.session.get(self.model_class, entity_id)
         return self.to_entity(result) if result else None
 
     async def create(self, entity: EntityType) -> EntityType:
@@ -89,16 +89,16 @@ class BaseRepository[ModelType: Base, EntityType](ABC):
         await self.session.flush()
         return entity
 
-    async def delete(self, id: UUID) -> bool:
+    async def delete(self, entity_id: UUID) -> bool:
         """Delete entity by ID.
 
         Args:
-            id: Entity ID
+            entity_id: Entity ID
 
         Returns:
             True if deleted, False if not found
         """
-        result = await self.session.get(self.model_class, id)
+        result = await self.session.get(self.model_class, entity_id)
         if result:
             await self.session.delete(result)
             await self.session.flush()

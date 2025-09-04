@@ -1,7 +1,7 @@
 """Repository for Analysis entities."""
 
 from datetime import datetime
-from typing import Any
+from typing import Any, cast
 from uuid import UUID
 
 from sqlalchemy import and_, select
@@ -10,12 +10,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.domain.entities.analysis import Analysis, AnalysisType
 from src.domain.value_objects import CIK
 from src.domain.value_objects.accession_number import AccessionNumber
+from src.infrastructure.database.cache import CacheRegionName, cache_manager
 from src.infrastructure.database.models import Analysis as AnalysisModel
-from src.infrastructure.repositories.base import BaseRepository
+from src.infrastructure.repositories.cached_base import CachedRepository
 
 
-class AnalysisRepository(BaseRepository[AnalysisModel, Analysis]):
-    """Repository for managing Analysis entities."""
+class AnalysisRepository(CachedRepository[AnalysisModel, Analysis]):
+    """Repository for managing Analysis entities with caching."""
 
     def __init__(self, session: AsyncSession) -> None:
         """Initialize AnalysisRepository.
@@ -23,7 +24,7 @@ class AnalysisRepository(BaseRepository[AnalysisModel, Analysis]):
         Args:
             session: Async database session
         """
-        super().__init__(session, AnalysisModel)
+        super().__init__(session, AnalysisModel, CacheRegionName.ANALYSIS)
 
     def to_entity(self, model: AnalysisModel) -> Analysis:
         """Convert AnalysisModel to Analysis entity.
@@ -72,7 +73,7 @@ class AnalysisRepository(BaseRepository[AnalysisModel, Analysis]):
         filing_id: UUID,
         analysis_type: AnalysisType | None = None,
     ) -> list[Analysis]:
-        """Get analyses by filing ID.
+        """Get analyses by filing ID with caching.
 
         Args:
             filing_id: Filing ID
@@ -81,20 +82,31 @@ class AnalysisRepository(BaseRepository[AnalysisModel, Analysis]):
         Returns:
             List of analyses for the filing
         """
-        conditions = [AnalysisModel.filing_id == filing_id]
-
+        # Create cache key
+        cache_key = f"analysis:filing:{filing_id}"
         if analysis_type:
-            conditions.append(AnalysisModel.analysis_type == analysis_type.value)
+            cache_key += f":type:{analysis_type.value}"
 
-        stmt = (
-            select(AnalysisModel)
-            .where(and_(*conditions))
-            .order_by(AnalysisModel.created_at.desc())
+        async def fetch_from_db() -> list[Analysis]:
+            conditions = [AnalysisModel.filing_id == filing_id]
+
+            if analysis_type:
+                conditions.append(AnalysisModel.analysis_type == analysis_type.value)
+
+            stmt = (
+                select(AnalysisModel)
+                .where(and_(*conditions))
+                .order_by(AnalysisModel.created_at.desc())
+            )
+
+            result = await self.session.execute(stmt)
+            models = result.scalars().all()
+            return [self.to_entity(model) for model in models]
+
+        result = await cache_manager.get_or_create_async(
+            CacheRegionName.ANALYSIS, cache_key, fetch_from_db
         )
-
-        result = await self.session.execute(stmt)
-        models = result.scalars().all()
-        return [self.to_entity(model) for model in models]
+        return cast("list[Analysis]", result)
 
     async def get_by_type(
         self,
