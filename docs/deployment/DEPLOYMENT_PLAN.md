@@ -15,7 +15,7 @@
 
 ```table
 Frontend:          S3 + CloudFront (Static hosting + CDN)
-API Orchestrator:  ECS Fargate (Tiny instance: 0.25 vCPU, 0.5GB RAM)
+API Orchestrator:  Elastic Beanstalk (t3.micro instance: 2 vCPU, 1GB RAM)
 Public Access:     Elastic IP (initially) → ALB (when scaling)
 Task Queue:        SQS FIFO (Message deduplication + ordering)
 Workers:           AWS Lambda (Auto-scaling, pay-per-execution)
@@ -463,7 +463,7 @@ _Option 1 - Cloud Services (Production):_
 
 _Option 2 - Application Level (Development/Fallback):_
 
-1. **In-Memory Counters**: Simple rate limiting in Fargate instance
+1. **In-Memory Counters**: Simple rate limiting in Beanstalk instance
 2. **Database Counters**: Rate limit tracking in Aurora
 3. **Token Bucket Algorithm**: Implemented in application code
 4. **Sliding Window**: Time-based request counting
@@ -603,7 +603,7 @@ DataAccessPolicy:
 ```graph
 ┌─────────────┐     ┌──────────────┐     ┌─────────────┐
 │   Frontend  │────▶│  API/Backend │◀─▶│   Database  │
-│  (React/S3) │◀────│  (Fargate)   │     │  (Aurora)   │
+│  (React/S3) │◀────│  (Beanstalk) │     │  (Aurora)   │
 └─────────────┘ SSE └──────────────┘     └─────────────┘
                            │                     ▲
                            │                     │
@@ -650,7 +650,7 @@ Note: SSE connection from Backend to Frontend for real-time updates
 
 ## Component Responsibilities
 
-### Fargate API Orchestrator
+### Elastic Beanstalk API Orchestrator
 
 - **Role**: Central API service, always available
 - **Responsibilities**:
@@ -666,8 +666,8 @@ Note: SSE connection from Backend to Frontend for real-time updates
   - **Push updates to connected SSE clients**
   - Manage SQLAlchemy connection pool
   - Track user credits and enforce limits
-- **Size**: 0.25 vCPU, 0.5GB RAM (minimal but persistent)
-- **Cost**: ~$7.50/month (or ~$3.75 with Spot)
+- **Size**: t3.micro instance (2 vCPU, 1GB RAM)
+- **Cost**: ~$7.50/month (with reserved instance or spot)
 
 ### Lambda Workers
 
@@ -728,8 +728,8 @@ Note: SSE connection from Backend to Frontend for real-time updates
 ### Fixed Costs
 
 ```table
-ECS Fargate (0.25 vCPU):      $7.50
-Elastic IP (for Fargate):     $3.60 (required for public access)
+Elastic Beanstalk (t3.micro): $7.50
+Elastic IP (for Beanstalk):   $3.60 (required for public access)
 Route 53 Hosted Zone:         $0.50
 Domain Name (.com):           $12/year = $1.00/month
 CloudFront Distribution:      $0.00 (pay per request)
@@ -761,7 +761,7 @@ Domain & DNS:
 - SSL Certificate:            Free via ACM
 
 Public Access:
-- Elastic IP for Fargate:     $3.60/month (required)
+- Elastic IP for Beanstalk:   $3.60/month (required)
 - Alternative: ALB            $16.20/month (when scaling)
 
 Rate Limiting Options:
@@ -797,7 +797,7 @@ Rate Limiting Options:
 
 ### Phase 1: Launch (0-1K users)
 
-- Single Fargate task
+- Single Beanstalk instance
 - Aurora at minimum ACU
 - Lambda workers auto-scale as needed
 - Basic monitoring with CloudWatch
@@ -805,7 +805,7 @@ Rate Limiting Options:
 ### Phase 2: Growth (1K-10K users)
 
 - **Add Application Load Balancer** (enable auto-scaling)
-- Increase Fargate to 0.5 vCPU, 1GB RAM
+- Upgrade Beanstalk to t3.small instance
 - Aurora auto-scaling up to 4 ACU
 - Add CloudWatch alarms
 - Implement basic caching
@@ -813,7 +813,7 @@ Rate Limiting Options:
 ### Phase 3: Scale (10K+ users)
 
 - Multi-AZ deployment
-- Multiple Fargate tasks with auto-scaling
+- Multiple Beanstalk instances with auto-scaling
 - Read replicas for database
 - CDN optimization
 
@@ -974,7 +974,7 @@ All configurable parameters centralized in Settings model:
 
 Infrastructure limits will be defined in Pulumi configuration:
 
-- **Compute**: CPU and memory for Fargate/Lambda
+- **Compute**: CPU and memory for Beanstalk/Lambda
 - **Database**: Min/max ACUs for Aurora
 - **Queue**: Message retention, visibility timeout
 - **Storage**: Lifecycle policies, versioning
@@ -1051,13 +1051,13 @@ The system uses a registry pattern for clean dependency injection:
 
 1. **CI Pipeline**: Testing, linting, security scanning
 2. **Database Migration**: Run Alembic migrations before deployment
-3. **Fargate Deployment**: Build + deploy API container
+3. **Beanstalk Deployment**: Build + deploy API application
 4. **Lambda Deployment**: Package + deploy worker functions
 5. **Frontend Deployment**: Build React + deploy to S3/CloudFront
 
 ### Infrastructure as Code
 
-- **ECS Task Definitions**: JSON configs for Fargate
+- **Beanstalk Configuration**: YAML configs for Beanstalk
 - **Lambda Functions**: Automated packaging from src/
 - **AWS Resources**: CloudFormation or CDK (future)
 
