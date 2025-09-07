@@ -9,8 +9,8 @@ from typing import Any
 from uuid import UUID
 
 from src.domain.value_objects.accession_number import AccessionNumber
-from src.domain.value_objects.filing_type import FilingType
 from src.domain.value_objects.processing_status import ProcessingStatus
+from src.shared.types import FilingType
 
 
 class Filing:
