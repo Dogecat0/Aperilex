@@ -37,6 +37,22 @@ class FinancialAnalysisResponse(BaseModel):
     processing_time_ms: int = 0
 
 
+class LLMRequest(BaseModel):
+    """Request for LLM completion per deployment plan."""
+
+    schema_version: int = 1
+    prompt: str
+    system_prompt: str | None = None
+    temperature: float = 0.7
+    max_tokens: int | None = None
+    top_p: float = 1.0
+    frequency_penalty: float = 0.0
+    presence_penalty: float = 0.0
+    streaming: bool = False
+    response_format: str | None = None
+    metadata: dict[str, str] = {}
+
+
 class LLMPrompt(BaseModel):
     """Structured prompt for LLM interaction."""
 
@@ -63,7 +79,18 @@ class LLMResponse(BaseModel):
     completion_tokens: int
     latency_ms: int
     timestamp: datetime
-    request_id: RequestId
+    request_id: RequestId | None = None
+    cost: float | None = None
+
+    @property
+    def model_used(self) -> str:
+        """Alias for model field for compatibility."""
+        return self.model
+
+    @property
+    def total_tokens(self) -> int:
+        """Total tokens used (prompt + completion)."""
+        return self.prompt_tokens + self.completion_tokens
 
 
 class LLMConfig(BaseModel):
@@ -99,6 +126,27 @@ class ILLMProvider(Protocol):
 
         Raises:
             LLMError: If analysis fails
+            RateLimitError: If rate limit exceeded
+            TimeoutError: If request times out
+        """
+        ...
+
+    @abstractmethod
+    async def complete(
+        self,
+        request: LLMRequest,
+    ) -> LLMResponse:
+        """
+        Generate a completion from the LLM using simplified request.
+
+        Args:
+            request: LLM request with prompt and parameters
+
+        Returns:
+            LLM response with completion
+
+        Raises:
+            LLMError: If generation fails
             RateLimitError: If rate limit exceeded
             TimeoutError: If request times out
         """

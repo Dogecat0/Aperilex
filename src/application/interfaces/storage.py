@@ -3,12 +3,30 @@ Storage provider interface for abstracted storage operations.
 """
 
 from abc import abstractmethod
-from typing import Protocol, runtime_checkable
+from typing import Any, Protocol, runtime_checkable
 
 from pydantic import BaseModel
 
 from src.shared.models import StorageMetadataFields
 from src.shared.types import AnalysisId, FilingId, StorageKey
+
+
+class StorageRequest(BaseModel):
+    """Request for storing a filing per deployment plan."""
+
+    schema_version: int = 1
+    filing_id: FilingId
+    content: bytes
+    metadata: dict[str, str] = {}
+
+
+class AnalysisStorageRequest(BaseModel):
+    """Request for storing analysis results per deployment plan."""
+
+    schema_version: int = 1
+    analysis_id: AnalysisId
+    result: dict[str, Any]
+    metadata: dict[str, str] = {}
 
 
 class StorageMetadata(BaseModel):
@@ -39,17 +57,13 @@ class IStorageProvider(Protocol):
     @abstractmethod
     async def store_filing(
         self,
-        filing_id: FilingId,
-        content: bytes,
-        metadata: StorageMetadataFields | None = None,
+        request: StorageRequest,
     ) -> StorageKey:
         """
         Store a filing document.
 
         Args:
-            filing_id: Unique identifier for the filing
-            content: Raw filing content
-            metadata: Optional metadata to attach
+            request: Storage request containing filing data and metadata
 
         Returns:
             Storage key for retrieval
@@ -117,12 +131,12 @@ class IStorageProvider(Protocol):
         ...
 
     @abstractmethod
-    async def exists(self, key: StorageKey) -> bool:
+    async def exists(self, filing_id: FilingId) -> bool:
         """
-        Check if an object exists in storage.
+        Check if a filing exists in storage.
 
         Args:
-            key: Storage key to check
+            filing_id: Filing ID to check
 
         Returns:
             True if object exists, False otherwise
