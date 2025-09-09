@@ -12,17 +12,17 @@ repos:
       - id: debug-statements
       - id: check-docstring-first
 
-  - repo: https://github.com/psf/black
-    rev: 24.1.0
-    hooks:
-      - id: black
-        language_version: python3.12
+  # - repo: https://github.com/psf/black
+  #   rev: 24.1.0
+  #   hooks:
+  #     - id: black
+  #       language_version: python3.12
 
-  - repo: https://github.com/pycqa/isort
-    rev: 5.13.2
-    hooks:
-      - id: isort
-        args: ["--profile", "black"]
+  # - repo: https://github.com/pycqa/isort
+  #   rev: 5.13.2
+  #   hooks:
+  #     - id: isort
+  #       args: ["--profile", "black"]
 
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.2.0
