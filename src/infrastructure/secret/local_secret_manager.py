@@ -6,6 +6,7 @@ import json
 import os
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import TypedDict
 
 from src.application.interfaces.secret import (
     ISecretManager,
@@ -13,6 +14,26 @@ from src.application.interfaces.secret import (
     SecretRotationConfig,
     SecretVersion,
 )
+
+
+class SecretVersionData(TypedDict, total=False):
+    """Type definition for secret version data."""
+    version_id: str
+    version_stage: str
+    created_at: str
+    is_current: bool
+
+
+class SecretData(TypedDict, total=False):
+    """Type definition for secret data stored in local file."""
+    value: str
+    description: str | None
+    tags: dict[str, str]
+    created_at: str
+    updated_at: str
+    versions: list[SecretVersionData]
+    deleted: bool
+    deletion_date: str
 
 
 class LocalSecretManager(ISecretManager):
@@ -31,7 +52,7 @@ class LocalSecretManager(ISecretManager):
         """
         self.secrets_file = Path(secrets_file)
         self.secrets_file.parent.mkdir(parents=True, exist_ok=True)
-        self._secrets: dict[str, dict] = {}
+        self._secrets: dict[str, SecretData] = {}
         self._load_secrets()
 
     def _load_secrets(self) -> None:
@@ -66,7 +87,10 @@ class LocalSecretManager(ISecretManager):
         if "value" not in secret_data:
             raise ValueError(f"Secret '{secret_name}' has no value")
 
-        return secret_data["value"]
+        value = secret_data["value"]
+        # Type assertion: we know value is str because we always store strings
+        assert isinstance(value, str), f"Secret '{secret_name}' value must be a string"
+        return value
 
     async def get_secret_binary(
         self,
@@ -153,7 +177,7 @@ class LocalSecretManager(ISecretManager):
 
         # Add a new version
         version_num = len(secret_data.get("versions", [])) + 1
-        new_version = {
+        new_version: SecretVersionData = {
             "version_id": f"v{version_num}",
             "version_stage": version_stage or "AWSCURRENT",
             "created_at": now.isoformat(),
