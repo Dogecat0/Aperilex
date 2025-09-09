@@ -11,24 +11,22 @@ from typing import Any
 
 from pydantic import BaseModel
 
-from src.application.interfaces.datasource import IDataSourceProvider
+from src.application.interfaces.datasource import FilingContent, IDataSourceProvider
 from src.application.interfaces.llm import ILLMProvider, LLMRequest, LLMResponse
 from src.application.interfaces.queue import IQueueProvider
 from src.application.interfaces.storage import IStorageProvider, StorageRequest
 from src.application.interfaces.worker import IWorkerProvider, WorkerContext
-from src.shared.enums.status import AnalysisStatus, TaskStatus
-from src.shared.enums.user import UserTier
-from src.shared.models.analysis import (
+from src.shared.enums import AnalysisStatus, FilingType, TaskStatus, UserTier
+from src.shared.models import (
     AnalysisRequest,
     AnalysisResult,
     AnalysisType,
     ModelTier,
+    TaskData,
+    TaskQueueMessage,
     TokenUsage,
 )
-from src.shared.models.queue import TaskQueueMessage
-from src.shared.models.task_data import TaskData
-from src.shared.types.identifiers import AnalysisId, FilingId, StorageKey, TaskId
-from src.shared.types.sec import Ticker
+from src.shared.types import CIK, AnalysisId, FilingId, StorageKey, TaskId, Ticker
 from src.shared.utils.logging import get_logger
 
 logger = get_logger(__name__)
@@ -301,9 +299,6 @@ class WorkerService:
             FilingFetchError: If fetch fails
         """
         try:
-            from src.application.interfaces.datasource import FilingContent
-            from src.shared.types import CIK, FilingType
-
             filing_data: FilingContent
             metadata = metadata or {}
 

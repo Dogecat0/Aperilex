@@ -8,8 +8,14 @@ from typing import Protocol, TypeVar, runtime_checkable
 from pydantic import BaseModel
 
 from src.shared.enums import AnalysisStatus, DatabaseProvider, TaskStatus
-from src.shared.models import DatabaseRecord, MetadataDict
+from src.shared.models import (
+    AnalysisRecord,
+    MetadataDict,
+    TaskRecord,
+)
 from src.shared.types import AnalysisId, FilingId, TaskId, UserId
+
+from .repositories import IRepositoryFactory
 
 T = TypeVar("T", bound=BaseModel)
 
@@ -106,7 +112,7 @@ class IDatabaseProvider(Protocol):
         ...
 
     @abstractmethod
-    async def get_task(self, task_id: TaskId) -> DatabaseRecord:
+    async def get_task(self, task_id: TaskId) -> TaskRecord:
         """
         Retrieve a task by ID.
 
@@ -114,7 +120,7 @@ class IDatabaseProvider(Protocol):
             task_id: Task identifier
 
         Returns:
-            Task data dictionary
+            Task record with all task data
 
         Raises:
             NotFoundError: If task not found
@@ -175,7 +181,7 @@ class IDatabaseProvider(Protocol):
         ...
 
     @abstractmethod
-    async def get_analysis(self, analysis_id: AnalysisId) -> DatabaseRecord:
+    async def get_analysis(self, analysis_id: AnalysisId) -> AnalysisRecord:
         """
         Retrieve an analysis by ID.
 
@@ -183,7 +189,7 @@ class IDatabaseProvider(Protocol):
             analysis_id: Analysis identifier
 
         Returns:
-            Analysis data dictionary
+            Analysis record with all analysis data
 
         Raises:
             NotFoundError: If analysis not found
@@ -197,7 +203,7 @@ class IDatabaseProvider(Protocol):
         user_id: UserId,
         limit: int = 100,
         offset: int = 0,
-    ) -> list[DatabaseRecord]:
+    ) -> list[AnalysisRecord]:
         """
         List analyses for a user.
 
@@ -338,6 +344,19 @@ class IDatabaseProvider(Protocol):
         Raises:
             DatabaseError: If index creation fails
             AlreadyExistsError: If index already exists
+        """
+        ...
+
+    @abstractmethod
+    def get_repository_factory(self) -> IRepositoryFactory:
+        """
+        Get the repository factory for creating repository instances.
+
+        Returns:
+            Repository factory instance
+
+        Raises:
+            DatabaseError: If factory cannot be created
         """
         ...
 

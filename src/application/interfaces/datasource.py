@@ -8,8 +8,8 @@ from typing import Protocol, runtime_checkable
 
 from pydantic import BaseModel
 
-from src.shared.enums import DataSourceProvider
-from src.shared.types import CIK, FilingId, FilingType, Ticker
+from src.shared.enums import DataSourceProvider, FilingType
+from src.shared.types import CIK, FilingId, Ticker
 
 
 class CompanyInfo(BaseModel):

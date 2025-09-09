@@ -8,6 +8,7 @@ from src.application.interfaces.database import IDatabaseProvider
 from src.application.interfaces.datasource import IDataSourceProvider
 from src.application.interfaces.llm import ILLMProvider
 from src.application.interfaces.queue import IQueueProvider
+from src.application.interfaces.rate_limiting import IRateLimitingProvider
 from src.application.interfaces.storage import IStorageProvider
 from src.application.interfaces.worker import IWorkerProvider
 from src.shared.enums import (
@@ -15,6 +16,7 @@ from src.shared.enums import (
     DataSourceProvider,
     LLMProvider,
     QueueProvider,
+    RateLimitingProvider,
     StorageProvider,
     WorkerProvider,
 )
@@ -49,3 +51,7 @@ class ProvidersContainer(containers.DeclarativeContainer):
     # Database provider (Postgres, Aurora, etc.)
     database_provider_type = providers.Object(DatabaseProvider.POSTGRES)
     database_provider = providers.AbstractSingleton(IDatabaseProvider)
+
+    # Rate limiting provider (InMemory, Redis, etc.)
+    rate_limiting_provider_type = providers.Object(RateLimitingProvider.IN_MEMORY)
+    rate_limiting_provider = providers.AbstractSingleton(IRateLimitingProvider)
