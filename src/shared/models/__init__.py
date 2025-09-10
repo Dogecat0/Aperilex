@@ -2,12 +2,20 @@
 Models module for Pydantic models and metadata types.
 """
 
+from .analysis import (
+    AnalysisRequest,
+    AnalysisResult,
+    AnalysisType,
+    ModelTier,
+    TokenUsage,
+)
 from .base import MetadataDict, MetadataValue
-from .database import DatabaseRecord
 from .llm import LLMModelInfo
-from .queue import QueueMessage, QueueMessageBody, TaskMessage
+from .queue import QueueMessage, QueueMessageBody, TaskMessage, TaskQueueMessage
+from .records import AnalysisRecord, CompanyRecord, FilingRecord, TaskRecord
 from .storage import StorageMetadataFields
 from .task import TaskMetadata
+from .task_data import TaskData
 
 __all__ = [
     # Base types
@@ -21,8 +29,21 @@ __all__ = [
     # Queue models
     "QueueMessageBody",
     "QueueMessage",
-    # Database models
-    "DatabaseRecord",
+    "TaskQueueMessage",
+    "TaskMessage",
+    # Database records
+    "TaskRecord",
+    "AnalysisRecord",
+    "FilingRecord",
+    "CompanyRecord",
     # LLM models
     "LLMModelInfo",
+    # Analysis models
+    "AnalysisRequest",
+    "AnalysisResult",
+    "AnalysisType",
+    "ModelTier",
+    "TokenUsage",
+    # Task data models
+    "TaskData",
 ]

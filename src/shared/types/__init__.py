@@ -2,7 +2,6 @@
 Types module for identifiers and value objects.
 """
 
-from .filing import FilingType
 from .identifiers import (
     AnalysisId,
     CompanyId,
@@ -32,7 +31,6 @@ __all__ = [
     "RequestId",
     "CorrelationId",
     # SEC types
-    "FilingType",
     "Ticker",
     "CIK",
     "AccessionNumber",

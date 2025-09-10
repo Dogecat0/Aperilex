@@ -7,13 +7,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field
 
-from src.shared.enums.status import TaskStatus
-from src.shared.enums.task import TaskPriority
-from src.shared.enums.user import UserTier
-from src.shared.types.filing import FilingType
-from src.shared.types.identifiers import FilingId, TaskId, UserId
-from src.shared.types.sec import Ticker
-from src.shared.types.web import Email
+from src.shared.enums import FilingType, TaskPriority, TaskStatus, UserTier
+from src.shared.types import Email, FilingId, TaskId, Ticker, UserId
 
 
 class TaskData(BaseModel):

@@ -15,7 +15,6 @@ from .enums import (
     WorkerProvider,
 )
 from .models import (
-    DatabaseRecord,
     LLMModelInfo,
     MetadataDict,
     MetadataValue,
@@ -89,8 +88,6 @@ __all__ = [
     # Models - Queue
     "QueueMessageBody",
     "QueueMessage",
-    # Models - Database
-    "DatabaseRecord",
     # Models - LLM
     "LLMModelInfo",
     # Utils

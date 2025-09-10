@@ -46,3 +46,11 @@ class DatabaseProvider(str, Enum):
     POSTGRES = "POSTGRES"
     AURORA = "AURORA"
     COCKROACHDB = "COCKROACHDB"
+
+
+class RateLimitingProvider(str, Enum):
+    """Available rate limiting provider implementations."""
+
+    IN_MEMORY = "IN_MEMORY"
+    REDIS = "REDIS"
+    MEMCACHED = "MEMCACHED"
