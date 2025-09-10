@@ -7,7 +7,7 @@ information should be retrieved directly from edgartools when needed.
 from typing import Any
 from uuid import UUID
 
-from src.domain.value_objects.cik import CIK
+from src.shared.types import CIK
 
 
 class Company:
