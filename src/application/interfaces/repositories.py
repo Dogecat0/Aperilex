@@ -93,38 +93,6 @@ class ICompanyRepository(Protocol):
         ...
 
     @abstractmethod
-    async def get_by_cik(self, cik: CIK) -> CompanyData | None:
-        """
-        Get company by CIK.
-
-        Args:
-            cik: Central Index Key
-
-        Returns:
-            Company data if found, None otherwise
-
-        Raises:
-            DatabaseError: If database operation fails
-        """
-        ...
-
-    @abstractmethod
-    async def get_by_ticker(self, ticker: Ticker) -> CompanyData | None:
-        """
-        Get company by ticker symbol.
-
-        Args:
-            ticker: Stock ticker symbol
-
-        Returns:
-            Company data if found, None otherwise
-
-        Raises:
-            DatabaseError: If database operation fails
-        """
-        ...
-
-    @abstractmethod
     async def create(self, company: CompanyData) -> CompanyData:
         """
         Create a new company.
@@ -189,24 +157,6 @@ class IFilingRepository(Protocol):
 
         Args:
             filing_id: Unique filing identifier
-
-        Returns:
-            Filing data if found, None otherwise
-
-        Raises:
-            DatabaseError: If database operation fails
-        """
-        ...
-
-    @abstractmethod
-    async def get_by_accession_number(
-        self, accession_number: AccessionNumber
-    ) -> FilingData | None:
-        """
-        Get filing by accession number.
-
-        Args:
-            accession_number: SEC accession number
 
         Returns:
             Filing data if found, None otherwise
@@ -299,12 +249,12 @@ class IFilingRepository(Protocol):
         ...
 
     @abstractmethod
-    async def exists(self, accession_number: AccessionNumber) -> bool:
+    async def exists(self, filing_id: FilingId) -> bool:
         """
-        Check if filing exists by accession number.
+        Check if filing exists by filing ID.
 
         Args:
-            accession_number: SEC accession number
+            filing_id: Unique filing identifier
 
         Returns:
             True if filing exists, False otherwise
