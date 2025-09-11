@@ -11,11 +11,11 @@ from threading import Lock
 from src.application.interfaces.rate_limiting import (
     IRateLimitingProvider,
     IRateLimitStorage,
-    RateLimitConfig,
     RateLimitHeaders,
     RateLimitResult,
     RateLimitStats,
 )
+from src.shared.config.providers import RateLimitConfig
 from src.shared.types import UserId
 
 logger = logging.getLogger(__name__)

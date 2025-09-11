@@ -4,25 +4,26 @@ Infrastructure container for managing concrete implementations.
 
 from dependency_injector import containers, providers
 
-from src.application.interfaces.rate_limiting import RateLimitConfig
 from src.infrastructure.database.cache.manager import CacheManager
 from src.infrastructure.database.models.base import (
     async_session_maker,
     engine,
 )
-from src.infrastructure.database.postgres import (
-    PostgresConfig,
-    PostgresDatabaseProvider,
+from src.infrastructure.database.postgres import PostgresDatabaseProvider
+from src.infrastructure.providers.rate_limiting.in_memory import (
+    InMemoryRateLimitingProvider,
 )
-from src.infrastructure.providers.rate_limiting import InMemoryRateLimitingProvider
-from src.shared.config.settings import settings
+from src.shared.config.providers import PostgresConfig, RateLimitConfig
 
 
-class InfrastructureContainer(containers.DeclarativeContainer):
+class InfrastructureWiring(containers.DeclarativeContainer):
     """Container for infrastructure implementations."""
 
     # Configuration from parent container
     config = providers.DependenciesContainer()
+
+    # Config provider from parent container
+    config_provider = providers.DependenciesContainer()
 
     # Parent container reference for accessing abstract providers
     providers_container = providers.DependenciesContainer()
@@ -89,13 +90,19 @@ class InfrastructureContainer(containers.DeclarativeContainer):
     )
 
     # Rate limiting configuration
+    # Using Factory with lambda to defer config_provider access until runtime
     rate_limit_config = providers.Factory(
-        RateLimitConfig,
-        hourly_limit=settings.rate_limit_requests_per_hour,
-        daily_limit=settings.rate_limit_requests_per_day,
-        burst_limit=getattr(settings, "rate_limit_burst_limit", None),
-        enabled=settings.rate_limiting_enabled,
-        excluded_paths=settings.rate_limit_excluded_paths,
+        lambda cp: RateLimitConfig(
+            hourly_limit=cp.get_int("rate_limit_hourly", None),
+            daily_limit=cp.get_int("rate_limit_daily", None),
+            burst_limit=cp.get_int("rate_limit_burst", None),
+            enabled=cp.get_bool("rate_limit_enabled", True),
+            excluded_paths=cp.get_list(
+                "rate_limit_excluded_paths",
+                ["/health", "/", "/docs", "/openapi.json", "/redoc"],
+            ),
+        ),
+        cp=config_provider.config_provider,
     )
 
     # Rate limiting provider (concrete implementation)

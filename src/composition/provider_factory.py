@@ -2,19 +2,10 @@
 Factory for creating provider implementations based on configuration.
 """
 
+from typing import TYPE_CHECKING
+
 from dependency_injector import providers
 
-from src.application.interfaces.config import IConfigProvider
-from src.application.interfaces.database import IDatabaseProvider
-from src.application.interfaces.datasource import IDataSourceProvider
-from src.application.interfaces.llm import ILLMProvider
-from src.application.interfaces.queue import IQueueProvider
-from src.application.interfaces.secret import ISecretManager
-from src.application.interfaces.storage import IStorageProvider
-from src.application.interfaces.worker import IWorkerProvider
-from src.infrastructure.config import EnvironmentConfigProvider
-from src.infrastructure.providers.storage import LocalStorageProvider, S3StorageProvider
-from src.infrastructure.secret import LocalSecretManager
 from src.shared.enums import (
     DatabaseProvider,
     DataSourceProvider,
@@ -23,6 +14,18 @@ from src.shared.enums import (
     StorageProvider,
     WorkerProvider,
 )
+
+if TYPE_CHECKING:
+    from src.application.interfaces import (
+        IConfigProvider,
+        IDatabaseProvider,
+        IDataSourceProvider,
+        ILLMProvider,
+        IQueueProvider,
+        ISecretManager,
+        IStorageProvider,
+        IWorkerProvider,
+    )
 
 
 class ProviderFactory:
@@ -39,6 +42,8 @@ class ProviderFactory:
         Returns:
             Provider instance for configuration
         """
+        from src.infrastructure.config import EnvironmentConfigProvider
+
         if environment in ["development", "test"]:
             return providers.Singleton(
                 EnvironmentConfigProvider,
@@ -63,6 +68,8 @@ class ProviderFactory:
         Returns:
             Provider instance for secret management
         """
+        from src.infrastructure.secret import LocalSecretManager
+
         if environment in ["development", "test"]:
             return providers.Singleton(
                 LocalSecretManager,
@@ -94,6 +101,8 @@ class ProviderFactory:
             Provider instance for storage
         """
         if provider_type == StorageProvider.S3:
+            from src.infrastructure.providers.storage import S3StorageProvider
+
             # Get S3 configuration from config provider
             bucket_name = config_provider.get(
                 "storage.s3.bucket_name", "aperilex-storage"
@@ -116,6 +125,8 @@ class ProviderFactory:
                 aws_secret_access_key=aws_secret_access_key,
             )
         elif provider_type == StorageProvider.LOCAL:
+            from src.infrastructure.providers.storage import LocalStorageProvider
+
             # Get local storage configuration
             base_path = config_provider.get("storage.local.base_path", "./data/storage")
 
@@ -224,10 +235,8 @@ class ProviderFactory:
             Provider instance for worker
         """
         if provider_type == WorkerProvider.LAMBDA:
-            from src.infrastructure.providers.worker import (
-                LambdaWorkerConfig,
-                LambdaWorkerProvider,
-            )
+            from src.infrastructure.providers.worker import LambdaWorkerProvider
+            from src.shared.config.providers import LambdaWorkerConfig
 
             # Get Lambda configuration
             function_name = config_provider.get(
@@ -259,10 +268,8 @@ class ProviderFactory:
                 config=lambda_config,
             )
         elif provider_type == WorkerProvider.DOCKER:
-            from src.infrastructure.providers.worker import (
-                DockerWorkerConfig,
-                DockerWorkerProvider,
-            )
+            from src.infrastructure.providers.worker import DockerWorkerProvider
+            from src.shared.config.providers import DockerWorkerConfig
 
             # Get Docker configuration
             image_name = config_provider.get(
@@ -314,8 +321,8 @@ class ProviderFactory:
             Provider instance for LLM
         """
         if provider_type == LLMProvider.OPENAI:
-            from src.application.interfaces.llm import LLMConfig
             from src.infrastructure.providers.llm import OpenAILLMProvider
+            from src.shared.config.providers import LLMConfig
 
             # Get OpenAI configuration
             model_name = config_provider.get("llm.openai.model", "gpt-4o")
@@ -347,8 +354,8 @@ class ProviderFactory:
                 base_url=api_endpoint,
             )
         elif provider_type == LLMProvider.GOOGLE:
-            from src.application.interfaces.llm import LLMConfig
             from src.infrastructure.providers.llm import GoogleLLMProvider
+            from src.shared.config.providers import LLMConfig
 
             # Get Google configuration
             model_name = config_provider.get("llm.google.model", "gemini-1.5-flash")
@@ -503,12 +510,8 @@ class ProviderFactory:
             region = config_provider.get("database.aurora.region", "us-east-2")
             min_acu = config_provider.get("database.aurora.min_acu", 0)
             max_acu = config_provider.get("database.aurora.max_acu", 16)
-            max_connections = config_provider.get(
-                "database.aurora.max_connections", 50
-            )
-            min_connections = config_provider.get(
-                "database.aurora.min_connections", 0
-            )
+            max_connections = config_provider.get("database.aurora.max_connections", 50)
+            min_connections = config_provider.get("database.aurora.min_connections", 0)
             connection_timeout = config_provider.get(
                 "database.aurora.connection_timeout_seconds", 60
             )

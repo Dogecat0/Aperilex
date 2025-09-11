@@ -7,8 +7,8 @@ from typing import Self
 from dependency_injector import containers, providers
 
 from .config import ConfigurationContainer
-from .factory import ProviderFactory
-from .infrastructure import InfrastructureContainer
+from .cqrs import CQRSContainer
+from .orchestrator import OrchestratorContainer
 from .providers import ProvidersContainer
 
 
@@ -35,10 +35,16 @@ class ApplicationContainer(containers.DeclarativeContainer):
         config=configuration,
     )
 
-    # Infrastructure implementations container
-    infrastructure = providers.Container(
-        InfrastructureContainer,
-        config=configuration,
+    # CQRS command and query handling container
+    cqrs = providers.Container(
+        CQRSContainer,
+        providers_container=providers_container,
+    )
+
+    # API orchestrator services container
+    orchestrator = providers.Container(
+        OrchestratorContainer,
+        providers_container=providers_container,
     )
 
     # Application-level services (to be implemented)
@@ -67,60 +73,9 @@ class ApplicationContainer(containers.DeclarativeContainer):
         # Load environment variables (overrides config file)
         container.config.from_env("APERILEX")
 
-        # Wire configuration and secret providers
-        container.configuration.config_provider.override(
-            ProviderFactory.create_config_provider(environment)
-        )
-        container.configuration.secret_manager.override(
-            ProviderFactory.create_secret_manager(environment)
-        )
-
-        # Get provider types from configuration or use defaults
-        # Note: Configuration provider doesn't support default values in get(),
-        # so we handle defaults separately
-        try:
-            storage_type = container.config.storage.provider()
-        except AttributeError:
-            storage_type = "LOCAL"
-
-        try:
-            queue_type = container.config.queue.provider()
-        except AttributeError:
-            queue_type = "RABBITMQ"
-
-        try:
-            worker_type = container.config.worker.provider()
-        except AttributeError:
-            worker_type = "DOCKER"
-
-        try:
-            llm_type = container.config.llm.provider()
-        except AttributeError:
-            llm_type = "OPENAI"
-
-        try:
-            datasource_type = container.config.datasource.provider()
-        except AttributeError:
-            datasource_type = "EDGAR"
-
-        try:
-            database_type = container.config.database.provider()
-        except AttributeError:
-            database_type = "POSTGRES"
-
-        # TODO: Use provider types to wire appropriate implementations
-        # These variables will be used in Stage 3/4 when wiring concrete providers
-        _ = (
-            storage_type,
-            queue_type,
-            worker_type,
-            llm_type,
-            datasource_type,
-            database_type,
-        )
-
-        # Note: Provider implementations will be wired when they are implemented
-        # For now, we have the structure in place for dependency injection
+        # Note: This container only defines abstract dependencies.
+        # Concrete implementations are wired in the composition root.
+        # See src/composition/container.py for the actual wiring.
 
         return container
 

@@ -7,18 +7,8 @@ from typing import Protocol, runtime_checkable
 
 from pydantic import BaseModel
 
+from src.shared.config.providers import RateLimitConfig
 from src.shared.types import UserId
-
-
-class RateLimitConfig(BaseModel):
-    """Configuration for rate limiting."""
-
-    schema_version: int = 1
-    hourly_limit: int | None = None
-    daily_limit: int | None = None
-    burst_limit: int | None = None
-    enabled: bool = True
-    excluded_paths: list[str] = []
 
 
 class RateLimitResult(BaseModel):
