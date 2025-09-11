@@ -9,7 +9,6 @@ from typing import Any
 
 import aiodocker  # type: ignore[import-not-found]
 from aiodocker.exceptions import DockerError  # type: ignore[import-not-found]
-from pydantic import BaseModel
 
 from src.application.interfaces.worker import (
     IWorkerProvider,
@@ -20,28 +19,10 @@ from src.application.interfaces.worker import (
     WorkerResult,
     WorkerResultData,
 )
+from src.shared.config.providers import DockerWorkerConfig
 from src.shared.enums import TaskStatus
 from src.shared.models import TaskMessage
 from src.shared.types import TaskId
-
-
-class DockerWorkerConfig(BaseModel):
-    """Configuration for Docker worker provider."""
-
-    schema_version: int = 1
-    image_name: str = "aperilex-worker:latest"
-    container_prefix: str = "aperilex-worker"
-    network_name: str = "aperilex-network"
-    max_concurrent_tasks: int = 5
-    cpu_limit: float = 1.0  # Number of CPUs
-    memory_limit: int = 512  # MB
-    environment_vars: dict[str, str] = {}
-    volume_mounts: dict[str, str] = {}  # host_path: container_path
-    auto_remove: bool = True
-    enable_gpu: bool = False
-    log_driver: str = "json-file"
-    log_max_size: str = "10m"
-    log_max_files: str = "3"
 
 
 class DockerWorkerProvider(IWorkerProvider):

@@ -11,8 +11,9 @@ from google.genai import types
 from pydantic import BaseModel as PydanticBaseModel
 from tenacity import retry, stop_after_attempt, wait_exponential
 
-from src.application.interfaces.llm import LLMConfig, LLMPrompt, LLMResponse
+from src.application.interfaces.llm import LLMPrompt, LLMResponse
 from src.application.interfaces.secret import ISecretManager
+from src.shared.config.providers import LLMConfig
 from src.shared.enums import FilingType
 from src.shared.enums import LLMProvider as LLMProviderEnum
 from src.shared.models import LLMModelInfo

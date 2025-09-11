@@ -8,7 +8,7 @@ from typing import Protocol, runtime_checkable
 
 from pydantic import BaseModel
 
-from src.shared.enums import DataSourceProvider, FilingType
+from src.shared.enums import FilingType
 from src.shared.types import CIK, FilingId, Ticker
 
 
@@ -53,19 +53,6 @@ class FilingSearchCriteria(BaseModel):
     start_date: date | None = None
     end_date: date | None = None
     limit: int = 100
-
-
-class DataSourceConfig(BaseModel):
-    """Configuration for data source provider."""
-
-    schema_version: int = 1
-    provider: DataSourceProvider
-    api_key_secret_name: str | None = None
-    base_url: str | None = None
-    rate_limit_per_second: int = 10
-    retry_attempts: int = 3
-    timeout_seconds: int = 30
-    user_agent: str = "Aperilex/1.0"
 
 
 @runtime_checkable

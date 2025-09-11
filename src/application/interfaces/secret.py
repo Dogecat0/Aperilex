@@ -4,9 +4,12 @@ Secret manager interface for abstracted secret management operations.
 
 from abc import abstractmethod
 from datetime import datetime
-from typing import Protocol, runtime_checkable
+from typing import TYPE_CHECKING, Protocol, runtime_checkable
 
 from pydantic import BaseModel
+
+if TYPE_CHECKING:
+    from src.shared.config.interfaces import SecretRotationConfig
 
 
 class SecretMetadata(BaseModel):
@@ -31,15 +34,6 @@ class SecretVersion(BaseModel):
     version_stage: str
     created_at: datetime
     is_current: bool
-
-
-class SecretRotationConfig(BaseModel):
-    """Configuration for automatic secret rotation."""
-
-    schema_version: int = 1
-    rotation_lambda_arn: str | None = None
-    rotation_period_days: int = 30
-    automatically_after_days: int | None = None
 
 
 @runtime_checkable
@@ -194,7 +188,7 @@ class ISecretManager(Protocol):
     async def rotate_secret(
         self,
         secret_name: str,
-        rotation_config: SecretRotationConfig | None = None,
+        rotation_config: "SecretRotationConfig | None" = None,
     ) -> bool:
         """
         Rotate a secret.

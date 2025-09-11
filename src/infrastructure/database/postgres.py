@@ -5,7 +5,7 @@ PostgreSQL database provider implementation.
 import logging
 from typing import Any
 
-from pydantic import BaseModel, SecretStr
+from pydantic import SecretStr
 from sqlalchemy.ext.asyncio import (
     AsyncEngine,
     AsyncSession,
@@ -17,27 +17,9 @@ from sqlalchemy.pool import NullPool
 from src.application.interfaces.secret import ISecretManager
 from src.infrastructure.database.cache import CacheManager
 from src.infrastructure.database.sqlalchemy_provider import SQLAlchemyDatabaseProvider
+from src.shared.config.providers import PostgresConfig
 
 logger = logging.getLogger(__name__)
-
-
-class PostgresConfig(BaseModel):
-    """Configuration for PostgreSQL database provider."""
-
-    schema_version: int = 1
-    host: str = "localhost"
-    port: int = 5432
-    database: str = "aperilex"
-    username: str = "postgres"
-    password_secret_name: str = "postgres_password"
-    max_connections: int = 10
-    min_connections: int = 2
-    connection_timeout_seconds: int = 30
-    query_timeout_seconds: int = 30
-    enable_ssl: bool = False
-    enable_connection_pooling: bool = True
-    retry_attempts: int = 3
-    echo_sql: bool = False
 
 
 class PostgresDatabaseProvider(SQLAlchemyDatabaseProvider):

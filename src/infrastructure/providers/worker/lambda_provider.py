@@ -10,7 +10,6 @@ from typing import Any
 
 import aioboto3  # type: ignore[import-not-found]
 from botocore.exceptions import BotoCoreError, ClientError
-from pydantic import BaseModel
 
 from src.application.interfaces.worker import (
     IWorkerProvider,
@@ -21,32 +20,10 @@ from src.application.interfaces.worker import (
     WorkerResult,
     WorkerResultData,
 )
+from src.shared.config.providers import LambdaWorkerConfig
 from src.shared.enums import TaskStatus
 from src.shared.models import TaskMessage
 from src.shared.types import TaskId
-
-
-class LambdaWorkerConfig(BaseModel):
-    """Configuration for Lambda worker provider."""
-
-    schema_version: int = 1
-    function_name: str = "aperilex-worker"
-    region: str = "us-east-2"
-    aws_access_key_id: str | None = None
-    aws_secret_access_key: str | None = None
-    qualifier: str = "$LATEST"  # Version or alias
-    invocation_type: str = "RequestResponse"  # or "Event" for async
-    log_type: str = "Tail"  # Include logs in response
-    max_payload_size: int = 6 * 1024 * 1024  # 6MB Lambda limit
-    timeout_seconds: int = 900  # 15 minutes max
-    memory_mb: int = 1024
-    reserved_concurrent_executions: int = 100
-    dead_letter_queue_arn: str | None = None
-    environment_variables: dict[str, str] = {}
-    vpc_config: dict[str, list[str]] | None = (
-        None  # {"SubnetIds": [], "SecurityGroupIds": []}
-    )
-    retry_config: dict[str, int | str] = {"max_attempts": 3, "mode": "adaptive"}
 
 
 class LambdaWorkerProvider(IWorkerProvider):

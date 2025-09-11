@@ -11,13 +11,14 @@ from typing import TypedDict
 from src.application.interfaces.secret import (
     ISecretManager,
     SecretMetadata,
-    SecretRotationConfig,
     SecretVersion,
 )
+from src.shared.config.interfaces import SecretRotationConfig
 
 
 class SecretVersionData(TypedDict, total=False):
     """Type definition for secret version data."""
+
     version_id: str
     version_stage: str
     created_at: str
@@ -26,6 +27,7 @@ class SecretVersionData(TypedDict, total=False):
 
 class SecretData(TypedDict, total=False):
     """Type definition for secret data stored in local file."""
+
     value: str
     description: str | None
     tags: dict[str, str]

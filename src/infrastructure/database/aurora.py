@@ -9,7 +9,7 @@ from datetime import UTC, datetime
 from uuid import uuid4
 
 import asyncpg  # type: ignore[import-untyped]
-from pydantic import BaseModel, SecretStr
+from pydantic import SecretStr
 
 from src.application.interfaces.database import (
     AnalysisResultData,
@@ -19,32 +19,10 @@ from src.application.interfaces.database import (
     TransactionContext,
 )
 from src.application.interfaces.secret import ISecretManager
+from src.shared.config.providers import AuroraConfig
 from src.shared.enums import AnalysisStatus, AnalysisType, TaskPriority, TaskStatus
 from src.shared.models import AnalysisRecord, MetadataDict, TaskRecord
 from src.shared.types import AnalysisId, FilingId, TaskId, UserId
-
-
-class AuroraConfig(BaseModel):
-    """Configuration for Aurora Serverless v2 database provider."""
-
-    schema_version: int = 1
-    cluster_endpoint: str  # e.g., mydb.cluster-xxx.us-east-2.rds.amazonaws.com
-    database: str = "aperilex"
-    username: str = "postgres"
-    password_secret_name: str = "aurora_password"
-    port: int = 5432
-    region: str = "us-east-2"
-    # Aurora-specific settings
-    min_acu: float = 0  # 0 ACU for true scale-to-zero
-    max_acu: float = 16  # Maximum ACUs
-    max_connections: int = 50  # Higher than local Postgres due to serverless scaling
-    min_connections: int = 0  # Allow scaling to zero connections
-    connection_timeout_seconds: int = 60  # Longer timeout for cold starts
-    query_timeout_seconds: int = 30
-    enable_ssl: bool = True  # Always use SSL for Aurora
-    enable_iam_auth: bool = False  # Use IAM authentication if enabled
-    enable_connection_pooling: bool = True
-    retry_attempts: int = 5  # More retries for serverless cold starts
 
 
 class AuroraDatabaseProvider(IDatabaseProvider):
@@ -82,7 +60,7 @@ class AuroraDatabaseProvider(IDatabaseProvider):
             ValueError: If identifier contains invalid characters
         """
         # Check for valid identifier pattern (alphanumeric and underscore only)
-        if not re.match(r'^[a-zA-Z_][a-zA-Z0-9_]*$', identifier):
+        if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", identifier):
             raise ValueError(f"Invalid SQL identifier: {identifier}")
 
         # Return double-quoted identifier for PostgreSQL/Aurora
@@ -98,12 +76,12 @@ class AuroraDatabaseProvider(IDatabaseProvider):
         Returns:
             Quoted table name safe for SQL usage
         """
-        parts = table_name.split('.')
+        parts = table_name.split(".")
         if len(parts) > 2:
             raise ValueError(f"Invalid table name format: {table_name}")
 
         validated_parts = [self._validate_identifier(part) for part in parts]
-        return '.'.join(validated_parts)
+        return ".".join(validated_parts)
 
     async def _ensure_pool(self) -> asyncpg.Pool:
         """Ensure connection pool is created with Aurora-optimized settings."""
@@ -697,7 +675,7 @@ class AuroraDatabaseProvider(IDatabaseProvider):
 
         if not index_name:
             # Create a safe index name from validated parts
-            clean_table = table_name.replace('.', '_')
+            clean_table = table_name.replace(".", "_")
             index_name = f"idx_{clean_table}_{'_'.join(columns)}"
 
         # Validate the index name

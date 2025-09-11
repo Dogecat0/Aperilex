@@ -9,29 +9,11 @@ from typing import Any, Self
 
 import aioboto3  # type: ignore[import-not-found] # TODO: Add aioboto3 dependency when boto3 version conflict is resolved
 from botocore.exceptions import BotoCoreError, ClientError
-from pydantic import BaseModel
 
 from src.application.interfaces.queue import IQueueProvider, QueueStats
+from src.shared.config.providers import SQSConfig
 from src.shared.models import QueueMessage, TaskMessage
 from src.shared.types import QueueMessageId, ReceiptHandle
-
-
-class SQSConfig(BaseModel):
-    """Configuration for SQS provider."""
-
-    schema_version: int = 1
-    queue_url: str
-    region: str = "us-east-2"
-    aws_access_key_id: str | None = None
-    aws_secret_access_key: str | None = None
-    use_fifo: bool = True
-    message_group_id: str = "default"
-    visibility_timeout_seconds: int = 300
-    message_retention_seconds: int = 345600  # 4 days
-    max_receive_count: int = 3
-    enable_content_deduplication: bool = True
-    wait_time_seconds: int = 20  # Long polling
-    batch_size: int = 10
 
 
 class SQSQueueProvider(IQueueProvider):

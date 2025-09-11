@@ -18,29 +18,11 @@ from aio_pika.abc import (
     AbstractRobustConnection,
 )
 from aio_pika.exceptions import AMQPError, ChannelClosed, ConnectionClosed
-from pydantic import BaseModel
 
 from src.application.interfaces.queue import IQueueProvider, QueueStats
+from src.shared.config.providers import RabbitMQConfig
 from src.shared.models import QueueMessage, TaskMessage
 from src.shared.types import QueueMessageId, ReceiptHandle
-
-
-class RabbitMQConfig(BaseModel):
-    """Configuration for RabbitMQ provider."""
-
-    schema_version: int = 1
-    connection_url: str = "amqp://guest:guest@localhost:5672/"
-    exchange_name: str = "aperilex"
-    exchange_type: ExchangeType = ExchangeType.DIRECT
-    queue_name: str = "tasks"
-    routing_key: str = "task"
-    durable: bool = True
-    auto_delete: bool = False
-    prefetch_count: int = 10
-    message_ttl_seconds: int = 86400  # 24 hours
-    max_retries: int = 3
-    deduplication_window_seconds: int = 300  # 5 minutes
-    enable_deduplication: bool = True
 
 
 class DeduplicationCache:

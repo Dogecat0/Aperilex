@@ -7,7 +7,7 @@ from typing import Protocol, TypeVar, runtime_checkable
 
 from pydantic import BaseModel
 
-from src.shared.enums import AnalysisStatus, DatabaseProvider, TaskStatus
+from src.shared.enums import AnalysisStatus, TaskStatus
 from src.shared.models import (
     AnalysisRecord,
     MetadataDict,
@@ -29,20 +29,6 @@ class AnalysisResultData(BaseModel):
     insights: list[str] = []
     metrics: dict[str, float] = {}
     metadata: MetadataDict = {}
-
-
-class DatabaseConfig(BaseModel):
-    """Configuration for database provider."""
-
-    schema_version: int = 1
-    provider: DatabaseProvider
-    connection_string_secret_name: str
-    max_connections: int = 10
-    connection_timeout_seconds: int = 30
-    query_timeout_seconds: int = 30
-    enable_ssl: bool = True
-    enable_connection_pooling: bool = True
-    retry_attempts: int = 3
 
 
 class TransactionContext(BaseModel):
