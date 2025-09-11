@@ -86,4 +86,11 @@ class ApplicationContainer(containers.DeclarativeContainer):
         Args:
             modules: List of modules to wire with the container
         """
+        # Import the ApplicationService module for wiring
+        import src.application.application_service
+
+        # Add ApplicationService module to the list if not already present
+        if src.application.application_service not in modules:
+            modules = list(modules) + [src.application.application_service]
+
         self.wire(modules=modules)

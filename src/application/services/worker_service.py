@@ -2,20 +2,25 @@
 Worker service implementation with 9-step processing workflow.
 
 This service implements the core task processing workflow using
-provider interfaces and dependency injection.
+provider interfaces and dependency injection. It absorbs the functionality
+from AnalysisOrchestrator for a unified processing pipeline.
 """
 
 import uuid
+from collections.abc import Callable, Coroutine
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from pydantic import BaseModel
 
 from src.application.interfaces.datasource import FilingContent, IDataSourceProvider
+from src.application.interfaces.events import IEventPublisher
 from src.application.interfaces.llm import ILLMProvider, LLMRequest, LLMResponse
 from src.application.interfaces.queue import IQueueProvider
+from src.application.interfaces.repositories import IRepositoryFactory
 from src.application.interfaces.storage import IStorageProvider, StorageRequest
 from src.application.interfaces.worker import IWorkerProvider, WorkerContext
+from src.application.schemas.commands.analyze_filing import AnalysisTemplate
 from src.shared.enums import AnalysisStatus, FilingType, TaskStatus, UserTier
 from src.shared.models import (
     AnalysisRequest,
@@ -26,7 +31,14 @@ from src.shared.models import (
     TaskQueueMessage,
     TokenUsage,
 )
-from src.shared.types import CIK, AnalysisId, FilingId, StorageKey, TaskId, Ticker
+from src.shared.types import (
+    CIK,
+    AnalysisId,
+    FilingId,
+    StorageKey,
+    TaskId,
+    Ticker,
+)
 from src.shared.utils.logging import get_logger
 
 logger = get_logger(__name__)
@@ -78,14 +90,18 @@ class WorkerService:
     """
     Worker service implementing the 9-step processing workflow.
 
+    This service unifies the processing pipeline by absorbing functionality
+    from AnalysisOrchestrator including filing validation, progress tracking,
+    section extraction, and template resolution.
+
     Workflow steps:
     1. Version check and schema migration
-    2. Filing existence check in database
+    2. Filing validation and existence check
     3. Fetch from EDGAR if needed
     4. Store filing using storage interface
-    5. LLM analysis via provider interface
+    5. LLM analysis with template-based section extraction
     6. Store analysis result
-    7. Update database status
+    7. Update database status with progress tracking
     8. Publish completion event
     9. Return TaskResult
     """
@@ -97,6 +113,8 @@ class WorkerService:
         llm_provider: ILLMProvider,
         datasource_provider: IDataSourceProvider,
         worker_provider: IWorkerProvider,
+        repository_factory: IRepositoryFactory,
+        event_publisher: IEventPublisher | None = None,
     ):
         """
         Initialize worker service with provider dependencies.
@@ -107,29 +125,64 @@ class WorkerService:
             llm_provider: LLM provider for analysis
             datasource_provider: Data source provider for filings
             worker_provider: Worker provider for execution context
+            repository_factory: Factory for creating repository instances
+            event_publisher: Optional event publisher for notifications
         """
         self.storage = storage_provider
         self.queue = queue_provider
         self.llm = llm_provider
         self.datasource = datasource_provider
         self.worker = worker_provider
+        self.repository_factory = repository_factory
+        self.event_publisher = event_publisher
 
         # Retry configuration
         self.max_retries = 3
         self.retry_backoff_base = 2.0  # Exponential backoff base
         self.retry_max_delay = 60  # Maximum delay between retries (seconds)
 
+        # Template configuration (replacing AnalysisTemplateService)
+        self.template_schemas = {
+            AnalysisTemplate.COMPREHENSIVE: [
+                "BusinessAnalysisSection",
+                "RiskFactorsAnalysisSection",
+                "MDAAnalysisSection",
+                "BalanceSheetAnalysisSection",
+                "IncomeStatementAnalysisSection",
+                "CashFlowAnalysisSection",
+            ],
+            AnalysisTemplate.FINANCIAL_FOCUSED: [
+                "BalanceSheetAnalysisSection",
+                "IncomeStatementAnalysisSection",
+                "CashFlowAnalysisSection",
+            ],
+            AnalysisTemplate.RISK_FOCUSED: [
+                "RiskFactorsAnalysisSection",
+                "MDAAnalysisSection",
+            ],
+            AnalysisTemplate.BUSINESS_FOCUSED: [
+                "BusinessAnalysisSection",
+                "MDAAnalysisSection",
+            ],
+        }
+
     async def process_task(
         self,
         message: TaskQueueMessage,
         context: WorkerContext,
+        progress_callback: (
+            Callable[[float, str], None]
+            | Callable[[float, str], Coroutine[Any, Any, None]]
+            | None
+        ) = None,
     ) -> TaskResult:
         """
-        Process a task through the 9-step workflow.
+        Process a task through the 9-step workflow with progress tracking.
 
         Args:
             message: Queue message containing task data
             context: Worker execution context
+            progress_callback: Optional callback for progress updates
 
         Returns:
             TaskResult with processing outcome
@@ -143,12 +196,20 @@ class WorkerService:
         try:
             # Step 1: Version check and schema migration
             task_data = await self._validate_and_migrate_schema(message.task_data)
+            await self._track_progress(progress_callback, 0.1, "Task validated")
 
-            # Step 2: Check if filing already exists in storage
+            # Step 2: Validate filing access and check existence
+            await self._validate_filing_access(task_data)
             filing_exists = await self._check_filing_exists(task_data.filing_id)
+            await self._track_progress(
+                progress_callback, 0.2, "Filing validation complete"
+            )
 
             # Step 3 & 4: Fetch from datasource and store if needed
             if not filing_exists:
+                await self._track_progress(
+                    progress_callback, 0.3, "Fetching filing from datasource"
+                )
                 filing_content = await self._fetch_filing(
                     task_data.ticker,
                     task_data.filing_type,
@@ -160,26 +221,41 @@ class WorkerService:
                     filing_content,
                     task_data,
                 )
+                await self._track_progress(progress_callback, 0.4, "Filing stored")
 
-            # Step 5: Perform LLM analysis
+            # Step 5: Perform LLM analysis with section extraction
+            await self._track_progress(progress_callback, 0.5, "Starting LLM analysis")
             analysis_request = self._create_analysis_request(task_data)
-            analysis_result = await self._perform_llm_analysis(
+
+            # Extract sections based on template
+            template = self._get_template_from_metadata(task_data.metadata)
+            extracted_content = await self._extract_filing_sections(
+                task_data.filing_id,
+                template,
+            )
+
+            analysis_result = await self._perform_llm_analysis_with_sections(
                 analysis_request,
                 task_data.filing_id,
+                extracted_content,
             )
+            await self._track_progress(progress_callback, 0.7, "LLM analysis complete")
 
             # Step 6: Store analysis result
             storage_key = await self._store_analysis(analysis_result)
+            await self._track_progress(progress_callback, 0.8, "Analysis stored")
 
-            # Step 7: Update database status (handled via event)
+            # Step 7: Update database status with progress
             await self._update_task_status(
                 task_data.task_id,
                 TaskStatus.COMPLETED,
                 {"analysis_id": str(analysis_result.analysis_id)},
             )
+            await self._track_progress(progress_callback, 0.9, "Database updated")
 
             # Step 8: Publish completion event
             await self._publish_completion_event(task_data, analysis_result)
+            await self._track_progress(progress_callback, 1.0, "Analysis complete")
 
             # Step 9: Return result
             processing_time = int(
@@ -260,17 +336,21 @@ class WorkerService:
 
     async def _check_filing_exists(self, filing_id: FilingId) -> bool:
         """
-        Check if filing already exists in storage.
+        Check if filing record exists in database.
+
+        Repository handles all validation including storage verification internally.
 
         Args:
             filing_id: Filing identifier
 
         Returns:
-            True if filing exists
+            True if filing exists in database
         """
         try:
-            exists = await self.storage.exists(filing_id)
-            logger.debug(f"Filing {filing_id} exists: {exists}")
+            # Repository is the single source of truth for filing existence
+            filing_repository = await self.repository_factory.get_filing_repository()
+            exists = await filing_repository.exists(filing_id=filing_id)
+            logger.debug(f"Filing {filing_id} exists in database: {exists}")
             return exists
         except Exception as e:
             logger.warning(f"Error checking filing existence: {str(e)}")
@@ -695,4 +775,288 @@ class WorkerService:
             "Provide clear, accurate, and insightful analysis based on the "
             "document provided. Focus on material information and key insights "
             "that would be valuable to investors and stakeholders."
+        )
+
+    async def _track_progress(
+        self,
+        progress_callback: (
+            Callable[[float, str], None]
+            | Callable[[float, str], Coroutine[Any, Any, None]]
+            | None
+        ),
+        progress: float,
+        message: str,
+    ) -> None:
+        """
+        Track and report progress via callback.
+
+        Args:
+            progress_callback: Optional callback function
+            progress: Progress value between 0.0 and 1.0
+            message: Progress message
+        """
+        if progress_callback:
+            try:
+                import inspect
+
+                if inspect.iscoroutinefunction(progress_callback):
+                    await progress_callback(progress, message)
+                else:
+                    progress_callback(progress, message)
+            except Exception as e:
+                logger.warning(
+                    f"Progress callback failed at {progress:.1%}: {str(e)}",
+                    extra={"progress": progress, "message": message},
+                )
+
+        # Also log progress for monitoring
+        logger.info(f"Task progress: {progress:.1%} - {message}")
+
+    async def _validate_filing_access(self, task_data: TaskData) -> None:
+        """
+        Validate filing can be accessed from datasource.
+
+        Args:
+            task_data: Task data containing filing information
+
+        Raises:
+            FilingFetchError: If filing validation fails
+        """
+        try:
+            metadata = task_data.metadata or {}
+
+            # Validate we have necessary identifiers
+            if "accession_number" not in metadata or "cik" not in metadata:
+                # Try to fetch latest filing to validate access
+                # Note: validate_filing_access may not exist, using get_latest_filing as validation
+                try:
+                    await self.datasource.get_latest_filing(
+                        ticker=task_data.ticker,
+                        filing_type=FilingType(task_data.filing_type),
+                    )
+                except Exception:
+                    # If get_latest_filing fails, access is invalid
+                    raise
+            else:
+                # Validate specific filing access
+                try:
+                    await self.datasource.get_filing_by_accession(
+                        CIK(value=metadata["cik"]),
+                        metadata["accession_number"],
+                    )
+                except Exception:
+                    # If get_filing_by_accession fails, access is invalid
+                    raise
+
+            logger.debug(f"Filing access validated for task {task_data.task_id}")
+
+        except Exception as e:
+            raise FilingFetchError(f"Failed to validate filing access: {str(e)}") from e
+
+    def _get_template_from_metadata(
+        self, metadata: dict[str, str] | None
+    ) -> AnalysisTemplate:
+        """
+        Extract analysis template from task metadata.
+
+        Args:
+            metadata: Task metadata
+
+        Returns:
+            Analysis template to use
+        """
+        if not metadata:
+            return AnalysisTemplate.COMPREHENSIVE
+
+        template_name = metadata.get("analysis_template", "comprehensive")
+
+        template_mapping = {
+            "comprehensive": AnalysisTemplate.COMPREHENSIVE,
+            "financial_focused": AnalysisTemplate.FINANCIAL_FOCUSED,
+            "risk_focused": AnalysisTemplate.RISK_FOCUSED,
+            "business_focused": AnalysisTemplate.BUSINESS_FOCUSED,
+        }
+
+        return template_mapping.get(
+            template_name.lower(), AnalysisTemplate.COMPREHENSIVE
+        )
+
+    async def _extract_filing_sections(
+        self,
+        filing_id: FilingId,
+        template: AnalysisTemplate,
+    ) -> str:
+        """
+        Extract relevant sections from filing based on template.
+
+        This implements intelligent section filtering to reduce token usage
+        by only extracting sections relevant to the analysis template.
+
+        Args:
+            filing_id: Filing identifier
+            template: Analysis template defining which sections to extract
+
+        Returns:
+            Extracted and filtered filing content
+        """
+        try:
+            # Get full filing content
+            filing_obj = await self.storage.get_filing(filing_id)
+            filing_content = filing_obj.data.decode("utf-8")
+
+            # Get schemas for this template
+            required_schemas = self.template_schemas.get(template, [])
+
+            if not required_schemas:
+                # Return full content if no specific schemas
+                return filing_content
+
+            # Section mapping for extraction
+            section_patterns = {
+                "BusinessAnalysisSection": ["Item 1", "Business", "Overview"],
+                "RiskFactorsAnalysisSection": ["Item 1A", "Risk Factors"],
+                "MDAAnalysisSection": ["Item 7", "Management's Discussion"],
+                "BalanceSheetAnalysisSection": ["Balance Sheet", "Financial Position"],
+                "IncomeStatementAnalysisSection": ["Income Statement", "Operations"],
+                "CashFlowAnalysisSection": ["Cash Flow", "Liquidity"],
+            }
+
+            extracted_sections = []
+
+            for schema in required_schemas:
+                patterns = section_patterns.get(schema, [])
+                for pattern in patterns:
+                    # Simple section extraction (can be enhanced with regex)
+                    start_idx = filing_content.lower().find(pattern.lower())
+                    if start_idx != -1:
+                        # Extract section (simplified - can be improved)
+                        end_idx = start_idx + 50000  # Max section length
+                        section = filing_content[start_idx:end_idx]
+                        extracted_sections.append(f"--- {schema} ---\n{section}\n")
+                        break
+
+            # Join extracted sections or return full content if extraction failed
+            if extracted_sections:
+                return "\n".join(extracted_sections)
+            else:
+                logger.warning(
+                    f"Section extraction failed for template {template}, "
+                    "using full content"
+                )
+                return filing_content
+
+        except Exception as e:
+            logger.error(f"Error extracting filing sections: {str(e)}")
+            # Fallback to full content
+            filing_obj = await self.storage.get_filing(filing_id)
+            return filing_obj.data.decode("utf-8")
+
+    async def _perform_llm_analysis_with_sections(
+        self,
+        request: AnalysisRequest,
+        filing_id: FilingId,
+        extracted_content: str,
+    ) -> AnalysisResult:
+        """
+        Perform LLM analysis with extracted sections.
+
+        Args:
+            request: Analysis request
+            filing_id: Filing identifier
+            extracted_content: Pre-extracted filing sections
+
+        Returns:
+            Analysis result
+
+        Raises:
+            LLMProcessingError: If analysis fails
+        """
+        try:
+            # Prepare LLM request with extracted content
+            llm_request = LLMRequest(
+                schema_version=1,
+                prompt=self._build_analysis_prompt_with_content(
+                    request.analysis_type,
+                    extracted_content,
+                ),
+                system_prompt=request.system_prompt
+                or self._get_default_system_prompt(),
+                temperature=request.temperature,
+                max_tokens=request.max_tokens,
+                streaming=request.streaming,
+                response_format=request.response_format,
+                metadata={
+                    "analysis_id": str(request.analysis_id),
+                    "filing_id": str(filing_id),
+                    "sections_extracted": "true",
+                },
+            )
+
+            # Perform LLM analysis
+            start_time = datetime.now(UTC)
+            llm_response: LLMResponse = await self.llm.complete(llm_request)
+            processing_time_ms = int(
+                (datetime.now(UTC) - start_time).total_seconds() * 1000
+            )
+
+            # Create analysis result
+            result = AnalysisResult(
+                schema_version=1,
+                analysis_id=request.analysis_id,
+                filing_id=filing_id,
+                task_id=request.task_id,
+                user_id=request.user_id,
+                content=llm_response.content,
+                analysis_type=request.analysis_type,
+                status=AnalysisStatus.COMPLETED,
+                llm_provider=request.llm_provider,
+                model_name=llm_response.model_used,
+                token_usage=TokenUsage(
+                    prompt_tokens=llm_response.prompt_tokens,
+                    completion_tokens=llm_response.completion_tokens,
+                    total_tokens=llm_response.total_tokens,
+                ),
+                processing_time_ms=processing_time_ms,
+                estimated_cost=llm_response.cost,
+                created_at=start_time,
+                completed_at=datetime.now(UTC),
+            )
+
+            return result
+
+        except Exception as e:
+            raise LLMProcessingError(f"LLM analysis failed: {str(e)}") from e
+
+    def _build_analysis_prompt_with_content(
+        self,
+        analysis_type: AnalysisType,
+        content: str,
+    ) -> str:
+        """
+        Build analysis prompt with pre-extracted content.
+
+        Args:
+            analysis_type: Type of analysis
+            content: Pre-extracted filing content
+
+        Returns:
+            Analysis prompt
+        """
+        # Truncate if too long
+        max_length = 50000
+        if len(content) > max_length:
+            content = content[:max_length] + "... [truncated]"
+
+        prompts = {
+            AnalysisType.SUMMARY: f"Please provide a comprehensive summary of the following SEC filing sections:\n\n{content}",
+            AnalysisType.KEY_METRICS: f"Extract and analyze the key financial metrics from the following SEC filing sections:\n\n{content}",
+            AnalysisType.RISK_FACTORS: f"Identify and analyze the risk factors mentioned in the following SEC filing sections:\n\n{content}",
+            AnalysisType.FINANCIAL_HIGHLIGHTS: f"Provide the financial highlights from the following SEC filing sections:\n\n{content}",
+            AnalysisType.SENTIMENT: f"Analyze the overall sentiment and tone of the following SEC filing sections:\n\n{content}",
+            AnalysisType.COMPETITIVE_ANALYSIS: f"Analyze competitive positioning and market dynamics from the following SEC filing sections:\n\n{content}",
+        }
+
+        return prompts.get(
+            analysis_type,
+            f"Please analyze the following SEC filing sections:\n\n{content}",
         )
