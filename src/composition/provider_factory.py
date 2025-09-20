@@ -17,12 +17,15 @@ from src.shared.enums import (
 
 if TYPE_CHECKING:
     from src.application.interfaces import (
+        IAuthenticationProvider,
         IConfigProvider,
         IDatabaseProvider,
         IDataSourceProvider,
+        IEventPublisher,
         ILLMProvider,
         IQueueProvider,
         ISecretManager,
+        ISSEProvider,
         IStorageProvider,
         IWorkerProvider,
     )
@@ -82,6 +85,53 @@ class ProviderFactory:
                 LocalSecretManager,
                 secrets_file=".secrets/local_secrets.json",
             )
+
+    @staticmethod
+    def create_authentication_provider(
+        environment: str,
+    ) -> providers.Provider[IAuthenticationProvider]:
+        """Create authentication provider based on environment."""
+
+        from src.infrastructure.providers.authentication import (
+            MockAuthenticationProvider,
+        )
+
+        # For development/test environments use mock implementation.
+        # Production provider wiring will be introduced in a later stage.
+        return providers.Singleton(MockAuthenticationProvider)
+
+    @staticmethod
+    def create_sse_provider(environment: str) -> providers.Provider[ISSEProvider]:
+        """Create SSE provider based on environment."""
+
+        from src.infrastructure.providers.sse import InMemorySSEProvider
+
+        # Default to in-memory SSE provider for local development/testing.
+        return providers.Singleton(InMemorySSEProvider)
+
+    @staticmethod
+    def create_event_publisher(
+        environment: str,
+        sse_provider: providers.Provider[ISSEProvider],
+    ) -> providers.Provider[IEventPublisher]:
+        """Create event publisher based on environment."""
+
+        from src.infrastructure.providers.events import (
+            CompositeEventPublisher,
+            SSEEventPublisher,
+        )
+
+        # Start with SSE-based event publishing. Additional publishers
+        # (SNS, Webhooks, etc.) will be added in later stages.
+        sse_event_publisher = providers.Singleton(
+            SSEEventPublisher,
+            sse_provider=sse_provider,
+        )
+
+        return providers.Singleton(
+            CompositeEventPublisher,
+            publishers=providers.List(sse_event_publisher),
+        )
 
     @staticmethod
     def create_storage_provider(

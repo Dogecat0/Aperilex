@@ -81,6 +81,13 @@ class CompositionRoot(containers.DeclarativeContainer):
         # Get the application container instance
         app_container = container.application_container()
 
+        # Share configuration state with the application container
+        app_container.config.override(container.config)
+        app_container.configuration.config.override(container.config)
+        app_container.configuration.environment.override(
+            providers.Object(environment)
+        )
+
         # Wire configuration and secret providers in the application container
         config_provider = ProviderFactory.create_config_provider(environment)()
         secret_manager = ProviderFactory.create_secret_manager(environment)()
@@ -122,6 +129,26 @@ class CompositionRoot(containers.DeclarativeContainer):
             _get_config_value(
                 container.config, "database.provider", DatabaseProvider.POSTGRES.value
             )
+        )
+
+        # Persist resolved provider types for downstream diagnostics
+        app_container.providers_container.storage_provider_type.override(
+            providers.Object(storage_type)
+        )
+        app_container.providers_container.queue_provider_type.override(
+            providers.Object(queue_type)
+        )
+        app_container.providers_container.worker_provider_type.override(
+            providers.Object(worker_type)
+        )
+        app_container.providers_container.llm_provider_type.override(
+            providers.Object(llm_type)
+        )
+        app_container.providers_container.data_source_provider_type.override(
+            providers.Object(datasource_type)
+        )
+        app_container.providers_container.database_provider_type.override(
+            providers.Object(database_type)
         )
 
         # Wire concrete storage provider to application container's providers
@@ -174,11 +201,36 @@ class CompositionRoot(containers.DeclarativeContainer):
         )
         app_container.providers_container.database_provider.override(database_provider)
 
-        # Wire infrastructure components
-        container.infrastructure.wire_providers()
+        # Authentication and real-time providers
+        authentication_provider = ProviderFactory.create_authentication_provider(
+            environment
+        )
+        app_container.providers_container.authentication_provider.override(
+            authentication_provider
+        )
 
-        # Get infrastructure providers
+        sse_provider = ProviderFactory.create_sse_provider(environment)
+        app_container.providers_container.sse_provider.override(sse_provider)
+
+        event_publisher = ProviderFactory.create_event_publisher(
+            environment,
+            sse_provider=sse_provider,
+        )
+        app_container.providers_container.event_publisher.override(event_publisher)
+
+        # Rebind infrastructure container with concrete dependencies
+        container.infrastructure.override(
+            providers.Container(
+                InfrastructureWiring,
+                config=app_container.configuration,
+                config_provider=app_container.configuration,
+                providers_container=app_container.providers_container,
+            )
+        )
+
+        # Instantiate infrastructure container and wire provider overrides
         infra = container.infrastructure()
+        infra.wire_providers()
 
         # Wire repositories from infrastructure to CQRS container in app
         app_container.cqrs.repository_factory.override(infra.repository_factory)
@@ -204,6 +256,8 @@ class CompositionRoot(containers.DeclarativeContainer):
             modules: List of modules to wire with the container
         """
         self.wire(modules=modules)
+        app_container = self.application_container()
+        app_container.wire_modules(modules)
 
     def get_application_container(self) -> ApplicationContainer:
         """

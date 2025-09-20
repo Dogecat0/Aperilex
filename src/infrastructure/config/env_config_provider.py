@@ -40,8 +40,17 @@ class EnvironmentConfigProvider(IConfigProvider):
         """Load all environment variables with the configured prefix."""
         for key, value in os.environ.items():
             if key.startswith(f"{self.prefix}_"):
-                config_key = key[len(self.prefix) + 1 :].lower()
-                self._cache[config_key] = self._parse_value(value)
+                raw_key = key[len(self.prefix) + 1 :]
+                normalized_key = raw_key.lower()
+                dotted_key = normalized_key.replace("__", ".")
+                parsed_value = self._parse_value(value)
+
+                # Store original normalized key
+                self._cache[normalized_key] = parsed_value
+
+                # Store dotted variant to support hierarchical lookups
+                if dotted_key != normalized_key:
+                    self._cache[dotted_key] = parsed_value
 
     def _parse_value(
         self, value: str

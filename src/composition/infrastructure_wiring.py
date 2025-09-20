@@ -45,18 +45,30 @@ class InfrastructureWiring(containers.DeclarativeContainer):
 
     # PostgreSQL configuration
     postgres_config = providers.Factory(
-        PostgresConfig,
-        host="localhost",
-        port=5432,
-        database="aperilex",
-        username="postgres",
-        password_secret_name="postgres_password",  # nosec B106 - This is a secret name, not a password
-        max_connections=10,
-        min_connections=2,
-        connection_timeout_seconds=30,
-        query_timeout_seconds=30,
-        enable_ssl=False,
-        enable_connection_pooling=True,
+        lambda cp: PostgresConfig(
+            host=cp.get_string("database.postgres.host", "localhost"),
+            port=cp.get_int("database.postgres.port", 5432),
+            database=cp.get_string("database.postgres.database", "aperilex"),
+            username=cp.get_string("database.postgres.username", "postgres"),
+            password_secret_name=cp.get_string(
+                "database.postgres.password_secret", "postgres_password"
+            ),  # nosec B106 - This is a secret name, not a password
+            max_connections=cp.get_int("database.postgres.max_connections", 10),
+            min_connections=cp.get_int("database.postgres.min_connections", 2),
+            connection_timeout_seconds=cp.get_int(
+                "database.postgres.connection_timeout_seconds", 30
+            ),
+            query_timeout_seconds=cp.get_int(
+                "database.postgres.query_timeout_seconds", 30
+            ),
+            enable_ssl=cp.get_bool("database.postgres.enable_ssl", False),
+            enable_connection_pooling=cp.get_bool(
+                "database.postgres.enable_connection_pooling", True
+            ),
+            retry_attempts=cp.get_int("database.postgres.retry_attempts", 3),
+            echo_sql=cp.get_bool("database.postgres.echo_sql", False),
+        ),
+        cp=config_provider.config_provider,
     )
 
     # Database Provider (concrete implementation)
