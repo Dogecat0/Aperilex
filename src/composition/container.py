@@ -89,15 +89,14 @@ class CompositionRoot(containers.DeclarativeContainer):
         )
 
         # Wire configuration and secret providers in the application container
-        config_provider = ProviderFactory.create_config_provider(environment)()
-        secret_manager = ProviderFactory.create_secret_manager(environment)()
+        config_provider_provider = ProviderFactory.create_config_provider(environment)
+        secret_manager_provider = ProviderFactory.create_secret_manager(environment)
 
-        app_container.configuration.config_provider.override(
-            providers.Object(config_provider)
-        )
-        app_container.configuration.secret_manager.override(
-            providers.Object(secret_manager)
-        )
+        app_container.configuration.config_provider.override(config_provider_provider)
+        app_container.configuration.secret_manager.override(secret_manager_provider)
+
+        config_provider = config_provider_provider()
+        secret_manager = secret_manager_provider()
 
         # Get provider types from configuration
         storage_type = StorageProvider(
