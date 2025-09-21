@@ -216,3 +216,37 @@ class CompanyRepository(ICompanyRepository):
             fetch_from_db,
         )
         return cast("list[CompanyData]", result)
+
+    async def delete(self, company_id: CompanyId) -> bool:
+        """Delete a company and invalidate related cache entries."""
+        stmt = select(CompanyModel).where(CompanyModel.id == company_id)
+        result = await self.session.execute(stmt)
+        model = result.scalar_one_or_none()
+
+        if not model:
+            return False
+
+        cik = model.cik
+        ticker = None
+        if model.meta_data:
+            ticker_value = model.meta_data.get("ticker")
+            ticker = str(ticker_value) if ticker_value is not None else None
+
+        await self.session.delete(model)
+        await self.session.flush()
+
+        # Invalidate caches for the removed entity
+        company_id_str = str(company_id)
+        cik_str = str(cik) if cik else None
+        self.cache_manager.invalidate_company(company_id=company_id_str, cik=cik_str)
+        if ticker:
+            cache_key = f"company:ticker:{ticker}"
+            self.cache_manager.invalidate_key(self.cache_region, cache_key)
+
+        return True
+
+    async def exists(self, company_id: CompanyId) -> bool:
+        """Check if a company exists by its identifier."""
+        stmt = select(CompanyModel.id).where(CompanyModel.id == company_id)
+        result = await self.session.execute(stmt)
+        return result.scalar_one_or_none() is not None

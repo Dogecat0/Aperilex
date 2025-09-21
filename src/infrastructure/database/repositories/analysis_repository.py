@@ -298,6 +298,34 @@ class AnalysisRepository(IAnalysisRepository):
 
         return True
 
+    async def delete(self, analysis_id: AnalysisId) -> bool:
+        """Delete an analysis and invalidate related cache entries."""
+        stmt = select(AnalysisModel).where(AnalysisModel.id == analysis_id)
+        result = await self.session.execute(stmt)
+        model = result.scalar_one_or_none()
+
+        if not model:
+            return False
+
+        filing_id = model.filing_id
+
+        await self.session.delete(model)
+        await self.session.flush()
+
+        analysis_id_str = str(analysis_id)
+        filing_id_str = str(filing_id) if filing_id else None
+        self.cache_manager.invalidate_analysis(
+            analysis_id=analysis_id_str, filing_id=filing_id_str
+        )
+
+        return True
+
+    async def exists(self, analysis_id: AnalysisId) -> bool:
+        """Check if an analysis exists by its identifier."""
+        stmt = select(AnalysisModel.id).where(AnalysisModel.id == analysis_id)
+        result = await self.session.execute(stmt)
+        return result.scalar_one_or_none() is not None
+
     async def save_result(
         self,
         analysis_id: AnalysisId,
@@ -495,7 +523,7 @@ class AnalysisRepository(IAnalysisRepository):
         Returns:
             List of Analysis entities matching filters
         """
-        from src.application.schemas.queries.list_analyses import (
+        from src.application.handlers.schemas.queries.list_analyses import (
             AnalysisSortField,
             SortDirection,
         )

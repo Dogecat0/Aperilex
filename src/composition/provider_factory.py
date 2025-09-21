@@ -1,6 +1,6 @@
-"""
-Factory for creating provider implementations based on configuration.
-"""
+"""Factory for creating provider implementations based on configuration."""
+
+from __future__ import annotations
 
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -15,6 +15,40 @@ from src.shared.enums import (
     StorageProvider,
     WorkerProvider,
 )
+
+
+class _MissingWorkerProvider:
+    """Fallback worker provider used when optional dependencies are missing."""
+
+    def __init__(self, message: str) -> None:
+        self._message = message
+
+    async def execute_task(self, task_message, context):  # noqa: D401
+        raise RuntimeError(self._message)
+
+    async def health_check(self):  # noqa: D401
+        raise RuntimeError(self._message)
+
+    async def get_metrics(self):  # noqa: D401
+        raise RuntimeError(self._message)
+
+    async def warm_up(self):  # noqa: D401
+        raise RuntimeError(self._message)
+
+    async def shutdown(self, graceful: bool = True):  # noqa: D401
+        raise RuntimeError(self._message)
+
+    async def scale(self, instances: int):  # noqa: D401
+        raise RuntimeError(self._message)
+
+    async def get_logs(
+        self,
+        task_id=None,
+        start_time=None,
+        end_time=None,
+        limit: int = 100,
+    ):  # noqa: D401
+        raise RuntimeError(self._message)
 
 if TYPE_CHECKING:
     from src.application.interfaces import (
@@ -236,10 +270,12 @@ class ProviderFactory:
             Provider instance for queue
         """
         if provider_type == QueueProvider.SQS:
-            from src.infrastructure.providers.queue.sqs import (
-                SQSConfig,
-                SQSQueueProvider,
-            )
+            from src.infrastructure.providers.queue import SQSConfig, SQSQueueProvider
+
+            if SQSConfig is None or SQSQueueProvider is None:
+                raise RuntimeError(
+                    "SQS queue provider selected but optional dependency 'aioboto3' is not installed."
+                )
 
             # Get SQS configuration
             queue_url = config_provider.get("queue.sqs.queue_url", "")
@@ -317,6 +353,11 @@ class ProviderFactory:
         """
         if provider_type == WorkerProvider.LAMBDA:
             from src.infrastructure.providers.worker import LambdaWorkerProvider
+            if LambdaWorkerProvider is None:
+                return providers.Singleton(
+                    _MissingWorkerProvider,
+                    "Lambda worker provider requires the optional 'aioboto3' dependency.",
+                )
             from src.shared.config.providers import LambdaWorkerConfig
 
             # Get Lambda configuration
@@ -350,6 +391,11 @@ class ProviderFactory:
             )
         elif provider_type == WorkerProvider.DOCKER:
             from src.infrastructure.providers.worker import DockerWorkerProvider
+            if DockerWorkerProvider is None:
+                return providers.Singleton(
+                    _MissingWorkerProvider,
+                    "Docker worker provider requires the optional 'aiodocker' dependency.",
+                )
             from src.shared.config.providers import DockerWorkerConfig
 
             # Get Docker configuration

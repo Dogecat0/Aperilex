@@ -45,11 +45,12 @@ class CompositionRoot(containers.DeclarativeContainer):
     # Main application container (single source of truth for DI structure)
     application_container = providers.Singleton(ApplicationContainer)
 
+    # Re-export configuration services for downstream wiring convenience
+    config_provider = providers.Delegate(application_container.provided.config_provider)
+    secret_manager = providers.Delegate(application_container.provided.secret_manager)
+
     # Infrastructure wiring (concrete implementations)
-    infrastructure = providers.Container(
-        InfrastructureWiring,
-        config=config,
-    )
+    infrastructure = providers.Container(InfrastructureWiring)
 
     @classmethod
     def initialize(cls, environment: str = "development") -> Self:
@@ -221,21 +222,28 @@ class CompositionRoot(containers.DeclarativeContainer):
         container.infrastructure.override(
             providers.Container(
                 InfrastructureWiring,
-                config=app_container.configuration,
-                config_provider=app_container.configuration,
+                config_provider=providers.Object(config_provider),
+                secret_manager=providers.Object(secret_manager),
                 providers_container=app_container.providers_container,
             )
         )
 
-        # Instantiate infrastructure container and wire provider overrides
+        # Instantiate infrastructure container
         infra = container.infrastructure()
-        infra.wire_providers()
 
         # Wire repositories from infrastructure to CQRS container in app
-        app_container.cqrs.repository_factory.override(infra.repository_factory)
-        app_container.cqrs.analysis_repository.override(infra.analysis_repository)
-        app_container.cqrs.filing_repository.override(infra.filing_repository)
-        app_container.cqrs.company_repository.override(infra.company_repository)
+        app_container.cqrs.repository_factory.override(
+            providers.Singleton(infra.repository_factory)
+        )
+        app_container.cqrs.analysis_repository.override(
+            providers.Singleton(infra.analysis_repository)
+        )
+        app_container.cqrs.filing_repository.override(
+            providers.Singleton(infra.filing_repository)
+        )
+        app_container.cqrs.company_repository.override(
+            providers.Singleton(infra.company_repository)
+        )
 
         # Wire rate limiting provider
         app_container.providers_container.rate_limiting_provider.override(

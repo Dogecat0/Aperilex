@@ -259,15 +259,46 @@ class FilingRepository(IFilingRepository):
 
         return self._model_to_data(model)
 
-    async def exists(self, accession_number: AccessionNumber) -> bool:
-        """Check if filing exists by accession number.
+    async def delete(self, filing_id: FilingId) -> bool:
+        """Delete a filing and invalidate related cache entries."""
+        stmt = select(FilingModel).where(FilingModel.id == filing_id)
+        result = await self.session.execute(stmt)
+        model = result.scalar_one_or_none()
 
-        Args:
-            accession_number: SEC accession number
+        if not model:
+            return False
 
-        Returns:
-            True if filing exists, False otherwise
-        """
+        accession_number = model.accession_number
+        company_id = model.company_id
+        filing_type = model.filing_type
+
+        await self.session.delete(model)
+        await self.session.flush()
+
+        filing_id_str = str(filing_id)
+        accession_number_str = str(accession_number) if accession_number else None
+        self.cache_manager.invalidate_filing(
+            filing_id=filing_id_str, accession_number=accession_number_str
+        )
+
+        if filing_type and company_id:
+            latest_key = (
+                f"filing:latest:company:{company_id}:type:{filing_type}"
+            )
+            self.cache_manager.invalidate_key(self.cache_region, latest_key)
+
+        return True
+
+    async def exists(self, filing_id: FilingId) -> bool:
+        """Check if a filing exists by its identifier."""
+        stmt = select(FilingModel.id).where(FilingModel.id == filing_id)
+        result = await self.session.execute(stmt)
+        return result.scalar_one_or_none() is not None
+
+    async def exists_by_accession_number(
+        self, accession_number: AccessionNumber
+    ) -> bool:
+        """Check if filing exists by accession number."""
         stmt = select(FilingModel.id).where(
             FilingModel.accession_number == str(accession_number.value)
         )

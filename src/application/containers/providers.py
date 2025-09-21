@@ -4,11 +4,14 @@ Providers container for managing external service providers.
 
 from dependency_injector import containers, providers
 
+from src.application.interfaces.authentication import IAuthenticationProvider
 from src.application.interfaces.database import IDatabaseProvider
 from src.application.interfaces.datasource import IDataSourceProvider
+from src.application.interfaces.events import IEventPublisher
 from src.application.interfaces.llm import ILLMProvider
 from src.application.interfaces.queue import IQueueProvider
 from src.application.interfaces.rate_limiting import IRateLimitingProvider
+from src.application.interfaces.sse import ISSEProvider
 from src.application.interfaces.storage import IStorageProvider
 from src.application.interfaces.worker import IWorkerProvider
 from src.shared.enums import (
@@ -55,3 +58,12 @@ class ProvidersContainer(containers.DeclarativeContainer):
     # Rate limiting provider (InMemory, Redis, etc.)
     rate_limiting_provider_type = providers.Object(RateLimitingProvider.IN_MEMORY)
     rate_limiting_provider = providers.AbstractSingleton(IRateLimitingProvider)
+
+    # Event publisher for domain events and SSE
+    event_publisher = providers.AbstractSingleton(IEventPublisher)
+
+    # Authentication provider for API security
+    authentication_provider = providers.AbstractSingleton(IAuthenticationProvider)
+
+    # SSE provider for real-time updates
+    sse_provider = providers.AbstractSingleton(ISSEProvider)

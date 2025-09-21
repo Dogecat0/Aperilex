@@ -1,14 +1,16 @@
 from datetime import date
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from uuid import UUID, uuid4
 
 from sqlalchemy import JSON, Date, ForeignKey, String, Text
 from sqlalchemy.dialects.postgresql import UUID as PostgresUUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from .analysis import Analysis
 from .base import Base
 from .company import Company
+
+if TYPE_CHECKING:
+    from .analysis import Analysis
 
 
 class Filing(Base):

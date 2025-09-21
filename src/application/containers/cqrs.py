@@ -24,70 +24,6 @@ from src.application.services.background_task_coordinator import (
 from src.application.services.worker_service import WorkerService
 
 
-class CQRSContainer(containers.DeclarativeContainer):
-    """Container for CQRS-related services and handlers."""
-
-    # External dependencies from parent containers
-    providers_container = providers.DependenciesContainer()
-
-    # Repository factory (abstract - will be wired from composition root)
-    repository_factory = providers.AbstractSingleton(IRepositoryFactory)
-
-    # Core repositories (abstract - will be wired from composition root)
-    analysis_repository = providers.AbstractSingleton(IAnalysisRepository)
-    filing_repository = providers.AbstractSingleton(IFilingRepository)
-    company_repository = providers.AbstractSingleton(ICompanyRepository)
-
-    # Worker service for processing
-    worker_service = providers.Singleton(
-        WorkerService,
-        storage_provider=providers_container.storage_provider,
-        queue_provider=providers_container.queue_provider,
-        llm_provider=providers_container.llm_provider,
-        datasource_provider=providers_container.data_source_provider,
-        worker_provider=providers_container.worker_provider,
-        repository_factory=repository_factory,
-        event_publisher=providers_container.event_publisher,
-    )
-
-    # Background task coordinator for async processing workflows
-    background_task_coordinator = providers.Singleton(
-        BackgroundTaskCoordinator,
-        worker_service=worker_service,
-        queue_provider=providers_container.queue_provider,
-        worker_provider=providers_container.worker_provider,
-        event_publisher=providers_container.event_publisher,
-    )
-
-    # CQRS Dispatcher
-    dispatcher = providers.Singleton(Dispatcher)
-
-    # Handler factory for dependency injection
-    handler_factory = providers.Factory(
-        # HandlerFactory,
-        worker_service=worker_service,
-        background_task_coordinator=background_task_coordinator,
-        repository_factory=repository_factory,
-        event_publisher=providers_container.event_publisher,
-        queue_provider=providers_container.queue_provider,
-        storage_provider=providers_container.storage_provider,
-    )
-
-    # Handler registration service
-    handler_registrar = providers.Singleton(
-        # HandlerRegistrar,
-        dispatcher=dispatcher,
-        handler_factory=handler_factory,
-    )
-
-    # Application service for command and query execution
-    application_service = providers.Singleton(
-        ApplicationService,
-        dispatcher=dispatcher,
-        handler_factory=handler_factory,
-    )
-
-
 class HandlerFactory:
     """
     Factory for creating CQRS handlers with injected dependencies.
@@ -221,3 +157,67 @@ class HandlerRegistrar:
         """
         dependencies = await self.handler_factory.get_dependencies()
         return self.dispatcher, dependencies
+
+
+class CQRSContainer(containers.DeclarativeContainer):
+    """Container for CQRS-related services and handlers."""
+
+    # External dependencies from parent containers
+    providers_container = providers.DependenciesContainer()
+
+    # Repository factory (abstract - will be wired from composition root)
+    repository_factory = providers.AbstractSingleton(IRepositoryFactory)
+
+    # Core repositories (abstract - will be wired from composition root)
+    analysis_repository = providers.AbstractSingleton(IAnalysisRepository)
+    filing_repository = providers.AbstractSingleton(IFilingRepository)
+    company_repository = providers.AbstractSingleton(ICompanyRepository)
+
+    # Worker service for processing
+    worker_service = providers.Singleton(
+        WorkerService,
+        storage_provider=providers_container.storage_provider,
+        queue_provider=providers_container.queue_provider,
+        llm_provider=providers_container.llm_provider,
+        datasource_provider=providers_container.data_source_provider,
+        worker_provider=providers_container.worker_provider,
+        repository_factory=repository_factory,
+        event_publisher=providers_container.event_publisher,
+    )
+
+    # Background task coordinator for async processing workflows
+    background_task_coordinator = providers.Singleton(
+        BackgroundTaskCoordinator,
+        worker_service=worker_service,
+        queue_provider=providers_container.queue_provider,
+        worker_provider=providers_container.worker_provider,
+        event_publisher=providers_container.event_publisher,
+    )
+
+    # CQRS Dispatcher
+    dispatcher = providers.Singleton(Dispatcher)
+
+    # Handler factory for dependency injection
+    handler_factory = providers.Singleton(
+        HandlerFactory,
+        worker_service=worker_service,
+        background_task_coordinator=background_task_coordinator,
+        repository_factory=repository_factory,
+        event_publisher=providers_container.event_publisher,
+        queue_provider=providers_container.queue_provider,
+        storage_provider=providers_container.storage_provider,
+    )
+
+    # Handler registration service
+    handler_registrar = providers.Singleton(
+        HandlerRegistrar,
+        dispatcher=dispatcher,
+        handler_factory=handler_factory,
+    )
+
+    # Application service for command and query execution
+    application_service = providers.Singleton(
+        ApplicationService,
+        dispatcher=dispatcher,
+        handler_factory=handler_factory,
+    )

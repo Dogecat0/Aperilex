@@ -20,6 +20,8 @@ from src.application.interfaces import (
     IStorageProvider,
     IWorkerProvider,
 )
+from src.application.interfaces.config import IConfigProvider
+from src.application.interfaces.secret import ISecretManager
 from src.application.services.application_service import ApplicationService
 from src.application.services.background_task_coordinator import (
     BackgroundTaskCoordinator,
@@ -193,6 +195,22 @@ async def get_background_task_coordinator(
 ) -> BackgroundTaskCoordinator:
     """Get configured BackgroundTaskCoordinator instance."""
     return coordinator
+
+
+@inject
+async def get_config_provider(
+    config_provider: IConfigProvider = Provide["config_provider"],
+) -> IConfigProvider:
+    """Get configured configuration provider instance."""
+    return config_provider
+
+
+@inject
+async def get_secret_manager(
+    secret_manager: ISecretManager = Provide["secret_manager"],
+) -> ISecretManager:
+    """Get configured secret manager instance."""
+    return secret_manager
 
 
 class ServiceLifecycle:

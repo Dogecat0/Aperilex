@@ -47,6 +47,10 @@ class ApplicationContainer(containers.DeclarativeContainer):
         providers_container=providers_container,
     )
 
+    # Re-export configuration services for direct injection
+    config_provider = providers.Delegate(configuration.provided.config_provider)
+    secret_manager = providers.Delegate(configuration.provided.secret_manager)
+
     # Application-level services (to be implemented)
     # These will be wired using the @inject decorator
 
@@ -87,10 +91,10 @@ class ApplicationContainer(containers.DeclarativeContainer):
             modules: List of modules to wire with the container
         """
         # Import the ApplicationService module for wiring
-        import src.application.application_service
+        import src.application.services.application_service
 
         # Add ApplicationService module to the list if not already present
-        if src.application.application_service not in modules:
-            modules = list(modules) + [src.application.application_service]
+        if src.application.services.application_service not in modules:
+            modules = list(modules) + [src.application.services.application_service]
 
         self.wire(modules=modules)

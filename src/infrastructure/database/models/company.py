@@ -1,4 +1,4 @@
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from uuid import UUID, uuid4
 
 from sqlalchemy import JSON, String
@@ -6,7 +6,9 @@ from sqlalchemy.dialects.postgresql import UUID as PostgresUUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .base import Base
-from .filing import Filing
+
+if TYPE_CHECKING:
+    from .filing import Filing
 
 
 class Company(Base):

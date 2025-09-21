@@ -19,11 +19,9 @@ from src.shared.config.providers import PostgresConfig, RateLimitConfig
 class InfrastructureWiring(containers.DeclarativeContainer):
     """Container for infrastructure implementations."""
 
-    # Configuration from parent container
-    config = providers.DependenciesContainer()
-
-    # Config provider from parent container
-    config_provider = providers.DependenciesContainer()
+    # Config and secret dependencies from parent container
+    config_provider = providers.Dependency()
+    secret_manager = providers.Dependency()
 
     # Parent container reference for accessing abstract providers
     providers_container = providers.DependenciesContainer()
@@ -68,14 +66,14 @@ class InfrastructureWiring(containers.DeclarativeContainer):
             retry_attempts=cp.get_int("database.postgres.retry_attempts", 3),
             echo_sql=cp.get_bool("database.postgres.echo_sql", False),
         ),
-        cp=config_provider.config_provider,
+        cp=config_provider,
     )
 
     # Database Provider (concrete implementation)
     database_provider = providers.Singleton(
         PostgresDatabaseProvider,
         config=postgres_config,
-        secret_manager=config.secret_manager,
+        secret_manager=secret_manager,
         cache_manager=cache_manager,
     )
 
@@ -114,7 +112,7 @@ class InfrastructureWiring(containers.DeclarativeContainer):
                 ["/health", "/", "/docs", "/openapi.json", "/redoc"],
             ),
         ),
-        cp=config_provider.config_provider,
+        cp=config_provider,
     )
 
     # Rate limiting provider (concrete implementation)

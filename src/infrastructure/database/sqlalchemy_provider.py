@@ -100,7 +100,7 @@ class SQLAlchemyDatabaseProvider(IDatabaseProvider):
         """
         if self._repository_factory is None:
             # Import here to avoid circular dependencies
-            from .factory import RepositoryFactory
+            from .repository_factory import RepositoryFactory
 
             self._repository_factory = RepositoryFactory(
                 session_factory=self._session_factory,
