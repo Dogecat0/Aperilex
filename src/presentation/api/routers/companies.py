@@ -4,20 +4,30 @@ import logging
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Path, Query, status
-from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.application.factory import ServiceFactory
-from src.application.schemas.queries.get_company import GetCompanyQuery
-from src.application.schemas.queries.list_analyses import ListAnalysesQuery
-from src.application.schemas.queries.list_company_filings import ListCompanyFilingsQuery
-from src.application.schemas.responses.analysis_response import AnalysisResponse
-from src.application.schemas.responses.company_response import CompanyResponse
-from src.application.schemas.responses.filing_response import FilingResponse
-from src.application.schemas.responses.paginated_response import PaginatedResponse
-from src.domain.entities.analysis import AnalysisType
-from src.domain.value_objects.filing_type import FilingType
-from src.infrastructure.database.base import get_db
-from src.presentation.api.dependencies import get_service_factory
+from src.application.handlers.schemas.queries.get_company import GetCompanyQuery
+from src.application.handlers.schemas.queries.list_analyses import (
+    ListAnalysesQuery,
+)
+from src.application.handlers.schemas.queries.list_company_filings import (
+    ListCompanyFilingsQuery,
+)
+from src.application.handlers.schemas.responses.analysis_response import (
+    AnalysisResponse,
+)
+from src.application.handlers.schemas.responses.company_response import (
+    CompanyResponse,
+)
+from src.application.handlers.schemas.responses.filing_response import FilingResponse
+from src.application.handlers.schemas.responses.paginated_response import (
+    PaginatedResponse,
+)
+from src.application.interfaces.authentication import AuthenticationResult
+from src.application.services.application_service import ApplicationService
+from src.presentation.api.dependencies import get_application_service
+from src.presentation.api.security import get_current_user, user_id_str
+from src.shared.enums.analysis import AnalysisType
+from src.shared.enums.filing import FilingType
 
 logger = logging.getLogger(__name__)
 
@@ -33,8 +43,8 @@ router = APIRouter(
 )
 
 # Type aliases for dependencies
-SessionDep = Annotated[AsyncSession, Depends(get_db)]
-ServiceFactoryDep = Annotated[ServiceFactory, Depends(get_service_factory)]
+ApplicationServiceDep = Annotated[ApplicationService, Depends(get_application_service)]
+AuthenticatedUserDep = Annotated[AuthenticationResult, Depends(get_current_user)]
 TickerPath = Annotated[
     str, Path(description="Company ticker symbol (e.g., 'AAPL', 'MSFT')")
 ]
@@ -54,8 +64,8 @@ TickerPath = Annotated[
 )
 async def get_company(
     ticker: TickerPath,
-    session: SessionDep,
-    factory: ServiceFactoryDep,
+    application_service: ApplicationServiceDep,
+    current_user: AuthenticatedUserDep,
     # Enrichment options
     include_recent_analyses: Annotated[
         bool, Query(description="Include recent Aperilex analysis summaries")
@@ -65,8 +75,6 @@ async def get_company(
 
     Args:
         ticker: Company ticker symbol (case-insensitive)
-        session: Database session for repository operations
-        factory: Service factory for dependency injection
         include_recent_analyses: Whether to include recent analysis summaries
 
     Returns:
@@ -106,14 +114,11 @@ async def get_company(
         query = GetCompanyQuery(
             ticker=ticker_normalized,
             include_recent_analyses=include_recent_analyses,
+            user_id=user_id_str(current_user),
         )
 
-        # Get dependencies and dispatcher
-        dispatcher = factory.create_dispatcher()
-        dependencies = await factory.get_handler_dependencies(session)
-
-        # Dispatch query
-        result: CompanyResponse = await dispatcher.dispatch_query(query, dependencies)
+        # Execute query through application service
+        result: CompanyResponse = await application_service.execute_query(query)
 
         logger.info(
             "Company information retrieved successfully",
@@ -162,8 +167,8 @@ async def get_company(
 )
 async def list_company_analyses(
     ticker: TickerPath,
-    session: SessionDep,
-    factory: ServiceFactoryDep,
+    application_service: ApplicationServiceDep,
+    current_user: AuthenticatedUserDep,
     # Filtering parameters
     analysis_type: Annotated[
         AnalysisType | None, Query(description="Filter by analysis type")
@@ -182,8 +187,6 @@ async def list_company_analyses(
 
     Args:
         ticker: Company ticker symbol (case-insensitive)
-        session: Database session for repository operations
-        factory: Service factory for dependency injection
         analysis_type: Optional analysis type filter
         min_confidence: Optional minimum confidence score filter
         page: Page number for pagination (1-based)
@@ -221,13 +224,14 @@ async def list_company_analyses(
 
         # First, we need to get the company to find its CIK
         # This is needed because ListAnalysesQuery filters by CIK, not ticker
-        company_query = GetCompanyQuery(ticker=ticker_normalized)
-        dispatcher = factory.create_dispatcher()
-        dependencies = await factory.get_handler_dependencies(session)
+        company_query = GetCompanyQuery(
+            ticker=ticker_normalized,
+            user_id=user_id_str(current_user),
+        )
 
         try:
-            company_info: CompanyResponse = await dispatcher.dispatch_query(
-                company_query, dependencies
+            company_info: CompanyResponse = await application_service.execute_query(
+                company_query
             )
             company_cik_str = company_info.cik
         except Exception as e:
@@ -241,9 +245,9 @@ async def list_company_analyses(
             ) from e
 
         # Convert CIK string to CIK object for the analyses query
-        from src.domain.value_objects.cik import CIK
+        from src.shared.types import CIK
 
-        company_cik = CIK(company_cik_str)
+        company_cik = CIK(value=company_cik_str)
 
         # Create analyses list query filtered by company CIK
         # Convert single analysis_type to list for schema compatibility
@@ -255,12 +259,13 @@ async def list_company_analyses(
             min_confidence_score=min_confidence,
             page=page,
             page_size=page_size,
+            user_id=user_id_str(current_user),
         )
 
         # Dispatch analyses query
-        results: PaginatedResponse[AnalysisResponse] = await dispatcher.dispatch_query(
-            analyses_query, dependencies
-        )
+        results: PaginatedResponse[
+            AnalysisResponse
+        ] = await application_service.execute_query(analyses_query)
 
         logger.info(
             "Company analyses listed successfully",
@@ -313,8 +318,8 @@ async def list_company_analyses(
 )
 async def list_company_filings(
     ticker: TickerPath,
-    session: SessionDep,
-    factory: ServiceFactoryDep,
+    application_service: ApplicationServiceDep,
+    current_user: AuthenticatedUserDep,
     # Filtering parameters
     filing_type: Annotated[
         str | None,
@@ -339,8 +344,6 @@ async def list_company_filings(
 
     Args:
         ticker: Company ticker symbol (case-insensitive)
-        session: Database session for repository operations
-        factory: Service factory for dependency injection
         filing_type: Optional filing type filter
         start_date: Optional start date filter (YYYY-MM-DD)
         end_date: Optional end date filter (YYYY-MM-DD)
@@ -430,16 +433,13 @@ async def list_company_filings(
             end_date=end_date_obj,
             page=page if page is not None else 1,
             page_size=page_size if page_size is not None else 20,
+            user_id=user_id_str(current_user),
         )
 
-        # Get dependencies and dispatcher
-        dispatcher = factory.create_dispatcher()
-        dependencies = await factory.get_handler_dependencies(session)
-
-        # Dispatch query
-        result: PaginatedResponse[FilingResponse] = await dispatcher.dispatch_query(
-            query, dependencies
-        )
+        # Execute query through application service
+        result: PaginatedResponse[
+            FilingResponse
+        ] = await application_service.execute_query(query)
 
         # If pagination was requested, return paginated response
         if page is not None or page_size is not None:

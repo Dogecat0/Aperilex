@@ -6,20 +6,24 @@ from typing import Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Path, Query, status
-from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.application.factory import ServiceFactory
-from src.application.schemas.commands.analyze_filing import AnalysisTemplate
-from src.application.schemas.queries.get_analysis import GetAnalysisQuery
-from src.application.schemas.queries.get_templates import GetTemplatesQuery
-from src.application.schemas.queries.list_analyses import ListAnalysesQuery
-from src.application.schemas.responses.analysis_response import AnalysisResponse
-from src.application.schemas.responses.paginated_response import PaginatedResponse
-from src.application.schemas.responses.templates_response import TemplatesResponse
+from src.application.handlers.schemas.commands.analyze_filing import AnalysisTemplate
+from src.application.handlers.schemas.queries import (
+    GetAnalysisQuery,
+    GetTemplatesQuery,
+    ListAnalysesQuery,
+)
+from src.application.handlers.schemas.responses import (
+    AnalysisResponse,
+    PaginatedResponse,
+    TemplatesResponse,
+)
+from src.application.interfaces.authentication import AuthenticationResult
+from src.application.services.application_service import ApplicationService
 from src.domain.entities.analysis import AnalysisType
-from src.domain.value_objects.cik import CIK
-from src.infrastructure.database.base import get_db
-from src.presentation.api.dependencies import get_service_factory
+from src.presentation.api.dependencies import get_application_service
+from src.presentation.api.security import get_current_user, user_id_str
+from src.shared.types import CIK
 
 logger = logging.getLogger(__name__)
 
@@ -35,9 +39,9 @@ router = APIRouter(
 )
 
 # Type aliases for dependencies
-SessionDep = Annotated[AsyncSession, Depends(get_db)]
-ServiceFactoryDep = Annotated[ServiceFactory, Depends(get_service_factory)]
 AnalysisIdPath = Annotated[UUID, Path(description="Analysis ID")]
+ApplicationServiceDep = Annotated[ApplicationService, Depends(get_application_service)]
+AuthenticatedUserDep = Annotated[AuthenticationResult, Depends(get_current_user)]
 
 
 @router.get(
@@ -54,8 +58,8 @@ AnalysisIdPath = Annotated[UUID, Path(description="Analysis ID")]
     """,
 )
 async def list_analyses(
-    session: SessionDep,
-    factory: ServiceFactoryDep,
+    application_service: ApplicationServiceDep,
+    current_user: AuthenticatedUserDep,
     # Filtering parameters
     company_cik: Annotated[
         str | None, Query(description="Filter by company CIK (e.g., '0000320193')")
@@ -88,8 +92,6 @@ async def list_analyses(
     """List analyses with filtering and pagination.
 
     Args:
-        session: Database session for repository operations
-        factory: Service factory for dependency injection
         company_cik: Optional CIK to filter by specific company
         analysis_type: Optional analysis type filter
         analysis_template: Optional analysis template filter
@@ -123,7 +125,7 @@ async def list_analyses(
         cik_obj = None
         if company_cik:
             try:
-                cik_obj = CIK(company_cik)
+                cik_obj = CIK(value=company_cik)
             except ValueError as e:
                 raise HTTPException(
                     status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
@@ -140,7 +142,7 @@ async def list_analyses(
         # Remove the hardcoded template mapping logic - let the query schema handle this
 
         query = ListAnalysesQuery(
-            user_id=None,  # TODO: Extract from auth context
+            user_id=user_id_str(current_user),
             company_cik=cik_obj,
             analysis_types=analysis_types,
             analysis_template=analysis_template,
@@ -151,14 +153,10 @@ async def list_analyses(
             page_size=page_size,
         )
 
-        # Get dependencies and dispatcher
-        dispatcher = factory.create_dispatcher()
-        dependencies = await factory.get_handler_dependencies(session)
-
-        # Dispatch query
-        results: PaginatedResponse[AnalysisResponse] = await dispatcher.dispatch_query(
-            query, dependencies
-        )
+        # Execute query through application service
+        results: PaginatedResponse[
+            AnalysisResponse
+        ] = await application_service.execute_query(query)
 
         logger.info(
             "Listed analyses successfully",
@@ -205,8 +203,8 @@ async def list_analyses(
     """,
 )
 async def get_analysis_templates(
-    session: Annotated[AsyncSession, Depends(get_db)],
-    factory: Annotated[ServiceFactory, Depends(get_service_factory)],
+    application_service: ApplicationServiceDep,
+    current_user: AuthenticatedUserDep,
     # Optional template filtering
     template_type: Annotated[
         str | None,
@@ -216,8 +214,6 @@ async def get_analysis_templates(
     """Get available analysis templates and configurations.
 
     Args:
-        session: Database session for repository operations
-        factory: Service factory for dependency injection
         template_type: Optional filter for specific template types
 
     Returns:
@@ -230,20 +226,19 @@ async def get_analysis_templates(
 
     try:
         # Create query
-        query = GetTemplatesQuery(template_type=template_type)
+        query = GetTemplatesQuery(
+            template_type=template_type,
+            user_id=user_id_str(current_user),
+        )
 
-        # Get dependencies and dispatcher
-        dispatcher = factory.create_dispatcher()
-        dependencies = await factory.get_handler_dependencies(session)
-
-        # Dispatch query
-        result: TemplatesResponse = await dispatcher.dispatch_query(query, dependencies)
+        # Execute query through application service
+        result: TemplatesResponse = await application_service.execute_query(query)
 
         logger.info(
             "Analysis templates retrieved successfully",
             extra={
                 "template_count": (
-                    len(result.templates) if hasattr(result, 'templates') else 0
+                    len(result.templates) if hasattr(result, "templates") else 0
                 ),
                 "template_type": template_type,
             },
@@ -276,15 +271,13 @@ async def get_analysis_templates(
 )
 async def get_analysis(
     analysis_id: AnalysisIdPath,
-    session: SessionDep,
-    factory: ServiceFactoryDep,
+    application_service: ApplicationServiceDep,
+    current_user: AuthenticatedUserDep,
 ) -> AnalysisResponse:
     """Get a specific analysis by ID.
 
     Args:
         analysis_id: Unique analysis identifier
-        session: Database session for repository operations
-        factory: Service factory for dependency injection
 
     Returns:
         AnalysisResponse with complete analysis information
@@ -297,14 +290,13 @@ async def get_analysis(
 
     try:
         # Create query
-        query = GetAnalysisQuery(analysis_id=analysis_id)
+        query = GetAnalysisQuery(
+            analysis_id=analysis_id,
+            user_id=user_id_str(current_user),
+        )
 
-        # Get dependencies and dispatcher
-        dispatcher = factory.create_dispatcher()
-        dependencies = await factory.get_handler_dependencies(session)
-
-        # Dispatch query
-        result: AnalysisResponse = await dispatcher.dispatch_query(query, dependencies)
+        # Execute query through application service
+        result: AnalysisResponse = await application_service.execute_query(query)
 
         logger.info(
             "Analysis retrieved successfully", extra={"analysis_id": str(analysis_id)}
