@@ -74,7 +74,11 @@ class AnalysisData(BaseModel):
 
 @runtime_checkable
 class ICompanyRepository(Protocol):
-    """Protocol for Company repository operations."""
+    """Protocol for Company repository operations.
+
+    Enhanced repository pattern: Handles both UUID and human identifier lookups
+    with efficient caching. Complex queries are delegated to query services.
+    """
 
     @abstractmethod
     async def get_by_id(self, company_id: CompanyId) -> CompanyData | None:
@@ -83,6 +87,38 @@ class ICompanyRepository(Protocol):
 
         Args:
             company_id: Unique company identifier
+
+        Returns:
+            Company data if found, None otherwise
+
+        Raises:
+            DatabaseError: If database operation fails
+        """
+        ...
+
+    @abstractmethod
+    async def get_by_cik(self, cik: CIK) -> CompanyData | None:
+        """
+        Get company by CIK.
+
+        Args:
+            cik: Central Index Key
+
+        Returns:
+            Company data if found, None otherwise
+
+        Raises:
+            DatabaseError: If database operation fails
+        """
+        ...
+
+    @abstractmethod
+    async def get_by_ticker(self, ticker: Ticker) -> CompanyData | None:
+        """
+        Get company by ticker symbol.
+
+        Args:
+            ticker: Company ticker symbol
 
         Returns:
             Company data if found, None otherwise
@@ -129,6 +165,38 @@ class ICompanyRepository(Protocol):
         ...
 
     @abstractmethod
+    async def delete(self, company_id: CompanyId) -> bool:
+        """
+        Delete a company.
+
+        Args:
+            company_id: Company identifier to delete
+
+        Returns:
+            True if deleted successfully, False if not found
+
+        Raises:
+            DatabaseError: If database operation fails
+        """
+        ...
+
+    @abstractmethod
+    async def exists(self, company_id: CompanyId) -> bool:
+        """
+        Check if company exists by company ID.
+
+        Args:
+            company_id: Unique company identifier
+
+        Returns:
+            True if company exists, False otherwise
+
+        Raises:
+            DatabaseError: If database operation fails
+        """
+        ...
+
+    @abstractmethod
     async def find_by_name(self, name: str, limit: int = 10) -> list[CompanyData]:
         """
         Find companies by name (partial match).
@@ -148,7 +216,11 @@ class ICompanyRepository(Protocol):
 
 @runtime_checkable
 class IFilingRepository(Protocol):
-    """Protocol for Filing repository operations."""
+    """Protocol for Filing repository operations.
+
+    Enhanced repository pattern: Handles both UUID and human identifier lookups
+    with efficient caching. Complex queries are delegated to query services.
+    """
 
     @abstractmethod
     async def get_by_id(self, filing_id: FilingId) -> FilingData | None:
@@ -157,6 +229,24 @@ class IFilingRepository(Protocol):
 
         Args:
             filing_id: Unique filing identifier
+
+        Returns:
+            Filing data if found, None otherwise
+
+        Raises:
+            DatabaseError: If database operation fails
+        """
+        ...
+
+    @abstractmethod
+    async def get_by_accession_number(
+        self, accession_number: AccessionNumber
+    ) -> FilingData | None:
+        """
+        Get filing by accession number.
+
+        Args:
+            accession_number: SEC accession number
 
         Returns:
             Filing data if found, None otherwise
@@ -249,6 +339,22 @@ class IFilingRepository(Protocol):
         ...
 
     @abstractmethod
+    async def delete(self, filing_id: FilingId) -> bool:
+        """
+        Delete a filing.
+
+        Args:
+            filing_id: Filing identifier to delete
+
+        Returns:
+            True if deleted successfully, False if not found
+
+        Raises:
+            DatabaseError: If database operation fails
+        """
+        ...
+
+    @abstractmethod
     async def exists(self, filing_id: FilingId) -> bool:
         """
         Check if filing exists by filing ID.
@@ -267,7 +373,11 @@ class IFilingRepository(Protocol):
 
 @runtime_checkable
 class IAnalysisRepository(Protocol):
-    """Protocol for Analysis repository operations."""
+    """Protocol for Analysis repository operations.
+
+    Enhanced repository pattern: Handles basic CRUD and relationship-based lookups.
+    Complex queries are delegated to query services.
+    """
 
     @abstractmethod
     async def get_by_id(self, analysis_id: AnalysisId) -> AnalysisData | None:
@@ -386,6 +496,100 @@ class IAnalysisRepository(Protocol):
 
         Raises:
             NotFoundError: If analysis not found
+            DatabaseError: If database operation fails
+        """
+        ...
+
+    @abstractmethod
+    async def delete(self, analysis_id: AnalysisId) -> bool:
+        """
+        Delete an analysis.
+
+        Args:
+            analysis_id: Analysis identifier to delete
+
+        Returns:
+            True if deleted successfully, False if not found
+
+        Raises:
+            DatabaseError: If database operation fails
+        """
+        ...
+
+    @abstractmethod
+    async def exists(self, analysis_id: AnalysisId) -> bool:
+        """
+        Check if analysis exists by analysis ID.
+
+        Args:
+            analysis_id: Unique analysis identifier
+
+        Returns:
+            True if analysis exists, False otherwise
+
+        Raises:
+            DatabaseError: If database operation fails
+        """
+        ...
+
+    @abstractmethod
+    async def count_with_filters(
+        self,
+        company_cik: Any = None,
+        analysis_types: list[str] | None = None,
+        created_from: datetime | None = None,
+        created_to: datetime | None = None,
+        min_confidence_score: float | None = None,
+    ) -> int:
+        """
+        Count analyses matching the provided filters.
+
+        Args:
+            company_cik: Optional company CIK filter
+            analysis_types: Optional list of analysis types
+            created_from: Optional start datetime filter
+            created_to: Optional end datetime filter
+            min_confidence_score: Optional minimum confidence score filter
+
+        Returns:
+            Number of analyses matching the filters
+
+        Raises:
+            DatabaseError: If database operation fails
+        """
+        ...
+
+    @abstractmethod
+    async def find_with_filters(
+        self,
+        company_cik: Any = None,
+        analysis_types: list[str] | None = None,
+        created_from: datetime | None = None,
+        created_to: datetime | None = None,
+        min_confidence_score: float | None = None,
+        sort_by: Any | None = None,
+        sort_direction: Any | None = None,
+        page: int = 1,
+        page_size: int = 20,
+    ) -> list[AnalysisData]:
+        """
+        Retrieve analyses with optional filtering, sorting, and pagination.
+
+        Args:
+            company_cik: Optional company CIK filter
+            analysis_types: Optional list of analysis types
+            created_from: Optional start datetime filter
+            created_to: Optional end datetime filter
+            min_confidence_score: Optional minimum confidence score filter
+            sort_by: Optional sort field
+            sort_direction: Optional sort direction
+            page: Page number (1-based)
+            page_size: Number of results per page
+
+        Returns:
+            List of analyses matching the filters
+
+        Raises:
             DatabaseError: If database operation fails
         """
         ...
