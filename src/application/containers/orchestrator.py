@@ -59,7 +59,6 @@ class SSEConnectionManager:
 
     async def broadcast_event(self, event: DomainEvent) -> None:
         await self.event_publisher.publish(event)
-        await self.sse_provider.broadcast_event(event)
 
     async def _publish_connection_event(
         self, connection_id: str, user_id: UserId | None, action: str

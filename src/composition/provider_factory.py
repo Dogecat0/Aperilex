@@ -57,6 +57,7 @@ if TYPE_CHECKING:
         IDatabaseProvider,
         IDataSourceProvider,
         IEventPublisher,
+        IEventStore,
         ILLMProvider,
         IQueueProvider,
         ISecretManager,
@@ -183,6 +184,7 @@ class ProviderFactory:
 
         from src.infrastructure.providers.events import (
             CompositeEventPublisher,
+            LoggingEventPublisher,
             SSEEventPublisher,
         )
 
@@ -193,10 +195,27 @@ class ProviderFactory:
             sse_provider=sse_provider,
         )
 
+        logging_event_publisher = providers.Singleton(LoggingEventPublisher)
+
         return providers.Singleton(
             CompositeEventPublisher,
-            publishers=providers.List(sse_event_publisher),
+            publishers=providers.List(
+                sse_event_publisher,
+                logging_event_publisher,
+            ),
         )
+
+    @staticmethod
+    def create_event_store(
+        environment: str,
+    ) -> providers.Provider[IEventStore]:
+        """Create event store implementation based on environment."""
+
+        from src.infrastructure.providers.events import InMemoryEventStore
+
+        # In-memory store is sufficient for development/testing. Persistent options
+        # can be added in later stages (e.g., DynamoDB, Postgres).
+        return providers.Singleton(InMemoryEventStore)
 
     @staticmethod
     def create_storage_provider(

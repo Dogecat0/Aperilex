@@ -196,6 +196,31 @@ class IEventSubscriber(ABC):
         """
         pass
 
+
+@runtime_checkable
+class IEventStore(Protocol):
+    """Protocol for persisting published domain events."""
+
+    @abstractmethod
+    async def append(self, event: DomainEvent) -> None:
+        """Persist an event for later replay or auditing."""
+        ...
+
+    @abstractmethod
+    async def list_events(
+        self,
+        *,
+        event_type: str | None = None,
+        limit: int | None = None,
+    ) -> list[DomainEvent]:
+        """Retrieve events, optionally filtered by type and limited in count."""
+        ...
+
+    @abstractmethod
+    async def clear(self, *, event_type: str | None = None) -> None:
+        """Remove persisted events, optionally filtering by type."""
+        ...
+
     @abstractmethod
     def can_handle(self, event: DomainEvent) -> bool:
         """

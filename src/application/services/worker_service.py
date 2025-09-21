@@ -21,6 +21,9 @@ from src.application.interfaces.datasource import FilingContent, IDataSourceProv
 from src.application.interfaces.events import (
     AnalysisCompletedEvent,
     AnalysisFailedEvent,
+    AnalysisProgressEvent,
+    AnalysisStartedEvent,
+    FilingImportedEvent,
     IEventPublisher,
 )
 from src.application.interfaces.llm import ILLMProvider, LLMRequest, LLMResponse
@@ -377,19 +380,34 @@ class WorkerService:
             task_data = await self._validate_and_migrate_schema(message.task_data)
             analysis_request = self._create_analysis_request(task_data)
             await self._persist_analysis_started(analysis_request, task_data)
-            await self._track_progress(progress_callback, 0.1, "Task validated")
+            await self._publish_analysis_started_event(task_data, analysis_request)
+            await self._track_progress(
+                progress_callback,
+                0.1,
+                "Task validated",
+                analysis_request=analysis_request,
+                task_data=task_data,
+            )
 
             # Step 2: Validate filing access and check existence
             await self._validate_filing_access(task_data)
             filing_exists = await self._check_filing_exists(task_data.filing_id)
             await self._track_progress(
-                progress_callback, 0.2, "Filing validation complete"
+                progress_callback,
+                0.2,
+                "Filing validation complete",
+                analysis_request=analysis_request,
+                task_data=task_data,
             )
 
             # Step 3 & 4: Fetch from datasource and store if needed
             if not filing_exists:
                 await self._track_progress(
-                    progress_callback, 0.3, "Fetching filing from datasource"
+                    progress_callback,
+                    0.3,
+                    "Fetching filing from datasource",
+                    analysis_request=analysis_request,
+                    task_data=task_data,
                 )
                 filing_content = await self._fetch_filing(
                     task_data.ticker,
@@ -402,10 +420,22 @@ class WorkerService:
                     filing_content,
                     task_data,
                 )
-                await self._track_progress(progress_callback, 0.4, "Filing stored")
+                await self._track_progress(
+                    progress_callback,
+                    0.4,
+                    "Filing stored",
+                    analysis_request=analysis_request,
+                    task_data=task_data,
+                )
 
             # Step 5: Perform LLM analysis with section extraction
-            await self._track_progress(progress_callback, 0.5, "Starting LLM analysis")
+            await self._track_progress(
+                progress_callback,
+                0.5,
+                "Starting LLM analysis",
+                analysis_request=analysis_request,
+                task_data=task_data,
+            )
             # Extract sections based on template
             template = self._get_template_from_metadata(task_data.metadata)
             extracted_content = await self._extract_filing_sections(
@@ -418,13 +448,25 @@ class WorkerService:
                 task_data.filing_id,
                 extracted_content,
             )
-            await self._track_progress(progress_callback, 0.7, "LLM analysis complete")
+            await self._track_progress(
+                progress_callback,
+                0.7,
+                "LLM analysis complete",
+                analysis_request=analysis_request,
+                task_data=task_data,
+            )
 
             # Step 6: Store analysis result
             storage_key = await self._store_analysis(analysis_result)
             await self._persist_analysis_completed(analysis_result, storage_key)
             task_data.mark_completed()
-            await self._track_progress(progress_callback, 0.8, "Analysis stored")
+            await self._track_progress(
+                progress_callback,
+                0.8,
+                "Analysis stored",
+                analysis_request=analysis_request,
+                task_data=task_data,
+            )
 
             # Step 7: Update database status with progress
             await self._update_task_status(
@@ -435,13 +477,25 @@ class WorkerService:
                     "storage_key": str(storage_key),
                 },
             )
-            await self._track_progress(progress_callback, 0.9, "Database updated")
+            await self._track_progress(
+                progress_callback,
+                0.9,
+                "Database updated",
+                analysis_request=analysis_request,
+                task_data=task_data,
+            )
 
             # Step 8: Publish completion event
             await self._publish_completion_event(
                 task_data, analysis_result, storage_key
             )
-            await self._track_progress(progress_callback, 1.0, "Analysis complete")
+            await self._track_progress(
+                progress_callback,
+                1.0,
+                "Analysis complete",
+                analysis_request=analysis_request,
+                task_data=task_data,
+            )
 
             # Step 9: Return result
             processing_time = int(
@@ -754,6 +808,11 @@ class WorkerService:
 
             storage_key = await self.storage.store_filing(request)
             logger.info(f"Stored filing {filing_id} with key {storage_key}")
+
+            await self._publish_filing_imported_event(
+                task_data=task_data,
+                storage_key=storage_key,
+            )
             return storage_key
 
         except Exception as e:
@@ -986,6 +1045,133 @@ class WorkerService:
             f"Task {task_id} status updated to {status.value}",
             extra={"metadata": metadata},
         )
+
+    async def _publish_analysis_started_event(
+        self,
+        task_data: TaskData,
+        analysis_request: AnalysisRequest,
+    ) -> None:
+        if not self.event_publisher:
+            return
+
+        metadata = {
+            "analysis_type": analysis_request.analysis_type.value,
+            "analysis_template": task_data.metadata.get("analysis_template"),
+            "source": task_data.source,
+            "priority": task_data.priority.name,
+            "retry_count": str(task_data.retry_count),
+        }
+
+        event = AnalysisStartedEvent(
+            event_id=uuid.uuid4(),
+            timestamp=datetime.now(UTC).isoformat(),
+            correlation_id=analysis_request.correlation_id
+            or task_data.correlation_id,
+            user_id=task_data.user_id,
+            analysis_id=analysis_request.analysis_id,
+            filing_id=analysis_request.filing_id,
+            task_id=task_data.task_id,
+            metadata={k: v for k, v in metadata.items() if v is not None},
+        )
+
+        try:
+            await self.event_publisher.publish(event)
+        except Exception as exc:  # noqa: BLE001 - do not break processing if publish fails
+            logger.warning(
+                "Failed to publish AnalysisStartedEvent",
+                extra={
+                    "task_id": str(task_data.task_id),
+                    "analysis_id": str(analysis_request.analysis_id),
+                },
+                exc_info=True,
+            )
+            logger.debug("AnalysisStartedEvent publish error", extra={"error": str(exc)})
+
+    async def _publish_progress_event(
+        self,
+        *,
+        analysis_request: AnalysisRequest,
+        task_data: TaskData,
+        progress: float,
+        message: str,
+    ) -> None:
+        if not self.event_publisher:
+            return
+
+        percentage = max(0, min(100, int(round(progress * 100))))
+
+        event = AnalysisProgressEvent(
+            event_id=uuid.uuid4(),
+            timestamp=datetime.now(UTC).isoformat(),
+            correlation_id=analysis_request.correlation_id
+            or task_data.correlation_id,
+            user_id=task_data.user_id,
+            analysis_id=analysis_request.analysis_id,
+            progress_percentage=percentage,
+            current_step=message,
+            message=message,
+            metadata={
+                "task_id": str(task_data.task_id),
+                "filing_id": str(analysis_request.filing_id),
+                "analysis_type": analysis_request.analysis_type.value,
+            },
+        )
+
+        try:
+            await self.event_publisher.publish(event)
+        except Exception as exc:  # noqa: BLE001
+            logger.debug(
+                "Failed to publish AnalysisProgressEvent",
+                extra={
+                    "task_id": str(task_data.task_id),
+                    "analysis_id": str(analysis_request.analysis_id),
+                    "progress": percentage,
+                },
+                exc_info=True,
+            )
+            logger.debug("AnalysisProgressEvent publish error", extra={"error": str(exc)})
+
+    async def _publish_filing_imported_event(
+        self,
+        *,
+        task_data: TaskData,
+        storage_key: StorageKey,
+    ) -> None:
+        if not self.event_publisher:
+            return
+
+        filing_date = task_data.metadata.get("filing_date")
+        if not filing_date:
+            filing_date = datetime.now(UTC).date().isoformat()
+
+        event = FilingImportedEvent(
+            event_id=uuid.uuid4(),
+            timestamp=datetime.now(UTC).isoformat(),
+            correlation_id=task_data.correlation_id,
+            user_id=task_data.user_id,
+            filing_id=task_data.filing_id,
+            ticker=str(task_data.ticker),
+            filing_type=task_data.filing_type.value,
+            filing_date=filing_date,
+            metadata={
+                "storage_key": str(storage_key),
+                "requested_by": task_data.metadata.get("requested_by"),
+                "analysis_template": task_data.metadata.get("analysis_template"),
+            },
+        )
+
+        try:
+            await self.event_publisher.publish(event)
+        except Exception as exc:  # noqa: BLE001
+            logger.debug(
+                "Failed to publish FilingImportedEvent",
+                extra={
+                    "filing_id": str(task_data.filing_id),
+                    "task_id": str(task_data.task_id),
+                },
+                exc_info=True,
+            )
+            logger.debug("FilingImportedEvent publish error", extra={"error": str(exc)})
 
     async def _publish_completion_event(
         self,
@@ -1264,6 +1450,9 @@ class WorkerService:
         ),
         progress: float,
         message: str,
+        *,
+        analysis_request: AnalysisRequest | None,
+        task_data: TaskData | None,
     ) -> None:
         """
         Track and report progress via callback.
@@ -1289,6 +1478,18 @@ class WorkerService:
 
         # Also log progress for monitoring
         logger.info(f"Task progress: {progress:.1%} - {message}")
+
+        if (
+            self.event_publisher is not None
+            and analysis_request is not None
+            and task_data is not None
+        ):
+            await self._publish_progress_event(
+                analysis_request=analysis_request,
+                task_data=task_data,
+                progress=progress,
+                message=message,
+            )
 
     async def _validate_filing_access(self, task_data: TaskData) -> None:
         """

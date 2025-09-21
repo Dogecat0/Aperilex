@@ -7,7 +7,7 @@ from dependency_injector import containers, providers
 from src.application.interfaces.authentication import IAuthenticationProvider
 from src.application.interfaces.database import IDatabaseProvider
 from src.application.interfaces.datasource import IDataSourceProvider
-from src.application.interfaces.events import IEventPublisher
+from src.application.interfaces.events import IEventPublisher, IEventStore
 from src.application.interfaces.llm import ILLMProvider
 from src.application.interfaces.queue import IQueueProvider
 from src.application.interfaces.rate_limiting import IRateLimitingProvider
@@ -61,6 +61,9 @@ class ProvidersContainer(containers.DeclarativeContainer):
 
     # Event publisher for domain events and SSE
     event_publisher = providers.AbstractSingleton(IEventPublisher)
+
+    # Event store for event sourcing / replay support
+    event_store = providers.AbstractSingleton(IEventStore)
 
     # Authentication provider for API security
     authentication_provider = providers.AbstractSingleton(IAuthenticationProvider)

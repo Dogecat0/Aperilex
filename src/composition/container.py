@@ -218,6 +218,9 @@ class CompositionRoot(containers.DeclarativeContainer):
         )
         app_container.providers_container.event_publisher.override(event_publisher)
 
+        event_store = ProviderFactory.create_event_store(environment)
+        app_container.providers_container.event_store.override(event_store)
+
         # Rebind infrastructure container with concrete dependencies
         container.infrastructure.override(
             providers.Container(

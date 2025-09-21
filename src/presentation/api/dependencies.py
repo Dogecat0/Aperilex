@@ -12,9 +12,11 @@ from dependency_injector.wiring import Provide, inject
 from src.application.base.dispatcher import Dispatcher
 from src.application.containers.application import ApplicationContainer
 from src.application.containers.orchestrator import ApiRateLimiter, SSEConnectionManager
+from src.application.events import EventStoreSubscriber, LoggingEventSubscriber
 from src.application.interfaces import (
     IAuthenticationProvider,
     IEventPublisher,
+    IEventStore,
     IQueueProvider,
     ISSEProvider,
     IStorageProvider,
@@ -122,6 +124,15 @@ async def get_event_publisher(
 
 
 @inject
+async def get_event_store(
+    event_store: IEventStore = Provide["providers_container.event_store"],
+) -> IEventStore:
+    """Get configured event store instance."""
+
+    return event_store
+
+
+@inject
 async def get_authentication_provider(
     auth_provider: IAuthenticationProvider = Provide[
         "orchestrator.authentication_service"
@@ -223,6 +234,7 @@ class ServiceLifecycle:
     def __init__(self) -> None:
         """Initialize service lifecycle manager."""
         self.container: ApplicationContainer | None = None
+        self._event_subscribers: list[LoggingEventSubscriber | EventStoreSubscriber] = []
 
     async def startup(self) -> None:
         """Initialize services during application startup.
@@ -245,6 +257,7 @@ class ServiceLifecycle:
             queue_provider = await get_queue_provider()
             storage_provider = await get_storage_provider()
             event_publisher = await get_event_publisher()
+            event_store = await get_event_store()
 
             # Check service health
             queue_healthy = await queue_provider.health_check()
@@ -258,6 +271,16 @@ class ServiceLifecycle:
 
             if not all([queue_healthy, storage_healthy, event_healthy]):
                 logger.warning("Some services are not healthy, but continuing startup")
+
+            if not self._event_subscribers:
+                logging_subscriber = LoggingEventSubscriber()
+                store_subscriber = EventStoreSubscriber(event_store)
+                self._event_subscribers.extend([logging_subscriber, store_subscriber])
+
+                for subscriber in self._event_subscribers:
+                    await event_publisher.subscribe("*", subscriber.handle)
+
+                logger.info("Registered default event subscribers")
 
         except Exception as e:
             logger.error(f"Failed to initialize DI container and services: {e}")
@@ -275,6 +298,22 @@ class ServiceLifecycle:
             try:
                 # Clean up any resources that need explicit cleanup
                 logger.info("Cleaning up DI container resources")
+
+                if self._event_subscribers:
+                    try:
+                        event_publisher = await get_event_publisher()
+                        for subscriber in self._event_subscribers:
+                            await event_publisher.unsubscribe("*", subscriber.handle)
+                    except Exception as exc:  # noqa: BLE001
+                        logger.warning(
+                            "Failed to unsubscribe event subscribers during shutdown",
+                            exc_info=True,
+                        )
+                        logger.debug(
+                            "Event subscriber cleanup error", extra={"error": str(exc)}
+                        )
+                    finally:
+                        self._event_subscribers.clear()
 
                 # Note: Container cleanup is typically handled automatically
                 # but we can add explicit cleanup if needed
