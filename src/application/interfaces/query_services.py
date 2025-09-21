@@ -10,7 +10,7 @@ from abc import abstractmethod
 from datetime import date, datetime
 from typing import Protocol, runtime_checkable
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from src.shared.enums import AnalysisStatus, FilingType
 from src.shared.types import AnalysisId, CompanyId, FilingId, UserId
@@ -21,7 +21,11 @@ from src.shared.types import AnalysisId, CompanyId, FilingId, UserId
 class FilingQueryResult(BaseModel):
     """Result model for filing queries."""
 
-    schema_version: int = 1
+    schema_version: int = Field(
+        default=1,
+        ge=1,
+        description="Schema version for filing query result models",
+    )
     filing_id: FilingId
     company_id: CompanyId
     filing_type: FilingType
@@ -35,7 +39,11 @@ class FilingQueryResult(BaseModel):
 class FilingQueryPage(BaseModel):
     """Paginated filing query results."""
 
-    schema_version: int = 1
+    schema_version: int = Field(
+        default=1,
+        ge=1,
+        description="Schema version for filing query page models",
+    )
     items: list[FilingQueryResult]
     total_count: int
 
@@ -43,7 +51,11 @@ class FilingQueryPage(BaseModel):
 class AnalysisQueryResult(BaseModel):
     """Result model for analysis queries."""
 
-    schema_version: int = 1
+    schema_version: int = Field(
+        default=1,
+        ge=1,
+        description="Schema version for analysis query result models",
+    )
     analysis_id: AnalysisId
     filing_id: FilingId
     user_id: UserId
@@ -56,7 +68,11 @@ class AnalysisQueryResult(BaseModel):
 class CompanyQueryResult(BaseModel):
     """Result model for company queries."""
 
-    schema_version: int = 1
+    schema_version: int = Field(
+        default=1,
+        ge=1,
+        description="Schema version for company query result models",
+    )
     company_id: CompanyId
     cik: str
     name: str

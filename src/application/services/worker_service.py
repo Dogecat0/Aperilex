@@ -11,7 +11,7 @@ from collections.abc import Callable, Coroutine
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from src.application.handlers.schemas.commands.analyze_filing import (
     AnalysisTemplate,
@@ -64,6 +64,8 @@ from src.shared.types import (
 )
 from src.shared.types.identifiers import QueueMessageId, RequestId
 from src.shared.utils.logging import get_logger
+from src.shared.versioning import SchemaMigrationError as VersioningMigrationError
+from src.shared.versioning import schema_migrator
 
 logger = get_logger(__name__)
 
@@ -101,6 +103,11 @@ class StorageError(WorkerServiceError):
 class TaskResult(BaseModel):
     """Result of task processing."""
 
+    schema_version: int = Field(
+        default=1,
+        ge=1,
+        description="Schema version for task result models",
+    )
     task_id: TaskId
     status: TaskStatus
     analysis_id: AnalysisId | None = None
@@ -523,15 +530,36 @@ class WorkerService:
         Raises:
             SchemaVersionError: If schema version is incompatible
         """
-        schema_version = task_data_dict.get("schema_version", 1)
+        raw_version = task_data_dict.get("schema_version", 1)
+        schema_version = int(raw_version)
+        schema_field = TaskData.model_fields.get("schema_version")
+        target_version = int((schema_field.default if schema_field else 1) or 1)
 
-        # Handle schema migration for future versions
-        if schema_version > 1:
-            logger.warning(
-                f"Newer schema version detected: {schema_version}. "
-                "Migration may be needed."
+        if schema_version > target_version:
+            raise SchemaVersionError(
+                "Newer schema version detected: "
+                f"{schema_version}. Supported version is {target_version}."
             )
-            # Future: Add migration logic here
+
+        if schema_version < target_version:
+            try:
+                task_data_dict = schema_migrator.migrate(
+                    "TaskData",
+                    task_data_dict,
+                    target_version=target_version,
+                )
+                logger.info(
+                    "Migrated TaskData payload",
+                    extra={
+                        "from_version": schema_version,
+                        "to_version": target_version,
+                    },
+                )
+            except VersioningMigrationError as exc:  # noqa: BLE001
+                raise SchemaVersionError(
+                    "Failed to migrate TaskData payload: "
+                    f"{exc}"
+                ) from exc
 
         # Parse and validate using Pydantic
         try:

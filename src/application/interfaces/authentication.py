@@ -16,7 +16,11 @@ from src.shared.types import UserId
 class AuthenticationCredentials(BaseModel):
     """Authentication credentials."""
 
-    schema_version: int = Field(default=1, description="Schema version")
+    schema_version: int = Field(
+        default=1,
+        ge=1,
+        description="Schema version for authentication credential models",
+    )
     token: str = Field(..., description="Authentication token (JWT, API key, etc.)")
     token_type: str = Field(default="Bearer", description="Type of token")
 
@@ -24,7 +28,11 @@ class AuthenticationCredentials(BaseModel):
 class AuthenticationResult(BaseModel):
     """Result of authentication attempt."""
 
-    schema_version: int = Field(default=1, description="Schema version")
+    schema_version: int = Field(
+        default=1,
+        ge=1,
+        description="Schema version for authentication result models",
+    )
     authenticated: bool = Field(..., description="Whether authentication succeeded")
     user_id: UserId | None = Field(None, description="Authenticated user ID")
     user_email: str | None = Field(None, description="User email address")
@@ -38,7 +46,11 @@ class AuthenticationResult(BaseModel):
 class RateLimitInfo(BaseModel):
     """Rate limiting information for a user."""
 
-    schema_version: int = Field(default=1, description="Schema version")
+    schema_version: int = Field(
+        default=1,
+        ge=1,
+        description="Schema version for rate limit info models",
+    )
     limit: int = Field(..., description="Maximum requests allowed")
     remaining: int = Field(..., description="Remaining requests in window")
     reset_at: str = Field(..., description="ISO-8601 timestamp when limit resets")

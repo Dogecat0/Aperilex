@@ -5,7 +5,7 @@ Queue provider interface for abstracted message queue operations.
 from abc import abstractmethod
 from typing import Protocol, runtime_checkable
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from src.shared.models.queue import QueueMessage, TaskMessage
 from src.shared.types import QueueMessageId, ReceiptHandle
@@ -14,7 +14,11 @@ from src.shared.types import QueueMessageId, ReceiptHandle
 class QueueStats(BaseModel):
     """Queue statistics and metrics."""
 
-    schema_version: int = 1
+    schema_version: int = Field(
+        default=1,
+        ge=1,
+        description="Schema version for queue statistics models",
+    )
     message_count: int
     in_flight_count: int
     delayed_count: int

@@ -6,7 +6,7 @@ from abc import abstractmethod
 from datetime import datetime
 from typing import TYPE_CHECKING, Protocol, runtime_checkable
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 if TYPE_CHECKING:
     from src.shared.config.interfaces import SecretRotationConfig
@@ -15,7 +15,11 @@ if TYPE_CHECKING:
 class SecretMetadata(BaseModel):
     """Metadata for a secret."""
 
-    schema_version: int = 1
+    schema_version: int = Field(
+        default=1,
+        ge=1,
+        description="Schema version for secret metadata models",
+    )
     name: str
     version: str | None = None
     created_at: datetime
@@ -29,7 +33,11 @@ class SecretMetadata(BaseModel):
 class SecretVersion(BaseModel):
     """Represents a version of a secret."""
 
-    schema_version: int = 1
+    schema_version: int = Field(
+        default=1,
+        ge=1,
+        description="Schema version for secret version models",
+    )
     version_id: str
     version_stage: str
     created_at: datetime

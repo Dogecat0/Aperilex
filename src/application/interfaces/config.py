@@ -5,7 +5,7 @@ Configuration provider interface for abstracted configuration management.
 from abc import abstractmethod
 from typing import Protocol, TypeVar, runtime_checkable
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 T = TypeVar("T")
 
@@ -13,7 +13,11 @@ T = TypeVar("T")
 class ConfigValue(BaseModel):
     """Represents a configuration value with metadata."""
 
-    schema_version: int = 1
+    schema_version: int = Field(
+        default=1,
+        ge=1,
+        description="Schema version for config value models",
+    )
     key: str
     value: str | int | float | bool | list[str] | dict[str, str]
     source: str
@@ -25,7 +29,11 @@ class ConfigValue(BaseModel):
 class ConfigNamespace(BaseModel):
     """Configuration namespace for grouping related configs."""
 
-    schema_version: int = 1
+    schema_version: int = Field(
+        default=1,
+        ge=1,
+        description="Schema version for config namespace models",
+    )
     name: str
     values: dict[str, ConfigValue]
     description: str | None = None
@@ -34,7 +42,11 @@ class ConfigNamespace(BaseModel):
 class ConfigValidationRule(BaseModel):
     """Validation rule for configuration values."""
 
-    schema_version: int = 1
+    schema_version: int = Field(
+        default=1,
+        ge=1,
+        description="Schema version for config validation rule models",
+    )
     key_pattern: str
     value_type: str
     min_value: int | float | None = None

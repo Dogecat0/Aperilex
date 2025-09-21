@@ -5,7 +5,7 @@ Rate limiting provider interface for abstracted rate limiting operations.
 from abc import abstractmethod
 from typing import Protocol, runtime_checkable
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from src.shared.config.providers import RateLimitConfig
 from src.shared.types import UserId
@@ -14,7 +14,11 @@ from src.shared.types import UserId
 class RateLimitResult(BaseModel):
     """Result of a rate limit check."""
 
-    schema_version: int = 1
+    schema_version: int = Field(
+        default=1,
+        ge=1,
+        description="Schema version for rate limit result models",
+    )
     allowed: bool
     current_hourly_count: int
     current_daily_count: int
@@ -27,14 +31,22 @@ class RateLimitResult(BaseModel):
 class RateLimitHeaders(BaseModel):
     """HTTP headers for rate limit information."""
 
-    schema_version: int = 1
+    schema_version: int = Field(
+        default=1,
+        ge=1,
+        description="Schema version for rate limit header models",
+    )
     headers: dict[str, str]
 
 
 class RateLimitStats(BaseModel):
     """Statistics about rate limiting."""
 
-    schema_version: int = 1
+    schema_version: int = Field(
+        default=1,
+        ge=1,
+        description="Schema version for rate limit statistics models",
+    )
     total_clients: int
     total_hourly_requests: int
     total_daily_requests: int

@@ -5,7 +5,7 @@ Database provider interface for abstracted database operations.
 from abc import abstractmethod
 from typing import Protocol, TypeVar, runtime_checkable
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from src.shared.enums import AnalysisStatus, TaskStatus
 from src.shared.models import (
@@ -23,7 +23,11 @@ T = TypeVar("T", bound=BaseModel)
 class AnalysisResultData(BaseModel):
     """Analysis result data structure."""
 
-    schema_version: int = 1
+    schema_version: int = Field(
+        default=1,
+        ge=1,
+        description="Schema version for analysis result data models",
+    )
     analysis_type: str
     summary: str
     insights: list[str] = []
@@ -34,7 +38,11 @@ class AnalysisResultData(BaseModel):
 class TransactionContext(BaseModel):
     """Context for database transactions."""
 
-    schema_version: int = 1
+    schema_version: int = Field(
+        default=1,
+        ge=1,
+        description="Schema version for transaction context models",
+    )
     transaction_id: str
     isolation_level: str = "READ_COMMITTED"
     read_only: bool = False
@@ -44,7 +52,11 @@ class TransactionContext(BaseModel):
 class QueryResult(BaseModel):
     """Result from a database query."""
 
-    schema_version: int = 1
+    schema_version: int = Field(
+        default=1,
+        ge=1,
+        description="Schema version for database query result models",
+    )
     rows_affected: int
     execution_time_ms: int
     has_more_results: bool = False
@@ -54,7 +66,11 @@ class QueryResult(BaseModel):
 class DatabaseHealth(BaseModel):
     """Database health status."""
 
-    schema_version: int = 1
+    schema_version: int = Field(
+        default=1,
+        ge=1,
+        description="Schema version for database health models",
+    )
     is_healthy: bool
     connection_count: int
     active_connections: int

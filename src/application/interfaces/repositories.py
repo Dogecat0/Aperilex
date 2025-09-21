@@ -9,7 +9,7 @@ from abc import abstractmethod
 from datetime import datetime
 from typing import Any, Protocol, runtime_checkable
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from src.shared.enums import AnalysisStatus, FilingType
 from src.shared.types import (
@@ -28,7 +28,11 @@ from src.shared.types import (
 class CompanyData(BaseModel):
     """Company data model for repository operations."""
 
-    schema_version: int = 1
+    schema_version: int = Field(
+        default=1,
+        ge=1,
+        description="Schema version for company data models",
+    )
     id: CompanyId
     cik: CIK
     name: str
@@ -41,7 +45,11 @@ class CompanyData(BaseModel):
 class FilingData(BaseModel):
     """Filing data model for repository operations."""
 
-    schema_version: int = 1
+    schema_version: int = Field(
+        default=1,
+        ge=1,
+        description="Schema version for filing data models",
+    )
     id: FilingId
     company_id: CompanyId
     filing_type: FilingType
@@ -55,7 +63,11 @@ class FilingData(BaseModel):
 class AnalysisData(BaseModel):
     """Analysis data model for repository operations."""
 
-    schema_version: int = 1
+    schema_version: int = Field(
+        default=1,
+        ge=1,
+        description="Schema version for analysis data models",
+    )
     id: AnalysisId
     filing_id: FilingId
     user_id: UserId

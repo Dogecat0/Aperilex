@@ -26,6 +26,11 @@ logger = get_logger(__name__)
 class QueueConfiguration(BaseModel):
     """Configuration for priority queue service."""
 
+    schema_version: int = Field(
+        default=1,
+        ge=1,
+        description="Schema version for priority queue configuration models",
+    )
     # Queue names by priority tier
     queue_names: dict[str, str] = Field(
         default={
@@ -81,6 +86,11 @@ class QueueConfiguration(BaseModel):
 class DeduplicationEntry(BaseModel):
     """Entry in deduplication cache."""
 
+    schema_version: int = Field(
+        default=1,
+        ge=1,
+        description="Schema version for deduplication entry models",
+    )
     deduplication_id: str
     message_id: QueueMessageId
     timestamp: datetime
@@ -90,6 +100,11 @@ class DeduplicationEntry(BaseModel):
 class QueueMetrics(BaseModel):
     """Metrics for queue monitoring."""
 
+    schema_version: int = Field(
+        default=1,
+        ge=1,
+        description="Schema version for queue metrics models",
+    )
     total_sent: int = 0
     total_received: int = 0
     total_deleted: int = 0

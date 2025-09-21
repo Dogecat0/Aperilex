@@ -6,7 +6,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 from fastapi import APIRouter
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from src.presentation.api.dependencies import (
     get_event_publisher,
@@ -35,6 +35,11 @@ async def health_check() -> dict[str, Any]:
 class HealthStatus(BaseModel):
     """Health status response model."""
 
+    schema_version: int = Field(
+        default=1,
+        ge=1,
+        description="Schema version for health status response models",
+    )
     status: str
     message: str | None = None
     timestamp: str
@@ -44,6 +49,11 @@ class HealthStatus(BaseModel):
 class DetailedHealthResponse(BaseModel):
     """Detailed health response with service status."""
 
+    schema_version: int = Field(
+        default=1,
+        ge=1,
+        description="Schema version for detailed health response models",
+    )
     status: str
     timestamp: str
     version: str

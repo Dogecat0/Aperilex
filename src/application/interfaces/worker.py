@@ -6,7 +6,7 @@ from abc import abstractmethod
 from datetime import datetime
 from typing import Protocol, runtime_checkable
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from src.shared.enums import TaskStatus, WorkerProvider
 from src.shared.models import TaskMetadata
@@ -17,7 +17,11 @@ from src.shared.types import CorrelationId, RequestId, TaskId
 class WorkerHealthStatus(BaseModel):
     """Worker health check response."""
 
-    schema_version: int = 1
+    schema_version: int = Field(
+        default=1,
+        ge=1,
+        description="Schema version for worker health status models",
+    )
     status: str  # "healthy", "degraded", "unhealthy"
     uptime_seconds: int
     last_activity: datetime
@@ -29,7 +33,11 @@ class WorkerHealthStatus(BaseModel):
 class WorkerLogEntry(BaseModel):
     """Worker log entry."""
 
-    schema_version: int = 1
+    schema_version: int = Field(
+        default=1,
+        ge=1,
+        description="Schema version for worker log entry models",
+    )
     timestamp: datetime
     level: str  # "DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"
     message: str
@@ -41,7 +49,11 @@ class WorkerLogEntry(BaseModel):
 class WorkerResultData(BaseModel):
     """Worker execution result data."""
 
-    schema_version: int = 1
+    schema_version: int = Field(
+        default=1,
+        ge=1,
+        description="Schema version for worker result data models",
+    )
     output_type: str
     output_data: dict[str, str | int | float | bool | None]
     processing_steps: list[str] = []
@@ -51,7 +63,11 @@ class WorkerResultData(BaseModel):
 class WorkerContext(BaseModel):
     """Context information for worker execution."""
 
-    schema_version: int = 1
+    schema_version: int = Field(
+        default=1,
+        ge=1,
+        description="Schema version for worker context models",
+    )
     correlation_id: CorrelationId
     task_id: TaskId
     request_id: RequestId
@@ -69,7 +85,11 @@ class WorkerContext(BaseModel):
 class WorkerResult(BaseModel):
     """Result from worker execution."""
 
-    schema_version: int = 1
+    schema_version: int = Field(
+        default=1,
+        ge=1,
+        description="Schema version for worker result models",
+    )
     task_id: TaskId
     status: TaskStatus
     result_data: WorkerResultData | None = None
@@ -83,7 +103,11 @@ class WorkerResult(BaseModel):
 class WorkerMetrics(BaseModel):
     """Worker performance metrics."""
 
-    schema_version: int = 1
+    schema_version: int = Field(
+        default=1,
+        ge=1,
+        description="Schema version for worker metrics models",
+    )
     memory_used_mb: int
     cpu_time_ms: int
     io_wait_ms: int

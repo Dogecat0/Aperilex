@@ -6,7 +6,7 @@ from abc import abstractmethod
 from datetime import date
 from typing import Protocol, runtime_checkable
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from src.shared.enums import FilingType
 from src.shared.types import CIK, FilingId, Ticker
@@ -15,7 +15,11 @@ from src.shared.types import CIK, FilingId, Ticker
 class CompanyInfo(BaseModel):
     """Company information from data source."""
 
-    schema_version: int = 1
+    schema_version: int = Field(
+        default=1,
+        ge=1,
+        description="Schema version for company info models",
+    )
     cik: CIK
     ticker: Ticker | None = None
     name: str
@@ -26,7 +30,11 @@ class CompanyInfo(BaseModel):
 class FilingMetadata(BaseModel):
     """Filing metadata from data source."""
 
-    schema_version: int = 1
+    schema_version: int = Field(
+        default=1,
+        ge=1,
+        description="Schema version for filing metadata models",
+    )
     filing_id: FilingId
     filing_type: FilingType
     filing_date: date
@@ -37,7 +45,11 @@ class FilingMetadata(BaseModel):
 class FilingContent(BaseModel):
     """Filing content from data source."""
 
-    schema_version: int = 1
+    schema_version: int = Field(
+        default=1,
+        ge=1,
+        description="Schema version for filing content models",
+    )
     metadata: FilingMetadata
     raw_content: str
     parsed_sections: dict[str, str] = {}
@@ -46,7 +58,11 @@ class FilingContent(BaseModel):
 class FilingSearchCriteria(BaseModel):
     """Criteria for searching filings."""
 
-    schema_version: int = 1
+    schema_version: int = Field(
+        default=1,
+        ge=1,
+        description="Schema version for filing search criteria models",
+    )
     cik: CIK | None = None
     ticker: Ticker | None = None
     filing_type: FilingType | None = None

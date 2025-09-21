@@ -6,7 +6,7 @@ from abc import abstractmethod
 from datetime import datetime
 from typing import Protocol, runtime_checkable
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from src.shared.enums import LLMProvider
 from src.shared.models import LLMModelInfo
@@ -16,7 +16,11 @@ from src.shared.types import FilingId, RequestId
 class FinancialAnalysisRequest(BaseModel):
     """Request for financial analysis."""
 
-    schema_version: int = 1
+    schema_version: int = Field(
+        default=1,
+        ge=1,
+        description="Schema version for financial analysis request models",
+    )
     filing_id: FilingId
     analysis_type: str  # e.g., "fundamental", "technical", "sentiment"
     filing_content: str
@@ -27,7 +31,11 @@ class FinancialAnalysisRequest(BaseModel):
 class FinancialAnalysisResponse(BaseModel):
     """Response from financial analysis."""
 
-    schema_version: int = 1
+    schema_version: int = Field(
+        default=1,
+        ge=1,
+        description="Schema version for financial analysis response models",
+    )
     filing_id: FilingId
     analysis_type: str
     summary: str
@@ -40,7 +48,11 @@ class FinancialAnalysisResponse(BaseModel):
 class LLMRequest(BaseModel):
     """Request for LLM completion per deployment plan."""
 
-    schema_version: int = 1
+    schema_version: int = Field(
+        default=1,
+        ge=1,
+        description="Schema version for LLM request models",
+    )
     prompt: str
     system_prompt: str | None = None
     temperature: float = 0.7
@@ -56,7 +68,11 @@ class LLMRequest(BaseModel):
 class LLMPrompt(BaseModel):
     """Structured prompt for LLM interaction."""
 
-    schema_version: int = 1
+    schema_version: int = Field(
+        default=1,
+        ge=1,
+        description="Schema version for LLM prompt models",
+    )
     system_prompt: str
     user_prompt: str
     temperature: float = 0.7
@@ -70,7 +86,11 @@ class LLMPrompt(BaseModel):
 class LLMResponse(BaseModel):
     """Response from LLM interaction."""
 
-    schema_version: int = 1
+    schema_version: int = Field(
+        default=1,
+        ge=1,
+        description="Schema version for LLM response models",
+    )
     content: str
     model: str
     provider: LLMProvider

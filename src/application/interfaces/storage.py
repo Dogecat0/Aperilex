@@ -5,7 +5,7 @@ Storage provider interface for abstracted storage operations.
 from abc import abstractmethod
 from typing import Any, Protocol, runtime_checkable
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from src.shared.models import StorageMetadataFields
 from src.shared.types import AnalysisId, FilingId, StorageKey
@@ -14,7 +14,11 @@ from src.shared.types import AnalysisId, FilingId, StorageKey
 class StorageRequest(BaseModel):
     """Request for storing a filing per deployment plan."""
 
-    schema_version: int = 1
+    schema_version: int = Field(
+        default=1,
+        ge=1,
+        description="Schema version for storage request models",
+    )
     filing_id: FilingId
     content: bytes
     metadata: dict[str, str] = {}
@@ -23,7 +27,11 @@ class StorageRequest(BaseModel):
 class AnalysisStorageRequest(BaseModel):
     """Request for storing analysis results per deployment plan."""
 
-    schema_version: int = 1
+    schema_version: int = Field(
+        default=1,
+        ge=1,
+        description="Schema version for analysis storage request models",
+    )
     analysis_id: AnalysisId
     result: dict[str, Any]
     metadata: dict[str, str] = {}
@@ -32,7 +40,11 @@ class AnalysisStorageRequest(BaseModel):
 class StorageMetadata(BaseModel):
     """Metadata for stored objects."""
 
-    schema_version: int = 1
+    schema_version: int = Field(
+        default=1,
+        ge=1,
+        description="Schema version for storage metadata models",
+    )
     content_type: str
     size: int
     checksum: str
@@ -44,7 +56,11 @@ class StorageMetadata(BaseModel):
 class StorageObject(BaseModel):
     """Represents a stored object with its metadata."""
 
-    schema_version: int = 1
+    schema_version: int = Field(
+        default=1,
+        ge=1,
+        description="Schema version for storage object models",
+    )
     key: StorageKey
     data: bytes
     metadata: StorageMetadata
