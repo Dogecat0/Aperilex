@@ -6,11 +6,23 @@ for handlers and dispatcher configuration.
 """
 
 import asyncio
+from typing import Any
 
 from dependency_injector import containers, providers
+from dependency_injector.providers import Provider
 
 from src.application.base.dispatcher import Dispatcher
-from src.application.interfaces import IEventPublisher, IQueueProvider, IStorageProvider
+from src.application.interfaces import (
+    IDataSourceProvider,
+    IEventPublisher,
+    IQueueProvider,
+    IStorageProvider,
+)
+from src.application.interfaces.query_services import (
+    IAnalysisQueryService,
+    ICompanyQueryService,
+    IFilingQueryService,
+)
 from src.application.interfaces.repositories import (
     IAnalysisRepository,
     ICompanyRepository,
@@ -42,6 +54,10 @@ class HandlerFactory:
         priority_queue: PriorityQueueService,
         queue_provider: IQueueProvider,
         storage_provider: IStorageProvider,
+        data_source_provider: IDataSourceProvider,
+        analysis_query_service_provider: Provider[IAnalysisQueryService] | None = None,
+        company_query_service_provider: Provider[ICompanyQueryService] | None = None,
+        filing_query_service_provider: Provider[IFilingQueryService] | None = None,
     ) -> None:
         """
         Initialize the handler factory with dependencies.
@@ -62,8 +78,12 @@ class HandlerFactory:
         self.priority_queue = priority_queue
         self.queue_provider = queue_provider
         self.storage_provider = storage_provider
+        self.data_source_provider = data_source_provider
+        self.analysis_query_service_provider = analysis_query_service_provider
+        self.company_query_service_provider = company_query_service_provider
+        self.filing_query_service_provider = filing_query_service_provider
 
-    async def get_dependencies(self) -> dict:
+    async def get_dependencies(self) -> dict[str, Any]:
         """
         Get all available dependencies for handler construction.
 
@@ -76,7 +96,23 @@ class HandlerFactory:
             self.repository_factory.get_analysis_repository(),
         )
 
-        return {
+        analysis_query_service = (
+            self.analysis_query_service_provider()
+            if self.analysis_query_service_provider is not None
+            else None
+        )
+        company_query_service = (
+            self.company_query_service_provider()
+            if self.company_query_service_provider is not None
+            else None
+        )
+        filing_query_service = (
+            self.filing_query_service_provider()
+            if self.filing_query_service_provider is not None
+            else None
+        )
+
+        dependencies: dict[str, Any] = {
             "worker_service": self.worker_service,
             "background_task_coordinator": self.background_task_coordinator,
             "analysis_repository": analysis_repo,
@@ -86,7 +122,17 @@ class HandlerFactory:
             "priority_queue": self.priority_queue,
             "queue_provider": self.queue_provider,
             "storage_provider": self.storage_provider,
+            "data_source_provider": self.data_source_provider,
         }
+
+        if analysis_query_service is not None:
+            dependencies["analysis_query_service"] = analysis_query_service
+        if company_query_service is not None:
+            dependencies["company_query_service"] = company_query_service
+        if filing_query_service is not None:
+            dependencies["filing_query_service"] = filing_query_service
+
+        return dependencies
 
 
 class HandlerRegistrar:
@@ -153,7 +199,9 @@ class HandlerRegistrar:
         for handler_class in query_handlers:
             self.dispatcher.register_query_handler(handler_class)
 
-    async def get_dispatcher_with_dependencies(self) -> tuple[Dispatcher, dict]:
+    async def get_dispatcher_with_dependencies(
+        self,
+    ) -> tuple[Dispatcher, dict[str, Any]]:
         """
         Get the dispatcher and dependencies for handler instantiation.
 
@@ -177,6 +225,11 @@ class CQRSContainer(containers.DeclarativeContainer):
     analysis_repository = providers.AbstractSingleton(IAnalysisRepository)
     filing_repository = providers.AbstractSingleton(IFilingRepository)
     company_repository = providers.AbstractSingleton(ICompanyRepository)
+
+    # Query services (wired from infrastructure)
+    analysis_query_service = providers.Dependency()
+    company_query_service = providers.Dependency()
+    filing_query_service = providers.Dependency()
 
     # Priority queue service for scheduling
     priority_queue = providers.Singleton(
@@ -220,6 +273,10 @@ class CQRSContainer(containers.DeclarativeContainer):
         priority_queue=priority_queue,
         queue_provider=providers_container.queue_provider,
         storage_provider=providers_container.storage_provider,
+        data_source_provider=providers_container.data_source_provider,
+        analysis_query_service_provider=analysis_query_service,
+        company_query_service_provider=company_query_service,
+        filing_query_service_provider=filing_query_service,
     )
 
     # Handler registration service

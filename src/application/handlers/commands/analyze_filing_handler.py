@@ -1,7 +1,7 @@
 """Handler for AnalyzeFilingCommand - orchestrates comprehensive SEC filing analysis."""
 
 import logging
-from uuid import UUID, uuid4
+from uuid import UUID
 
 from src.application.base.handlers import CommandHandler
 from src.application.handlers.schemas.commands.analyze_filing import (
@@ -12,14 +12,10 @@ from src.application.interfaces.repositories import (
     ICompanyRepository,
     IFilingRepository,
 )
-from src.application.services.priority_queue_service import (
-    DuplicationError,
-    PriorityQueueService,
+from src.application.services.background_task_coordinator import (
+    BackgroundTaskCoordinator,
 )
-from src.application.services.worker_service import WorkerService
-from src.shared.enums import TaskPriority, TaskStatus, UserTier
-from src.shared.models.task_data import TaskData
-from src.shared.types import Email, TaskId, Ticker, UserId
+from src.shared.types import UserId
 
 logger = logging.getLogger(__name__)
 
@@ -40,23 +36,20 @@ class AnalyzeFilingCommandHandler(CommandHandler[AnalyzeFilingCommand, TaskRespo
 
     def __init__(
         self,
-        priority_queue: PriorityQueueService,
-        worker_service: WorkerService,
         company_repository: ICompanyRepository,
         filing_repository: IFilingRepository,
+        background_task_coordinator: BackgroundTaskCoordinator,
     ) -> None:
         """Initialize the handler with required dependencies.
 
         Args:
-            priority_queue: Priority queue service for task routing
-            worker_service: Service for worker operations
             company_repository: Repository for company data access
             filing_repository: Repository for filing data access
+            background_task_coordinator: Coordinator for queuing and dispatching tasks
         """
-        self.priority_queue = priority_queue
-        self.worker_service = worker_service
         self.company_repository = company_repository
         self.filing_repository = filing_repository
+        self.background_task_coordinator = background_task_coordinator
 
     async def handle(self, command: AnalyzeFilingCommand) -> TaskResponse:
         """Process the analyze filing command.
@@ -111,88 +104,21 @@ class AnalyzeFilingCommandHandler(CommandHandler[AnalyzeFilingCommand, TaskRespo
                 f"with CIK {command.company_cik}"
             )
 
-        # Create TaskData for queue processing
-        task_id = TaskId(uuid4())
-        user_id = UserId(UUID(command.user_id)) if command.user_id else UserId(uuid4())
+        explicit_user_id = None
+        if command.user_id:
+            try:
+                explicit_user_id = UserId(UUID(command.user_id))
+            except (ValueError, TypeError):
+                logger.warning(
+                    "Received invalid user_id on AnalyzeFilingCommand",
+                    extra={"user_id": command.user_id},
+                )
 
-        # Ensure we have a valid email for deduplication and notifications
-        user_email_value = (command.user_email or f"user-{user_id}@aperilex.local").lower()
-        task_email = Email(value=user_email_value)
-
-        # Create deduplication ID from filing and user email
-        deduplication_id = f"{filing.id}:{task_email.value}"
-
-        ticker = company.ticker or Ticker(value=str(company.cik.value)[:5].upper())
-        correlation_id = str(uuid4())
-
-        task_data = TaskData(
-            task_id=task_id,
-            filing_id=filing.id,
-            user_id=user_id,
-            email=task_email,
-            user_tier=UserTier.BASIC,  # TODO: Resolve from authenticated context
-            ticker=ticker,
-            filing_type=filing.filing_type,
-            priority=TaskPriority.NORMAL,
-            status=TaskStatus.PENDING,
-            deduplication_id=deduplication_id,
-            metadata={
-                "analysis_template": command.analysis_template.value,
-                "force_reprocess": str(command.force_reprocess),
-                "company_name": company.name,
-                "user_email": task_email.value,
-            },
-            source="API",
-            correlation_id=correlation_id,
-        )
-
-
-        try:
-            message_id = await self.priority_queue.send_task(task_data)
-        except DuplicationError:
-            logger.info(
-                "Duplicate analysis task suppressed for filing %s",
-                filing.id,
-                extra={
-                    "deduplication_id": deduplication_id,
-                    "user_email": task_email.value,
-                },
-            )
-            return TaskResponse(
-                task_id=str(task_id),
-                status="duplicate",
-                result={
-                    "filing_id": str(filing.id),
-                    "company_cik": str(command.company_cik),
-                    "accession_number": str(command.accession_number),
-                    "analysis_template": command.analysis_template.value,
-                    "message": "Analysis already queued for this user and filing",
-                },
-            )
-
-        logger.info(
-            "Successfully queued analysis task %s for filing %s",
-            task_id,
-            filing.id,
-            extra={
-                "queue_message_id": str(message_id),
-                "company_id": str(company.id),
-                "deduplication_id": deduplication_id,
-            },
-        )
-
-        return TaskResponse(
-            task_id=str(task_id),
-            status=TaskStatus.PENDING.value,
-            result={
-                "filing_id": str(filing.id),
-                "company_cik": str(command.company_cik),
-                "accession_number": str(command.accession_number),
-                "analysis_template": command.analysis_template.value,
-                "queue_message_id": str(message_id),
-            },
-            started_at=task_data.created_at,
-            current_step="Task queued for processing",
+        return await self.background_task_coordinator.queue_filing_analysis(
+            command=command,
+            company=company,
+            filing=filing,
+            user_id=explicit_user_id,
         )
 
     @classmethod

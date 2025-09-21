@@ -13,6 +13,11 @@ from src.infrastructure.database.postgres import PostgresDatabaseProvider
 from src.infrastructure.providers.rate_limiting.in_memory import (
     InMemoryRateLimitingProvider,
 )
+from src.infrastructure.query_services import (
+    AnalysisQueryService,
+    CompanyQueryService,
+    FilingQueryService,
+)
 from src.shared.config.providers import PostgresConfig, RateLimitConfig
 
 
@@ -39,6 +44,12 @@ class InfrastructureWiring(containers.DeclarativeContainer):
     # Database Session Factory (reuse existing session factory)
     db_session_factory = providers.Singleton(
         lambda: async_session_maker,
+    )
+
+    # Helper to instantiate lightweight sessions for query services
+    session_provider = providers.Callable(
+        lambda factory: factory(),
+        db_session_factory,
     )
 
     # PostgreSQL configuration
@@ -119,6 +130,22 @@ class InfrastructureWiring(containers.DeclarativeContainer):
     rate_limiting_provider = providers.Singleton(
         InMemoryRateLimitingProvider,
         config=rate_limit_config,
+    )
+
+    # Query service providers (factories to ensure scoped sessions per request)
+    analysis_query_service = providers.Factory(
+        AnalysisQueryService,
+        session=session_provider,
+    )
+
+    filing_query_service = providers.Factory(
+        FilingQueryService,
+        session=session_provider,
+    )
+
+    company_query_service = providers.Factory(
+        CompanyQueryService,
+        session=session_provider,
     )
 
     # Override the abstract database provider in ProvidersContainer
