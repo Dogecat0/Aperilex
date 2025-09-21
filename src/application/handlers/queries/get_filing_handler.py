@@ -1,6 +1,8 @@
 """Handler for GetFilingQuery - retrieves specific filing details."""
 
 import logging
+from datetime import datetime
+from typing import cast
 
 from src.application.base.exceptions import ResourceNotFoundError
 from src.application.base.handlers import QueryHandler
@@ -10,6 +12,8 @@ from src.application.interfaces.repositories import (
     IAnalysisRepository,
     IFilingRepository,
 )
+from src.application.mappers import filing_data_to_domain
+from src.shared.types import FilingId
 
 logger = logging.getLogger(__name__)
 
@@ -67,7 +71,8 @@ class GetFilingQueryHandler(QueryHandler[GetFilingQuery, FilingResponse]):
                 raise ValueError("Filing ID is required")
 
             # Retrieve filing entity from repository
-            filing = await self.filing_repository.get_by_id(query.filing_id)
+            filing_id = FilingId(query.filing_id)
+            filing = await self.filing_repository.get_by_id(filing_id)
 
             if not filing:
                 raise ResourceNotFoundError("Filing", str(query.filing_id))
@@ -78,19 +83,30 @@ class GetFilingQueryHandler(QueryHandler[GetFilingQuery, FilingResponse]):
 
             if query.include_analyses:
                 # Get count of analyses for this filing
-                analyses = await self.analysis_repository.get_by_filing_id(
-                    query.filing_id  # Already validated as not None above
-                )
+                analyses = await self.analysis_repository.get_by_filing_id(filing_id)
                 analyses_count = len(analyses) if analyses else 0
 
                 # Get latest analysis date
                 if analyses:
-                    latest_analysis = max(analyses, key=lambda a: a.created_at)
-                    latest_analysis_date = latest_analysis.created_at.date()
+                    timestamped_analyses = [
+                        analysis
+                        for analysis in analyses
+                        if analysis.created_at is not None
+                    ]
+                    if timestamped_analyses:
+                        latest_analysis = max(
+                            timestamped_analyses,
+                            key=lambda analysis_data: cast(
+                                datetime, analysis_data.created_at
+                            ),
+                        )
+                        latest_created_at = cast(datetime, latest_analysis.created_at)
+                        latest_analysis_date = latest_created_at.date()
 
             # Convert to response DTO
+            filing_domain = filing_data_to_domain(filing)
             response = FilingResponse.from_domain(
-                filing,
+                filing_domain,
                 analyses_count=analyses_count,
                 latest_analysis_date=latest_analysis_date,
             )

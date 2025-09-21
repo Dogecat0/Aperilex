@@ -1,6 +1,8 @@
 """Handler for GetAnalysisQuery - retrieves specific analysis details."""
 
+import json
 import logging
+from typing import Any
 
 from src.application.base.exceptions import ResourceNotFoundError
 from src.application.base.handlers import QueryHandler
@@ -10,6 +12,8 @@ from src.application.handlers.schemas.responses.analysis_response import (
 )
 from src.application.interfaces.repositories import IAnalysisRepository
 from src.application.interfaces.storage import IStorageProvider
+from src.application.mappers import analysis_data_to_domain
+from src.shared.types import AnalysisId
 
 logger = logging.getLogger(__name__)
 
@@ -68,23 +72,13 @@ class GetAnalysisQueryHandler(QueryHandler[GetAnalysisQuery, AnalysisResponse]):
                 raise ValueError("Analysis ID is required")
 
             # Retrieve analysis entity from repository
-            analysis = await self.analysis_repository.get_by_id(query.analysis_id)
+            analysis_id = AnalysisId(query.analysis_id)
+            analysis = await self.analysis_repository.get_by_id(analysis_id)
 
             if not analysis:
                 raise ResourceNotFoundError("Analysis", str(query.analysis_id))
 
-            # Retrieve results from storage
-            # TODO: Implement proper storage key derivation from analysis metadata
-            results = None
-            try:
-                # For now, we'll need to get the storage key from analysis metadata
-                # This should be stored in the analysis result or metadata
-                if analysis.result and "storage_key" in analysis.result:
-                    storage_key = analysis.result["storage_key"]
-                    results = await self.storage_provider.get_analysis(storage_key)
-            except Exception as e:
-                logger.warning(f"Failed to retrieve results from storage: {e}")
-                results = None
+            results = await _load_analysis_results(self.storage_provider, analysis_id)
 
             # With transactional consistency, this should rarely happen
             # If no results found in storage but metadata exists, it indicates:
@@ -98,7 +92,11 @@ class GetAnalysisQueryHandler(QueryHandler[GetAnalysisQuery, AnalysisResponse]):
                     extra={
                         "analysis_id": str(query.analysis_id),
                         "filing_id": str(analysis.filing_id),
-                        "created_at": analysis.created_at.isoformat(),
+                        "created_at": (
+                            analysis.created_at.isoformat()
+                            if analysis.created_at is not None
+                            else "unknown"
+                        ),
                     },
                 )
                 # Return a more informative error
@@ -108,13 +106,15 @@ class GetAnalysisQueryHandler(QueryHandler[GetAnalysisQuery, AnalysisResponse]):
                 )
 
             # Convert to response DTO based on requested detail level
+            analysis_domain = analysis_data_to_domain(analysis)
+
             if query.include_full_results:
                 response = AnalysisResponse.from_domain(
-                    analysis, include_full_results=True, results=results
+                    analysis_domain, include_full_results=True, results=results
                 )
             else:
                 response = AnalysisResponse.from_domain(
-                    analysis, include_full_results=False, results=results
+                    analysis_domain, include_full_results=False, results=results
                 )
 
             logger.info(
@@ -144,3 +144,44 @@ class GetAnalysisQueryHandler(QueryHandler[GetAnalysisQuery, AnalysisResponse]):
     def query_type(cls) -> type[GetAnalysisQuery]:
         """Return the query type this handler processes."""
         return GetAnalysisQuery
+
+
+async def _load_analysis_results(
+    storage_provider: IStorageProvider, analysis_id: AnalysisId
+) -> dict[str, Any] | None:
+    """Fetch and deserialize analysis results from the storage provider."""
+    try:
+        storage_object = await storage_provider.get_analysis(analysis_id)
+    except Exception as exc:  # pragma: no cover - storage backend specific
+        logger.warning(
+            "Failed to retrieve analysis %s from storage: %s", analysis_id, exc
+        )
+        return None
+
+    raw_data = storage_object.data
+    if not raw_data:
+        return None
+
+    try:
+        decoded = raw_data.decode("utf-8")
+    except UnicodeDecodeError as exc:  # pragma: no cover - unexpected payload
+        logger.warning(
+            "Failed to decode analysis %s payload as UTF-8: %s", analysis_id, exc
+        )
+        return None
+
+    try:
+        parsed = json.loads(decoded)
+    except json.JSONDecodeError as exc:  # pragma: no cover - unexpected payload
+        logger.warning(
+            "Failed to parse analysis %s payload as JSON: %s", analysis_id, exc
+        )
+        return None
+
+    if isinstance(parsed, dict):
+        return parsed
+
+    logger.warning(
+        "Unexpected analysis payload type %s for analysis %s", type(parsed), analysis_id
+    )
+    return None

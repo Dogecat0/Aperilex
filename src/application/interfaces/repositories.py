@@ -11,7 +11,7 @@ from typing import Any, Protocol, runtime_checkable
 
 from pydantic import BaseModel, Field
 
-from src.shared.enums import AnalysisStatus, FilingType
+from src.shared.enums import AnalysisStatus, FilingType, TaskStatus
 from src.shared.types import (
     CIK,
     AccessionNumber,
@@ -37,7 +37,7 @@ class CompanyData(BaseModel):
     cik: CIK
     name: str
     ticker: Ticker | None = None
-    metadata: dict[str, str | int | float | bool] = {}
+    metadata: dict[str, str | int | float | bool] = Field(default_factory=dict)
     created_at: datetime | None = None
     updated_at: datetime | None = None
 
@@ -55,7 +55,15 @@ class FilingData(BaseModel):
     filing_type: FilingType
     accession_number: AccessionNumber
     filing_date: datetime
-    metadata: dict[str, str | int | float | bool] = {}
+    processing_status: TaskStatus = Field(
+        default=TaskStatus.PENDING,
+        description="Current processing status stored as TaskStatus",
+    )
+    processing_error: str | None = Field(
+        default=None,
+        description="Processing error message if filing processing failed",
+    )
+    metadata: dict[str, str | int | float | bool] = Field(default_factory=dict)
     created_at: datetime | None = None
     updated_at: datetime | None = None
 
@@ -73,9 +81,9 @@ class AnalysisData(BaseModel):
     user_id: UserId
     status: AnalysisStatus
     analysis_type: str
-    result: dict[str, Any] = {}
+    result: dict[str, Any] = Field(default_factory=dict)
     error_message: str | None = None
-    metadata: dict[str, str | int | float | bool] = {}
+    metadata: dict[str, str | int | float | bool] = Field(default_factory=dict)
     created_at: datetime | None = None
     updated_at: datetime | None = None
     completed_at: datetime | None = None

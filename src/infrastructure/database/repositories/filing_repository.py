@@ -1,5 +1,6 @@
 """Repository for Filing entities."""
 
+import logging
 from datetime import date, datetime
 from typing import Any, cast
 
@@ -13,6 +14,8 @@ from src.infrastructure.database.models import Company as CompanyModel
 from src.infrastructure.database.models import Filing as FilingModel
 from src.shared.enums import FilingType, TaskStatus
 from src.shared.types import AccessionNumber, CompanyId, FilingId, Ticker
+
+logger = logging.getLogger(__name__)
 
 
 class FilingRepository(IFilingRepository):
@@ -37,6 +40,16 @@ class FilingRepository(IFilingRepository):
         Returns:
             Filing data for interface
         """
+        try:
+            task_status = TaskStatus(model.processing_status)
+        except ValueError:
+            logger.warning(
+                "Unknown processing status '%s' on filing %s; defaulting to PENDING",
+                model.processing_status,
+                model.id,
+            )
+            task_status = TaskStatus.PENDING
+
         return FilingData(
             id=FilingId(model.id),
             company_id=CompanyId(model.company_id),
@@ -48,6 +61,8 @@ class FilingRepository(IFilingRepository):
                 and not isinstance(model.filing_date, datetime)
                 else model.filing_date
             ),
+            processing_status=task_status,
+            processing_error=model.processing_error,
             metadata=model.meta_data or {},
             created_at=model.created_at if hasattr(model, "created_at") else None,
             updated_at=model.updated_at if hasattr(model, "updated_at") else None,
@@ -68,7 +83,8 @@ class FilingRepository(IFilingRepository):
             accession_number=str(data.accession_number.value),
             filing_type=data.filing_type.value,
             filing_date=data.filing_date,
-            processing_status=TaskStatus.PENDING.value,
+            processing_status=data.processing_status.value,
+            processing_error=data.processing_error,
             meta_data=dict(data.metadata) if data.metadata else {},
         )
 
@@ -282,9 +298,7 @@ class FilingRepository(IFilingRepository):
         )
 
         if filing_type and company_id:
-            latest_key = (
-                f"filing:latest:company:{company_id}:type:{filing_type}"
-            )
+            latest_key = f"filing:latest:company:{company_id}:type:{filing_type}"
             self.cache_manager.invalidate_key(self.cache_region, latest_key)
 
         return True

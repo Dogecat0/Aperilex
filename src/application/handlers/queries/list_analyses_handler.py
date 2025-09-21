@@ -12,6 +12,7 @@ from src.application.handlers.schemas.responses.paginated_response import (
     PaginatedResponse,
 )
 from src.application.interfaces.repositories import IAnalysisRepository
+from src.application.mappers import analysis_data_to_domain
 
 logger = logging.getLogger(__name__)
 
@@ -123,9 +124,15 @@ class ListAnalysesQueryHandler(
             filters_applied = ", ".join(filter_parts) if filter_parts else "none"
 
             # Get total count for pagination using determined analysis types
+            repository_analysis_types = (
+                [analysis_type.value for analysis_type in filter_analysis_types]
+                if filter_analysis_types
+                else None
+            )
+
             total_count = await self.analysis_repository.count_with_filters(
                 company_cik=query.company_cik,
-                analysis_types=filter_analysis_types,
+                analysis_types=repository_analysis_types,
                 created_from=query.created_from,
                 created_to=query.created_to,
                 min_confidence_score=query.min_confidence_score,
@@ -143,7 +150,7 @@ class ListAnalysesQueryHandler(
             # Get paginated results using determined analysis types
             analyses = await self.analysis_repository.find_with_filters(
                 company_cik=query.company_cik,
-                analysis_types=filter_analysis_types,
+                analysis_types=repository_analysis_types,
                 created_from=query.created_from,
                 created_to=query.created_to,
                 min_confidence_score=query.min_confidence_score,
@@ -155,7 +162,10 @@ class ListAnalysesQueryHandler(
 
             # Convert to response DTOs (summary version for list view)
             analysis_responses = [
-                AnalysisResponse.summary_from_domain(analysis) for analysis in analyses
+                AnalysisResponse.summary_from_domain(
+                    analysis_data_to_domain(analysis)
+                )
+                for analysis in analyses
             ]
 
             # Create paginated response
