@@ -2,7 +2,9 @@
 
 from typing import Any
 
-from src.application.schemas.commands.analyze_filing import AnalysisTemplate
+from src.application.handlers.schemas.commands.analyze_filing import (
+    AnalysisTemplate,
+)
 
 # Simple template configuration - replaces complex class
 TEMPLATE_SCHEMAS = {

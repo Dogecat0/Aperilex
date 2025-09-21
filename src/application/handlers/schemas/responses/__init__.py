@@ -14,11 +14,21 @@ Response DTOs available:
 
 # ruff: noqa: I001
 
-from src.application.handlers.schemas.responses.analysis_response import AnalysisResponse
+from src.application.handlers.schemas.responses.analysis_response import (
+    AnalysisResponse,
+)
 from src.application.handlers.schemas.responses.error_response import ErrorResponse
 from src.application.handlers.schemas.responses.filing_response import FilingResponse
-from src.application.handlers.schemas.responses.paginated_response import PaginatedResponse
+from src.application.handlers.schemas.responses.paginated_response import (
+    PaginatedResponse,
+)
 from src.application.handlers.schemas.responses.task_response import TaskResponse
+from src.application.handlers.schemas.responses.templates_response import (
+    TemplatesResponse,
+)
+from src.application.handlers.schemas.responses.filing_search_response import (
+    FilingSearchResult,
+)
 
 __all__ = [
     "FilingResponse",
@@ -26,4 +36,6 @@ __all__ = [
     "TaskResponse",
     "ErrorResponse",
     "PaginatedResponse",
+    "TemplatesResponse",
+    "FilingSearchResult",
 ]

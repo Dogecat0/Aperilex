@@ -1,11 +1,15 @@
 """Response schema for analysis templates information."""
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from pydantic import Field
 
 from src.application.base.schema import SchemaVersionedModel
-from src.application.services.analysis_template_service import AnalysisTemplateService
+
+if TYPE_CHECKING:
+    from src.application.services.analysis_template_service import (
+        AnalysisTemplateService,
+    )
 
 
 class TemplatesResponse(SchemaVersionedModel):
@@ -23,7 +27,7 @@ class TemplatesResponse(SchemaVersionedModel):
 
     @classmethod
     def from_template_service(
-        cls, template_service: AnalysisTemplateService
+        cls, template_service: "AnalysisTemplateService"
     ) -> "TemplatesResponse":
         """Create response from template service data.
 

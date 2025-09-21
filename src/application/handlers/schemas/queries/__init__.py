@@ -17,11 +17,21 @@ Queries available:
 from src.application.handlers.schemas.queries.get_analysis import GetAnalysisQuery
 from src.application.handlers.schemas.queries.get_filing import GetFilingQuery
 from src.application.handlers.schemas.queries.list_analyses import ListAnalysesQuery
-from src.application.handlers.schemas.queries.list_company_filings import ListCompanyFilingsQuery
+from src.application.handlers.schemas.queries.get_templates import GetTemplatesQuery
+from src.application.handlers.schemas.queries.list_company_filings import (
+    ListCompanyFilingsQuery,
+    FilingSortField,
+    SortDirection,
+)
+from src.application.handlers.schemas.queries.search_filings import SearchFilingsQuery
 
 __all__ = [
     "GetFilingQuery",
     "GetAnalysisQuery",
     "ListAnalysesQuery",
+    "GetTemplatesQuery",
     "ListCompanyFilingsQuery",
+    "FilingSortField",
+    "SearchFilingsQuery",
+    "SortDirection",
 ]

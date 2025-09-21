@@ -1,11 +1,11 @@
-"""Filing Search Response DTO for search results from Edgar API."""
+"""Filing Search Response DTO for search results from external providers."""
 
+from collections.abc import Mapping
 from datetime import date
 
 from pydantic import Field
 
 from src.application.base.schema import SchemaVersionedModel
-from src.infrastructure.edgar.schemas.filing_data import FilingData
 
 
 class FilingSearchResult(SchemaVersionedModel):
@@ -41,7 +41,7 @@ class FilingSearchResult(SchemaVersionedModel):
     )
 
     @classmethod
-    def from_edgar_data(cls, filing_data: FilingData) -> "FilingSearchResult":
+    def from_edgar_data(cls, filing_data: Mapping[str, object]) -> "FilingSearchResult":
         """Create FilingSearchResult from Edgar FilingData.
 
         Args:
@@ -51,28 +51,36 @@ class FilingSearchResult(SchemaVersionedModel):
             FilingSearchResult with key metadata for search display
         """
         # Parse filing date from string to date object
+        raw_date = filing_data.get("filing_date")
+
         try:
-            if isinstance(filing_data.filing_date, str):
-                filing_date = date.fromisoformat(filing_data.filing_date)
+            if isinstance(raw_date, str):
+                filing_date = date.fromisoformat(raw_date)
+            elif isinstance(raw_date, date):
+                filing_date = raw_date
             else:
-                filing_date = filing_data.filing_date
+                raise TypeError("Unsupported filing_date type")
         except (ValueError, TypeError):
             # Fallback to today's date if parsing fails
             from datetime import date as date_module
 
             filing_date = date_module.today()
 
+        ticker_raw = filing_data.get("ticker")
+        ticker = str(ticker_raw) if ticker_raw not in (None, "") else None
+
+        sections = filing_data.get("sections") or []
+        sections_count = len(sections) if isinstance(sections, list) else 0
+
         return cls(
-            accession_number=filing_data.accession_number,
-            filing_type=filing_data.filing_type,
+            accession_number=str(filing_data.get("accession_number", "")),
+            filing_type=str(filing_data.get("filing_type", "")),
             filing_date=filing_date,
-            company_name=filing_data.company_name,
-            cik=filing_data.cik,
-            ticker=filing_data.ticker,
-            has_content=bool(
-                filing_data.content_text and filing_data.content_text.strip()
-            ),
-            sections_count=len(filing_data.sections) if filing_data.sections else 0,
+            company_name=str(filing_data.get("company_name", "")),
+            cik=str(filing_data.get("cik", "")),
+            ticker=ticker,
+            has_content=bool(str(filing_data.get("content_text", "")).strip()),
+            sections_count=sections_count,
         )
 
     @property

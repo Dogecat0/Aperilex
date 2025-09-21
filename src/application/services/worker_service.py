@@ -13,6 +13,7 @@ from typing import Any
 
 from pydantic import BaseModel
 
+from src.application.handlers.schemas.commands.analyze_filing import AnalysisTemplate
 from src.application.interfaces.datasource import FilingContent, IDataSourceProvider
 from src.application.interfaces.events import IEventPublisher
 from src.application.interfaces.llm import ILLMProvider, LLMRequest, LLMResponse
@@ -20,7 +21,6 @@ from src.application.interfaces.queue import IQueueProvider
 from src.application.interfaces.repositories import IRepositoryFactory
 from src.application.interfaces.storage import IStorageProvider, StorageRequest
 from src.application.interfaces.worker import IWorkerProvider, WorkerContext
-from src.application.schemas.commands.analyze_filing import AnalysisTemplate
 from src.shared.enums import AnalysisStatus, FilingType, TaskStatus, UserTier
 from src.shared.models import (
     AnalysisRequest,

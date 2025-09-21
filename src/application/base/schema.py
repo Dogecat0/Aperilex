@@ -16,7 +16,7 @@ class SchemaVersionedModel(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
 
 
-class SchemaVersionedGenericModel(GenericModel):
+class SchemaVersionedGenericModel[T_co](GenericModel):
     """Generic base model variant with schema versioning."""
 
     schema_version: int = Field(
