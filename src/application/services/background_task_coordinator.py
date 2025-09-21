@@ -1,48 +1,72 @@
-"""Background task coordinator for managing long-running analysis operations using new messaging system."""
+"""
+Background task coordinator for managing long-running analysis operations.
 
-import logging
-from uuid import UUID, uuid4
+This service has been refactored to use provider interfaces and WorkerService.
+"""
 
-from src.application.schemas.commands.analyze_filing import AnalyzeFilingCommand
-from src.application.schemas.responses.task_response import TaskResponse
-from src.application.services.analysis_orchestrator import AnalysisOrchestrator
-from src.application.services.task_service import TaskService
-from src.infrastructure.messaging import task_service as messaging_task_service
+import uuid
+from datetime import UTC, datetime
 
-logger = logging.getLogger(__name__)
+from src.application.handlers.schemas.commands.analyze_filing import (
+    AnalyzeFilingCommand,
+)
+from src.application.handlers.schemas.responses.task_response import TaskResponse
+from src.application.interfaces.events import (
+    IEventPublisher,
+    TaskQueuedEvent,
+)
+from src.application.interfaces.worker import IWorkerProvider
+from src.application.services.priority_queue_service import (
+    DuplicationError,
+    PriorityQueueService,
+)
+from src.application.services.worker_service import WorkerService
+from src.shared.enums import FilingType, TaskPriority, TaskStatus, UserTier
+from src.shared.models import TaskData
+from src.shared.types import Email, FilingId, TaskId, Ticker, UserId
+from src.shared.utils.logging import get_logger
+
+logger = get_logger(__name__)
 
 
 class BackgroundTaskCoordinator:
-    """Coordinator for managing background analysis tasks using the new messaging system.
+    """
+    Coordinator for managing background analysis tasks.
 
-    This service orchestrates long-running analysis operations by:
-    - Creating task tracking entries
-    - Queuing tasks to the new messaging system
-    - Providing task status and result tracking
-    - Supporting both immediate and background execution
+    This service has been refactored to use provider interfaces instead of
+    direct dependencies. It coordinates task queuing through the
+    PriorityQueueService and delegates execution to WorkerService.
     """
 
     def __init__(
         self,
-        analysis_orchestrator: AnalysisOrchestrator,
-        task_service: TaskService,
+        worker_service: WorkerService,
+        priority_queue: PriorityQueueService,
+        worker_provider: IWorkerProvider,
+        event_publisher: IEventPublisher | None = None,
         use_background: bool = True,
     ) -> None:
-        """Initialize the background task coordinator.
+        """
+        Initialize the background task coordinator.
 
         Args:
-            analysis_orchestrator: Service for analysis workflow coordination
-            task_service: Service for task tracking and management
+            worker_service: Service for processing tasks
+            priority_queue: Priority queue service for task routing
+            worker_provider: Provider for worker operations
+            event_publisher: Optional event publisher for notifications
             use_background: Whether to use background task execution
         """
-        self.analysis_orchestrator = analysis_orchestrator
-        self.task_service = task_service
+        self.worker_service = worker_service
+        self.priority_queue = priority_queue
+        self.worker_provider = worker_provider
+        self.event_publisher = event_publisher
         self.use_background = use_background
 
     async def queue_filing_analysis(
         self, command: AnalyzeFilingCommand
     ) -> TaskResponse:
-        """Queue a filing analysis for background processing.
+        """
+        Queue a filing analysis for background processing.
 
         Args:
             command: Command containing analysis parameters
@@ -53,52 +77,88 @@ class BackgroundTaskCoordinator:
         try:
             logger.info(f"Queuing analysis for filing {command.filing_identifier}")
 
-            # Create task tracking entry
-            task_id = str(uuid4())
+            # Create task data from command
+            task_id = TaskId(uuid.uuid4())
+            filing_id = FilingId(uuid.uuid4())  # Generate filing ID
 
-            # Record task start in our tracking service
-            await self.task_service.create_task(
+            # Create user data (in production, get from authentication context)
+            user_id = UserId(uuid.uuid4())
+            user_email = Email(value="user@example.com")  # Get from auth context
+
+            # Map command data to task data
+            correlation_id = str(uuid.uuid4())
+
+            # Derive a ticker surrogate from the CIK when ticker is unavailable
+            ticker_value = '00001'
+            if command.company_cik is not None:
+                cik_value = str(command.company_cik.value).strip()
+                if cik_value:
+                    ticker_value = cik_value[:5].upper()
+
+            task_data = TaskData(
                 task_id=task_id,
-                task_type="filing_analysis",
-                parameters={
+                filing_id=filing_id,
+                user_id=user_id,
+                email=user_email,
+                user_tier=UserTier.BASIC,
+                ticker=Ticker(value=ticker_value),
+                filing_type=FilingType.FORM_10K,
+                priority=TaskPriority.NORMAL,
+                status=TaskStatus.PENDING,
+                retry_count=0,
+                metadata={
                     "company_cik": str(command.company_cik),
                     "accession_number": str(command.accession_number),
                     "analysis_template": command.analysis_template.value,
-                    "force_reprocess": command.force_reprocess,
-                    "llm_schemas": command.get_llm_schemas_to_use(),
+                    "force_reprocess": str(command.force_reprocess),
+                    "requested_by": str(user_email),
                 },
-                user_id=None,
+                deduplication_id=f"{filing_id}_{user_email.value}",
+                correlation_id=correlation_id,
             )
 
-            if self.use_background:
-                # Queue task using proper messaging system abstraction
-                result = await messaging_task_service.send_task(
-                    task_name="retrieve_and_analyze_filing",
-                    kwargs={
-                        "company_cik": str(command.company_cik),
-                        "accession_number": str(command.accession_number),
-                        "analysis_template": command.analysis_template.value,
-                        "force_reprocess": command.force_reprocess,
-                        "llm_schemas": command.get_llm_schemas_to_use(),
-                        "task_id": task_id,  # Pass task_id as parameter
-                    },
-                    queue="analysis_queue",
-                    task_id=UUID(task_id),  # Pass the same task_id to messaging system
-                )
 
-                # Update task with messaging task ID
-                await self.task_service.update_task_status(
-                    task_id=task_id,
-                    status="queued",
-                    metadata={"messaging_task_id": result.id},
-                )
+            if self.use_background:
+                try:
+                    message_id = await self.priority_queue.send_task(task_data)
+                except DuplicationError:
+                    logger.info(
+                        "Duplicate analysis task suppressed for filing %s",
+                        task_data.filing_id,
+                        extra={"user_email": str(task_data.email)},
+                    )
+                    return TaskResponse(
+                        task_id=str(task_id),
+                        status="duplicate",
+                        result={
+                            "message": "Analysis already queued recently",
+                            "filing_identifier": command.filing_identifier,
+                            "company_cik": str(command.company_cik),
+                            "accession_number": str(command.accession_number),
+                            "analysis_template": command.analysis_template.value,
+                        },
+                    )
+
+                # Publish event if we have a publisher
+                if self.event_publisher:
+                    event = TaskQueuedEvent(
+                        event_id=uuid.uuid4(),
+                        timestamp=datetime.now(UTC).isoformat(),
+                        task_id=task_id,
+                        filing_id=filing_id,
+                        user_id=user_id,
+                        priority=TaskPriority.NORMAL.value,
+                    )
+                    await self.event_publisher.publish(event)
 
                 logger.info(
-                    f"Analysis task queued with ID {task_id} (messaging ID: {result.id})"
+                    "Analysis task queued with ID %s (message ID: %s)",
+                    task_id,
+                    message_id,
                 )
 
                 return TaskResponse(
-                    task_id=task_id,
+                    task_id=str(task_id),
                     status="queued",
                     result={
                         "message": "Analysis queued for background processing",
@@ -106,68 +166,49 @@ class BackgroundTaskCoordinator:
                         "company_cik": str(command.company_cik),
                         "accession_number": str(command.accession_number),
                         "analysis_template": command.analysis_template.value,
-                        "messaging_task_id": result.id,
+                        "queue_message_id": str(message_id),
                     },
                 )
             else:
-                # Execute synchronously
+                # Execute synchronously using WorkerService
                 logger.info(f"Executing analysis synchronously for task {task_id}")
 
-                await self.task_service.update_task_status(
-                    task_id=task_id,
-                    status="running",
-                )
-
                 try:
-                    # Execute analysis directly
-                    analysis = (
-                        await self.analysis_orchestrator.orchestrate_filing_analysis(
-                            command
-                        )
-                    )
-
-                    # Update task as completed
-                    await self.task_service.update_task_status(
-                        task_id=task_id,
-                        status="completed",
-                        result={
-                            "analysis_id": str(analysis.id),
-                            "confidence_score": analysis.confidence_score,
-                            "results_summary": (
-                                analysis.results.get("summary")
-                                if analysis.results
-                                else None
-                            ),
-                        },
-                    )
+                    # Process task directly using WorkerService
+                    result = await self.worker_service.process_task(task_data)
 
                     logger.info(f"Analysis completed synchronously for task {task_id}")
 
                     return TaskResponse(
-                        task_id=task_id,
-                        status="completed",
+                        task_id=str(task_id),
+                        status="completed"
+                        if result.status == TaskStatus.COMPLETED
+                        else "failed",
                         result={
-                            "message": "Analysis completed successfully",
+                            "message": "Analysis completed successfully"
+                            if result.status == TaskStatus.COMPLETED
+                            else "Analysis failed",
                             "filing_identifier": command.filing_identifier,
                             "company_cik": str(command.company_cik),
                             "accession_number": str(command.accession_number),
-                            "analysis_id": str(analysis.id),
-                            "confidence_score": analysis.confidence_score,
+                            "analysis_id": str(result.analysis_id)
+                            if result.analysis_id
+                            else None,
+                            "storage_key": str(result.storage_key)
+                            if result.storage_key
+                            else None,
+                            "processing_time_ms": result.processing_time_ms,
                         },
+                        error_message=result.error_message,
                     )
 
                 except Exception as e:
-                    # Update task as failed
-                    await self.task_service.update_task_status(
-                        task_id=task_id, status="failed", error=str(e)
-                    )
-
                     logger.error(
                         f"Analysis failed synchronously for task {task_id}: {e}"
                     )
 
                     return TaskResponse(
-                        task_id=task_id,
+                        task_id=str(task_id),
                         status="failed",
                         error_message=f"Analysis failed: {str(e)}",
                         result={
@@ -180,26 +221,15 @@ class BackgroundTaskCoordinator:
         except Exception as e:
             logger.error(f"Failed to queue analysis task: {e}")
 
-            # Try to update task status if task was created
-            try:
-                await self.task_service.update_task_status(
-                    task_id=task_id,
-                    status="failed",
-                    error=f"Failed to queue task: {str(e)}",
-                )
-            except Exception as update_error:
-                logger.debug(
-                    f"Could not update task status (task might not have been created yet): {update_error}"
-                )
-
             return TaskResponse(
-                task_id=task_id if "task_id" in locals() else "unknown",
+                task_id=str(task_id) if "task_id" in locals() else "unknown",
                 status="failed",
                 error_message=f"Failed to queue analysis: {str(e)}",
             )
 
     async def get_task_status(self, task_id: str) -> TaskResponse:
-        """Get the status of a background task.
+        """
+        Get the status of a background task.
 
         Args:
             task_id: Task identifier
@@ -208,10 +238,10 @@ class BackgroundTaskCoordinator:
             TaskResponse with current task status
         """
         try:
-            # Get task from our tracking service (it handles messaging sync internally)
-            task_data = await self.task_service.get_task_status(task_id)
+            # Get task status from worker provider
+            status = await self.worker_provider.get_task_status(TaskId(task_id))
 
-            if not task_data:
+            if not status:
                 return TaskResponse(
                     task_id=task_id,
                     status="not_found",
@@ -220,14 +250,13 @@ class BackgroundTaskCoordinator:
 
             return TaskResponse(
                 task_id=task_id,
-                status=task_data.get("status") or "unknown",
-                result=task_data.get("result"),
-                error_message=task_data.get("error"),
-                started_at=task_data.get("started_at"),
-                completed_at=task_data.get("completed_at"),
-                progress_percent=task_data.get("progress_percent"),
-                current_step=task_data.get("message", ""),
-                analysis_stage=task_data.get("analysis_stage"),
+                status=status.status.value,
+                result=status.result,
+                error_message=status.error,
+                started_at=status.started_at,
+                completed_at=status.completed_at,
+                progress_percent=status.progress_percent,
+                current_step=status.message or "",
             )
 
         except Exception as e:
@@ -239,7 +268,8 @@ class BackgroundTaskCoordinator:
             )
 
     async def cancel_task(self, task_id: str) -> TaskResponse:
-        """Cancel a background task.
+        """
+        Cancel a background task.
 
         Args:
             task_id: Task identifier
@@ -248,31 +278,21 @@ class BackgroundTaskCoordinator:
             TaskResponse with cancellation result
         """
         try:
-            # Get task from our tracking service
-            task_data = await self.task_service.get_task_status(task_id)
+            # Cancel task through worker provider
+            cancelled = await self.worker_provider.cancel_task(TaskId(task_id))
 
-            if not task_data:
+            if not cancelled:
                 return TaskResponse(
                     task_id=task_id,
                     status="not_found",
-                    error_message="Task not found",
+                    error_message="Task not found or could not be cancelled",
                 )
-
-            # Try to cancel messaging task (TaskService handles messaging integration)
-            messaging_cancelled = await self.task_service.cancel_messaging_task(task_id)
-
-            # Update our tracking to cancelled status
-            await self.task_service.update_task_status(
-                task_id=task_id, status="cancelled", message="Task cancelled by user"
-            )
 
             return TaskResponse(
                 task_id=task_id,
                 status="cancelled",
                 result={
                     "message": "Task cancelled successfully",
-                    "messaging_cancelled": messaging_cancelled,
-                    **task_data.get("metadata", {}),
                 },
             )
 
@@ -285,7 +305,8 @@ class BackgroundTaskCoordinator:
             )
 
     async def retry_failed_task(self, task_id: str) -> TaskResponse | None:
-        """Retry a failed task by creating a new task with same parameters.
+        """
+        Retry a failed task by creating a new task with same parameters.
 
         Args:
             task_id: ID of the failed task to retry
@@ -294,24 +315,24 @@ class BackgroundTaskCoordinator:
             TaskResponse for new retry task, or None if cannot retry
         """
         try:
-            # Get the original task
-            task_data = await self.task_service.get_task_status(task_id)
+            # Get task status from worker provider
+            status = await self.worker_provider.get_task_status(TaskId(task_id))
 
-            if not task_data:
+            if not status:
                 logger.warning(f"Cannot retry task {task_id}: task not found")
                 return None
 
-            if task_data.get("status") != "failed":
+            if status.status != TaskStatus.FAILED:
                 logger.warning(
-                    f"Cannot retry task {task_id}: task status is {task_data.get('status')}, not failed"
+                    f"Cannot retry task {task_id}: task status is {status.status}, not failed"
                 )
                 return None
 
-            # Extract original parameters
-            parameters = task_data.get("parameters", {})
+            # Extract original parameters from metadata
+            metadata = status.result or {}
 
             # Create new command from original parameters
-            from src.application.schemas.commands.analyze_filing import (
+            from src.application.handlers.schemas.commands.analyze_filing import (
                 AnalysisTemplate,
                 AnalyzeFilingCommand,
             )
@@ -320,14 +341,12 @@ class BackgroundTaskCoordinator:
 
             try:
                 command = AnalyzeFilingCommand(
-                    company_cik=CIK(parameters.get("company_cik")),
-                    accession_number=AccessionNumber(
-                        parameters.get("accession_number")
-                    ),
+                    company_cik=CIK(metadata.get("company_cik")),
+                    accession_number=AccessionNumber(metadata.get("accession_number")),
                     analysis_template=AnalysisTemplate(
-                        parameters.get("analysis_template")
+                        metadata.get("analysis_template")
                     ),
-                    force_reprocess=parameters.get("force_reprocess", False),
+                    force_reprocess=metadata.get("force_reprocess", False),
                 )
 
                 # Queue the retry as a new task

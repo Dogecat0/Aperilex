@@ -15,12 +15,17 @@ from pydantic import BaseModel
 
 from src.application.handlers.schemas.commands.analyze_filing import AnalysisTemplate
 from src.application.interfaces.datasource import FilingContent, IDataSourceProvider
-from src.application.interfaces.events import IEventPublisher
+from src.application.interfaces.events import (
+    AnalysisCompletedEvent,
+    AnalysisFailedEvent,
+    IEventPublisher,
+)
 from src.application.interfaces.llm import ILLMProvider, LLMRequest, LLMResponse
 from src.application.interfaces.queue import IQueueProvider
-from src.application.interfaces.repositories import IRepositoryFactory
+from src.application.interfaces.repositories import AnalysisData, IRepositoryFactory
 from src.application.interfaces.storage import IStorageProvider, StorageRequest
 from src.application.interfaces.worker import IWorkerProvider, WorkerContext
+from src.application.services.priority_queue_service import PriorityQueueService
 from src.shared.enums import AnalysisStatus, FilingType, TaskStatus, UserTier
 from src.shared.models import (
     AnalysisRequest,
@@ -115,6 +120,7 @@ class WorkerService:
         worker_provider: IWorkerProvider,
         repository_factory: IRepositoryFactory,
         event_publisher: IEventPublisher | None = None,
+        priority_queue: PriorityQueueService | None = None,
     ):
         """
         Initialize worker service with provider dependencies.
@@ -127,9 +133,11 @@ class WorkerService:
             worker_provider: Worker provider for execution context
             repository_factory: Factory for creating repository instances
             event_publisher: Optional event publisher for notifications
+            priority_queue: Priority queue service for scheduling and retries
         """
         self.storage = storage_provider
         self.queue = queue_provider
+        self.priority_queue = priority_queue
         self.llm = llm_provider
         self.datasource = datasource_provider
         self.worker = worker_provider
@@ -192,10 +200,13 @@ class WorkerService:
         """
         start_time = datetime.now(UTC)
         task_data = None
+        analysis_request: AnalysisRequest | None = None
 
         try:
             # Step 1: Version check and schema migration
             task_data = await self._validate_and_migrate_schema(message.task_data)
+            analysis_request = self._create_analysis_request(task_data)
+            await self._persist_analysis_started(analysis_request, task_data)
             await self._track_progress(progress_callback, 0.1, "Task validated")
 
             # Step 2: Validate filing access and check existence
@@ -225,8 +236,6 @@ class WorkerService:
 
             # Step 5: Perform LLM analysis with section extraction
             await self._track_progress(progress_callback, 0.5, "Starting LLM analysis")
-            analysis_request = self._create_analysis_request(task_data)
-
             # Extract sections based on template
             template = self._get_template_from_metadata(task_data.metadata)
             extracted_content = await self._extract_filing_sections(
@@ -243,18 +252,25 @@ class WorkerService:
 
             # Step 6: Store analysis result
             storage_key = await self._store_analysis(analysis_result)
+            await self._persist_analysis_completed(analysis_result, storage_key)
+            task_data.mark_completed()
             await self._track_progress(progress_callback, 0.8, "Analysis stored")
 
             # Step 7: Update database status with progress
             await self._update_task_status(
                 task_data.task_id,
                 TaskStatus.COMPLETED,
-                {"analysis_id": str(analysis_result.analysis_id)},
+                {
+                    "analysis_id": str(analysis_result.analysis_id),
+                    "storage_key": str(storage_key),
+                },
             )
             await self._track_progress(progress_callback, 0.9, "Database updated")
 
             # Step 8: Publish completion event
-            await self._publish_completion_event(task_data, analysis_result)
+            await self._publish_completion_event(
+                task_data, analysis_result, storage_key
+            )
             await self._track_progress(progress_callback, 1.0, "Analysis complete")
 
             # Step 9: Return result
@@ -272,8 +288,10 @@ class WorkerService:
             )
 
         except Exception as e:
+            error_text = str(e)
             logger.error(
-                f"Task processing failed: {str(e)}",
+                "Task processing failed: %s",
+                error_text,
                 extra={
                     "task_id": str(task_data.task_id) if task_data else None,
                     "correlation_id": context.correlation_id,
@@ -283,11 +301,37 @@ class WorkerService:
 
             # Handle retries with exponential backoff
             if task_data and task_data.should_retry:
-                return await self._handle_retry(task_data, context, str(e))
+                return await self._handle_retry(task_data, context, error_text)
+
+            # Persist failure state
+            if analysis_request is not None:
+                await self._persist_analysis_failed(
+                    analysis_request.analysis_id, error_text
+                )
+
+            if task_data:
+                task_data.mark_failed()
+                await self._update_task_status(
+                    task_data.task_id,
+                    TaskStatus.FAILED,
+                    {
+                        "analysis_id": str(analysis_request.analysis_id)
+                        if analysis_request
+                        else "",
+                        "error": error_text,
+                    },
+                )
 
             # Move to dead letter queue if max retries exceeded
             if message.should_move_to_dlq:
-                await self._move_to_dlq(message, str(e))
+                await self._move_to_dlq(message, error_text)
+
+            if task_data:
+                await self._publish_failure_event(
+                    task_data,
+                    analysis_request.analysis_id if analysis_request else None,
+                    error_text,
+                )
 
             processing_time = int(
                 (datetime.now(UTC) - start_time).total_seconds() * 1000
@@ -296,7 +340,7 @@ class WorkerService:
             return TaskResult(
                 task_id=task_data.task_id if task_data else TaskId(uuid.uuid4()),
                 status=TaskStatus.FAILED,
-                error_message=str(e),
+                error_message=error_text,
                 processing_time_ms=processing_time,
                 retry_count=task_data.retry_count if task_data else 0,
             )
@@ -525,6 +569,96 @@ class WorkerService:
         except Exception as e:
             raise LLMProcessingError(f"LLM analysis failed: {str(e)}") from e
 
+    async def _persist_analysis_started(
+        self,
+        request: AnalysisRequest,
+        task_data: TaskData,
+    ) -> None:
+        """Persist an analysis entry in an ANALYZING state."""
+        try:
+            analysis_repo = await self.repository_factory.get_analysis_repository()
+            exists = await analysis_repo.exists(request.analysis_id)
+
+            metadata = dict(task_data.metadata)
+            metadata.update(
+                {
+                    "task_id": str(request.task_id),
+                    "correlation_id": request.correlation_id or "",
+                    "user_email": str(task_data.email),
+                }
+            )
+
+            analysis_data = AnalysisData(
+                id=request.analysis_id,
+                filing_id=request.filing_id,
+                user_id=request.user_id,
+                status=AnalysisStatus.ANALYZING,
+                analysis_type=request.analysis_type.value,
+                metadata=metadata,
+                created_at=datetime.now(UTC),
+                updated_at=datetime.now(UTC),
+            )
+
+            if exists:
+                await analysis_repo.update_status(
+                    request.analysis_id, AnalysisStatus.ANALYZING
+                )
+            else:
+                await analysis_repo.create(analysis_data)
+        except Exception as exc:  # noqa: BLE001 - repository errors logged only
+            logger.warning(
+                "Failed to persist analysis start",
+                extra={
+                    "analysis_id": str(request.analysis_id),
+                    "error": str(exc),
+                },
+            )
+
+    async def _persist_analysis_completed(
+        self,
+        result: AnalysisResult,
+        storage_key: StorageKey,
+    ) -> None:
+        """Persist analysis completion result and status."""
+        try:
+            analysis_repo = await self.repository_factory.get_analysis_repository()
+            result_payload = result.dict()
+            result_payload["storage_key"] = str(storage_key)
+            await analysis_repo.save_result(result.analysis_id, result_payload)
+            await analysis_repo.update_status(
+                result.analysis_id, AnalysisStatus.COMPLETED
+            )
+        except Exception as exc:  # noqa: BLE001 - repository errors logged only
+            logger.warning(
+                "Failed to persist analysis completion",
+                extra={
+                    "analysis_id": str(result.analysis_id),
+                    "error": str(exc),
+                },
+            )
+
+    async def _persist_analysis_failed(
+        self,
+        analysis_id: AnalysisId,
+        error_message: str,
+    ) -> None:
+        """Persist failure status for an analysis."""
+        try:
+            analysis_repo = await self.repository_factory.get_analysis_repository()
+            await analysis_repo.update_status(
+                analysis_id,
+                AnalysisStatus.ERROR,
+                error_message=error_message,
+            )
+        except Exception as exc:  # noqa: BLE001
+            logger.error(
+                "Failed to persist analysis failure",
+                extra={
+                    "analysis_id": str(analysis_id),
+                    "error": str(exc),
+                },
+            )
+
     async def _store_analysis(self, result: AnalysisResult) -> StorageKey:
         """
         Store analysis result.
@@ -590,28 +724,78 @@ class WorkerService:
         self,
         task_data: TaskData,
         result: AnalysisResult,
+        storage_key: StorageKey,
     ) -> None:
-        """
-        Publish task completion event for notifications.
-
-        Args:
-            task_data: Original task data
-            result: Analysis result
-        """
-        event = {
-            "event_type": "task.completed",
+        """Publish task completion event for notifications."""
+        event_payload = {
             "task_id": str(task_data.task_id),
             "user_id": str(task_data.user_id),
             "email": str(task_data.email),
             "analysis_id": str(result.analysis_id),
             "filing_id": str(result.filing_id),
             "status": "success" if result.is_successful else "failed",
+            "storage_key": str(storage_key),
             "timestamp": datetime.now(UTC).isoformat(),
         }
 
-        # Publish to event bus/queue
-        logger.info(f"Publishing completion event: {event}")
-        # Future: await self.event_bus.publish(event)
+        logger.info("Publishing completion event", extra=event_payload)
+
+        if not self.event_publisher:
+            return
+
+        event = AnalysisCompletedEvent(
+            event_id=uuid.uuid4(),
+            timestamp=event_payload["timestamp"],
+            correlation_id=result.correlation_id or task_data.correlation_id,
+            user_id=result.user_id,
+            analysis_id=result.analysis_id,
+            filing_id=result.filing_id,
+            task_id=task_data.task_id,
+            storage_key=str(storage_key),
+            processing_time_ms=result.processing_time_ms,
+            metadata={"status": result.status.value},
+        )
+
+        await self.event_publisher.publish(event)
+
+    async def _publish_failure_event(
+        self,
+        task_data: TaskData,
+        analysis_id: AnalysisId | None,
+        error_message: str,
+    ) -> None:
+        """Publish failure event when analysis cannot be completed."""
+        event_payload = {
+            "task_id": str(task_data.task_id),
+            "user_id": str(task_data.user_id),
+            "analysis_id": str(analysis_id) if analysis_id else None,
+            "filing_id": str(task_data.filing_id),
+            "error_message": error_message,
+            "retry_count": task_data.retry_count,
+            "timestamp": datetime.now(UTC).isoformat(),
+        }
+
+        logger.error(
+            "Publishing failure event",
+            extra=event_payload,
+        )
+
+        if not self.event_publisher:
+            return
+
+        event = AnalysisFailedEvent(
+            event_id=uuid.uuid4(),
+            timestamp=event_payload["timestamp"],
+            correlation_id=task_data.correlation_id,
+            analysis_id=analysis_id,
+            filing_id=task_data.filing_id,
+            task_id=task_data.task_id,
+            user_id=task_data.user_id,
+            error_message=error_message,
+            retry_count=task_data.retry_count,
+        )
+
+        await self.event_publisher.publish(event)
 
     async def _handle_retry(
         self,
@@ -644,8 +828,25 @@ class WorkerService:
             extra={"error": error_message},
         )
 
-        # Schedule retry (would typically re-queue the message)
+        # Schedule retry via priority queue when available
         task_data.scheduled_at = datetime.now(UTC) + timedelta(seconds=delay)
+
+        if self.priority_queue:
+            try:
+                await self.priority_queue.schedule_retry(task_data, delay)
+            except Exception as exc:  # noqa: BLE001
+                logger.error(
+                    "Failed to schedule retry via priority queue",
+                    extra={
+                        "task_id": str(task_data.task_id),
+                        "error": str(exc),
+                    },
+                )
+        else:
+            logger.warning(
+                "Priority queue not configured; retry will rely on legacy handler",
+                extra={"task_id": str(task_data.task_id)},
+            )
 
         return TaskResult(
             task_id=task_data.task_id,
@@ -673,7 +874,17 @@ class WorkerService:
             extra={"error": error_message},
         )
 
-        # Future: await self.queue.move_to_dlq(message)
+        if self.priority_queue:
+            await self.priority_queue.move_to_dead_letter(message, error_message)
+        elif message.receipt_handle:
+            try:
+                await self.queue.delete_task(message.receipt_handle)
+            except Exception as exc:  # noqa: BLE001
+                logger.error(
+                    "Failed to delete message %s while moving to DLQ",
+                    message.message_id,
+                    extra={"error": str(exc)},
+                )
 
     def _create_analysis_request(self, task_data: TaskData) -> AnalysisRequest:
         """

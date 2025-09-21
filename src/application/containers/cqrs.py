@@ -21,6 +21,7 @@ from src.application.services.application_service import ApplicationService
 from src.application.services.background_task_coordinator import (
     BackgroundTaskCoordinator,
 )
+from src.application.services.priority_queue_service import PriorityQueueService
 from src.application.services.worker_service import WorkerService
 
 
@@ -38,6 +39,7 @@ class HandlerFactory:
         background_task_coordinator: BackgroundTaskCoordinator,
         repository_factory: IRepositoryFactory,
         event_publisher: IEventPublisher,
+        priority_queue: PriorityQueueService,
         queue_provider: IQueueProvider,
         storage_provider: IStorageProvider,
     ) -> None:
@@ -49,6 +51,7 @@ class HandlerFactory:
             background_task_coordinator: Coordinator for background task flows
             repository_factory: Factory for repository creation per request
             event_publisher: Publisher for domain events
+            priority_queue: Priority queue service for task routing
             queue_provider: Provider for queue operations
             storage_provider: Provider for storage operations
         """
@@ -56,6 +59,7 @@ class HandlerFactory:
         self.background_task_coordinator = background_task_coordinator
         self.repository_factory = repository_factory
         self.event_publisher = event_publisher
+        self.priority_queue = priority_queue
         self.queue_provider = queue_provider
         self.storage_provider = storage_provider
 
@@ -79,6 +83,7 @@ class HandlerFactory:
             "filing_repository": filing_repo,
             "company_repository": company_repo,
             "event_publisher": self.event_publisher,
+            "priority_queue": self.priority_queue,
             "queue_provider": self.queue_provider,
             "storage_provider": self.storage_provider,
         }
@@ -173,6 +178,12 @@ class CQRSContainer(containers.DeclarativeContainer):
     filing_repository = providers.AbstractSingleton(IFilingRepository)
     company_repository = providers.AbstractSingleton(ICompanyRepository)
 
+    # Priority queue service for scheduling
+    priority_queue = providers.Singleton(
+        PriorityQueueService,
+        queue_provider=providers_container.queue_provider,
+    )
+
     # Worker service for processing
     worker_service = providers.Singleton(
         WorkerService,
@@ -183,13 +194,14 @@ class CQRSContainer(containers.DeclarativeContainer):
         worker_provider=providers_container.worker_provider,
         repository_factory=repository_factory,
         event_publisher=providers_container.event_publisher,
+        priority_queue=priority_queue,
     )
 
     # Background task coordinator for async processing workflows
     background_task_coordinator = providers.Singleton(
         BackgroundTaskCoordinator,
         worker_service=worker_service,
-        queue_provider=providers_container.queue_provider,
+        priority_queue=priority_queue,
         worker_provider=providers_container.worker_provider,
         event_publisher=providers_container.event_publisher,
     )
@@ -204,6 +216,7 @@ class CQRSContainer(containers.DeclarativeContainer):
         background_task_coordinator=background_task_coordinator,
         repository_factory=repository_factory,
         event_publisher=providers_container.event_publisher,
+        priority_queue=priority_queue,
         queue_provider=providers_container.queue_provider,
         storage_provider=providers_container.storage_provider,
     )

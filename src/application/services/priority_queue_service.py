@@ -13,7 +13,7 @@ from datetime import UTC, datetime, timedelta
 from pydantic import BaseModel, Field
 
 from src.application.interfaces.queue import IQueueProvider
-from src.shared.enums.task import TaskPriority
+from src.shared.enums import TaskPriority, TaskStatus
 from src.shared.models.queue import TaskQueueMessage
 from src.shared.models.task_data import TaskData
 from src.shared.types import CorrelationId
@@ -35,6 +35,11 @@ class QueueConfiguration(BaseModel):
             "low": "task-queue-low",
         },
         description="Queue names for different priority tiers",
+    )
+
+    dead_letter_queue_name: str = Field(
+        default="task-queue-dead-letter",
+        description="Queue name used for dead letter routing",
     )
 
     # Deduplication settings
@@ -89,6 +94,8 @@ class QueueMetrics(BaseModel):
     total_received: int = 0
     total_deleted: int = 0
     total_deduplicated: int = 0
+    total_retried: int = 0
+    total_dead_lettered: int = 0
     messages_by_priority: dict[str, int] = Field(default_factory=dict)
     messages_by_tier: dict[str, int] = Field(default_factory=dict)
     current_depth: dict[str, int] = Field(default_factory=dict)
@@ -129,6 +136,9 @@ class PriorityQueueService:
         # Metrics
         self.metrics = QueueMetrics()
 
+        # Dead letter queue metadata
+        self._dead_letter_queue_identifier: str | None = None
+
         # Queue depth monitoring
         self._depth_monitor_task: asyncio.Task[None] | None = None
 
@@ -147,6 +157,8 @@ class PriorityQueueService:
         self,
         task_data: TaskData,
         delay_seconds: int = 0,
+        *,
+        deduplicate: bool = True,
     ) -> QueueMessageId:
         """
         Send a task to the appropriate priority queue.
@@ -154,6 +166,7 @@ class PriorityQueueService:
         Args:
             task_data: Task data to send
             delay_seconds: Optional delay before message becomes available
+            deduplicate: Whether to apply deduplication checks for this send
 
         Returns:
             Message ID of the sent message
@@ -162,14 +175,17 @@ class PriorityQueueService:
             QueueError: If send fails
             DuplicationError: If duplicate detected
         """
-        # Check for duplicates
+        # Check for duplicates when enabled
+        dedup_enabled = self.config.enable_deduplication and deduplicate
         dedup_id: str | None = None
-        if self.config.enable_deduplication:
+
+        if dedup_enabled:
             dedup_id = self._generate_deduplication_id(task_data)
 
             if await self._is_duplicate(dedup_id):
                 logger.warning(
-                    f"Duplicate task detected: {dedup_id}",
+                    "Duplicate task detected: %s",
+                    dedup_id,
                     extra={"task_id": str(task_data.task_id)},
                 )
                 self.metrics.total_deduplicated += 1
@@ -180,11 +196,11 @@ class PriorityQueueService:
 
         # Send to queue
         try:
-            # Convert to TaskMessage for the interface
-            # Serialize task_data to JSON string for payload
             import json
 
             from src.shared.models.queue import TaskMessage
+
+            payload = json.dumps(task_data.dict())
 
             task_message = TaskMessage(
                 schema_version=1,
@@ -192,7 +208,7 @@ class PriorityQueueService:
                 task_type="analysis",  # Could be from task_data metadata
                 priority=task_data.priority,
                 status=task_data.status,
-                payload={"task_data": json.dumps(task_data.dict())},
+                payload={"task_data": payload},
                 correlation_id=(
                     CorrelationId(task_data.correlation_id)
                     if task_data.correlation_id
@@ -210,8 +226,8 @@ class PriorityQueueService:
                 message_group_id=queue_name,  # Use queue name as group ID for FIFO
             )
 
-            # Add to deduplication cache
-            if self.config.enable_deduplication and dedup_id is not None:
+            # Add to deduplication cache when enabled
+            if dedup_enabled and dedup_id is not None:
                 await self._add_to_dedup_cache(dedup_id, message_id)
 
             # Update metrics
@@ -224,11 +240,15 @@ class PriorityQueueService:
             )
 
             logger.info(
-                f"Task {task_data.task_id} sent to queue {queue_name}",
+                "Task %s sent to queue %s",
+                task_data.task_id,
+                queue_name,
                 extra={
-                    "message_id": message_id,
+                    "message_id": str(message_id),
                     "priority": task_data.effective_priority,
                     "user_tier": task_data.user_tier.value,
+                    "delay_seconds": delay_seconds,
+                    "deduplicated": dedup_enabled,
                 },
             )
 
@@ -236,10 +256,91 @@ class PriorityQueueService:
 
         except Exception as e:
             logger.error(
-                f"Failed to send task {task_data.task_id}: {str(e)}",
+                "Failed to send task %s: %s",
+                task_data.task_id,
+                str(e),
                 extra={"queue": queue_name},
             )
             raise
+
+    async def schedule_retry(
+        self,
+        task_data: TaskData,
+        delay_seconds: int,
+    ) -> QueueMessageId:
+        """Schedule a retry for the given task without triggering deduplication."""
+        task_data.status = TaskStatus.RETRY
+        task_data.scheduled_at = datetime.now(UTC) + timedelta(seconds=delay_seconds)
+        task_data.updated_at = datetime.now(UTC)
+
+        self.metrics.total_retried += 1
+
+        logger.info(
+            "Retry scheduled for task %s in %s seconds",
+            task_data.task_id,
+            delay_seconds,
+            extra={
+                "retry_count": task_data.retry_count,
+                "max_retries": task_data.max_retries,
+            },
+        )
+
+        return await self.send_task(
+            task_data,
+            delay_seconds=delay_seconds,
+            deduplicate=False,
+        )
+
+    async def move_to_dead_letter(
+        self,
+        message: TaskQueueMessage,
+        error_message: str | None = None,
+        *,
+        delete_from_source: bool = True,
+    ) -> bool:
+        """Best-effort move of a failed message to the configured dead letter queue."""
+        if self._dead_letter_queue_identifier is None:
+            try:
+                self._dead_letter_queue_identifier = (
+                    await self.queue_provider.create_dead_letter_queue(
+                        max_receive_count=message.max_receive_count,
+                    )
+                )
+            except Exception as exc:  # noqa: BLE001 - provider specific
+                logger.error(
+                    "Failed to ensure dead letter queue exists",
+                    extra={
+                        "error": str(exc),
+                        "queue_name": self.config.dead_letter_queue_name,
+                    },
+                )
+
+        # Remove any cached dedup entry so future submissions can proceed
+        await self._remove_dedup_entry_for_message(message)
+
+        if delete_from_source and message.receipt_handle:
+            try:
+                await self.queue_provider.delete_task(message.receipt_handle)
+            except Exception as exc:  # noqa: BLE001
+                logger.error(
+                    "Failed to delete message %s during DLQ move",
+                    message.message_id,
+                    extra={"error": str(exc)},
+                )
+
+        self.metrics.total_dead_lettered += 1
+
+        logger.error(
+            "Message %s routed to dead letter queue",
+            message.message_id,
+            extra={
+                "queue": self.config.dead_letter_queue_name,
+                "error": error_message,
+                "receive_count": message.receive_count,
+            },
+        )
+
+        return True
 
     async def receive_tasks(
         self,
@@ -297,13 +398,25 @@ class PriorityQueueService:
                             if isinstance(msg.body, str)
                             else msg.body
                         )
-                        task_data = body_data.get("payload", {}).get("task_data", {})
+                        payload_container = body_data.get("payload", {})
+                        raw_task_data = payload_container.get("task_data", {})
+                        if isinstance(raw_task_data, str):
+                            try:
+                                task_payload = json.loads(raw_task_data)
+                            except json.JSONDecodeError:
+                                logger.error(
+                                    "Failed to decode task payload from queue message %s",
+                                    msg.message_id,
+                                )
+                                task_payload = {}
+                        else:
+                            task_payload = raw_task_data
 
                         queue_msg = TaskQueueMessage(
                             schema_version=1,
                             message_id=msg.message_id,
                             receipt_handle=msg.receipt_handle,
-                            task_data=task_data,
+                            task_data=task_payload,
                             queue_name=queue_name,
                             sent_timestamp=msg.sent_timestamp,
                             receive_count=msg.approximate_receive_count,
@@ -470,6 +583,40 @@ class PriorityQueueService:
                 expiry=datetime.now(UTC)
                 + timedelta(seconds=self.config.deduplication_window_seconds),
             )
+
+    async def _remove_dedup_entry(self, dedup_id: str) -> None:
+        """Remove deduplication entry if it exists."""
+        async with self._dedup_lock:
+            if dedup_id in self._dedup_cache:
+                del self._dedup_cache[dedup_id]
+
+    async def _remove_dedup_entry_for_message(self, message: TaskQueueMessage) -> None:
+        """Remove dedup entry derived from a queue message."""
+        payload = message.task_data
+        if isinstance(payload, str):
+            try:
+                payload = json.loads(payload)
+            except json.JSONDecodeError:
+                logger.debug(
+                    "Failed to decode task payload for dedup cleanup",
+                    extra={"message_id": str(message.message_id)},
+                )
+                return
+
+        if not isinstance(payload, dict):
+            return
+
+        try:
+            task_data = TaskData(**payload)
+        except Exception as exc:
+            logger.debug(
+                "Unable to reconstruct TaskData for dedup removal",
+                extra={"message_id": str(message.message_id), "error": str(exc)},
+            )
+            return
+
+        dedup_id = self._generate_deduplication_id(task_data)
+        await self._remove_dedup_entry(dedup_id)
 
     async def _cleanup_dedup_cache(self) -> None:
         """Background task to clean up expired deduplication entries."""

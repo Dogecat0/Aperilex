@@ -5,7 +5,7 @@ Task data models for workflow processing.
 from datetime import UTC, datetime
 from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from src.shared.enums import FilingType, TaskPriority, TaskStatus, UserTier
 from src.shared.types import Email, FilingId, TaskId, Ticker, UserId
@@ -89,6 +89,13 @@ class TaskData(BaseModel):
     ip_address: str | None = Field(
         default=None, description="IP address of the requester"
     )
+
+    @model_validator(mode="after")
+    def _ensure_deduplication_id(self) -> "TaskData":
+        """Ensure deduplication identifier follows filing/email convention."""
+        if not self.deduplication_id:
+            self.deduplication_id = f"{self.filing_id}_{self.email.value}"
+        return self
 
     @property
     def should_retry(self) -> bool:
