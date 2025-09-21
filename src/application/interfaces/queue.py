@@ -190,3 +190,13 @@ class IQueueProvider(Protocol):
             QueueError: If DLQ creation fails
         """
         ...
+
+    @abstractmethod
+    async def health_check(self) -> bool:
+        """
+        Check if the queue provider is healthy.
+
+        Returns:
+            True if healthy, False otherwise
+        """
+        ...

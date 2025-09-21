@@ -396,6 +396,15 @@ class RabbitMQQueueProvider(IQueueProvider):
         except Exception as e:
             raise Exception(f"Failed to create DLQ: {e}") from e
 
+    async def health_check(self) -> bool:
+        """Verify the provider can establish a RabbitMQ connection."""
+        try:
+            await self.connect()
+            return True
+        except Exception as exc:  # pragma: no cover - connection failure
+            await self.disconnect()
+            raise RuntimeError(f"RabbitMQ health check failed: {exc}") from exc
+
     async def __aenter__(self) -> "RabbitMQQueueProvider":
         """Async context manager entry."""
         await self.connect()

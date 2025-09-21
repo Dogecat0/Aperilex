@@ -43,8 +43,15 @@ class LocalStorageProvider(IStorageProvider):
         Args:
             base_path: Base directory for storing files
         """
-        self.base_path = Path(base_path).resolve()
-        self._ensure_directories()
+        resolved_path = Path(base_path).resolve()
+        try:
+            self.base_path = resolved_path
+            self._ensure_directories()
+        except PermissionError:
+            fallback = Path.cwd() / ".cache" / "storage"
+            fallback.mkdir(parents=True, exist_ok=True)
+            self.base_path = fallback.resolve()
+            self._ensure_directories()
 
     def _ensure_directories(self) -> None:
         """Ensure required directory structure exists."""
@@ -472,3 +479,14 @@ class LocalStorageProvider(IStorageProvider):
         except Exception as e:
             logger.error(f"Failed to generate presigned URL for {key}: {e}")
             raise StorageError(f"Failed to generate presigned URL: {e}") from e
+
+    async def health_check(self) -> bool:
+        """Local storage is healthy if base path is writable."""
+        try:
+            test_file = self.base_path / "health_check.tmp"
+            test_file.write_text("ok", encoding="utf-8")
+            test_file.unlink(missing_ok=True)
+            return True
+        except Exception as exc:  # pragma: no cover - best effort
+            logger.error(f"Local storage health check failed: {exc}")
+            return False

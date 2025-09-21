@@ -195,3 +195,13 @@ class IStorageProvider(Protocol):
             StorageError: If URL generation fails
         """
         ...
+
+    @abstractmethod
+    async def health_check(self) -> bool:
+        """
+        Check if the storage provider is healthy.
+
+        Returns:
+            True if healthy, False otherwise
+        """
+        ...

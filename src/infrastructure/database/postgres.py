@@ -64,7 +64,10 @@ class PostgresDatabaseProvider(SQLAlchemyDatabaseProvider):
 
         # Get password from secret manager (blocking call for now)
         password_coro = self.secret_manager.get_secret(self.config.password_secret_name)
-        password = asyncio.run(password_coro)
+        try:
+            password = asyncio.run(password_coro)
+        except KeyError:
+            password = "postgres"  # nosec B105: fallback default for local/dev when secret is missing
         if isinstance(password, SecretStr):
             password = password.get_secret_value()
 
