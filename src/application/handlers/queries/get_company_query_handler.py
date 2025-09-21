@@ -1,17 +1,20 @@
 """Handler for GetCompanyQuery."""
 
 import logging
-from typing import Any
 
 from src.application.base.handlers import QueryHandler
 from src.application.handlers.schemas.queries.get_company import GetCompanyQuery
-from src.application.handlers.schemas.responses.company_response import CompanyResponse
-from src.application.interfaces.datasource import CompanyInfo, IDataSourceProvider
+from src.application.handlers.schemas.responses.company_response import (
+    AnalysisSummary,
+    CompanyResponse,
+)
+from src.application.interfaces.datasource import IDataSourceProvider
 from src.application.interfaces.query_services import IAnalysisQueryService
 from src.application.interfaces.repositories import (
     CompanyData,
     ICompanyRepository,
 )
+from src.domain.entities.company import Company
 from src.shared.types import CIK, CompanyId, Ticker
 
 logger = logging.getLogger(__name__)
@@ -69,15 +72,26 @@ class GetCompanyQueryHandler(QueryHandler[GetCompanyQuery, CompanyResponse]):
 
         try:
             # Step 1: Try to find company in database
-            company_entity = None
+            company_record: CompanyData | None = None
             if lookup_type == "cik":
-                company_entity = await self.company_repository.get_by_cik(
+                company_record = await self.company_repository.get_by_cik(
                     CIK(value=lookup_value)
                 )
             elif lookup_type == "ticker":
-                company_entity = await self.company_repository.get_by_ticker(
+                company_record = await self.company_repository.get_by_ticker(
                     Ticker(value=lookup_value)
                 )
+
+            company_domain = (
+                Company(
+                    id=company_record.id,
+                    cik=company_record.cik,
+                    name=company_record.name,
+                    metadata=company_record.metadata,
+                )
+                if company_record is not None
+                else None
+            )
 
             # Step 2: Get enriched data from DataSourceProvider
             try:
@@ -105,18 +119,21 @@ class GetCompanyQueryHandler(QueryHandler[GetCompanyQuery, CompanyResponse]):
                 ) from e
 
             # Step 3: Collect optional enrichments
-            enrichments = await self._collect_enrichments(
-                query, company_info, company_entity
+            recent_analyses = await self._collect_recent_analyses(
+                query=query,
+                company_id=company_record.id if company_record else None,
             )
 
             # Step 4: Create response
-            if company_entity:
+            if company_domain:
                 logger.info(
                     "Company found in database, creating enhanced response",
-                    extra={"company_id": str(company_entity.id)},
+                    extra={"company_id": str(company_domain.id)},
                 )
                 return CompanyResponse.from_domain_and_datasource(
-                    company=company_entity, company_info=company_info, **enrichments
+                    company=company_domain,
+                    company_info=company_info,
+                    recent_analyses=recent_analyses,
                 )
             else:
                 logger.info(
@@ -124,7 +141,8 @@ class GetCompanyQueryHandler(QueryHandler[GetCompanyQuery, CompanyResponse]):
                     extra={"cik": str(company_info.cik)},
                 )
                 return CompanyResponse.from_datasource_only(
-                    company_info=company_info, **enrichments
+                    company_info=company_info,
+                    recent_analyses=recent_analyses,
                 )
 
         except Exception:
@@ -138,37 +156,30 @@ class GetCompanyQueryHandler(QueryHandler[GetCompanyQuery, CompanyResponse]):
             )
             raise
 
-    async def _collect_enrichments(
+    async def _collect_recent_analyses(
         self,
         query: GetCompanyQuery,
-        company_info: CompanyInfo,
-        company_entity: CompanyData | None,
-    ) -> dict[str, Any]:
-        """Collect optional enrichment data based on query flags.
+        company_id: CompanyId | None,
+    ) -> list[AnalysisSummary] | None:
+        """Collect recent analyses enrichment when requested."""
+        if not query.include_recent_analyses or company_id is None:
+            return None
 
-        Args:
-            query: Original query with enrichment flags
-            company_info: Company data from DataSourceProvider
-            company_entity: Company entity from database (may be None)
+        try:
+            recent_analyses = await self._get_recent_analyses(company_id)
+            logger.debug("Added %d recent analyses", len(recent_analyses))
+            return recent_analyses
+        except Exception as exc:  # pragma: no cover - defensive logging
+            logger.warning(
+                "Failed to get recent analyses for company %s: %s",
+                company_id,
+                exc,
+            )
+            return []
 
-        Returns:
-            Dictionary with enrichment data for response creation
-        """
-        enrichments: dict[str, Any] = {}
-
-        # Recent analyses enrichment
-        if query.include_recent_analyses and company_entity:
-            try:
-                recent_analyses = await self._get_recent_analyses(company_entity.id)
-                enrichments["recent_analyses"] = recent_analyses
-                logger.debug(f"Added {len(recent_analyses)} recent analyses")
-            except Exception as e:
-                logger.warning(f"Failed to get recent analyses: {str(e)}")
-                enrichments["recent_analyses"] = []
-
-        return enrichments
-
-    async def _get_recent_analyses(self, company_id: CompanyId) -> list[dict[str, Any]]:
+    async def _get_recent_analyses(
+        self, company_id: CompanyId
+    ) -> list[AnalysisSummary]:
         """Get recent analyses for the company.
 
         Args:
@@ -192,9 +203,11 @@ class GetCompanyQueryHandler(QueryHandler[GetCompanyQuery, CompanyResponse]):
                 }
                 for analysis in analyses
             ]
-        except Exception as e:
+        except Exception as exc:  # pragma: no cover - defensive logging
             logger.warning(
-                f"Failed to fetch recent analyses for company {company_id}: {str(e)}"
+                "Failed to fetch recent analyses for company %s: %s",
+                company_id,
+                exc,
             )
             return []
 

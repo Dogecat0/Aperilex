@@ -2,6 +2,8 @@
 Main application container that combines all sub-containers.
 """
 
+from collections.abc import Sequence
+from types import ModuleType
 from typing import Self
 
 from dependency_injector import containers, providers
@@ -83,7 +85,7 @@ class ApplicationContainer(containers.DeclarativeContainer):
 
         return container
 
-    def wire_modules(self, modules: list[object]) -> None:
+    def wire_modules(self, modules: Sequence[ModuleType]) -> None:
         """
         Wire the container with specified modules.
 
@@ -94,7 +96,8 @@ class ApplicationContainer(containers.DeclarativeContainer):
         import src.application.services.application_service
 
         # Add ApplicationService module to the list if not already present
-        if src.application.services.application_service not in modules:
-            modules = list(modules) + [src.application.services.application_service]
+        module_list = list(modules)
+        if src.application.services.application_service not in module_list:
+            module_list.append(src.application.services.application_service)
 
-        self.wire(modules=modules)
+        self.wire(modules=module_list)

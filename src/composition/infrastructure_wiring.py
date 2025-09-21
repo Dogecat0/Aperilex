@@ -2,7 +2,10 @@
 Infrastructure container for managing concrete implementations.
 """
 
+from typing import TYPE_CHECKING
+
 from dependency_injector import containers, providers
+from dependency_injector.providers import Dependency
 
 from src.infrastructure.database.cache.manager import CacheManager
 from src.infrastructure.database.models.base import (
@@ -20,13 +23,16 @@ from src.infrastructure.query_services import (
 )
 from src.shared.config.providers import PostgresConfig, RateLimitConfig
 
+if TYPE_CHECKING:
+    from src.application.interfaces import IConfigProvider, ISecretManager
+
 
 class InfrastructureWiring(containers.DeclarativeContainer):
     """Container for infrastructure implementations."""
 
     # Config and secret dependencies from parent container
-    config_provider = providers.Dependency()
-    secret_manager = providers.Dependency()
+    config_provider: Dependency["IConfigProvider"] = providers.Dependency()
+    secret_manager: Dependency["ISecretManager"] = providers.Dependency()
 
     # Parent container reference for accessing abstract providers
     providers_container = providers.DependenciesContainer()

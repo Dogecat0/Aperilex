@@ -5,6 +5,8 @@ This module is responsible for wiring all concrete implementations to their
 abstract interfaces, following clean architecture principles.
 """
 
+from collections.abc import Sequence
+from types import ModuleType
 from typing import Self
 
 from dependency_injector import containers, providers
@@ -85,9 +87,7 @@ class CompositionRoot(containers.DeclarativeContainer):
         # Share configuration state with the application container
         app_container.config.override(container.config)
         app_container.configuration.config.override(container.config)
-        app_container.configuration.environment.override(
-            providers.Object(environment)
-        )
+        app_container.configuration.environment.override(providers.Object(environment))
 
         # Wire configuration and secret providers in the application container
         config_provider_provider = ProviderFactory.create_config_provider(environment)
@@ -247,15 +247,9 @@ class CompositionRoot(containers.DeclarativeContainer):
         app_container.cqrs.company_repository.override(
             providers.Singleton(infra.company_repository)
         )
-        app_container.cqrs.analysis_query_service.override(
-            infra.analysis_query_service
-        )
-        app_container.cqrs.filing_query_service.override(
-            infra.filing_query_service
-        )
-        app_container.cqrs.company_query_service.override(
-            infra.company_query_service
-        )
+        app_container.cqrs.analysis_query_service.override(infra.analysis_query_service)
+        app_container.cqrs.filing_query_service.override(infra.filing_query_service)
+        app_container.cqrs.company_query_service.override(infra.company_query_service)
 
         # Wire rate limiting provider
         app_container.providers_container.rate_limiting_provider.override(
@@ -267,16 +261,17 @@ class CompositionRoot(containers.DeclarativeContainer):
 
         return container
 
-    def wire_modules(self, modules: list[object]) -> None:
+    def wire_modules(self, modules: Sequence[ModuleType]) -> None:
         """
         Wire the container with specified modules.
 
         Args:
             modules: List of modules to wire with the container
         """
-        self.wire(modules=modules)
+        module_list = list(modules)
+        self.wire(modules=module_list)
         app_container = self.application_container()
-        app_container.wire_modules(modules)
+        app_container.wire_modules(module_list)
 
     def get_application_container(self) -> ApplicationContainer:
         """

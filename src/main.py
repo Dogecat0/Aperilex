@@ -7,7 +7,9 @@ using the composition root pattern with clean architecture.
 
 import asyncio
 import logging
+from importlib import import_module
 from pathlib import Path
+from types import ModuleType
 
 from src.composition import CompositionRoot
 
@@ -54,15 +56,15 @@ async def main() -> None:
     ]
 
     # Filter out modules that don't exist yet
-    existing_modules = []
+    module_objects: list[ModuleType] = []
     for module_path in modules_to_wire:
         module_file = Path("src", *module_path.split(".")[1:]).with_suffix(".py")
         if module_file.exists():
-            existing_modules.append(module_path)
+            module_objects.append(import_module(module_path))
 
-    if existing_modules:
-        composition_root.wire_modules(existing_modules)
-        logger.info(f"Wired {len(existing_modules)} modules")
+    if module_objects:
+        composition_root.wire_modules(module_objects)
+        logger.info(f"Wired {len(module_objects)} modules")
 
     # Get CQRS dispatcher with all handlers registered from app container
     cqrs_container = app_container.cqrs()

@@ -1,13 +1,22 @@
 """Response schema for company information."""
 
-from typing import Any
+from typing import TypedDict, cast
 from uuid import UUID
 
 from pydantic import Field
 
 from src.application.base.schema import SchemaVersionedModel
-from src.application.interfaces.repositories import CompanyData
+from src.application.interfaces.datasource import CompanyInfo
 from src.domain.entities.company import Company
+
+
+class AnalysisSummary(TypedDict):
+    """Minimal analysis summary for company responses."""
+
+    analysis_id: str
+    analysis_type: str
+    created_at: str
+    status: str
 
 
 class CompanyResponse(SchemaVersionedModel):
@@ -37,64 +46,74 @@ class CompanyResponse(SchemaVersionedModel):
     fiscal_year_end: str | None = Field(default=None, description="Fiscal year end")
 
     # Address information
-    business_address: dict[str, Any] | None = Field(
+    business_address: dict[str, str] | None = Field(
         default=None, description="Business address information"
     )
 
     # Optional enriched data
-    recent_analyses: list[dict[str, Any]] | None = Field(
+    recent_analyses: list[AnalysisSummary] | None = Field(
         default=None,
         description="Optional list of recent analysis summaries",
     )
+
+    @staticmethod
+    def _extract_business_address(company_info: CompanyInfo) -> dict[str, str] | None:
+        """Build a normalized business address dictionary from company info."""
+        address_obj = getattr(company_info, "address", None)
+        if address_obj is None:
+            return None
+
+        components: dict[str, str] = {}
+        for field_name in ("street", "city", "state", "zipcode", "country"):
+            value = cast(str | None, getattr(address_obj, field_name, None))
+            if value:
+                components[field_name] = value
+
+        return components or None
+
+    @staticmethod
+    def _get_optional_str(source: object, attribute: str) -> str | None:
+        """Safely extract a string attribute if present on the source object."""
+        value = getattr(source, attribute, None)
+        if value is None:
+            return None
+        if isinstance(value, str):
+            return value
+        value_attr = getattr(value, "value", None)
+        if isinstance(value_attr, str):
+            return value_attr
+        return str(value)
 
     @classmethod
     def from_domain_and_datasource(
         cls,
         company: Company,
-        data_source_data: CompanyData,
-        recent_analyses: list[dict[str, Any]] | None = None,
+        company_info: CompanyInfo,
+        recent_analyses: list[AnalysisSummary] | None = None,
     ) -> "CompanyResponse":
         """Create response from domain entity and DataSource data.
 
         Args:
             company: Company domain entity from database
-            data_source_data: Company data from DataSource
+            company_info: Company data from DataSource
             recent_analyses: Optional list of recent analysis summaries
 
         Returns:
             CompanyResponse with complete company information
         """
-        # Format business address from DataSource data
-        business_address = None
-        if hasattr(data_source_data, "address") and data_source_data.address:
-            address_data = data_source_data.address
-            business_address = {
-                "street": getattr(address_data, "street", None),
-                "city": getattr(address_data, "city", None),
-                "state": getattr(address_data, "state", None),
-                "zipcode": getattr(address_data, "zipcode", None),
-                "country": getattr(address_data, "country", None),
-            }
-            # Remove None values
-            business_address = {
-                k: v for k, v in business_address.items() if v is not None
-            }
-            if not business_address:
-                business_address = None
-
         return cls(
             # Core company information from domain entity
             company_id=company.id,
-            cik=str(company.cik.value),
+            cik=company.cik.padded(),
             name=company.name,
             # Enhanced information from EdgarTools
-            ticker=data_source_data.ticker,
-            display_name=data_source_data.name or company.name,
-            industry=getattr(data_source_data, "industry", None),
-            sic_code=data_source_data.sic_code,
-            sic_description=data_source_data.sic_description,
-            fiscal_year_end=getattr(data_source_data, "fiscal_year_end", None),
-            business_address=business_address,
+            ticker=company_info.ticker.value if company_info.ticker else None,
+            display_name=company_info.name or company.name,
+            industry=company_info.industry,
+            sic_code=cls._get_optional_str(company_info, "sic_code"),
+            sic_description=cls._get_optional_str(company_info, "sic_description"),
+            fiscal_year_end=cls._get_optional_str(company_info, "fiscal_year_end"),
+            business_address=cls._extract_business_address(company_info),
             # Optional enrichments
             recent_analyses=recent_analyses,
         )
@@ -102,15 +121,15 @@ class CompanyResponse(SchemaVersionedModel):
     @classmethod
     def from_datasource_only(
         cls,
-        data_source_data: CompanyData,
-        recent_analyses: list[dict[str, Any]] | None = None,
+        company_info: CompanyInfo,
+        recent_analyses: list[AnalysisSummary] | None = None,
     ) -> "CompanyResponse":
         """Create response from DataSource data only (company not in database).
 
         Used when company is found in SEC EDGAR but not yet in local database.
 
         Args:
-            data_source_data: Company data from SEC EDGAR
+            company_info: Company data from SEC EDGAR
             recent_analyses: Optional list of recent analysis summaries
 
         Returns:
@@ -119,36 +138,18 @@ class CompanyResponse(SchemaVersionedModel):
         # Generate temporary UUID for response (not persisted)
         from uuid import uuid4
 
-        # Format business address
-        business_address = None
-        if hasattr(data_source_data, "address") and data_source_data.address:
-            address_data = data_source_data.address
-            business_address = {
-                "street": getattr(address_data, "street", None),
-                "city": getattr(address_data, "city", None),
-                "state": getattr(address_data, "state", None),
-                "zipcode": getattr(address_data, "zipcode", None),
-                "country": getattr(address_data, "country", None),
-            }
-            # Remove None values
-            business_address = {
-                k: v for k, v in business_address.items() if v is not None
-            }
-            if not business_address:
-                business_address = None
-
         return cls(
             # Generate temporary ID since company is not in database
             company_id=uuid4(),
-            cik=data_source_data.cik,
-            name=data_source_data.name,
-            ticker=data_source_data.ticker,
-            display_name=data_source_data.name,
-            industry=getattr(data_source_data, "industry", None),
-            sic_code=data_source_data.sic_code,
-            sic_description=data_source_data.sic_description,
-            fiscal_year_end=getattr(data_source_data, "fiscal_year_end", None),
-            business_address=business_address,
+            cik=company_info.cik.padded(),
+            name=company_info.name,
+            ticker=company_info.ticker.value if company_info.ticker else None,
+            display_name=company_info.name,
+            industry=company_info.industry,
+            sic_code=cls._get_optional_str(company_info, "sic_code"),
+            sic_description=cls._get_optional_str(company_info, "sic_description"),
+            fiscal_year_end=cls._get_optional_str(company_info, "fiscal_year_end"),
+            business_address=cls._extract_business_address(company_info),
             # Optional enrichments
             recent_analyses=recent_analyses,
         )

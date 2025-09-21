@@ -6,12 +6,14 @@ for handlers and dispatcher configuration.
 """
 
 import asyncio
+from collections.abc import Sequence
 from typing import Any
 
 from dependency_injector import containers, providers
-from dependency_injector.providers import Provider
+from dependency_injector.providers import Dependency, Provider
 
 from src.application.base.dispatcher import Dispatcher
+from src.application.base.handlers import CommandHandler, QueryHandler
 from src.application.interfaces import (
     IDataSourceProvider,
     IEventPublisher,
@@ -96,17 +98,17 @@ class HandlerFactory:
             self.repository_factory.get_analysis_repository(),
         )
 
-        analysis_query_service = (
+        analysis_query_service: IAnalysisQueryService | None = (
             self.analysis_query_service_provider()
             if self.analysis_query_service_provider is not None
             else None
         )
-        company_query_service = (
+        company_query_service: ICompanyQueryService | None = (
             self.company_query_service_provider()
             if self.company_query_service_provider is not None
             else None
         )
-        filing_query_service = (
+        filing_query_service: IFilingQueryService | None = (
             self.filing_query_service_provider()
             if self.filing_query_service_provider is not None
             else None
@@ -177,16 +179,16 @@ class HandlerRegistrar:
         )
 
         # Register command handlers
-        command_handlers = [
+        command_handlers: Sequence[type[CommandHandler[Any, Any]]] = (
             AnalyzeFilingCommandHandler,
             ImportFilingsCommandHandler,
-        ]
+        )
 
-        for handler_class in command_handlers:
-            self.dispatcher.register_command_handler(handler_class)
+        for command_handler_class in command_handlers:
+            self.dispatcher.register_command_handler(command_handler_class)
 
         # Register query handlers
-        query_handlers = [
+        query_handlers: Sequence[type[QueryHandler[Any, Any]]] = (
             GetAnalysisQueryHandler,
             GetCompanyQueryHandler,
             GetFilingQueryHandler,
@@ -194,10 +196,10 @@ class HandlerRegistrar:
             ListAnalysesQueryHandler,
             ListCompanyFilingsQueryHandler,
             SearchFilingsHandler,
-        ]
+        )
 
-        for handler_class in query_handlers:
-            self.dispatcher.register_query_handler(handler_class)
+        for query_handler_class in query_handlers:
+            self.dispatcher.register_query_handler(query_handler_class)
 
     async def get_dispatcher_with_dependencies(
         self,
@@ -227,9 +229,9 @@ class CQRSContainer(containers.DeclarativeContainer):
     company_repository = providers.AbstractSingleton(ICompanyRepository)
 
     # Query services (wired from infrastructure)
-    analysis_query_service = providers.Dependency()
-    company_query_service = providers.Dependency()
-    filing_query_service = providers.Dependency()
+    analysis_query_service: Dependency[IAnalysisQueryService] = providers.Dependency()
+    company_query_service: Dependency[ICompanyQueryService] = providers.Dependency()
+    filing_query_service: Dependency[IFilingQueryService] = providers.Dependency()
 
     # Priority queue service for scheduling
     priority_queue = providers.Singleton(

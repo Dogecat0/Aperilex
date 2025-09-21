@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -23,32 +24,48 @@ class _MissingWorkerProvider:
     def __init__(self, message: str) -> None:
         self._message = message
 
-    async def execute_task(self, task_message, context):  # noqa: D401
+    async def execute_task(
+        self,
+        task_message: TaskMessage,
+        context: WorkerContext,
+    ) -> WorkerResult:
         raise RuntimeError(self._message)
 
-    async def health_check(self):  # noqa: D401
+    async def health_check(self) -> WorkerHealthStatus:
         raise RuntimeError(self._message)
 
-    async def get_metrics(self):  # noqa: D401
+    async def get_metrics(self) -> WorkerMetrics:
         raise RuntimeError(self._message)
 
-    async def warm_up(self):  # noqa: D401
+    async def warm_up(self) -> bool:
         raise RuntimeError(self._message)
 
-    async def shutdown(self, graceful: bool = True):  # noqa: D401
+    async def shutdown(self, graceful: bool = True) -> bool:
         raise RuntimeError(self._message)
 
-    async def scale(self, instances: int):  # noqa: D401
+    async def scale(self, instances: int) -> bool:
         raise RuntimeError(self._message)
 
     async def get_logs(
         self,
-        task_id=None,
-        start_time=None,
-        end_time=None,
+        task_id: TaskId | None = None,
+        start_time: datetime | None = None,
+        end_time: datetime | None = None,
         limit: int = 100,
-    ):  # noqa: D401
+    ) -> list[WorkerLogEntry]:
         raise RuntimeError(self._message)
+
+    async def retry_task(
+        self,
+        task_id: TaskId,
+        max_retries: int = 3,
+        backoff_multiplier: float = 2.0,
+    ) -> WorkerResult:
+        raise RuntimeError(self._message)
+
+    async def cancel_task(self, task_id: TaskId) -> bool:
+        raise RuntimeError(self._message)
+
 
 if TYPE_CHECKING:
     from src.application.interfaces import (
@@ -65,6 +82,15 @@ if TYPE_CHECKING:
         IStorageProvider,
         IWorkerProvider,
     )
+    from src.application.interfaces.worker import (
+        WorkerContext,
+        WorkerHealthStatus,
+        WorkerLogEntry,
+        WorkerMetrics,
+        WorkerResult,
+    )
+    from src.shared.models.queue import TaskMessage
+    from src.shared.types import TaskId
 
 
 class ProviderFactory:
@@ -372,6 +398,7 @@ class ProviderFactory:
         """
         if provider_type == WorkerProvider.LAMBDA:
             from src.infrastructure.providers.worker import LambdaWorkerProvider
+
             if LambdaWorkerProvider is None:
                 return providers.Singleton(
                     _MissingWorkerProvider,
@@ -410,6 +437,7 @@ class ProviderFactory:
             )
         elif provider_type == WorkerProvider.DOCKER:
             from src.infrastructure.providers.worker import DockerWorkerProvider
+
             if DockerWorkerProvider is None:
                 return providers.Singleton(
                     _MissingWorkerProvider,

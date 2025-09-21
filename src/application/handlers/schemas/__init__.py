@@ -28,7 +28,12 @@ from src.application.handlers.schemas.queries.get_filing import GetFilingQuery
 from src.application.handlers.schemas.queries.list_analyses import (
     AnalysisSortField,
     ListAnalysesQuery,
-    SortDirection,
+    SortDirection as AnalysesSortDirection,
+)
+from src.application.handlers.schemas.queries.list_company_filings import (
+    FilingSortField,
+    ListCompanyFilingsQuery,
+    SortDirection as CompanyFilingsSortDirection,
 )
 from src.application.handlers.schemas.responses import *  # noqa: F403, F401
 from src.application.handlers.schemas.responses.analysis_response import AnalysisResponse
@@ -48,8 +53,11 @@ __all__ = [
     "GetFilingQuery",
     "GetAnalysisQuery",
     "ListAnalysesQuery",
+    "ListCompanyFilingsQuery",
     "AnalysisSortField",
-    "SortDirection",
+    "AnalysesSortDirection",
+    "CompanyFilingsSortDirection",
+    "FilingSortField",
     # Responses
     "FilingResponse",
     "AnalysisResponse",
