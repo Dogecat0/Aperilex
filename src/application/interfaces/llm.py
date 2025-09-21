@@ -93,19 +93,6 @@ class LLMResponse(BaseModel):
         return self.prompt_tokens + self.completion_tokens
 
 
-class LLMConfig(BaseModel):
-    """Configuration for LLM provider."""
-
-    schema_version: int = 1
-    provider: LLMProvider
-    model_name: str
-    api_key_secret_name: str
-    api_endpoint: str | None = None
-    retry_attempts: int = 3
-    timeout_seconds: int = 60
-    rate_limit_per_minute: int = 60
-
-
 @runtime_checkable
 class ILLMProvider(Protocol):
     """Protocol for LLM provider implementations."""

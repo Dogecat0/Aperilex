@@ -244,6 +244,15 @@ class CompositionRoot(containers.DeclarativeContainer):
         app_container.cqrs.company_repository.override(
             providers.Singleton(infra.company_repository)
         )
+        app_container.cqrs.analysis_query_service.override(
+            infra.analysis_query_service
+        )
+        app_container.cqrs.filing_query_service.override(
+            infra.filing_query_service
+        )
+        app_container.cqrs.company_query_service.override(
+            infra.company_query_service
+        )
 
         # Wire rate limiting provider
         app_container.providers_container.rate_limiting_provider.override(
