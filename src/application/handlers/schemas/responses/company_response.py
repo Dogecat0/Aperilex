@@ -6,8 +6,8 @@ from uuid import UUID
 from pydantic import Field
 
 from src.application.base.schema import SchemaVersionedModel
+from src.application.interfaces.repositories import CompanyData
 from src.domain.entities.company import Company
-from src.infrastructure.edgar.schemas.company_data import CompanyData
 
 
 class CompanyResponse(SchemaVersionedModel):
@@ -27,18 +27,14 @@ class CompanyResponse(SchemaVersionedModel):
     display_name: str = Field(description="Display-friendly company name")
 
     # Industry & classification
-    industry: str | None = Field(
-        default=None, description="Industry classification"
-    )
+    industry: str | None = Field(default=None, description="Industry classification")
     sic_code: str | None = Field(
         default=None, description="Standard Industrial Classification code"
     )
     sic_description: str | None = Field(
         default=None, description="Description of the SIC code"
     )
-    fiscal_year_end: str | None = Field(
-        default=None, description="Fiscal year end"
-    )
+    fiscal_year_end: str | None = Field(default=None, description="Fiscal year end")
 
     # Address information
     business_address: dict[str, Any] | None = Field(

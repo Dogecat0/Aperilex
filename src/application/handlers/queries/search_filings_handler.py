@@ -1,7 +1,6 @@
 """Handler for SearchFilingsQuery - searches SEC filings from database."""
 
 import logging
-from typing import Any, cast
 from uuid import uuid4
 
 from src.application.base.handlers import QueryHandler
@@ -14,8 +13,9 @@ from src.application.handlers.schemas.responses.filing_search_response import (
 from src.application.handlers.schemas.responses.paginated_response import (
     PaginatedResponse,
 )
-from src.domain.entities.filing import Filing
-from src.infrastructure.database.repositories.filing_repository import FilingRepository
+from src.application.interfaces.query_services import IFilingQueryService
+from src.application.interfaces.repositories import ICompanyRepository
+from src.domain.value_objects.processing_status import ProcessingStatus
 from src.shared.types import Ticker
 
 logger = logging.getLogger(__name__)
@@ -37,13 +37,19 @@ class SearchFilingsHandler(
     and reduced external API dependencies.
     """
 
-    def __init__(self, filing_repository: FilingRepository) -> None:
+    def __init__(
+        self,
+        company_repository: ICompanyRepository,
+        filing_query_service: IFilingQueryService,
+    ) -> None:
         """Initialize the handler with required dependencies.
 
         Args:
-            filing_repository: Repository for database filing access
+            company_repository: Repository for company identifier lookups
+            filing_query_service: Query service for filing access
         """
-        self.filing_repository = filing_repository
+        self.company_repository = company_repository
+        self.filing_query_service = filing_query_service
 
     async def handle(
         self, query: SearchFilingsQuery
@@ -76,45 +82,73 @@ class SearchFilingsHandler(
         )
 
         try:
-            # Create ticker value object (ticker is required and validated by query)
             if not query.ticker:
                 raise ValueError("Ticker is required")
             ticker_vo = Ticker(value=query.ticker)
 
-            # Get total count for pagination
-            total_count = await self.filing_repository.count_by_ticker_with_filters(
-                ticker=ticker_vo,
-                filing_type=query.form_type,
-                start_date=query.date_from,
-                end_date=query.date_to,
-            )
+            company = await self.company_repository.get_by_ticker(ticker_vo)
 
-            # Get filings from database with pagination and company info
-            filings_with_company = (
-                await self.filing_repository.get_by_ticker_with_filters_and_company(
-                    ticker=ticker_vo,
+            if company is None:
+                logger.info(
+                    "No company found for ticker",
+                    extra={"ticker": query.ticker},
+                )
+                return PaginatedResponse.empty(
+                    page=query.page,
+                    page_size=query.page_size,
+                    query_id=uuid4(),
+                    filters_applied=query.search_summary,
+                )
+
+            page_size = query.limit if query.limit is not None else query.page_size
+
+            page_result = (
+                await self.filing_query_service.list_company_filings_paginated(
+                    company_id=company.id,
                     filing_type=query.form_type,
                     start_date=query.date_from,
                     end_date=query.date_to,
                     sort_field=query.sort_by.value,
                     sort_direction=query.sort_direction.value,
                     page=query.page,
-                    page_size=query.page_size,
+                    page_size=page_size,
                 )
             )
 
-            # Convert to search results
-            # TODO: temporary cast to Any to bypass strict type checking on domain entities
-            search_results = self._convert_to_search_results(
-                cast(Any, filings_with_company)
-            )
+            if page_result.total_count == 0:
+                return PaginatedResponse.empty(
+                    page=query.page,
+                    page_size=page_size,
+                    query_id=uuid4(),
+                    filters_applied=query.search_summary,
+                )
+
+            search_results: list[FilingSearchResult] = []
+            company_ticker = str(company.ticker) if company.ticker else query.ticker
+            company_name = company.name
+            company_cik = str(company.cik)
+
+            for filing in page_result.items:
+                processing_status = ProcessingStatus(filing.processing_status)
+                search_results.append(
+                    FilingSearchResult(
+                        accession_number=filing.accession_number,
+                        filing_type=filing.filing_type.value,
+                        filing_date=filing.filing_date.date(),
+                        company_name=company_name,
+                        cik=company_cik,
+                        ticker=company_ticker,
+                        has_content=processing_status.is_successful(),
+                        sections_count=0,
+                    )
+                )
 
             # Create paginated response
             response = PaginatedResponse.create(
                 items=search_results,
                 page=query.page,
-                page_size=query.page_size,
-                total_items=total_count,
+                page_size=page_size,
+                total_items=page_result.total_count,
                 query_id=uuid4(),
                 filters_applied=query.search_summary,
             )
@@ -123,9 +157,9 @@ class SearchFilingsHandler(
                 "Successfully searched filings",
                 extra={
                     "ticker": query.ticker,
-                    "total_found": total_count,
+                    "total_found": page_result.total_count,
                     "page": query.page,
-                    "page_size": query.page_size,
+                    "page_size": page_size,
                     "returned_count": len(search_results),
                     "search_summary": query.search_summary,
                 },
@@ -145,35 +179,6 @@ class SearchFilingsHandler(
                 exc_info=True,
             )
             raise
-
-    def _convert_to_search_results(
-        self, filings_with_company: list[tuple[Filing, dict[str, Any]]]
-    ) -> list[FilingSearchResult]:
-        """Convert database filings with company info to search result DTOs.
-
-        Args:
-            filings_with_company: List of tuples (Filing entity, company_info dict)
-
-        Returns:
-            List of FilingSearchResult DTOs
-        """
-        results = []
-
-        for filing, company_info in filings_with_company:
-            # Create search result using filing and company info
-            result = FilingSearchResult(
-                accession_number=str(filing.accession_number),
-                filing_type=filing.filing_type.value,
-                filing_date=filing.filing_date,
-                company_name=company_info["name"],
-                cik=company_info["cik"],
-                ticker=company_info["ticker"],
-                has_content=filing.processing_status.value == "COMPLETED",
-                sections_count=0,  # Can be enhanced later to count actual sections
-            )
-            results.append(result)
-
-        return results
 
     @classmethod
     def query_type(cls) -> type[SearchFilingsQuery]:

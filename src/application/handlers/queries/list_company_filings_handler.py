@@ -1,7 +1,6 @@
 """Handler for ListCompanyFilingsQuery - retrieves filings for a company with filtering and pagination."""
 
 import logging
-from typing import Any, cast
 from uuid import uuid4
 
 from src.application.base.handlers import QueryHandler
@@ -12,7 +11,9 @@ from src.application.handlers.schemas.responses.filing_response import FilingRes
 from src.application.handlers.schemas.responses.paginated_response import (
     PaginatedResponse,
 )
-from src.infrastructure.database.repositories.filing_repository import FilingRepository
+from src.application.interfaces.query_services import IFilingQueryService
+from src.application.interfaces.repositories import ICompanyRepository
+from src.domain.value_objects.processing_status import ProcessingStatus
 
 logger = logging.getLogger(__name__)
 
@@ -31,13 +32,19 @@ class ListCompanyFilingsQueryHandler(
     The handler focuses on data retrieval and pagination without presentation concerns.
     """
 
-    def __init__(self, filing_repository: FilingRepository) -> None:
+    def __init__(
+        self,
+        company_repository: ICompanyRepository,
+        filing_query_service: IFilingQueryService,
+    ) -> None:
         """Initialize the handler with required dependencies.
 
         Args:
-            filing_repository: Repository for filing data access
+            company_repository: Repository for company identifier lookups
+            filing_query_service: Query service for filing retrieval
         """
-        self.filing_repository = filing_repository
+        self.company_repository = company_repository
+        self.filing_query_service = filing_query_service
 
     async def handle(
         self, query: ListCompanyFilingsQuery
@@ -89,16 +96,16 @@ class ListCompanyFilingsQueryHandler(
 
             filters_applied = ", ".join(filter_parts)
 
-            # Get total count for pagination
-            total_count = await self.filing_repository.count_by_ticker_with_filters(
-                ticker=query.ticker_value_object,
-                filing_type=query.filing_type,
-                start_date=query.start_date,
-                end_date=query.end_date,
+            # Resolve company via repository (identifier lookup responsibility)
+            company = await self.company_repository.get_by_ticker(
+                query.ticker_value_object
             )
 
-            # If no results, return empty response
-            if total_count == 0:
+            if company is None:
+                logger.info(
+                    "No company found for ticker",
+                    extra={"ticker": query.ticker},
+                )
                 return PaginatedResponse.empty(
                     page=query.page,
                     page_size=query.page_size,
@@ -106,30 +113,49 @@ class ListCompanyFilingsQueryHandler(
                     filters_applied=filters_applied,
                 )
 
-            # Get paginated results
-            filings = await self.filing_repository.get_by_ticker_with_filters(
-                ticker=query.ticker_value_object,
-                filing_type=query.filing_type,
-                start_date=query.start_date,
-                end_date=query.end_date,
-                sort_field=query.sort_by.value,
-                sort_direction=query.sort_direction.value,
-                page=query.page,
-                page_size=query.page_size,
+            page_result = (
+                await self.filing_query_service.list_company_filings_paginated(
+                    company_id=company.id,
+                    filing_type=query.filing_type,
+                    start_date=query.start_date,
+                    end_date=query.end_date,
+                    sort_field=query.sort_by.value,
+                    sort_direction=query.sort_direction.value,
+                    page=query.page,
+                    page_size=query.page_size,
+                )
             )
 
-            # Convert to response DTOs
-            # TODO: temperary cast to Any to bypass strict type checking on domain entities
-            filing_responses = [
-                FilingResponse.from_domain(cast(Any, filing)) for filing in filings
-            ]
+            if page_result.total_count == 0:
+                return PaginatedResponse.empty(
+                    page=query.page,
+                    page_size=query.page_size,
+                    query_id=uuid4(),
+                    filters_applied=filters_applied,
+                )
+
+            filing_responses = []
+            for filing in page_result.items:
+                response = FilingResponse(
+                    filing_id=filing.filing_id,
+                    company_id=filing.company_id,
+                    accession_number=filing.accession_number,
+                    filing_type=filing.filing_type.value,
+                    filing_date=filing.filing_date.date(),
+                    processing_status=ProcessingStatus(filing.processing_status),
+                    processing_error=filing.processing_error,
+                    metadata=filing.metadata,
+                    analyses_count=None,
+                    latest_analysis_date=None,
+                )
+                filing_responses.append(response)
 
             # Create paginated response
             response = PaginatedResponse.create(
                 items=filing_responses,
                 page=query.page,
                 page_size=query.page_size,
-                total_items=total_count,
+                total_items=page_result.total_count,
                 query_id=uuid4(),
                 filters_applied=filters_applied,
             )
@@ -138,7 +164,7 @@ class ListCompanyFilingsQueryHandler(
                 "Successfully listed company filings",
                 extra={
                     "ticker": query.ticker,
-                    "total_count": total_count,
+                    "total_count": page_result.total_count,
                     "page": query.page,
                     "page_size": query.page_size,
                     "returned_count": len(filing_responses),

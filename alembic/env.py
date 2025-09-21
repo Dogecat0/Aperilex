@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncEngine, async_engine_from_config
 from alembic import context
 
 # Import models to ensure they're registered with Base.metadata
-from src.infrastructure.database.base import Base
+from src.infrastructure.database.models.base import Base
 
 # Import settings and base for database URL
 from src.shared.config.settings import settings
