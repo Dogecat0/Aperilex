@@ -26,7 +26,13 @@ from src.application.interfaces.repositories import AnalysisData, IRepositoryFac
 from src.application.interfaces.storage import IStorageProvider, StorageRequest
 from src.application.interfaces.worker import IWorkerProvider, WorkerContext
 from src.application.services.priority_queue_service import PriorityQueueService
-from src.shared.enums import AnalysisStatus, FilingType, TaskStatus, UserTier
+from src.shared.enums import (
+    AnalysisStatus,
+    FilingType,
+    TaskStatus,
+    UserTier,
+    WorkerProvider,
+)
 from src.shared.models import (
     AnalysisRequest,
     AnalysisResult,
@@ -39,11 +45,13 @@ from src.shared.models import (
 from src.shared.types import (
     CIK,
     AnalysisId,
+    CorrelationId,
     FilingId,
     StorageKey,
     TaskId,
     Ticker,
 )
+from src.shared.types.identifiers import QueueMessageId, RequestId
 from src.shared.utils.logging import get_logger
 
 logger = get_logger(__name__)
@@ -118,6 +126,7 @@ class WorkerService:
         llm_provider: ILLMProvider,
         datasource_provider: IDataSourceProvider,
         worker_provider: IWorkerProvider,
+        worker_provider_type: WorkerProvider,
         repository_factory: IRepositoryFactory,
         event_publisher: IEventPublisher | None = None,
         priority_queue: PriorityQueueService | None = None,
@@ -131,6 +140,7 @@ class WorkerService:
             llm_provider: LLM provider for analysis
             datasource_provider: Data source provider for filings
             worker_provider: Worker provider for execution context
+            worker_provider_type: Worker provider enum identifier for context creation
             repository_factory: Factory for creating repository instances
             event_publisher: Optional event publisher for notifications
             priority_queue: Priority queue service for scheduling and retries
@@ -141,6 +151,7 @@ class WorkerService:
         self.llm = llm_provider
         self.datasource = datasource_provider
         self.worker = worker_provider
+        self.worker_provider_type = worker_provider_type
         self.repository_factory = repository_factory
         self.event_publisher = event_publisher
 
@@ -173,6 +184,90 @@ class WorkerService:
                 "MDAAnalysisSection",
             ],
         }
+
+    async def process_task_data(
+        self,
+        task_data: TaskData,
+        *,
+        queue_name: str = "synchronous",
+        progress_callback: (
+            Callable[[float, str], None]
+            | Callable[[float, str], Coroutine[Any, Any, None]]
+            | None
+        ) = None,
+    ) -> TaskResult:
+        """Process a task directly from TaskData without queue integration."""
+
+        correlation_value = task_data.correlation_id or str(uuid.uuid4())
+        if not task_data.correlation_id:
+            task_data.correlation_id = correlation_value
+
+        visibility_timeout = (
+            self.priority_queue.config.default_visibility_timeout
+            if self.priority_queue
+            else 300
+        )
+        dlq_name = (
+            self.priority_queue.config.dead_letter_queue_name
+            if self.priority_queue
+            else None
+        )
+
+        import json
+
+        task_payload = json.loads(task_data.json())
+
+        message = TaskQueueMessage(
+            schema_version=1,
+            message_id=QueueMessageId(str(uuid.uuid4())),
+            receipt_handle=None,
+            task_data=task_payload,
+            queue_name=queue_name,
+            sent_timestamp=datetime.now(UTC),
+            receive_count=task_data.retry_count,
+            first_receive_timestamp=None,
+            visibility_timeout_seconds=visibility_timeout,
+            message_group_id=None,
+            message_deduplication_id=None,
+            attributes={},
+            message_attributes={},
+            dlq_name=dlq_name,
+            max_receive_count=task_data.max_retries,
+        )
+
+        timeout_seconds = 300
+        if isinstance(task_data.metadata, dict):
+            raw_timeout = task_data.metadata.get("timeout_seconds")
+            if raw_timeout is not None:
+                try:
+                    timeout_seconds = int(raw_timeout)
+                except (TypeError, ValueError):
+                    logger.debug(
+                        "Invalid timeout_seconds metadata; falling back to default",
+                        extra={"value": raw_timeout},
+                    )
+
+        context = WorkerContext(
+            schema_version=1,
+            correlation_id=CorrelationId(correlation_value),
+            task_id=task_data.task_id,
+            request_id=RequestId(str(uuid.uuid4())),
+            provider=self.worker_provider_type,
+            start_time=datetime.now(UTC),
+            timeout_seconds=timeout_seconds,
+            retry_attempt=task_data.retry_count,
+            max_retries=task_data.max_retries,
+            enable_strict_validation=True,
+            log_level="INFO",
+            metadata=None,
+            tags={},
+        )
+
+        return await self.process_task(
+            message,
+            context,
+            progress_callback=progress_callback,
+        )
 
     async def process_task(
         self,

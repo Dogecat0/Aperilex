@@ -175,7 +175,10 @@ class BackgroundTaskCoordinator:
 
                 try:
                     # Process task directly using WorkerService
-                    result = await self.worker_service.process_task(task_data)
+                    result = await self.worker_service.process_task_data(
+                        task_data,
+                        queue_name="synchronous",
+                    )
 
                     logger.info(f"Analysis completed synchronously for task {task_id}")
 

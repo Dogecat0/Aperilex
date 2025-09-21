@@ -192,6 +192,7 @@ class CQRSContainer(containers.DeclarativeContainer):
         llm_provider=providers_container.llm_provider,
         datasource_provider=providers_container.data_source_provider,
         worker_provider=providers_container.worker_provider,
+        worker_provider_type=providers_container.worker_provider_type,
         repository_factory=repository_factory,
         event_publisher=providers_container.event_publisher,
         priority_queue=priority_queue,
