@@ -63,6 +63,7 @@ google-genai = "^1.30.0"
 pytest-xdist = "^3.8.0"
 aiosqlite = "^0.21.0"
 dogpile-cache = "^1.4.0"
+jwt = "^1.4.0"
 
 [tool.poetry.group.dev.dependencies]
 # Testing

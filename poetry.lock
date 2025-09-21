@@ -2210,6 +2210,25 @@ files = [
 ]
 
 [[package]]
+name = "jwt"
+version = "1.4.0"
+description = "JSON Web Token library for Python 3."
+optional = false
+python-versions = ">=3.9"
+groups = ["main"]
+files = [
+    {file = "jwt-1.4.0-py3-none-any.whl", hash = "sha256:7560a7f1de4f90de94ac645ee0303ac60c95b9e08e058fb69f6c330f71d71b11"},
+    {file = "jwt-1.4.0.tar.gz", hash = "sha256:f6f789128ac247142c79ee10f3dba6e366ec4e77c9920d18c1592e28aa0a7952"},
+]
+
+[package.dependencies]
+cryptography = ">=3.1,<3.4.0 || >3.4.0"
+
+[package.extras]
+dev = ["black", "isort", "mypy", "types-freezegun"]
+test = ["freezegun", "pytest (>=6.0,<7.0)", "pytest-cov"]
+
+[[package]]
 name = "lxml"
 version = "6.0.0"
 description = "Powerful and Pythonic XML processing library combining libxml2/libxslt with the ElementTree API."
@@ -5743,4 +5762,4 @@ type = ["pytest-mypy"]
 [metadata]
 lock-version = "2.1"
 python-versions = "^3.12"
-content-hash = "e4dcc3a1b6241d0bd5efd05beaf4afb477d3a219d4a317b8903d24889f4d08f5"
+content-hash = "3f36261123e12b80ab9639fdb596449f12ef31d0cfb724c70a85a52cc421d6ae"
