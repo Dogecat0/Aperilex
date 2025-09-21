@@ -13,7 +13,10 @@ from typing import Any
 
 from pydantic import BaseModel
 
-from src.application.handlers.schemas.commands.analyze_filing import AnalysisTemplate
+from src.application.handlers.schemas.commands.analyze_filing import (
+    AnalysisTemplate,
+    AnalyzeFilingCommand,
+)
 from src.application.interfaces.datasource import FilingContent, IDataSourceProvider
 from src.application.interfaces.events import (
     AnalysisCompletedEvent,
@@ -22,13 +25,19 @@ from src.application.interfaces.events import (
 )
 from src.application.interfaces.llm import ILLMProvider, LLMRequest, LLMResponse
 from src.application.interfaces.queue import IQueueProvider
-from src.application.interfaces.repositories import AnalysisData, IRepositoryFactory
+from src.application.interfaces.repositories import (
+    AnalysisData,
+    CompanyData,
+    FilingData,
+    IRepositoryFactory,
+)
 from src.application.interfaces.storage import IStorageProvider, StorageRequest
 from src.application.interfaces.worker import IWorkerProvider, WorkerContext
 from src.application.services.priority_queue_service import PriorityQueueService
 from src.shared.enums import (
     AnalysisStatus,
     FilingType,
+    TaskPriority,
     TaskStatus,
     UserTier,
     WorkerProvider,
@@ -46,10 +55,12 @@ from src.shared.types import (
     CIK,
     AnalysisId,
     CorrelationId,
+    Email,
     FilingId,
     StorageKey,
     TaskId,
     Ticker,
+    UserId,
 )
 from src.shared.types.identifiers import QueueMessageId, RequestId
 from src.shared.utils.logging import get_logger
@@ -184,6 +195,63 @@ class WorkerService:
                 "MDAAnalysisSection",
             ],
         }
+
+    def prepare_analysis_task_data(
+        self,
+        command: AnalyzeFilingCommand,
+        *,
+        company: CompanyData | None = None,
+        filing: FilingData | None = None,
+        user_email: Email | None = None,
+        user_id: UserId | None = None,
+        user_tier: UserTier | None = None,
+        priority: TaskPriority | None = None,
+        source: str | None = "API",
+        correlation_id: str | None = None,
+        parent_task_id: TaskId | None = None,
+        user_agent: str | None = None,
+        ip_address: str | None = None,
+    ) -> TaskData:
+        """Build TaskData for an analysis request from the incoming command."""
+
+        resolved_user_id = self._resolve_user_id(command, user_id)
+        resolved_email = self._resolve_user_email(resolved_user_id, user_email)
+        ticker = self._resolve_ticker(command, company)
+        filing_type = filing.filing_type if filing else FilingType.FORM_10K
+
+        task_id = TaskId(uuid.uuid4())
+        target_filing_id = filing.id if filing else FilingId(uuid.uuid4())
+        task_correlation_id = correlation_id or str(uuid.uuid4())
+
+        metadata = self._build_task_metadata(
+            command=command,
+            email=resolved_email,
+            company=company,
+            filing=filing,
+            filing_id=target_filing_id,
+        )
+
+        task_priority = priority or TaskPriority.NORMAL
+        task_user_tier = user_tier or UserTier.BASIC
+
+        return TaskData(
+            task_id=task_id,
+            filing_id=target_filing_id,
+            user_id=resolved_user_id,
+            email=resolved_email,
+            user_tier=task_user_tier,
+            ticker=ticker,
+            filing_type=filing_type,
+            priority=task_priority,
+            status=TaskStatus.PENDING,
+            metadata=metadata,
+            deduplication_id=f"{target_filing_id}:{resolved_email.value}",
+            correlation_id=task_correlation_id,
+            source=source,
+            parent_task_id=parent_task_id,
+            user_agent=user_agent,
+            ip_address=ip_address,
+        )
 
     async def process_task_data(
         self,
@@ -472,6 +540,82 @@ class WorkerService:
             raise SchemaVersionError(
                 f"Failed to parse task data with schema version {schema_version}: {str(e)}"
             ) from e
+
+    def _resolve_user_id(
+        self,
+        command: AnalyzeFilingCommand,
+        explicit_user_id: UserId | None,
+    ) -> UserId:
+        if explicit_user_id is not None:
+            return explicit_user_id
+
+        if command.user_id:
+            try:
+                return UserId(uuid.UUID(command.user_id))
+            except ValueError:
+                logger.warning(
+                    "Invalid user_id on command; generating fallback",
+                    extra={"user_id": command.user_id},
+                )
+
+        return UserId(uuid.uuid4())
+
+    def _resolve_user_email(
+        self,
+        user_id: UserId,
+        explicit_email: Email | None,
+    ) -> Email:
+        if explicit_email is not None:
+            return explicit_email
+
+        return Email(value=f"user-{user_id}@aperilex.local")
+
+    def _resolve_ticker(
+        self,
+        command: AnalyzeFilingCommand,
+        company: CompanyData | None,
+    ) -> Ticker:
+        if company and company.ticker is not None:
+            return company.ticker
+
+        fallback = "00001"
+        if command.company_cik is not None:
+            cik_value = str(command.company_cik.value).strip()
+            if cik_value:
+                fallback = cik_value[:5].upper()
+
+        return Ticker(value=fallback)
+
+    def _build_task_metadata(
+        self,
+        *,
+        command: AnalyzeFilingCommand,
+        email: Email,
+        company: CompanyData | None,
+        filing: FilingData | None,
+        filing_id: FilingId,
+    ) -> dict[str, str]:
+        metadata: dict[str, str] = {
+            "analysis_template": command.analysis_template.value,
+            "force_reprocess": str(command.force_reprocess),
+            "requested_by": email.value,
+            "filing_id": str(filing_id),
+        }
+
+        if command.company_cik is not None:
+            metadata["company_cik"] = str(command.company_cik)
+        if command.accession_number is not None:
+            metadata["accession_number"] = str(command.accession_number)
+
+        if company is not None:
+            metadata["company_id"] = str(company.id)
+            metadata["company_name"] = company.name
+
+        if filing is not None:
+            metadata["filing_type"] = filing.filing_type.value
+            metadata["filing_date"] = filing.filing_date.isoformat()
+
+        return metadata
 
     async def _check_filing_exists(self, filing_id: FilingId) -> bool:
         """

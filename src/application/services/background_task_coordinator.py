@@ -1,29 +1,25 @@
-"""
-Background task coordinator for managing long-running analysis operations.
+"""Background task coordinator for managing long-running analysis operations."""
 
-This service has been refactored to use provider interfaces and WorkerService.
-"""
-
-import uuid
 from datetime import UTC, datetime
+from uuid import uuid4
 
 from src.application.handlers.schemas.commands.analyze_filing import (
     AnalyzeFilingCommand,
 )
 from src.application.handlers.schemas.responses.task_response import TaskResponse
-from src.application.interfaces.events import (
-    IEventPublisher,
-    TaskQueuedEvent,
-)
+from src.application.interfaces.events import IEventPublisher, TaskQueuedEvent
+from src.application.interfaces.repositories import CompanyData, FilingData
 from src.application.interfaces.worker import IWorkerProvider
 from src.application.services.priority_queue_service import (
     DuplicationError,
     PriorityQueueService,
 )
 from src.application.services.worker_service import WorkerService
-from src.shared.enums import FilingType, TaskPriority, TaskStatus, UserTier
+from src.shared.enums import TaskStatus
 from src.shared.models import TaskData
-from src.shared.types import Email, FilingId, TaskId, Ticker, UserId
+from src.shared.models.queue import TaskMessage
+from src.shared.types import Email, TaskId, UserId
+from src.shared.types.identifiers import QueueMessageId
 from src.shared.utils.logging import get_logger
 
 logger = get_logger(__name__)
@@ -63,72 +59,40 @@ class BackgroundTaskCoordinator:
         self.use_background = use_background
 
     async def queue_filing_analysis(
-        self, command: AnalyzeFilingCommand
+        self,
+        command: AnalyzeFilingCommand,
+        company: CompanyData | None = None,
+        filing: FilingData | None = None,
+        *,
+        user_email: Email | None = None,
+        user_id: UserId | None = None,
     ) -> TaskResponse:
-        """
-        Queue a filing analysis for background processing.
-
-        Args:
-            command: Command containing analysis parameters
-
-        Returns:
-            TaskResponse with task tracking information
-        """
+        """Queue a filing analysis for background processing."""
         try:
-            logger.info(f"Queuing analysis for filing {command.filing_identifier}")
-
-            # Create task data from command
-            task_id = TaskId(uuid.uuid4())
-            filing_id = FilingId(uuid.uuid4())  # Generate filing ID
-
-            # Create user data (in production, get from authentication context)
-            user_id = UserId(uuid.uuid4())
-            user_email = Email(value="user@example.com")  # Get from auth context
-
-            # Map command data to task data
-            correlation_id = str(uuid.uuid4())
-
-            # Derive a ticker surrogate from the CIK when ticker is unavailable
-            ticker_value = '00001'
-            if command.company_cik is not None:
-                cik_value = str(command.company_cik.value).strip()
-                if cik_value:
-                    ticker_value = cik_value[:5].upper()
-
-            task_data = TaskData(
-                task_id=task_id,
-                filing_id=filing_id,
-                user_id=user_id,
-                email=user_email,
-                user_tier=UserTier.BASIC,
-                ticker=Ticker(value=ticker_value),
-                filing_type=FilingType.FORM_10K,
-                priority=TaskPriority.NORMAL,
-                status=TaskStatus.PENDING,
-                retry_count=0,
-                metadata={
-                    "company_cik": str(command.company_cik),
-                    "accession_number": str(command.accession_number),
-                    "analysis_template": command.analysis_template.value,
-                    "force_reprocess": str(command.force_reprocess),
-                    "requested_by": str(user_email),
+            logger.info(
+                "Queuing analysis",
+                extra={
+                    "filing_identifier": command.filing_identifier,
+                    "company_id": str(company.id) if company else None,
+                    "filing_id": str(filing.id) if filing else None,
                 },
-                deduplication_id=f"{filing_id}_{user_email.value}",
-                correlation_id=correlation_id,
             )
 
+            task_data = self.worker_service.prepare_analysis_task_data(
+                command=command,
+                company=company,
+                filing=filing,
+                user_email=user_email,
+                user_id=user_id,
+                source="API",
+            )
 
             if self.use_background:
-                try:
-                    message_id = await self.priority_queue.send_task(task_data)
-                except DuplicationError:
-                    logger.info(
-                        "Duplicate analysis task suppressed for filing %s",
-                        task_data.filing_id,
-                        extra={"user_email": str(task_data.email)},
-                    )
+                message_id = await self._send_to_queue(task_data)
+
+                if message_id is None:
                     return TaskResponse(
-                        task_id=str(task_id),
+                        task_id=str(task_data.task_id),
                         status="duplicate",
                         result={
                             "message": "Analysis already queued recently",
@@ -139,27 +103,11 @@ class BackgroundTaskCoordinator:
                         },
                     )
 
-                # Publish event if we have a publisher
-                if self.event_publisher:
-                    event = TaskQueuedEvent(
-                        event_id=uuid.uuid4(),
-                        timestamp=datetime.now(UTC).isoformat(),
-                        task_id=task_id,
-                        filing_id=filing_id,
-                        user_id=user_id,
-                        priority=TaskPriority.NORMAL.value,
-                    )
-                    await self.event_publisher.publish(event)
-
-                logger.info(
-                    "Analysis task queued with ID %s (message ID: %s)",
-                    task_id,
-                    message_id,
-                )
+                await self._publish_queued_event(task_data)
 
                 return TaskResponse(
-                    task_id=str(task_id),
-                    status="queued",
+                    task_id=str(task_data.task_id),
+                    status=TaskStatus.PENDING.value,
                     result={
                         "message": "Analysis queued for background processing",
                         "filing_identifier": command.filing_identifier,
@@ -167,67 +115,141 @@ class BackgroundTaskCoordinator:
                         "accession_number": str(command.accession_number),
                         "analysis_template": command.analysis_template.value,
                         "queue_message_id": str(message_id),
+                        "filing_id": str(task_data.filing_id),
+                        "company_id": task_data.metadata.get("company_id"),
                     },
+                    current_step="Task queued for processing",
                 )
-            else:
-                # Execute synchronously using WorkerService
-                logger.info(f"Executing analysis synchronously for task {task_id}")
 
-                try:
-                    # Process task directly using WorkerService
-                    result = await self.worker_service.process_task_data(
-                        task_data,
-                        queue_name="synchronous",
-                    )
+            # Synchronous execution path
+            return await self._run_synchronously(
+                command=command,
+                task_data=task_data,
+            )
 
-                    logger.info(f"Analysis completed synchronously for task {task_id}")
+        except Exception as exc:  # noqa: BLE001 - surface errors to callers
+            logger.error(
+                "Failed to queue analysis task",
+                extra={"filing_identifier": command.filing_identifier},
+                exc_info=True,
+            )
+            task_id = str(task_data.task_id) if "task_data" in locals() else "unknown"
+            return TaskResponse(
+                task_id=task_id,
+                status="failed",
+                error_message=f"Failed to queue analysis: {exc}",
+            )
 
-                    return TaskResponse(
-                        task_id=str(task_id),
-                        status="completed"
-                        if result.status == TaskStatus.COMPLETED
-                        else "failed",
-                        result={
-                            "message": "Analysis completed successfully"
-                            if result.status == TaskStatus.COMPLETED
-                            else "Analysis failed",
-                            "filing_identifier": command.filing_identifier,
-                            "company_cik": str(command.company_cik),
-                            "accession_number": str(command.accession_number),
-                            "analysis_id": str(result.analysis_id)
-                            if result.analysis_id
-                            else None,
-                            "storage_key": str(result.storage_key)
-                            if result.storage_key
-                            else None,
-                            "processing_time_ms": result.processing_time_ms,
-                        },
-                        error_message=result.error_message,
-                    )
+    async def _send_to_queue(self, task_data: TaskData) -> str | None:
+        try:
+            return await self.priority_queue.send_task(task_data)
+        except DuplicationError:
+            logger.info(
+                "Duplicate analysis task suppressed",
+                extra={
+                    "filing_id": str(task_data.filing_id),
+                    "deduplication_id": task_data.deduplication_id,
+                },
+            )
+            return None
 
-                except Exception as e:
-                    logger.error(
-                        f"Analysis failed synchronously for task {task_id}: {e}"
-                    )
+    async def enqueue_task_message(self, task_message: TaskMessage) -> QueueMessageId:
+        """Send a pre-built task message through the configured queue provider."""
 
-                    return TaskResponse(
-                        task_id=str(task_id),
-                        status="failed",
-                        error_message=f"Analysis failed: {str(e)}",
-                        result={
-                            "filing_identifier": command.filing_identifier,
-                            "company_cik": str(command.company_cik),
-                            "accession_number": str(command.accession_number),
-                        },
-                    )
+        try:
+            message_id = await self.priority_queue.queue_provider.send_task(
+                task_message
+            )
+            logger.debug(
+                "Enqueued raw task message",
+                extra={
+                    "task_id": str(task_message.task_id),
+                    "task_type": task_message.task_type,
+                },
+            )
+            return message_id
+        except Exception:  # noqa: BLE001
+            logger.error(
+                "Failed to enqueue task message",
+                extra={
+                    "task_id": str(task_message.task_id),
+                    "task_type": task_message.task_type,
+                },
+                exc_info=True,
+            )
+            raise
 
-        except Exception as e:
-            logger.error(f"Failed to queue analysis task: {e}")
+    async def _publish_queued_event(self, task_data: TaskData) -> None:
+        if not self.event_publisher:
+            return
+
+        event = TaskQueuedEvent(
+            event_id=uuid4(),
+            timestamp=datetime.now(UTC).isoformat(),
+            task_id=task_data.task_id,
+            filing_id=task_data.filing_id,
+            user_id=task_data.user_id,
+            priority=task_data.priority.value,
+        )
+        await self.event_publisher.publish(event)
+
+    async def _run_synchronously(
+        self,
+        *,
+        command: AnalyzeFilingCommand,
+        task_data: TaskData,
+    ) -> TaskResponse:
+        logger.info(
+            "Executing analysis synchronously", extra={"task_id": task_data.task_id}
+        )
+
+        try:
+            result = await self.worker_service.process_task_data(
+                task_data,
+                queue_name="synchronous",
+            )
+
+            status_value = (
+                TaskStatus.COMPLETED.value
+                if result.status == TaskStatus.COMPLETED
+                else TaskStatus.FAILED.value
+            )
+
+            response_payload = {
+                "message": "Analysis completed successfully"
+                if result.status == TaskStatus.COMPLETED
+                else "Analysis failed",
+                "filing_identifier": command.filing_identifier,
+                "company_cik": task_data.metadata.get("company_cik"),
+                "accession_number": task_data.metadata.get("accession_number"),
+                "analysis_id": str(result.analysis_id) if result.analysis_id else None,
+                "storage_key": str(result.storage_key) if result.storage_key else None,
+                "processing_time_ms": result.processing_time_ms,
+            }
 
             return TaskResponse(
-                task_id=str(task_id) if "task_id" in locals() else "unknown",
+                task_id=str(task_data.task_id),
+                status=status_value,
+                result=response_payload,
+                error_message=result.error_message,
+            )
+
+        except Exception as exc:  # noqa: BLE001 - worker errors should bubble lazily
+            logger.error(
+                "Analysis failed synchronously",
+                extra={"task_id": task_data.task_id},
+                exc_info=True,
+            )
+
+            return TaskResponse(
+                task_id=str(task_data.task_id),
                 status="failed",
-                error_message=f"Failed to queue analysis: {str(e)}",
+                error_message=f"Analysis failed: {exc}",
+                result={
+                    "filing_identifier": command.filing_identifier,
+                    "company_cik": task_data.metadata.get("company_cik"),
+                    "accession_number": task_data.metadata.get("accession_number"),
+                },
             )
 
     async def get_task_status(self, task_id: str) -> TaskResponse:
@@ -339,8 +361,7 @@ class BackgroundTaskCoordinator:
                 AnalysisTemplate,
                 AnalyzeFilingCommand,
             )
-            from src.domain.value_objects.accession_number import AccessionNumber
-            from src.domain.value_objects.cik import CIK
+            from src.shared.types import CIK, AccessionNumber
 
             try:
                 command = AnalyzeFilingCommand(
