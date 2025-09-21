@@ -5,12 +5,15 @@ import logging
 from datetime import UTC, datetime
 from typing import Any
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter
 from pydantic import BaseModel
 
-from src.application.factory import ServiceFactory
-from src.infrastructure.messaging import get_registry
-from src.presentation.api.dependencies import get_service_factory
+from src.presentation.api.dependencies import (
+    get_event_publisher,
+    get_queue_provider,
+    get_storage_provider,
+    get_worker_provider,
+)
 from src.shared.config.settings import settings
 
 logger = logging.getLogger(__name__)
@@ -56,32 +59,26 @@ _cache_duration_seconds = 30  # Cache for 30 seconds
 
 
 @router.get("/detailed", response_model=DetailedHealthResponse)
-async def detailed_health_check(
-    factory: ServiceFactory = Depends(get_service_factory),
-) -> DetailedHealthResponse:
+async def detailed_health_check() -> DetailedHealthResponse:
     """Detailed health check including all service statuses.
 
     Returns comprehensive health information for:
-    - Messaging services (queue, worker, storage)
-    - Cache manager
+    - Messaging services (queue, worker, storage, events)
     - Configuration status
-    - Service factory status
     """
     timestamp = datetime.now(UTC).isoformat()
     services = {}
     overall_status = "healthy"
 
-    # Check messaging services health
-    messaging_status = await _check_messaging_health()
-    services["messaging"] = messaging_status
-    if messaging_status.status != "healthy":
-        overall_status = "degraded"
+    # Check messaging dependencies (queue, storage, worker, events)
+    messaging_components = await _collect_messaging_statuses()
+    messaging_status = _aggregate_health_statuses("messaging", messaging_components)
 
-    # Check service factory configuration
-    factory_status = _check_factory_configuration(factory)
-    services["service_factory"] = factory_status
-    if factory_status.status != "healthy":
-        overall_status = "degraded"
+    services["messaging"] = messaging_status
+    for component_name, component_status in messaging_components.items():
+        services[f"messaging_{component_name}"] = component_status
+
+    overall_status = _derive_overall_status(services.values())
 
     # Determine current environment
     env_name = getattr(settings, "ENVIRONMENT", "development").lower()
@@ -94,8 +91,7 @@ async def detailed_health_check(
         environment=environment_type,
         services=services,
         configuration={
-            "messaging_enabled": True,
-            "cache_enabled": True,
+            "messaging_services": list(messaging_components.keys()),
             "debug": getattr(settings, "debug", False),
             "environment": environment_type,
         },
@@ -193,73 +189,8 @@ async def _check_messaging_health() -> HealthStatus:
 
 async def _perform_messaging_health_check() -> HealthStatus:
     """Perform the actual messaging health check without caching."""
-    timestamp = datetime.now(UTC).isoformat()
-
-    try:
-        # Get the messaging registry
-        registry = await get_registry()
-
-        # Check health of all services
-        health_results = await registry.health_check()
-
-        all_healthy = all(health_results.values())
-        unhealthy_services = [
-            name for name, healthy in health_results.items() if not healthy
-        ]
-
-        # Try to get circuit breaker status if available
-        circuit_breaker_info = {}
-        try:
-            from src.infrastructure.messaging import get_queue_service
-
-            queue_service = await get_queue_service()
-            if hasattr(queue_service, "get_circuit_breaker_status"):
-                circuit_breaker_info = {
-                    "circuit_breaker": queue_service.get_circuit_breaker_status()
-                }
-        except Exception as e:
-            # Don't fail health check if circuit breaker status unavailable
-            logger.debug(f"Circuit breaker status unavailable: {e}")
-
-        if all_healthy:
-            return HealthStatus(
-                status="healthy",
-                message="All messaging services are healthy",
-                timestamp=timestamp,
-                details={
-                    "environment": registry.settings.environment,
-                    "services": health_results,
-                    "connected": registry.is_connected,
-                    "cached": False,
-                },
-            )
-        else:
-            return HealthStatus(
-                status="degraded",
-                message=f"Some messaging services are unhealthy: {', '.join(unhealthy_services)}",
-                timestamp=timestamp,
-                details={
-                    "environment": registry.settings.environment,
-                    "services": health_results,
-                    "unhealthy_services": unhealthy_services,
-                    "connected": registry.is_connected,
-                    "cached": False,
-                    **circuit_breaker_info,
-                },
-            )
-
-    except RuntimeError as e:
-        # Registry not initialized
-        return HealthStatus(
-            status="not_configured",
-            message="Messaging services not initialized",
-            timestamp=timestamp,
-            details={
-                "error": str(e),
-                "initialized": False,
-                "cached": False,
-            },
-        )
+    messaging_components = await _collect_messaging_statuses()
+    return _aggregate_health_statuses("messaging", messaging_components)
 
 
 def clear_health_cache() -> None:
@@ -270,71 +201,140 @@ def clear_health_cache() -> None:
     logger.info("Health status cache cleared")
 
 
-def _check_factory_configuration(factory: ServiceFactory) -> HealthStatus:
-    """Check service factory configuration and service availability.
+async def _collect_messaging_statuses() -> dict[str, HealthStatus]:
+    """Collect health status for each messaging-related provider."""
+    statuses: dict[str, HealthStatus] = {}
 
-    Args:
-        factory: Service factory instance
+    queue_provider = await get_queue_provider()
+    storage_provider = await get_storage_provider()
+    worker_provider = await get_worker_provider()
+    event_publisher = await get_event_publisher()
 
-    Returns:
-        Health status for service factory
-    """
+    statuses["queue"] = await _evaluate_service_health("queue", queue_provider)
+    statuses["storage"] = await _evaluate_service_health("storage", storage_provider)
+    statuses["worker"] = await _evaluate_service_health("worker", worker_provider)
+    statuses["events"] = await _evaluate_service_health("events", event_publisher)
+
+    return statuses
+
+
+def _aggregate_health_statuses(
+    name: str, statuses: dict[str, HealthStatus]
+) -> HealthStatus:
+    """Aggregate multiple service health statuses into a single HealthStatus."""
+    timestamp = datetime.now(UTC).isoformat()
+    overall_status = _derive_overall_status(statuses.values())
+
+    unhealthy = [
+        component
+        for component, status in statuses.items()
+        if _normalize_status(status.status) == "unhealthy"
+    ]
+    degraded = [
+        component
+        for component, status in statuses.items()
+        if _normalize_status(status.status) in {"degraded", "not_configured"}
+    ]
+
+    if unhealthy:
+        message = (
+            f"{name.capitalize()} services unhealthy: {', '.join(unhealthy)}"
+        )
+    elif degraded:
+        message = (
+            f"{name.capitalize()} services degraded: {', '.join(degraded)}"
+        )
+    else:
+        message = f"All {name} services are healthy"
+
+    details = {component: status.model_dump() for component, status in statuses.items()}
+
+    return HealthStatus(
+        status=overall_status,
+        message=message,
+        timestamp=timestamp,
+        details=details,
+    )
+
+
+def _derive_overall_status(statuses: list[HealthStatus] | tuple[HealthStatus, ...]) -> str:
+    """Derive overall status from individual health statuses."""
+    seen_degraded = False
+
+    for status in statuses:
+        normalized = _normalize_status(status.status)
+        if normalized == "unhealthy":
+            return "unhealthy"
+        if normalized in {"degraded", "not_configured", "unknown"}:
+            seen_degraded = True
+
+    return "degraded" if seen_degraded else "healthy"
+
+
+def _normalize_status(value: str | None) -> str:
+    """Normalize status strings to known categories."""
+    if not value:
+        return "healthy"
+
+    normalized = value.lower()
+    if normalized in {"healthy", "degraded", "unhealthy", "not_configured", "unknown"}:
+        return normalized
+
+    return "degraded"
+
+
+async def _evaluate_service_health(name: str, service: object | None) -> HealthStatus:
+    """Evaluate health for a single service provider."""
     timestamp = datetime.now(UTC).isoformat()
 
-    try:
-        # Safely get services and repositories count
-        services = getattr(factory, "_services", {})
-        repositories = getattr(factory, "_repositories", {})
+    if service is None:
+        return HealthStatus(
+            status="not_configured",
+            message=f"{name} provider not configured",
+            timestamp=timestamp,
+            details={"service": name},
+        )
 
-        # Handle case where getattr returns Mock objects instead of dicts
+    if hasattr(service, "health_check"):
         try:
-            services_count = len(services) if hasattr(services, "__len__") else 0
-        except (TypeError, AttributeError):
-            services_count = 0
+            result = await service.health_check()  # type: ignore[attr-defined]
+            details: dict[str, Any] = {"service": name}
 
-        try:
-            repositories_count = (
-                len(repositories) if hasattr(repositories, "__len__") else 0
-            )
-        except (TypeError, AttributeError):
-            repositories_count = 0
+            if isinstance(result, bool):
+                status = "healthy" if result else "unhealthy"
+                message = f"{name} provider returned {'healthy' if result else 'unhealthy'}"
+                details["result"] = result
+            elif isinstance(result, BaseModel):
+                result_dict = result.model_dump()
+                status = _normalize_status(result_dict.get("status"))
+                message = result_dict.get(
+                    "message", f"{name} provider reported status {status}"
+                )
+                details["result"] = result_dict
+            else:
+                status_value = getattr(result, "status", None)
+                status = _normalize_status(status_value) if status_value else "healthy"
+                message = f"{name} provider reported status {status}"
+                details["result"] = result
 
-        details: dict[str, Any] = {
-            "services_created": services_count,
-            "repositories_created": repositories_count,
-            "factory_type": type(factory).__name__,
-        }
-
-        # Check if essential services can be created
-        try:
-            _ = factory.create_task_service()
-            details["cache_service"] = "available"
-            details["task_service"] = "available"
-        except (RuntimeError, ValueError, TypeError) as e:
-            # Handle specific service creation errors
-            details["service_creation_error"] = str(e)
             return HealthStatus(
-                status="unhealthy",
-                message=f"Service creation failed: {str(e)}",
+                status=status,
+                message=message,
                 timestamp=timestamp,
                 details=details,
             )
-        except Exception:
-            # Let AttributeError and other factory-level issues bubble up
-            raise
+        except Exception as exc:
+            logger.warning(f"{name} health check failed: {exc}")
+            return HealthStatus(
+                status="unhealthy",
+                message=f"{name} health check failed: {exc}",
+                timestamp=timestamp,
+                details={"service": name, "error": str(exc)},
+            )
 
-        return HealthStatus(
-            status="healthy",
-            message="Service factory configured and operational",
-            timestamp=timestamp,
-            details=details,
-        )
-
-    except Exception as e:
-        logger.error(f"Service factory health check failed: {e}")
-        return HealthStatus(
-            status="unhealthy",
-            message=f"Service factory error: {str(e)}",
-            timestamp=timestamp,
-            details={"error": str(e)},
-        )
+    return HealthStatus(
+        status="unknown",
+        message=f"{name} provider does not expose health_check",
+        timestamp=timestamp,
+        details={"service": name, "health_check": "missing"},
+    )
