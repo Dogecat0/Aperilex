@@ -19,6 +19,7 @@ from src.application.interfaces.worker import (
     WorkerMetrics,
     WorkerResult,
     WorkerResultData,
+    WorkerTaskStatus,
 )
 from src.shared.config.providers import LambdaWorkerConfig
 from src.shared.enums import TaskStatus
@@ -483,3 +484,7 @@ class LambdaWorkerProvider(IWorkerProvider):
             del self._active_invocations[task_id]
             return True
         return False
+
+    async def get_task_status(self, task_id: TaskId) -> WorkerTaskStatus | None:
+        """Lambda worker does not support polling task status; return None."""
+        return None

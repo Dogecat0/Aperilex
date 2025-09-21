@@ -1,7 +1,7 @@
 """Task Response DTO for background task status and results."""
 
+from collections.abc import Mapping
 from datetime import datetime
-from typing import Any
 
 from pydantic import Field
 
@@ -25,7 +25,7 @@ class TaskResponse(SchemaVersionedModel):
 
     task_id: str = Field(description="Unique identifier for the background task")
     status: str = Field(description="Current status of the task")
-    result: dict[str, Any] | None = Field(
+    result: Mapping[str, object] | None = Field(
         default=None, description="Task result data if completed"
     )
     error_message: str | None = Field(

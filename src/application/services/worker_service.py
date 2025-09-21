@@ -9,7 +9,7 @@ from AnalysisOrchestrator for a unified processing pipeline.
 import uuid
 from collections.abc import Callable, Coroutine
 from datetime import UTC, datetime, timedelta
-from typing import Any
+from typing import Any, cast
 
 from pydantic import BaseModel, Field
 
@@ -905,11 +905,16 @@ class WorkerService:
             analysis_repo = await self.repository_factory.get_analysis_repository()
             exists = await analysis_repo.exists(request.analysis_id)
 
-            metadata = dict(task_data.metadata)
+            metadata = cast(
+                dict[str, str | int | float | bool], dict(task_data.metadata)
+            )
+            correlation_id = request.correlation_id
             metadata.update(
                 {
                     "task_id": str(request.task_id),
-                    "correlation_id": request.correlation_id or "",
+                    "correlation_id": str(correlation_id)
+                    if correlation_id is not None
+                    else "",
                     "user_email": str(task_data.email),
                 }
             )
@@ -1180,6 +1185,7 @@ class WorkerService:
         storage_key: StorageKey,
     ) -> None:
         """Publish task completion event for notifications."""
+        event_timestamp = datetime.now(UTC).isoformat()
         event_payload = {
             "task_id": str(task_data.task_id),
             "user_id": str(task_data.user_id),
@@ -1188,7 +1194,7 @@ class WorkerService:
             "filing_id": str(result.filing_id),
             "status": "success" if result.is_successful else "failed",
             "storage_key": str(storage_key),
-            "timestamp": datetime.now(UTC).isoformat(),
+            "timestamp": event_timestamp,
         }
 
         logger.info("Publishing completion event", extra=event_payload)
@@ -1196,10 +1202,16 @@ class WorkerService:
         if not self.event_publisher:
             return
 
+        correlation_id = (
+            result.correlation_id
+            if result.correlation_id is not None
+            else task_data.correlation_id
+        )
+
         event = AnalysisCompletedEvent(
             event_id=uuid.uuid4(),
-            timestamp=event_payload["timestamp"],
-            correlation_id=result.correlation_id or task_data.correlation_id,
+            timestamp=event_timestamp,
+            correlation_id=correlation_id,
             user_id=result.user_id,
             analysis_id=result.analysis_id,
             filing_id=result.filing_id,
@@ -1218,6 +1230,7 @@ class WorkerService:
         error_message: str,
     ) -> None:
         """Publish failure event when analysis cannot be completed."""
+        event_timestamp = datetime.now(UTC).isoformat()
         event_payload = {
             "task_id": str(task_data.task_id),
             "user_id": str(task_data.user_id),
@@ -1225,7 +1238,7 @@ class WorkerService:
             "filing_id": str(task_data.filing_id),
             "error_message": error_message,
             "retry_count": task_data.retry_count,
-            "timestamp": datetime.now(UTC).isoformat(),
+            "timestamp": event_timestamp,
         }
 
         logger.error(
@@ -1238,7 +1251,7 @@ class WorkerService:
 
         event = AnalysisFailedEvent(
             event_id=uuid.uuid4(),
-            timestamp=event_payload["timestamp"],
+            timestamp=event_timestamp,
             correlation_id=task_data.correlation_id,
             analysis_id=analysis_id,
             filing_id=task_data.filing_id,
@@ -1270,10 +1283,8 @@ class WorkerService:
         task_data.increment_retry()
 
         # Calculate backoff delay
-        delay = min(
-            self.retry_backoff_base**task_data.retry_count,
-            self.retry_max_delay,
-        )
+        backoff_seconds = self.retry_backoff_base**task_data.retry_count
+        delay = min(int(backoff_seconds), self.retry_max_delay)
 
         logger.warning(
             f"Scheduling retry {task_data.retry_count}/{task_data.max_retries} "

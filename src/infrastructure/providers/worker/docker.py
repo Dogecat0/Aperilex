@@ -18,6 +18,7 @@ from src.application.interfaces.worker import (
     WorkerMetrics,
     WorkerResult,
     WorkerResultData,
+    WorkerTaskStatus,
 )
 from src.shared.config.providers import DockerWorkerConfig
 from src.shared.enums import TaskStatus
@@ -457,3 +458,7 @@ class DockerWorkerProvider(IWorkerProvider):
             return True
         except DockerError:
             return False
+
+    async def get_task_status(self, task_id: TaskId) -> WorkerTaskStatus | None:
+        """Docker provider delegates task status management to orchestrator."""
+        return None

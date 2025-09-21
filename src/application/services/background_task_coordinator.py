@@ -1,7 +1,8 @@
 """Background task coordinator for managing long-running analysis operations."""
 
+from collections.abc import Mapping
 from datetime import UTC, datetime
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 from src.application.handlers.schemas.commands.analyze_filing import (
     AnalyzeFilingCommand,
@@ -140,7 +141,7 @@ class BackgroundTaskCoordinator:
                 error_message=f"Failed to queue analysis: {exc}",
             )
 
-    async def _send_to_queue(self, task_data: TaskData) -> str | None:
+    async def _send_to_queue(self, task_data: TaskData) -> QueueMessageId | None:
         try:
             return await self.priority_queue.send_task(task_data)
         except DuplicationError:
@@ -263,8 +264,20 @@ class BackgroundTaskCoordinator:
             TaskResponse with current task status
         """
         try:
-            # Get task status from worker provider
-            status = await self.worker_provider.get_task_status(TaskId(task_id))
+            try:
+                task_identifier = TaskId(UUID(task_id))
+            except ValueError:
+                logger.warning(
+                    "Invalid task identifier provided",
+                    extra={"task_id": task_id},
+                )
+                return TaskResponse(
+                    task_id=task_id,
+                    status="invalid_id",
+                    error_message="Task ID must be a valid UUID",
+                )
+
+            status = await self.worker_provider.get_task_status(task_identifier)
 
             if not status:
                 return TaskResponse(
@@ -273,15 +286,18 @@ class BackgroundTaskCoordinator:
                     error_message="Task not found",
                 )
 
+            result_payload: Mapping[str, object] | None = status.result
+
             return TaskResponse(
                 task_id=task_id,
                 status=status.status.value,
-                result=status.result,
+                result=result_payload,
                 error_message=status.error,
                 started_at=status.started_at,
                 completed_at=status.completed_at,
                 progress_percent=status.progress_percent,
                 current_step=status.message or "",
+                analysis_stage=status.analysis_stage,
             )
 
         except Exception as e:
@@ -303,8 +319,20 @@ class BackgroundTaskCoordinator:
             TaskResponse with cancellation result
         """
         try:
-            # Cancel task through worker provider
-            cancelled = await self.worker_provider.cancel_task(TaskId(task_id))
+            try:
+                task_identifier = TaskId(UUID(task_id))
+            except ValueError:
+                logger.warning(
+                    "Invalid task identifier provided for cancel",
+                    extra={"task_id": task_id},
+                )
+                return TaskResponse(
+                    task_id=task_id,
+                    status="invalid_id",
+                    error_message="Task ID must be a valid UUID",
+                )
+
+            cancelled = await self.worker_provider.cancel_task(task_identifier)
 
             if not cancelled:
                 return TaskResponse(
@@ -340,8 +368,16 @@ class BackgroundTaskCoordinator:
             TaskResponse for new retry task, or None if cannot retry
         """
         try:
-            # Get task status from worker provider
-            status = await self.worker_provider.get_task_status(TaskId(task_id))
+            try:
+                task_identifier = TaskId(UUID(task_id))
+            except ValueError:
+                logger.warning(
+                    "Invalid task identifier provided for retry",
+                    extra={"task_id": task_id},
+                )
+                return None
+
+            status = await self.worker_provider.get_task_status(task_identifier)
 
             if not status:
                 logger.warning(f"Cannot retry task {task_id}: task not found")
@@ -354,7 +390,7 @@ class BackgroundTaskCoordinator:
                 return None
 
             # Extract original parameters from metadata
-            metadata = status.result or {}
+            metadata: Mapping[str, object] = status.result or {}
 
             # Create new command from original parameters
             from src.application.handlers.schemas.commands.analyze_filing import (
@@ -364,13 +400,22 @@ class BackgroundTaskCoordinator:
             from src.shared.types import CIK, AccessionNumber
 
             try:
+                cik_value = metadata.get("company_cik")
+                accession_value = metadata.get("accession_number")
+                template_value = metadata.get("analysis_template")
+
+                if not isinstance(cik_value, str) or not cik_value:
+                    raise ValueError("Missing company_cik in task metadata")
+                if not isinstance(accession_value, str) or not accession_value:
+                    raise ValueError("Missing accession_number in task metadata")
+                if not isinstance(template_value, str) or not template_value:
+                    raise ValueError("Missing analysis_template in task metadata")
+
                 command = AnalyzeFilingCommand(
-                    company_cik=CIK(metadata.get("company_cik")),
-                    accession_number=AccessionNumber(metadata.get("accession_number")),
-                    analysis_template=AnalysisTemplate(
-                        metadata.get("analysis_template")
-                    ),
-                    force_reprocess=metadata.get("force_reprocess", False),
+                    company_cik=CIK(value=cik_value),
+                    accession_number=AccessionNumber(value=accession_value),
+                    analysis_template=AnalysisTemplate(template_value),
+                    force_reprocess=bool(metadata.get("force_reprocess", False)),
                 )
 
                 # Queue the retry as a new task

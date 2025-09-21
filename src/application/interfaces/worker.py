@@ -100,6 +100,25 @@ class WorkerResult(BaseModel):
     metadata: TaskMetadata | None = None
 
 
+class WorkerTaskStatus(BaseModel):
+    """Snapshot of task progress for status queries."""
+
+    schema_version: int = Field(
+        default=1,
+        ge=1,
+        description="Schema version for worker task status models",
+    )
+    task_id: TaskId
+    status: TaskStatus
+    result: dict[str, object] | None = None
+    error: str | None = None
+    started_at: datetime | None = None
+    completed_at: datetime | None = None
+    progress_percent: float | None = None
+    message: str | None = None
+    analysis_stage: str | None = None
+
+
 class WorkerMetrics(BaseModel):
     """Worker performance metrics."""
 
@@ -212,6 +231,11 @@ class IWorkerProvider(Protocol):
             WorkerError: If scaling fails
             NotSupportedError: If provider doesn't support scaling
         """
+        ...
+
+    @abstractmethod
+    async def get_task_status(self, task_id: TaskId) -> WorkerTaskStatus | None:
+        """Retrieve the latest status for a given task identifier."""
         ...
 
     @abstractmethod
