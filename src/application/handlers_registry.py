@@ -3,35 +3,33 @@
 import logging
 
 from src.application.base.dispatcher import Dispatcher
-from src.application.commands.handlers.analyze_filing_handler import (
+from src.application.handlers.commands.analyze_filing_handler import (
     AnalyzeFilingCommandHandler,
 )
-from src.application.commands.handlers.import_filings_handler import (
+from src.application.handlers.commands.import_filings_handler import (
     ImportFilingsCommandHandler,
 )
-from src.application.queries.handlers.get_analysis_by_accession_handler import (
-    GetAnalysisByAccessionQueryHandler,
-)
-from src.application.queries.handlers.get_analysis_handler import (
+from src.application.handlers.queries.get_analysis_handler import (
     GetAnalysisQueryHandler,
 )
-from src.application.queries.handlers.get_company_query_handler import (
+from src.application.handlers.queries.get_company_query_handler import (
     GetCompanyQueryHandler,
 )
-from src.application.queries.handlers.get_filing_by_accession_handler import (
-    GetFilingByAccessionQueryHandler,
+from src.application.handlers.queries.get_filing_handler import (
+    GetFilingQueryHandler,
 )
-from src.application.queries.handlers.get_filing_handler import GetFilingQueryHandler
-from src.application.queries.handlers.get_templates_handler import (
+from src.application.handlers.queries.get_templates_handler import (
     GetTemplatesQueryHandler,
 )
-from src.application.queries.handlers.list_analyses_handler import (
+from src.application.handlers.queries.list_analyses_handler import (
     ListAnalysesQueryHandler,
 )
-from src.application.queries.handlers.list_company_filings_handler import (
+from src.application.handlers.queries.list_company_filings_handler import (
     ListCompanyFilingsQueryHandler,
 )
-from src.application.queries.handlers.search_filings_handler import SearchFilingsHandler
+from src.application.handlers.queries.search_filings_handler import (
+    SearchFilingsHandler,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -52,10 +50,8 @@ def register_handlers(dispatcher: Dispatcher) -> None:
 
     # Register query handlers
     logger.info("Registering query handlers")
-    dispatcher.register_query_handler(GetAnalysisByAccessionQueryHandler)
     dispatcher.register_query_handler(GetAnalysisQueryHandler)
     dispatcher.register_query_handler(GetCompanyQueryHandler)
-    dispatcher.register_query_handler(GetFilingByAccessionQueryHandler)
     dispatcher.register_query_handler(GetFilingQueryHandler)
     dispatcher.register_query_handler(ListAnalysesQueryHandler)
     dispatcher.register_query_handler(ListCompanyFilingsQueryHandler)

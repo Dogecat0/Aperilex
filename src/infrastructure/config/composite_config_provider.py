@@ -27,7 +27,7 @@ class CompositeConfigProvider(IConfigProvider):
         return self.providers
 
     def _iter_providers_reversed(self) -> Sequence[IConfigProvider]:
-        return reversed(self.providers)
+        return list(reversed(self.providers))
 
     def get(self, key: str, default: T | None = None) -> T:
         normalized = key.lower()

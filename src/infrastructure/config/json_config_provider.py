@@ -85,7 +85,7 @@ class JSONConfigProvider(IConfigProvider):
             path = self._key_index.get(normalized_key, normalized_key.split("."))
             current: dict[str, Any] = nested
             for segment in path[:-1]:
-                current = current.setdefault(segment, {})  # type: ignore[assignment]
+                current = current.setdefault(segment, {})
             current[path[-1]] = value
         return nested
 
@@ -125,7 +125,7 @@ class JSONConfigProvider(IConfigProvider):
     def get(self, key: str, default: T | None = None) -> T:
         normalized = key.lower()
         if normalized in self._cache:
-            return self._cache[normalized]  # type: ignore[return-value]
+            return self._cache[normalized]
         if default is not None:
             return default
         raise ValueError(f"Configuration key '{key}' not found and no default provided")
