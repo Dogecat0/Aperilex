@@ -2,8 +2,9 @@
 
 import asyncio
 import logging
+from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime
-from typing import Any
+from typing import Any, cast
 
 from fastapi import APIRouter
 from pydantic import BaseModel, Field
@@ -88,7 +89,7 @@ async def detailed_health_check() -> DetailedHealthResponse:
     for component_name, component_status in messaging_components.items():
         services[f"messaging_{component_name}"] = component_status
 
-    overall_status = _derive_overall_status(services.values())
+    overall_status = _derive_overall_status(list(services.values()))
 
     # Determine current environment
     env_name = getattr(settings, "ENVIRONMENT", "development").lower()
@@ -233,7 +234,7 @@ def _aggregate_health_statuses(
 ) -> HealthStatus:
     """Aggregate multiple service health statuses into a single HealthStatus."""
     timestamp = datetime.now(UTC).isoformat()
-    overall_status = _derive_overall_status(statuses.values())
+    overall_status = _derive_overall_status(list(statuses.values()))
 
     unhealthy = [
         component
@@ -305,46 +306,48 @@ async def _evaluate_service_health(name: str, service: object | None) -> HealthS
             details={"service": name},
         )
 
-    if hasattr(service, "health_check"):
-        try:
-            result = await service.health_check()  # type: ignore[attr-defined]
-            details: dict[str, Any] = {"service": name}
+    health_check_attr = getattr(service, "health_check", None)
+    if health_check_attr is None or not callable(health_check_attr):
+        return HealthStatus(
+            status="unknown",
+            message=f"{name} provider does not expose health_check",
+            timestamp=timestamp,
+            details={"service": name, "health_check": "missing"},
+        )
 
-            if isinstance(result, bool):
-                status = "healthy" if result else "unhealthy"
-                message = f"{name} provider returned {'healthy' if result else 'unhealthy'}"
-                details["result"] = result
-            elif isinstance(result, BaseModel):
-                result_dict = result.model_dump()
-                status = _normalize_status(result_dict.get("status"))
-                message = result_dict.get(
-                    "message", f"{name} provider reported status {status}"
-                )
-                details["result"] = result_dict
-            else:
-                status_value = getattr(result, "status", None)
-                status = _normalize_status(status_value) if status_value else "healthy"
-                message = f"{name} provider reported status {status}"
-                details["result"] = result
+    health_check_callable = cast(Callable[[], Awaitable[object]], health_check_attr)
+    try:
+        result = await health_check_callable()
+        details: dict[str, Any] = {"service": name}
 
-            return HealthStatus(
-                status=status,
-                message=message,
-                timestamp=timestamp,
-                details=details,
+        if isinstance(result, bool):
+            status = "healthy" if result else "unhealthy"
+            message = f"{name} provider returned {'healthy' if result else 'unhealthy'}"
+            details["result"] = result
+        elif isinstance(result, BaseModel):
+            result_dict = result.model_dump()
+            status = _normalize_status(result_dict.get("status"))
+            message = result_dict.get(
+                "message", f"{name} provider reported status {status}"
             )
-        except Exception as exc:
-            logger.warning(f"{name} health check failed: {exc}")
-            return HealthStatus(
-                status="unhealthy",
-                message=f"{name} health check failed: {exc}",
-                timestamp=timestamp,
-                details={"service": name, "error": str(exc)},
-            )
+            details["result"] = result_dict
+        else:
+            status_value = getattr(result, "status", None)
+            status = _normalize_status(status_value) if status_value else "healthy"
+            message = f"{name} provider reported status {status}"
+            details["result"] = result
 
-    return HealthStatus(
-        status="unknown",
-        message=f"{name} provider does not expose health_check",
-        timestamp=timestamp,
-        details={"service": name, "health_check": "missing"},
-    )
+        return HealthStatus(
+            status=status,
+            message=message,
+            timestamp=timestamp,
+            details=details,
+        )
+    except Exception as exc:
+        logger.warning(f"{name} health check failed: {exc}")
+        return HealthStatus(
+            status="unhealthy",
+            message=f"{name} health check failed: {exc}",
+            timestamp=timestamp,
+            details={"service": name, "error": str(exc)},
+        )

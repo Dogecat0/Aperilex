@@ -5,12 +5,15 @@ for proper dependency injection and service management.
 """
 
 import logging
+import sys
 from functools import lru_cache
+from types import ModuleType
 
 from dependency_injector.wiring import Provide, inject
 
 from src.application.base.dispatcher import Dispatcher
 from src.application.containers.application import ApplicationContainer
+from src.application.containers.cqrs import HandlerRegistrar
 from src.application.containers.orchestrator import ApiRateLimiter, SSEConnectionManager
 from src.application.events import EventStoreSubscriber, LoggingEventSubscriber
 from src.application.interfaces import (
@@ -42,7 +45,8 @@ def get_composition_root() -> CompositionRoot:
         "Initializing CompositionRoot for environment: %s", settings.environment
     )
     root = CompositionRoot.initialize(environment=settings.environment)
-    root.wire_modules([__name__])
+    module: ModuleType = sys.modules[__name__]
+    root.wire_modules([module])
     return root
 
 
@@ -75,8 +79,8 @@ async def get_dispatcher(
 
 @inject
 async def get_cqrs_handler_registrar(
-    registrar=Provide["cqrs.handler_registrar"],
-):
+    registrar: HandlerRegistrar = Provide["cqrs.handler_registrar"],
+) -> HandlerRegistrar:
     """Get configured CQRS Handler Registrar.
 
     Returns:

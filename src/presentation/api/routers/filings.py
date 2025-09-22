@@ -2,37 +2,41 @@
 
 import logging
 from datetime import date
-from typing import Annotated
+from typing import Annotated, cast
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Path, Query, status
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.application.base.exceptions import ResourceNotFoundError
-from src.application.factory import ServiceFactory
-from src.application.schemas.commands.analyze_filing import AnalyzeFilingCommand
-from src.application.schemas.queries.get_analysis_by_accession import (
-    GetAnalysisByAccessionQuery,
+from src.application.handlers.schemas.commands.analyze_filing import (
+    AnalyzeFilingCommand,
 )
-from src.application.schemas.queries.get_filing import GetFilingQuery
-from src.application.schemas.queries.get_filing_by_accession import (
-    GetFilingByAccessionQuery,
+from src.application.handlers.schemas.queries.get_filing import GetFilingQuery
+from src.application.handlers.schemas.queries.list_company_filings import (
+    FilingSortField as ListCompanyFilingSortField,
 )
-from src.application.schemas.queries.search_filings import (
-    FilingSortField,
+from src.application.handlers.schemas.queries.search_filings import (
+    FilingSortField as SearchFilingSortField,
+)
+from src.application.handlers.schemas.queries.search_filings import (
     SearchFilingsQuery,
-    SortDirection,
 )
-from src.application.schemas.responses.analysis_response import AnalysisResponse
-from src.application.schemas.responses.filing_response import FilingResponse
-from src.application.schemas.responses.filing_search_response import FilingSearchResult
-from src.application.schemas.responses.paginated_response import PaginatedResponse
-from src.application.schemas.responses.task_response import TaskResponse
-from src.domain.value_objects.accession_number import AccessionNumber
-from src.domain.value_objects.cik import CIK
-from src.domain.value_objects.filing_type import FilingType
-from src.infrastructure.database.base import get_db
-from src.presentation.api.dependencies import get_service_factory
+from src.application.handlers.schemas.queries.search_filings import (
+    SortDirection as SearchSortDirection,
+)
+from src.application.handlers.schemas.responses import (
+    AnalysisResponse,
+    FilingResponse,
+    FilingSearchResult,
+    PaginatedResponse,
+)
+from src.application.handlers.schemas.responses.task_response import TaskResponse
+from src.application.interfaces.authentication import AuthenticationResult
+from src.application.services.application_service import ApplicationService
+from src.presentation.api.dependencies import get_application_service
+from src.presentation.api.security import get_current_user, user_id_str
+from src.shared.enums import FilingType
+from src.shared.types import CIK, AccessionNumber
 
 logger = logging.getLogger(__name__)
 
@@ -47,11 +51,21 @@ router = APIRouter(
     },
 )
 
+
+LIST_TO_SEARCH_SORT_FIELD_MAP: dict[
+    ListCompanyFilingSortField, SearchFilingSortField
+] = {
+    ListCompanyFilingSortField.FILING_DATE: SearchFilingSortField.FILING_DATE,
+    ListCompanyFilingSortField.FILING_TYPE: SearchFilingSortField.FILING_TYPE,
+    ListCompanyFilingSortField.PROCESSING_STATUS: SearchFilingSortField.FILING_DATE,
+    ListCompanyFilingSortField.CREATED_AT: SearchFilingSortField.FILING_DATE,
+}
+
 # Type aliases for dependencies
-SessionDep = Annotated[AsyncSession, Depends(get_db)]
-ServiceFactoryDep = Annotated[ServiceFactory, Depends(get_service_factory)]
+ApplicationServiceDep = Annotated[ApplicationService, Depends(get_application_service)]
 AccessionNumberPath = Annotated[str, Path(description="SEC filing accession number")]
 FilingIdPath = Annotated[UUID, Path(description="Filing UUID identifier")]
+AuthenticatedUserDep = Annotated[AuthenticationResult, Depends(get_current_user)]
 
 
 @router.get(
@@ -82,8 +96,8 @@ FilingIdPath = Annotated[UUID, Path(description="Filing UUID identifier")]
 )
 async def search_filings(
     ticker: Annotated[str, Query(description="Company ticker symbol (required)")],
-    session: SessionDep,
-    factory: ServiceFactoryDep,
+    application_service: ApplicationServiceDep,
+    current_user: AuthenticatedUserDep,
     form_type: Annotated[
         str | None, Query(description="Filing type filter (e.g., 10-K, 10-Q)")
     ] = None,
@@ -102,8 +116,6 @@ async def search_filings(
 
     Args:
         ticker: Company ticker symbol (required)
-        session: Database session for repository operations
-        factory: Service factory for dependency injection
         form_type: Optional filing type filter
         date_from: Optional start date for filing range
         date_to: Optional end date for filing range
@@ -145,19 +157,48 @@ async def search_filings(
 
         # Parse sort parameters
         try:
-            sort_by_enum = FilingSortField(sort_by)
-        except ValueError as e:
-            raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail=f"Invalid sort_by: {sort_by}. Must be one of: {', '.join([sf.value for sf in FilingSortField])}",
-            ) from e
+            sort_by_enum = SearchFilingSortField(sort_by)
+        except ValueError:
+            try:
+                list_sort_field = ListCompanyFilingSortField(sort_by)
+            except ValueError as e:
+                available_fields = sorted(
+                    {
+                        field.value
+                        for field in (
+                            list(ListCompanyFilingSortField)
+                            + list(SearchFilingSortField)
+                        )
+                    }
+                )
+                raise HTTPException(
+                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    detail=(
+                        "Invalid sort_by: "
+                        f"{sort_by}. Must be one of: {', '.join(available_fields)}"
+                    ),
+                ) from e
+
+            mapped_sort = LIST_TO_SEARCH_SORT_FIELD_MAP.get(list_sort_field)
+            if mapped_sort is None:
+                raise HTTPException(
+                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    detail=(f"Unsupported sort_by for filing search: {sort_by}."),
+                ) from None
+            sort_by_enum = mapped_sort
 
         try:
-            sort_direction_enum = SortDirection(sort_direction)
+            sort_direction_enum = SearchSortDirection(sort_direction)
         except ValueError as e:
+            valid_directions = ", ".join(
+                direction.value for direction in SearchSortDirection
+            )
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail=f"Invalid sort_direction: {sort_direction}. Must be one of: {', '.join([sd.value for sd in SortDirection])}",
+                detail=(
+                    f"Invalid sort_direction: {sort_direction}. "
+                    f"Must be one of: {valid_directions}"
+                ),
             ) from e
 
         # Create search query
@@ -170,15 +211,13 @@ async def search_filings(
             page_size=page_size,
             sort_by=sort_by_enum,
             sort_direction=sort_direction_enum,
+            user_id=user_id_str(current_user),
         )
 
-        # Get dependencies and dispatcher
-        dispatcher = factory.create_dispatcher()
-        dependencies = await factory.get_handler_dependencies(session)
-
-        # Dispatch query
-        result: PaginatedResponse[FilingSearchResult] = await dispatcher.dispatch_query(
-            query, dependencies
+        # Execute query through application service
+        result = cast(
+            PaginatedResponse[FilingSearchResult],
+            await application_service.execute_query(query),
         )
 
         logger.info(
@@ -232,15 +271,13 @@ async def search_filings(
 )
 async def analyze_filing(
     accession_number: AccessionNumberPath,
-    session: SessionDep,
-    factory: ServiceFactoryDep,
+    application_service: ApplicationServiceDep,
+    current_user: AuthenticatedUserDep,
 ) -> TaskResponse:
     """Analyze a specific SEC filing.
 
     Args:
         accession_number: SEC filing accession number (e.g., "0000320193-23-000077")
-        session: Database session for repository operations
-        factory: Service factory for dependency injection
 
     Returns:
         TaskResponse with task_id for tracking analysis progress
@@ -269,24 +306,25 @@ async def analyze_filing(
                 detail="Analysis is disabled for demonstration purposes. Try to view one of the complete analysis reports.",
             )
         # Validate accession number format
-        accession_num = AccessionNumber(accession_number)
+        accession_num = AccessionNumber(value=accession_number)
 
         # Extract CIK from accession number (first 10 digits)
         cik_str = accession_number.split("-")[0]
         # CIK expects string format, keep as string
-        company_cik = CIK(cik_str)
+        company_cik = CIK(value=cik_str)
 
         # Create command
         command = AnalyzeFilingCommand(
-            accession_number=accession_num, company_cik=company_cik
+            accession_number=accession_num,
+            company_cik=company_cik,
+            user_id=user_id_str(current_user),
         )
 
-        # Get dependencies and dispatcher
-        dispatcher = factory.create_dispatcher()
-        dependencies = await factory.get_handler_dependencies(session)
-
-        # Dispatch command
-        result: TaskResponse = await dispatcher.dispatch_command(command, dependencies)
+        # Execute command through application service
+        result = cast(
+            TaskResponse,
+            await application_service.execute_command(command),
+        )
 
         logger.info(
             "Filing analysis initiated successfully",
@@ -330,15 +368,13 @@ async def analyze_filing(
 )
 async def get_filing_by_id(
     filing_id: FilingIdPath,
-    session: SessionDep,
-    factory: ServiceFactoryDep,
+    application_service: ApplicationServiceDep,
+    current_user: AuthenticatedUserDep,
 ) -> FilingResponse:
     """Get information about a specific SEC filing by UUID.
 
     Args:
         filing_id: Filing UUID identifier
-        session: Database session for repository operations
-        factory: Service factory for dependency injection
 
     Returns:
         FilingResponse with complete filing information
@@ -358,14 +394,14 @@ async def get_filing_by_id(
             filing_id=filing_id,
             include_analyses=True,  # Include analysis count for enriched response
             include_content_metadata=True,
+            user_id=user_id_str(current_user),
         )
 
-        # Get dependencies and dispatcher
-        dispatcher = factory.create_dispatcher()
-        dependencies = await factory.get_handler_dependencies(session)
-
-        # Dispatch query
-        result: FilingResponse = await dispatcher.dispatch_query(query, dependencies)
+        # Execute query through application service
+        result = cast(
+            FilingResponse,
+            await application_service.execute_query(query),
+        )
 
         logger.info(
             "Filing retrieved successfully by ID",
@@ -421,86 +457,21 @@ async def get_filing_by_id(
 )
 async def get_filing(
     accession_number: AccessionNumberPath,
-    session: SessionDep,
-    factory: ServiceFactoryDep,
+    application_service: ApplicationServiceDep,  # noqa: ARG001 - for DI parity
+    current_user: AuthenticatedUserDep,  # noqa: ARG001 - for DI parity
 ) -> FilingResponse:
-    """Get information about a specific SEC filing.
-
-    Args:
-        accession_number: SEC filing accession number (e.g., "0000320193-23-000077")
-        session: Database session for repository operations
-        factory: Service factory for dependency injection
-
-    Returns:
-        FilingResponse with complete filing information
-
-    Raises:
-        HTTPException: 422 if accession number format is invalid
-        HTTPException: 404 if filing not found
-        HTTPException: 500 if filing retrieval fails
-    """
+    """Deprecated accession-based filing lookup."""
     logger.info(
-        "Retrieving filing information", extra={"accession_number": accession_number}
+        "Deprecated accession-based filing lookup attempted",
+        extra={"accession_number": accession_number},
     )
-
-    try:
-        # Validate accession number format
-        accession_num = AccessionNumber(accession_number)
-
-        # Create query using our new GetFilingByAccessionQuery
-        query = GetFilingByAccessionQuery(
-            accession_number=accession_num,
-            include_analyses=True,  # Include analysis count for enriched response
-            include_content_metadata=True,
-        )
-
-        # Get dependencies and dispatcher
-        dispatcher = factory.create_dispatcher()
-        dependencies = await factory.get_handler_dependencies(session)
-
-        # Dispatch query
-        result: FilingResponse = await dispatcher.dispatch_query(query, dependencies)
-
-        logger.info(
-            "Filing retrieved successfully",
-            extra={
-                "accession_number": accession_number,
-                "filing_id": str(result.filing_id),
-                "filing_type": result.filing_type,
-                "processing_status": result.processing_status,
-            },
-        )
-
-        return result
-
-    except ResourceNotFoundError as e:
-        logger.info(
-            "Filing not found",
-            extra={"accession_number": accession_number, "error": str(e)},
-        )
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Filing with accession number {accession_number} not found",
-        ) from e
-    except ValueError as e:
-        logger.warning(
-            "Invalid accession number format",
-            extra={"accession_number": accession_number, "error": str(e)},
-        )
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=f"Invalid accession number format: {str(e)}",
-        ) from e
-    except Exception:
-        logger.error(
-            "Failed to retrieve filing information",
-            extra={"accession_number": accession_number},
-            exc_info=True,
-        )
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to retrieve filing information",
-        ) from None
+    raise HTTPException(
+        status_code=status.HTTP_410_GONE,
+        detail=(
+            "Retrieving filings by accession number is no longer supported. "
+            "Use /filings/by-id/{filing_id} instead."
+        ),
+    )
 
 
 @router.get(
@@ -516,85 +487,18 @@ async def get_filing(
 )
 async def get_filing_analysis(
     accession_number: AccessionNumberPath,
-    session: SessionDep,
-    factory: ServiceFactoryDep,
+    application_service: ApplicationServiceDep,  # noqa: ARG001 - for DI parity
+    current_user: AuthenticatedUserDep,  # noqa: ARG001 - for DI parity
 ) -> AnalysisResponse:
-    """Get analysis results for a specific SEC filing.
-
-    Args:
-        accession_number: SEC filing accession number (e.g., "0000320193-23-000077")
-        session: Database session for repository operations
-        factory: Service factory for dependency injection
-
-    Returns:
-        AnalysisResponse with complete analysis results
-
-    Raises:
-        HTTPException: 422 if accession number format is invalid
-        HTTPException: 404 if filing or analysis not found
-        HTTPException: 500 if analysis retrieval fails
-    """
+    """Deprecated accession-based analysis lookup."""
     logger.info(
-        "Retrieving filing analysis results",
+        "Deprecated accession-based analysis lookup attempted",
         extra={"accession_number": accession_number},
     )
-
-    try:
-        # Validate accession number format
-        accession_num = AccessionNumber(accession_number)
-
-        # Create query using our new GetAnalysisByAccessionQuery
-        query = GetAnalysisByAccessionQuery(
-            accession_number=accession_num,
-            include_full_results=True,
-            include_section_details=False,
-            include_processing_metadata=False,
-        )
-
-        # Get dependencies and dispatcher
-        dispatcher = factory.create_dispatcher()
-        dependencies = await factory.get_handler_dependencies(session)
-
-        # Dispatch query
-        result: AnalysisResponse = await dispatcher.dispatch_query(query, dependencies)
-
-        logger.info(
-            "Filing analysis retrieved successfully",
-            extra={
-                "accession_number": accession_number,
-                "analysis_id": str(result.analysis_id),
-                "analysis_type": result.analysis_type,
-                "confidence_score": result.confidence_score,
-            },
-        )
-
-        return result
-
-    except ResourceNotFoundError as e:
-        logger.info(
-            "Analysis not found for filing",
-            extra={"accession_number": accession_number, "error": str(e)},
-        )
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Analysis not found for filing {accession_number}",
-        ) from e
-    except ValueError as e:
-        logger.warning(
-            "Invalid accession number format",
-            extra={"accession_number": accession_number, "error": str(e)},
-        )
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=f"Invalid accession number format: {str(e)}",
-        ) from e
-    except Exception:
-        logger.error(
-            "Failed to retrieve filing analysis results",
-            extra={"accession_number": accession_number},
-            exc_info=True,
-        )
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to retrieve filing analysis results",
-        ) from None
+    raise HTTPException(
+        status_code=status.HTTP_410_GONE,
+        detail=(
+            "Retrieving analyses by accession number is no longer supported. "
+            "Use /analyses/{analysis_id} or /filings/by-id/{filing_id}/analysis instead."
+        ),
+    )

@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Awaitable, Callable
-from typing import Any
 
 from fastapi import Request, Response, status
 from fastapi.responses import JSONResponse
@@ -150,8 +149,9 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
 
     async def _resolve_user_id(self, request: Request) -> UserId | None:
         cached = getattr(request.state, "auth_result", None)
-        if self._is_authenticated_result(cached):
-            return cached.user_id
+        cached_user_id = self._get_authenticated_user_id(cached)
+        if cached_user_id is not None:
+            return cached_user_id
 
         authorization = request.headers.get("Authorization")
         if not authorization:
@@ -175,32 +175,36 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
             logger.debug("Token validation failed during rate limiting", exc_info=True)
             return None
 
-        if self._is_authenticated_result(auth_result):
+        resolved_user_id = self._get_authenticated_user_id(auth_result)
+        if resolved_user_id is not None:
             request.state.auth_result = auth_result
-            return auth_result.user_id
+            return resolved_user_id
 
         return None
 
     @staticmethod
-    def _is_authenticated_result(result: Any) -> bool:
-        return (
-            isinstance(result, AuthenticationResult)
-            and result.authenticated
-            and result.user_id is not None
-        )
+    def _get_authenticated_user_id(result: object) -> UserId | None:
+        if not isinstance(result, AuthenticationResult):
+            return None
+        if not result.authenticated:
+            return None
+        if result.user_id is None:
+            return None
+        return result.user_id
 
     @staticmethod
     def _extract_client_id(request: Request) -> str:
         forwarded_for = request.headers.get("x-forwarded-for")
-        if forwarded_for:
+        if isinstance(forwarded_for, str) and forwarded_for:
             return forwarded_for.split(",", 1)[0].strip()
 
         real_ip = request.headers.get("x-real-ip")
-        if real_ip:
+        if isinstance(real_ip, str) and real_ip:
             return real_ip.strip()
 
-        if request.client and request.client.host:
-            return request.client.host
+        client_host = getattr(request.client, "host", None)
+        if isinstance(client_host, str) and client_host:
+            return client_host
 
         return "unknown-client"
 
