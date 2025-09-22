@@ -14,7 +14,8 @@ from src.application.services.background_task_coordinator import (
     BackgroundTaskCoordinator,
 )
 from src.shared.enums import TaskPriority, TaskStatus
-from src.shared.types import CIK, CompanyId, TaskId, Ticker
+from src.shared.models.base import MetadataValue
+from src.shared.types import CIK, CompanyId, CorrelationId, TaskId, Ticker
 
 logger = logging.getLogger(__name__)
 
@@ -179,7 +180,7 @@ class ImportFilingsCommandHandler(CommandHandler[ImportFilingsCommand, TaskRespo
             task_ids.append(str(task_id))
 
             # Build payload dict without None values
-            payload = {
+            payload: dict[str, MetadataValue] = {
                 "cik": str(cik),
                 "filing_types": command.filing_types if command.filing_types else [],
                 "limit_per_company": command.limit_per_company,
@@ -198,21 +199,7 @@ class ImportFilingsCommandHandler(CommandHandler[ImportFilingsCommand, TaskRespo
                 task_type="import_company_filings",
                 priority=TaskPriority.LOW,  # Import tasks are typically lower priority
                 status=TaskStatus.PENDING,
-                payload={
-                    "cik": str(cik),
-                    "company_id": str(company_id) if company_id else None,
-                    "filing_types": command.filing_types
-                    if command.filing_types
-                    else [],
-                    "limit_per_company": command.limit_per_company,
-                    "start_date": command.start_date.isoformat()
-                    if command.start_date
-                    else None,
-                    "end_date": command.end_date.isoformat()
-                    if command.end_date
-                    else None,
-                    "batch_id": batch_id,
-                },
+                payload=payload,
                 metadata=TaskMetadata(
                     created_at=datetime.now(UTC),
                     updated_at=datetime.now(UTC),
@@ -222,7 +209,7 @@ class ImportFilingsCommandHandler(CommandHandler[ImportFilingsCommand, TaskRespo
                         "import_strategy": command.import_strategy.value,
                     },
                 ),
-                correlation_id=batch_id,
+                correlation_id=CorrelationId(batch_id),
                 created_at=datetime.now(UTC),
             )
 
@@ -297,17 +284,19 @@ class ImportFilingsCommandHandler(CommandHandler[ImportFilingsCommand, TaskRespo
         task_id = TaskId(uuid4())
 
         # Create TaskMessage for importing filings by date range
+        payload: dict[str, MetadataValue] = {
+            "start_date": command.start_date.isoformat(),
+            "end_date": command.end_date.isoformat(),
+            "filing_types": command.filing_types if command.filing_types else [],
+            "batch_id": batch_id,
+        }
+
         task_message = TaskMessage(
             task_id=task_id,
             task_type="import_filings_date_range",
             priority=TaskPriority.LOW,  # Import tasks are typically lower priority
             status=TaskStatus.PENDING,
-            payload={
-                "start_date": command.start_date.isoformat(),
-                "end_date": command.end_date.isoformat(),
-                "filing_types": command.filing_types if command.filing_types else [],
-                "batch_id": batch_id,
-            },
+            payload=payload,
             metadata=TaskMetadata(
                 created_at=datetime.now(UTC),
                 updated_at=datetime.now(UTC),
@@ -317,7 +306,7 @@ class ImportFilingsCommandHandler(CommandHandler[ImportFilingsCommand, TaskRespo
                     "import_strategy": command.import_strategy.value,
                 },
             ),
-            correlation_id=batch_id,
+            correlation_id=CorrelationId(batch_id),
             created_at=datetime.now(UTC),
         )
 

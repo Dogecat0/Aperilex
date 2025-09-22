@@ -3,20 +3,20 @@
 import asyncio
 from abc import ABC, abstractmethod
 from collections.abc import Callable, Sequence
-from typing import Any, Union, get_args, get_origin
+from typing import Any, ClassVar, Union, get_args, get_origin
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 from pydantic import BaseModel as PydanticBaseModel
 
 from src.application.interfaces.llm import (
     FinancialAnalysisRequest,
     FinancialAnalysisResponse,
     ILLMProvider,
-    LLMConfig,
     LLMPrompt,
     LLMRequest,
     LLMResponse,
 )
+from src.shared.config.providers import LLMConfig
 from src.shared.enums import FilingType
 from src.shared.models import LLMModelInfo
 
@@ -27,7 +27,7 @@ from . import schemas
 class BaseSubSectionAnalysisResponse(BaseModel):
     """Base response model for all schema-specific responses."""
 
-    model_config = {"extra": "forbid"}
+    model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid")
 
     sub_section_name: str = Field(..., description="Semantic name of the sub-section")
     processing_time_ms: int | None = Field(
@@ -119,10 +119,9 @@ def create_analysis_response(
 class SubsectionAnalysisResponse(BaseSubSectionAnalysisResponse):
     """Generic subsection analysis response for individual schema components."""
 
-    model_config = {
-        "extra": "forbid",
-        "json_schema_extra": {"additionalProperties": False},
-    }
+    model_config: ClassVar[ConfigDict] = ConfigDict(
+        extra="forbid", json_schema_extra={"additionalProperties": False}
+    )
 
     schema_type: str = Field(..., description="Type of subsection schema")
     analysis: dict[str, Any] = Field(
@@ -143,7 +142,7 @@ SubSectionAnalysisResponse = AnalysisResponse | SubsectionAnalysisResponse
 class SectionSummaryResponse(BaseModel):
     """Section summary response without sub-sections (for OpenAI structured output)."""
 
-    model_config = {"extra": "forbid"}
+    model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid")
 
     section_name: str = Field(..., description="Name of the section")
     section_summary: str = Field(
@@ -163,7 +162,7 @@ class SectionSummaryResponse(BaseModel):
 class SectionAnalysisResponse(BaseModel):
     """Unified section analysis response combining summary and sub-sections."""
 
-    model_config = {"extra": "forbid"}
+    model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid")
 
     section_name: str = Field(..., description="Name of the section")
     section_summary: str = Field(
