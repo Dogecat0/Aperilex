@@ -5,10 +5,15 @@ Handles complex company queries including name searches and recent filing filter
 """
 
 import logging
+from collections.abc import Mapping, Sequence
 from datetime import datetime, timedelta
+from typing import cast
 
-from sqlalchemy import and_, func, or_, select
+from sqlalchemy import and_, case, func, or_, select
+from sqlalchemy.engine import ScalarResult
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.sql import Select
+from sqlalchemy.sql.elements import ColumnElement
 
 from src.application.interfaces.query_services import (
     CompanyQueryResult,
@@ -38,6 +43,54 @@ class CompanyQueryService(ICompanyQueryService):
         """
         self.session = session
 
+    @staticmethod
+    def _ticker_column() -> ColumnElement[str]:
+        """Return SQL expression for the ticker stored in metadata."""
+
+        return cast(ColumnElement[str], CompanyModel.meta_data["ticker"].as_string())
+
+    @staticmethod
+    def _sanitize_metadata(
+        meta_data: Mapping[str, object] | None,
+    ) -> dict[str, str | int | float | bool]:
+        """Convert arbitrary metadata into a typed, serializable mapping."""
+
+        if not meta_data:
+            return {}
+
+        allowed_types = (str, int, float, bool)
+        sanitized: dict[str, str | int | float | bool] = {}
+        for key, value in meta_data.items():
+            if isinstance(value, allowed_types):
+                sanitized[key] = value
+            elif value is not None:
+                sanitized[key] = str(value)
+        return sanitized
+
+    def _map_company_model(self, company: CompanyModel) -> CompanyQueryResult:
+        """Convert ORM model to query result with sanitized metadata."""
+
+        metadata = self._sanitize_metadata(company.meta_data)
+        ticker_candidate = metadata.get("ticker")
+        ticker = ticker_candidate if isinstance(ticker_candidate, str) else None
+
+        return CompanyQueryResult(
+            company_id=CompanyId(company.id),
+            cik=company.cik,
+            name=company.name,
+            ticker=ticker,
+            metadata=metadata,
+        )
+
+    async def _fetch_companies(
+        self, stmt: Select[tuple[CompanyModel]]
+    ) -> Sequence[CompanyModel]:
+        """Execute a select statement and return company models."""
+
+        result = await self.session.execute(stmt)
+        scalar_result: ScalarResult[CompanyModel] = result.scalars()
+        return tuple(scalar_result)
+
     async def search_by_name(
         self,
         name_pattern: str,
@@ -59,7 +112,7 @@ class CompanyQueryService(ICompanyQueryService):
         """
         try:
             logger.debug(
-                f"Searching companies by name: {name_pattern}",
+                "Searching companies by name",
                 extra={
                     "name_pattern": name_pattern,
                     "fuzzy": fuzzy,
@@ -67,13 +120,11 @@ class CompanyQueryService(ICompanyQueryService):
                 },
             )
 
+            ticker_column = self._ticker_column()
+
             if fuzzy:
-                # Use ILIKE for case-insensitive pattern matching
-                # Add wildcards for partial matching
                 search_pattern = f"%{name_pattern}%"
 
-                # Create conditions for fuzzy search
-                # Prioritize exact matches, then starts-with, then contains
                 exact_match = func.lower(CompanyModel.name) == func.lower(name_pattern)
                 starts_with = func.lower(CompanyModel.name).like(
                     func.lower(f"{name_pattern}%")
@@ -81,70 +132,42 @@ class CompanyQueryService(ICompanyQueryService):
                 contains = func.lower(CompanyModel.name).like(
                     func.lower(search_pattern)
                 )
-
-                # Also search ticker if available
-                ticker_match = func.lower(CompanyModel.ticker) == func.lower(
-                    name_pattern
-                )
-                ticker_starts = func.lower(CompanyModel.ticker).like(
+                ticker_match = func.lower(ticker_column) == func.lower(name_pattern)
+                ticker_starts = func.lower(ticker_column).like(
                     func.lower(f"{name_pattern}%")
                 )
 
+                relevance_score: ColumnElement[int] = case(
+                    (exact_match, 1),
+                    (ticker_match, 2),
+                    (starts_with, 3),
+                    (ticker_starts, 4),
+                    (contains, 5),
+                    else_=6,
+                ).label("relevance")
+
                 stmt = (
-                    select(
-                        CompanyModel,
-                        # Add a relevance score for ordering
-                        func.case(
-                            (exact_match, 1),
-                            (ticker_match, 2),
-                            (starts_with, 3),
-                            (ticker_starts, 4),
-                            (contains, 5),
-                            else_=6,
-                        ).label("relevance"),
-                    )
-                    .where(
-                        or_(
-                            contains,
-                            ticker_match,
-                            ticker_starts,
-                        )
-                    )
-                    .order_by("relevance", CompanyModel.name)
+                    select(CompanyModel)
+                    .where(or_(contains, ticker_match, ticker_starts))
+                    .order_by(relevance_score, CompanyModel.name)
                     .limit(limit)
                 )
             else:
-                # Exact match only
                 stmt = (
                     select(CompanyModel)
                     .where(
                         or_(
                             func.lower(CompanyModel.name) == func.lower(name_pattern),
-                            func.lower(CompanyModel.ticker) == func.lower(name_pattern),
+                            func.lower(ticker_column) == func.lower(name_pattern),
                         )
                     )
                     .order_by(CompanyModel.name)
                     .limit(limit)
                 )
 
-            result = await self.session.execute(stmt)
+            companies = await self._fetch_companies(stmt)
 
-            if fuzzy:
-                # Extract companies from the tuple results (company, relevance)
-                companies = [row[0] for row in result.all()]
-            else:
-                companies = result.scalars().all()
-
-            return [
-                CompanyQueryResult(
-                    company_id=CompanyId(company.id),
-                    cik=company.cik,
-                    name=company.name,
-                    ticker=company.ticker,
-                    metadata=company.meta_data or {},
-                )
-                for company in companies
-            ]
+            return [self._map_company_model(company) for company in companies]
 
         except Exception as e:
             logger.error(
@@ -211,19 +234,9 @@ class CompanyQueryService(ICompanyQueryService):
                 .limit(limit)
             )
 
-            result = await self.session.execute(stmt)
-            companies = result.scalars().all()
+            companies = await self._fetch_companies(stmt)
 
-            return [
-                CompanyQueryResult(
-                    company_id=CompanyId(company.id),
-                    cik=company.cik,
-                    name=company.name,
-                    ticker=company.ticker,
-                    metadata=company.meta_data or {},
-                )
-                for company in companies
-            ]
+            return [self._map_company_model(company) for company in companies]
 
         except Exception as e:
             logger.error(

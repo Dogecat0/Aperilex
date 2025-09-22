@@ -7,7 +7,7 @@ Handles complex filing queries that go beyond simple ID lookups.
 import logging
 from datetime import date, datetime
 
-from sqlalchemy import and_, desc, func, select
+from sqlalchemy import and_, desc, func, select, true
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.application.interfaces.query_services import (
@@ -278,7 +278,7 @@ class FilingQueryService(IFilingQueryService):
             if end_date:
                 conditions.append(FilingModel.filing_date <= end_date)
 
-            where_clause = and_(*conditions) if conditions else True
+            where_clause = and_(*conditions) if conditions else true()
 
             count_stmt = select(func.count(FilingModel.id)).where(where_clause)
             total_result = await self.session.execute(count_stmt)
