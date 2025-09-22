@@ -3,7 +3,7 @@
 import asyncio
 import logging
 import threading
-from collections.abc import Awaitable
+from collections.abc import Coroutine
 from typing import Any, TypeVar
 
 from pydantic import SecretStr
@@ -121,20 +121,20 @@ class PostgresDatabaseProvider(SQLAlchemyDatabaseProvider):
 
         return engine
 
-    def _run_coroutine_safely(self, coroutine: Awaitable[T]) -> T:
+    def _run_coroutine_safely(self, coro: Coroutine[Any, Any, T]) -> T:
         """Execute coroutine regardless of current event loop state."""
 
         try:
             asyncio.get_running_loop()
         except RuntimeError:
-            return asyncio.run(coroutine)
+            return asyncio.run(coro)
 
         result_holder: list[T] = []
         error_container: list[BaseException] = []
 
         def runner() -> None:
             try:
-                result_holder.append(asyncio.run(coroutine))
+                result_holder.append(asyncio.run(coro))
             except BaseException as exc:  # pragma: no cover - defensive
                 error_container.append(exc)
 

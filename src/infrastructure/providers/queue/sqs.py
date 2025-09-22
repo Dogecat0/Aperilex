@@ -4,8 +4,9 @@ AWS SQS queue provider implementation.
 
 import hashlib
 import json
+from collections.abc import Mapping
 from datetime import datetime
-from typing import Any, Self
+from typing import Any, Self, cast
 
 import aioboto3  # type: ignore[import-not-found] # TODO: Add aioboto3 dependency when boto3 version conflict is resolved
 from botocore.exceptions import BotoCoreError, ClientError
@@ -25,6 +26,7 @@ class SQSQueueProvider(IQueueProvider):
         self.sqs_client = None
         self.dlq_url: str | None = None
         self._initialized = False
+        self._queue_url_cache: dict[str, str] = {}
 
     async def _get_client(self) -> Any:
         """Get or create SQS client."""
@@ -68,6 +70,39 @@ class SQSQueueProvider(IQueueProvider):
             self._initialized = True
         except (ClientError, BotoCoreError) as e:
             raise Exception(f"Failed to initialize SQS queue: {e}") from e
+
+    async def _resolve_queue_url(self, queue_identifier: str | None) -> str:
+        """Resolve a queue name or URL to a queue URL."""
+        await self._initialize()
+        client = await self._get_client()
+
+        if not queue_identifier:
+            return self.config.queue_url
+
+        # If a full URL was provided, use it directly
+        if queue_identifier.startswith("http"):
+            return queue_identifier
+
+        if queue_identifier in self._queue_url_cache:
+            return self._queue_url_cache[queue_identifier]
+
+        try:
+            response = await client.get_queue_url(QueueName=queue_identifier)
+            queue_url_obj = (
+                response.get("QueueUrl")
+                if isinstance(response, Mapping)
+                else None
+            )
+            if not isinstance(queue_url_obj, str):
+                raise Exception(
+                    "QueueUrl not returned when resolving queue identifier"
+                )
+            self._queue_url_cache[queue_identifier] = queue_url_obj
+            return queue_url_obj
+        except (ClientError, BotoCoreError) as exc:
+            raise Exception(
+                f"Failed to resolve queue URL for {queue_identifier}: {exc}"
+            ) from exc
 
     async def send_task(
         self,
@@ -356,14 +391,16 @@ class SQSQueueProvider(IQueueProvider):
 
         return results
 
-    async def get_queue_stats(self) -> QueueStats:
+    async def get_queue_stats(self, queue_name: str | None = None) -> QueueStats:
         """Get queue statistics and metrics."""
         await self._initialize()
         client = await self._get_client()
 
+        queue_url = await self._resolve_queue_url(queue_name)
+
         try:
             response = await client.get_queue_attributes(
-                QueueUrl=self.config.queue_url,
+                QueueUrl=queue_url,
                 AttributeNames=[
                     "ApproximateNumberOfMessages",
                     "ApproximateNumberOfMessagesNotVisible",
@@ -436,14 +473,25 @@ class SQSQueueProvider(IQueueProvider):
                 QueueName=dlq_name,
                 Attributes=dlq_attrs,
             )
-            self.dlq_url = dlq_response["QueueUrl"]
+            response_mapping = cast(Mapping[str, object], dlq_response)
+            queue_url = response_mapping.get("QueueUrl")
+            if not isinstance(queue_url, str):
+                raise Exception("QueueUrl not returned when creating DLQ")
+            self.dlq_url = queue_url
 
             # Get DLQ ARN
             dlq_attrs_response = await client.get_queue_attributes(
-                QueueUrl=self.dlq_url,
+                QueueUrl=queue_url,
                 AttributeNames=["QueueArn"],
             )
-            dlq_arn = dlq_attrs_response["Attributes"]["QueueArn"]
+            attributes_mapping = cast(Mapping[str, object], dlq_attrs_response)
+            attributes = attributes_mapping.get("Attributes")
+            if not isinstance(attributes, Mapping):
+                raise Exception("Attributes missing from DLQ attribute response")
+            queue_arn = attributes.get("QueueArn")
+            if not isinstance(queue_arn, str):
+                raise Exception("QueueArn missing from DLQ attribute response")
+            dlq_arn = queue_arn
 
             # Configure redrive policy on main queue
             redrive_policy = {
@@ -458,7 +506,7 @@ class SQSQueueProvider(IQueueProvider):
                 },
             )
 
-            return self.dlq_url
+            return queue_url
         except (ClientError, BotoCoreError) as e:
             raise Exception(f"Failed to create DLQ: {e}") from e
 

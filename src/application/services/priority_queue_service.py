@@ -211,11 +211,13 @@ class PriorityQueueService:
 
         # Send to queue
         try:
-            import json
-
             from src.shared.models.queue import TaskMessage
 
-            payload = json.dumps(task_data.dict())
+            payload = (
+                task_data.model_dump_json()
+                if hasattr(task_data, "model_dump_json")
+                else task_data.json()
+            )
 
             task_message = TaskMessage(
                 schema_version=1,
@@ -528,7 +530,9 @@ class PriorityQueueService:
 
         for priority_level, queue_name in self.config.queue_names.items():
             try:
-                stats = await self.queue_provider.get_queue_stats()
+                stats = await self.queue_provider.get_queue_stats(
+                    queue_name=queue_name
+                )
                 depths[priority_level] = stats.message_count
             except Exception as e:
                 logger.error(f"Failed to get stats for {queue_name}: {str(e)}")

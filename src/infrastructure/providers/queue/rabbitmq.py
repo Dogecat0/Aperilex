@@ -324,17 +324,33 @@ class RabbitMQQueueProvider(IQueueProvider):
 
         return results
 
-    async def get_queue_stats(self) -> QueueStats:
+    async def get_queue_stats(self, queue_name: str | None = None) -> QueueStats:
         """Get queue statistics and metrics."""
         await self.connect()
 
-        if self.queue is None:
-            raise Exception("Queue not initialized")
+        if self.channel is None:
+            raise Exception("Channel not initialized")
+
+        target_queue_name = queue_name or self.config.queue_name
+
+        if (
+            self.queue is not None
+            and target_queue_name == self.config.queue_name
+        ):
+            target_queue = self.queue
+        else:
+            target_queue = await self.channel.declare_queue(
+                target_queue_name,
+                passive=True,
+            )
+
+        if target_queue is None:
+            raise Exception(f"Queue {target_queue_name} not initialized")
 
         try:
             # Get queue declaration result for stats
             # Queue is already declared, just get the info
-            declaration = await self.queue.declare()
+            declaration = await target_queue.declare()
 
             return QueueStats(
                 message_count=(

@@ -154,9 +154,12 @@ class IQueueProvider(Protocol):
         ...
 
     @abstractmethod
-    async def get_queue_stats(self) -> QueueStats:
+    async def get_queue_stats(self, queue_name: str | None = None) -> QueueStats:
         """
         Get queue statistics and metrics.
+
+        Args:
+            queue_name: Optional identifier of the queue to inspect
 
         Returns:
             Queue statistics object
