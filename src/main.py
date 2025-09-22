@@ -34,7 +34,7 @@ async def main() -> None:
     # Determine environment from environment variable or default to development
     import os
 
-    environment = os.getenv("APERILEX_ENV", "development")
+    environment = os.getenv("ENVIRONMENT", "development")
 
     logger.info(f"Starting Aperilex in {environment} mode")
 

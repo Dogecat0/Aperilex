@@ -114,7 +114,10 @@ class WorkerRunner:
             },
         )
 
-        if status in (TaskStatus.COMPLETED, TaskStatus.RETRY) or message.should_move_to_dlq:
+        if (
+            status in (TaskStatus.COMPLETED, TaskStatus.RETRY)
+            or message.should_move_to_dlq
+        ):
             await self._acknowledge(message)
 
         await self._maybe_emit_dispatcher_metrics(message, result)
@@ -145,7 +148,9 @@ class WorkerRunner:
         if analysis_id is None:
             return
 
-        user_identifier = message.task_data.get("user_id") if message.task_data else None
+        user_identifier = (
+            message.task_data.get("user_id") if message.task_data else None
+        )
 
         try:
             query = GetAnalysisQuery(
@@ -171,7 +176,9 @@ class WorkerRunner:
         payload["correlation_id"] = correlation
 
         task_id_raw = payload.get("task_id")
-        task_uuid = task_id_raw if isinstance(task_id_raw, UUID) else UUID(str(task_id_raw))
+        task_uuid = (
+            task_id_raw if isinstance(task_id_raw, UUID) else UUID(str(task_id_raw))
+        )
 
         retry_attempt = self._coerce_int(payload.get("retry_count"), default=0)
         max_retries = self._coerce_int(payload.get("max_retries"), default=3)
@@ -211,7 +218,7 @@ class WorkerRunner:
 async def async_main(args: argparse.Namespace) -> None:
     """Initialize DI container, log provider info, and start the worker loop."""
 
-    environment = args.environment or os.getenv("APERILEX_ENV", "development")
+    environment = args.environment or os.getenv("ENVIRONMENT", "development")
     composition_root = CompositionRoot.initialize(environment)
     app_container = composition_root.get_application_container()
 
@@ -255,7 +262,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--environment",
         choices=["development", "testing", "production"],
-        help="Environment to load (defaults to APERILEX_ENV or development)",
+        help="Environment to load (defaults to ENVIRONMENT or development)",
     )
     parser.add_argument(
         "--log-level",

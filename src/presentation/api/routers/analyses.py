@@ -2,7 +2,7 @@
 
 import logging
 from datetime import datetime
-from typing import Annotated
+from typing import Annotated, cast
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Path, Query, status
@@ -154,9 +154,21 @@ async def list_analyses(
         )
 
         # Execute query through application service
-        results: PaginatedResponse[
-            AnalysisResponse
-        ] = await application_service.execute_query(query)
+        results_obj = await application_service.execute_query(query)
+        if not isinstance(results_obj, PaginatedResponse):
+            logger.error(
+                "Unexpected response type when listing analyses",
+                extra={
+                    "returned_type": type(results_obj).__name__,
+                    "expected_type": "PaginatedResponse",
+                },
+            )
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Unexpected response type from application service",
+            )
+
+        results = cast(PaginatedResponse[AnalysisResponse], results_obj)
 
         logger.info(
             "Listed analyses successfully",
@@ -232,7 +244,21 @@ async def get_analysis_templates(
         )
 
         # Execute query through application service
-        result: TemplatesResponse = await application_service.execute_query(query)
+        result_obj = await application_service.execute_query(query)
+        if not isinstance(result_obj, TemplatesResponse):
+            logger.error(
+                "Unexpected response type when retrieving templates",
+                extra={
+                    "returned_type": type(result_obj).__name__,
+                    "expected_type": "TemplatesResponse",
+                },
+            )
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Unexpected response type from application service",
+            )
+
+        result = result_obj
 
         logger.info(
             "Analysis templates retrieved successfully",
@@ -296,7 +322,22 @@ async def get_analysis(
         )
 
         # Execute query through application service
-        result: AnalysisResponse = await application_service.execute_query(query)
+        result_obj = await application_service.execute_query(query)
+        if not isinstance(result_obj, AnalysisResponse):
+            logger.error(
+                "Unexpected response type when retrieving analysis",
+                extra={
+                    "analysis_id": str(analysis_id),
+                    "returned_type": type(result_obj).__name__,
+                    "expected_type": "AnalysisResponse",
+                },
+            )
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Unexpected response type from application service",
+            )
+
+        result = result_obj
 
         logger.info(
             "Analysis retrieved successfully", extra={"analysis_id": str(analysis_id)}

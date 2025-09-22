@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING
 
 from dependency_injector import providers
 
+from src.application.interfaces.worker import IWorkerProvider
 from src.shared.enums import (
     DatabaseProvider,
     DataSourceProvider,
@@ -18,7 +19,7 @@ from src.shared.enums import (
 )
 
 
-class _MissingWorkerProvider:
+class _MissingWorkerProvider(IWorkerProvider):
     """Fallback worker provider used when optional dependencies are missing."""
 
     def __init__(self, message: str) -> None:

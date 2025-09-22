@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Any, TypeVar
+from typing import Any, TypeVar, cast
 
 from src.application.interfaces.config import (
     ConfigNamespace,
@@ -13,6 +13,7 @@ from src.application.interfaces.config import (
     IConfigProvider,
 )
 
+ConfigValueType = str | int | float | bool | list[str] | dict[str, str]
 T = TypeVar("T")
 
 
@@ -27,7 +28,7 @@ class JSONConfigProvider(IConfigProvider):
     ) -> None:
         self.file_path = Path(file_path)
         self.encoding = encoding
-        self._cache: dict[str, Any] = {}
+        self._cache: dict[str, ConfigValueType] = {}
         self._key_index: dict[str, list[str]] = {}
 
         if auto_create:
@@ -59,8 +60,8 @@ class JSONConfigProvider(IConfigProvider):
     def _flatten_with_index(
         data: dict[str, Any],
         parent_path: tuple[str, ...] | None = None,
-    ) -> tuple[dict[str, Any], dict[str, list[str]]]:
-        cache: dict[str, Any] = {}
+    ) -> tuple[dict[str, ConfigValueType], dict[str, list[str]]]:
+        cache: dict[str, ConfigValueType] = {}
         index: dict[str, list[str]] = {}
         parent = parent_path or ()
 
@@ -74,18 +75,22 @@ class JSONConfigProvider(IConfigProvider):
                 index.update(child_index)
             else:
                 normalized = ".".join(current_path).lower()
-                cache[normalized] = value
+                cache[normalized] = JSONConfigProvider._coerce_value(value)
                 index[normalized] = list(current_path)
 
         return cache, index
 
-    def _build_nested(self) -> dict[str, Any]:
-        nested: dict[str, Any] = {}
+    def _build_nested(self) -> dict[str, object]:
+        nested: dict[str, object] = {}
         for normalized_key, value in self._cache.items():
             path = self._key_index.get(normalized_key, normalized_key.split("."))
-            current: dict[str, Any] = nested
+            current: dict[str, object] = nested
             for segment in path[:-1]:
-                current = current.setdefault(segment, {})
+                next_container = current.setdefault(segment, {})
+                if not isinstance(next_container, dict):
+                    next_container = {}
+                    current[segment] = next_container
+                current = cast(dict[str, object], next_container)
             current[path[-1]] = value
         return nested
 
@@ -125,7 +130,7 @@ class JSONConfigProvider(IConfigProvider):
     def get(self, key: str, default: T | None = None) -> T:
         normalized = key.lower()
         if normalized in self._cache:
-            return self._cache[normalized]
+            return cast(T, self._cache[normalized])
         if default is not None:
             return default
         raise ValueError(f"Configuration key '{key}' not found and no default provided")
@@ -293,3 +298,16 @@ class JSONConfigProvider(IConfigProvider):
                     is_sensitive=is_sensitive,
                 )
         return exported
+
+    @staticmethod
+    def _coerce_value(raw_value: object) -> ConfigValueType:
+        if isinstance(raw_value, (str | int | float | bool)):
+            return raw_value
+        if isinstance(raw_value, list):
+            return [str(item) for item in raw_value]
+        if isinstance(raw_value, dict):
+            coerced_dict: dict[str, str] = {}
+            for key, value in raw_value.items():
+                coerced_dict[str(key)] = str(value)
+            return coerced_dict
+        return str(raw_value)

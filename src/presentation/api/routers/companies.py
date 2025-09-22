@@ -1,7 +1,7 @@
 """API router for company-related endpoints."""
 
 import logging
-from typing import Annotated
+from typing import Annotated, cast
 
 from fastapi import APIRouter, Depends, HTTPException, Path, Query, status
 
@@ -118,18 +118,31 @@ async def get_company(
         )
 
         # Execute query through application service
-        result: CompanyResponse = await application_service.execute_query(query)
+        result_obj = await application_service.execute_query(query)
+        if not isinstance(result_obj, CompanyResponse):
+            logger.error(
+                "Unexpected response type from application service",
+                extra={
+                    "ticker": ticker,
+                    "returned_type": type(result_obj).__name__,
+                    "expected_type": "CompanyResponse",
+                },
+            )
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Unexpected response type from application service",
+            )
 
         logger.info(
             "Company information retrieved successfully",
             extra={
                 "ticker": ticker,
-                "company_id": str(result.company_id),
-                "cik": result.cik,
+                "company_id": str(result_obj.company_id),
+                "cik": result_obj.cik,
             },
         )
 
-        return result
+        return result_obj
 
     except HTTPException:
         # Re-raise HTTP exceptions
@@ -230,10 +243,9 @@ async def list_company_analyses(
         )
 
         try:
-            company_info: CompanyResponse = await application_service.execute_query(
+            company_info_result = await application_service.execute_query(
                 company_query
             )
-            company_cik_str = company_info.cik
         except Exception as e:
             logger.warning(
                 "Company not found for ticker",
@@ -243,6 +255,23 @@ async def list_company_analyses(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"Company with ticker '{ticker}' not found",
             ) from e
+
+        if not isinstance(company_info_result, CompanyResponse):
+            logger.error(
+                "Unexpected response type when resolving company",
+                extra={
+                    "ticker": ticker,
+                    "returned_type": type(company_info_result).__name__,
+                    "expected_type": "CompanyResponse",
+                },
+            )
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Unexpected response type from application service",
+            )
+
+        company_info = company_info_result
+        company_cik_str = company_info.cik
 
         # Convert CIK string to CIK object for the analyses query
         from src.shared.types import CIK
@@ -263,9 +292,22 @@ async def list_company_analyses(
         )
 
         # Dispatch analyses query
-        results: PaginatedResponse[
-            AnalysisResponse
-        ] = await application_service.execute_query(analyses_query)
+        results_obj = await application_service.execute_query(analyses_query)
+        if not isinstance(results_obj, PaginatedResponse):
+            logger.error(
+                "Unexpected response type when listing analyses",
+                extra={
+                    "ticker": ticker,
+                    "returned_type": type(results_obj).__name__,
+                    "expected_type": "PaginatedResponse",
+                },
+            )
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Unexpected response type from application service",
+            )
+
+        results = cast(PaginatedResponse[AnalysisResponse], results_obj)
 
         logger.info(
             "Company analyses listed successfully",
@@ -437,9 +479,22 @@ async def list_company_filings(
         )
 
         # Execute query through application service
-        result: PaginatedResponse[
-            FilingResponse
-        ] = await application_service.execute_query(query)
+        result_obj = await application_service.execute_query(query)
+        if not isinstance(result_obj, PaginatedResponse):
+            logger.error(
+                "Unexpected response type when listing filings",
+                extra={
+                    "ticker": ticker,
+                    "returned_type": type(result_obj).__name__,
+                    "expected_type": "PaginatedResponse",
+                },
+            )
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Unexpected response type from application service",
+            )
+
+        result = cast(PaginatedResponse[FilingResponse], result_obj)
 
         # If pagination was requested, return paginated response
         if page is not None or page_size is not None:
