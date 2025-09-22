@@ -315,12 +315,18 @@ class ProviderFactory:
             Provider instance for queue
         """
         if provider_type == QueueProvider.SQS:
-            from src.infrastructure.providers.queue import SQSConfig, SQSQueueProvider
+            from src.infrastructure.providers.queue import (
+                load_sqs_config,
+                load_sqs_queue_provider,
+            )
 
-            if SQSConfig is None or SQSQueueProvider is None:
+            try:
+                sqs_provider_cls = load_sqs_queue_provider()
+                sqs_config_cls = load_sqs_config()
+            except ModuleNotFoundError as error:
                 raise RuntimeError(
                     "SQS queue provider selected but optional dependency 'aioboto3' is not installed."
-                )
+                ) from error
 
             # Get SQS configuration
             queue_url = config_provider.get("queue.sqs.queue_url", "")
@@ -336,7 +342,7 @@ class ProviderFactory:
             aws_secret_access_key = None
             # TODO: Implement async credential fetching or synchronous secret manager
 
-            sqs_config = SQSConfig(
+            sqs_config = sqs_config_cls(
                 queue_url=queue_url,
                 region=region,
                 aws_access_key_id=aws_access_key_id,
@@ -346,7 +352,7 @@ class ProviderFactory:
             )
 
             return providers.Singleton(
-                SQSQueueProvider,
+                sqs_provider_cls,
                 config=sqs_config,
             )
         elif provider_type == QueueProvider.RABBITMQ:
@@ -397,9 +403,13 @@ class ProviderFactory:
             Provider instance for worker
         """
         if provider_type == WorkerProvider.LAMBDA:
-            from src.infrastructure.providers.worker import LambdaWorkerProvider
+            from src.infrastructure.providers.worker import (
+                load_lambda_worker_provider,
+            )
 
-            if LambdaWorkerProvider is None:
+            try:
+                lambda_worker_cls = load_lambda_worker_provider()
+            except ModuleNotFoundError:
                 return providers.Singleton(
                     _MissingWorkerProvider,
                     "Lambda worker provider requires the optional 'aioboto3' dependency.",
@@ -432,13 +442,17 @@ class ProviderFactory:
             )
 
             return providers.Singleton(
-                LambdaWorkerProvider,
+                lambda_worker_cls,
                 config=lambda_config,
             )
         elif provider_type == WorkerProvider.DOCKER:
-            from src.infrastructure.providers.worker import DockerWorkerProvider
+            from src.infrastructure.providers.worker import (
+                load_docker_worker_provider,
+            )
 
-            if DockerWorkerProvider is None:
+            try:
+                docker_worker_cls = load_docker_worker_provider()
+            except ModuleNotFoundError:
                 return providers.Singleton(
                     _MissingWorkerProvider,
                     "Docker worker provider requires the optional 'aiodocker' dependency.",
@@ -471,7 +485,7 @@ class ProviderFactory:
             )
 
             return providers.Singleton(
-                DockerWorkerProvider,
+                docker_worker_cls,
                 config=docker_config,
             )
         else:

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import AsyncGenerator
 from datetime import UTC, datetime
+from typing import TypedDict
 from uuid import uuid4
 
 from dependency_injector import containers, providers
@@ -17,6 +18,14 @@ from src.application.interfaces.rate_limiting import (
 )
 from src.application.interfaces.sse import SSEConnection
 from src.shared.types import UserId
+
+
+class RequestContext(TypedDict):
+    """Container-scoped request context details propagated to handlers."""
+
+    correlation_id: str | None
+    user_id: str | None
+    request_id: str | None
 
 
 class SSEConnectionManager:
@@ -129,6 +138,20 @@ class ApiRateLimiter:
         return dict(stats_model)
 
 
+def _build_request_context(
+    correlation_id: str | None,
+    user_id: str | None,
+    request_id: str | None,
+) -> RequestContext:
+    """Construct request context metadata for downstream handlers."""
+
+    return RequestContext(
+        correlation_id=correlation_id,
+        user_id=user_id,
+        request_id=request_id,
+    )
+
+
 class OrchestratorContainer(containers.DeclarativeContainer):
     """Container for orchestrator-specific services."""
 
@@ -161,8 +184,8 @@ class OrchestratorContainer(containers.DeclarativeContainer):
         storage=providers_container.storage_provider,
     )
 
-    request_context = providers.Factory(
-        dict,
+    request_context: providers.Provider[RequestContext] = providers.Factory(
+        _build_request_context,
         correlation_id=providers.Callable(lambda: None),
         user_id=providers.Callable(lambda: None),
         request_id=providers.Callable(lambda: None),

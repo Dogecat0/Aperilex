@@ -6,6 +6,7 @@ and sending real-time updates to connected clients.
 """
 
 from abc import abstractmethod
+from collections.abc import AsyncGenerator
 from typing import Protocol, runtime_checkable
 
 from pydantic import BaseModel, Field
@@ -27,7 +28,7 @@ class SSEConnection(BaseModel):
     event_types: list[str] = Field(
         default_factory=list, description="Event types subscribed to"
     )
-    metadata: dict = Field(
+    metadata: dict[str, str | int | float | bool | None] = Field(
         default_factory=dict, description="Additional connection metadata"
     )
 
@@ -211,6 +212,19 @@ class ISSEProvider(Protocol):
 
         Returns:
             True if healthy, False otherwise
+        """
+        ...
+
+    @abstractmethod
+    def get_event_stream(self, connection_id: str) -> AsyncGenerator[str, None]:
+        """
+        Retrieve an asynchronous generator streaming SSE payloads for a connection.
+
+        Args:
+            connection_id: Connection identifier to stream events for
+
+        Yields:
+            Encoded SSE message payloads
         """
         ...
 

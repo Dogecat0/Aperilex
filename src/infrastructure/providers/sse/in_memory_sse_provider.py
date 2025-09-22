@@ -41,7 +41,7 @@ class InMemorySSEProvider:
         """
         self.connections: dict[str, SSEConnection] = {}
         self.user_connections: dict[str, set[str]] = defaultdict(set)
-        self.connection_queues: dict[str, asyncio.Queue] = {}
+        self.connection_queues: dict[str, asyncio.Queue[SSEMessage | None]] = {}
         self._lock = asyncio.Lock()
 
     async def create_connection(
@@ -75,7 +75,7 @@ class InMemorySSEProvider:
             self.user_connections[str(user_id)].add(connection_id)
 
             # Create message queue for this connection
-            self.connection_queues[connection_id] = asyncio.Queue()
+            self.connection_queues[connection_id] = asyncio.Queue[SSEMessage | None]()
 
             logger.info(f"Created SSE connection {connection_id} for user {user_id}")
 
