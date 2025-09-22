@@ -9,7 +9,7 @@ import logging
 import os
 import signal
 from contextlib import suppress
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Any
 from uuid import UUID, uuid4
@@ -43,9 +43,9 @@ class WorkerRunner:
     application_service: ApplicationService | None
     wait_time_seconds: int
     batch_size: int
-
-    def __post_init__(self) -> None:  # noqa: D401
-        self._stop_event = asyncio.Event()
+    _stop_event: asyncio.Event = field(
+        default_factory=asyncio.Event, init=False, repr=False
+    )
 
     async def run(self) -> None:
         """Start processing queue messages until a shutdown signal is received."""
