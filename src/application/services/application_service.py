@@ -50,10 +50,17 @@ class ApplicationService:
         Returns:
             The result of command execution
         """
-        dependencies = cast(
-            dict[str, object], await self.handler_factory.get_dependencies()
-        )
-        return await self.dispatcher.dispatch_command(command, dependencies)
+        try:
+            dependencies = cast(
+                dict[str, object], await self.handler_factory.get_dependencies()
+            )
+            result = await self.dispatcher.dispatch_command(command, dependencies)
+        except Exception:
+            await self.handler_factory.repository_factory.close(success=False)
+            raise
+        else:
+            await self.handler_factory.repository_factory.close(success=True)
+            return result
 
     async def execute_query(self, query: BaseQuery) -> object:
         """Execute a query using the dispatcher with DI-managed dependencies.
@@ -64,7 +71,14 @@ class ApplicationService:
         Returns:
             The result of query execution
         """
-        dependencies = cast(
-            dict[str, object], await self.handler_factory.get_dependencies()
-        )
-        return await self.dispatcher.dispatch_query(query, dependencies)
+        try:
+            dependencies = cast(
+                dict[str, object], await self.handler_factory.get_dependencies()
+            )
+            result = await self.dispatcher.dispatch_query(query, dependencies)
+        except Exception:
+            await self.handler_factory.repository_factory.close(success=False)
+            raise
+        else:
+            await self.handler_factory.repository_factory.close(success=True)
+            return result

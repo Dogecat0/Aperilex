@@ -1,13 +1,12 @@
-"""
-Repository factory implementation for creating repository instances.
+"""Repository factory implementation for creating repository instances.
 
 This module provides a factory for creating repository instances with proper
 session management and transaction support.
 """
 
+import asyncio
 import logging
-from collections.abc import AsyncIterator
-from contextlib import asynccontextmanager
+from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
@@ -41,23 +40,33 @@ class RepositoryFactory(IRepositoryFactory):
         self._cache_manager = cache_manager
         self._active_session: AsyncSession | None = None
         self._transaction_active = False
+        self._session_registry: dict[asyncio.Task[Any], list[AsyncSession]] = {}
+        self._detached_sessions: list[AsyncSession] = []
         logger.info("Initialized RepositoryFactory")
 
-    @asynccontextmanager
-    async def _get_session(self) -> AsyncIterator[AsyncSession]:
-        """
-        Get or create a session for repository operations.
+    def _register_session(self, session: AsyncSession) -> None:
+        """Track sessions for the current asyncio task for later cleanup."""
 
-        Yields:
-            AsyncSession instance
-        """
-        if self._active_session and self._transaction_active:
-            # Use existing session if transaction is active
-            yield self._active_session
-        else:
-            # Create new session
-            async with self._session_factory() as session:
-                yield session
+        task = asyncio.current_task()
+        if task is None:
+            self._detached_sessions.append(session)
+            return
+
+        self._session_registry.setdefault(task, []).append(session)
+
+    def _collect_sessions_for_cleanup(self) -> list[AsyncSession]:
+        """Gather tracked sessions for the current task and detached contexts."""
+
+        sessions: list[AsyncSession] = []
+        task = asyncio.current_task()
+        if task is not None:
+            sessions.extend(self._session_registry.pop(task, []))
+
+        if self._detached_sessions:
+            sessions.extend(self._detached_sessions)
+            self._detached_sessions = []
+
+        return sessions
 
     async def get_company_repository(self) -> ICompanyRepository:
         """
@@ -73,6 +82,7 @@ class RepositoryFactory(IRepositoryFactory):
             return CompanyRepository(self._active_session)
         else:
             session = self._session_factory()
+            self._register_session(session)
             return CompanyRepository(session)
 
     async def get_filing_repository(self) -> IFilingRepository:
@@ -88,6 +98,7 @@ class RepositoryFactory(IRepositoryFactory):
             return FilingRepository(self._active_session)
         else:
             session = self._session_factory()
+            self._register_session(session)
             return FilingRepository(session)
 
     async def get_analysis_repository(self) -> IAnalysisRepository:
@@ -103,6 +114,7 @@ class RepositoryFactory(IRepositoryFactory):
             return AnalysisRepository(self._active_session)
         else:
             session = self._session_factory()
+            self._register_session(session)
             return AnalysisRepository(session)
 
     async def begin_transaction(self) -> None:
@@ -149,9 +161,12 @@ class RepositoryFactory(IRepositoryFactory):
             self._active_session = None
             self._transaction_active = False
 
-    async def close(self) -> None:
+    async def close(self, success: bool = True) -> None:
         """
         Close all repository sessions and cleanup resources.
+
+        Args:
+            success: Indicates whether to commit (True) or rollback (False) active transactions.
         """
         if self._active_session:
             try:
@@ -161,5 +176,33 @@ class RepositoryFactory(IRepositoryFactory):
             finally:
                 self._active_session = None
                 self._transaction_active = False
+
+        sessions = self._collect_sessions_for_cleanup()
+        for session in sessions:
+            try:
+                transaction = session.get_transaction()
+            except Exception:
+                transaction = None
+
+            if transaction and transaction.is_active:
+                try:
+                    if success:
+                        await session.commit()
+                    else:
+                        await session.rollback()
+                except Exception as exc:
+                    logger.error(f"Error finalizing session transaction: {exc}")
+                    if success:
+                        try:
+                            await session.rollback()
+                        except Exception as rollback_exc:
+                            logger.error(
+                                f"Error rolling back session after commit failure: {rollback_exc}"
+                            )
+
+            try:
+                await session.close()
+            except Exception as exc:
+                logger.error(f"Error closing scoped session: {exc}")
 
         logger.info("Closed repository factory resources")

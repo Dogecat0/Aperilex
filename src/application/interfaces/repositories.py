@@ -716,9 +716,12 @@ class IRepositoryFactory(Protocol):
         ...
 
     @abstractmethod
-    async def close(self) -> None:
+    async def close(self, success: bool = True) -> None:
         """
         Close all repository sessions and cleanup resources.
+
+        Args:
+            success: Indicates whether resources should be committed (True) or rolled back (False)
 
         Raises:
             DatabaseError: If close operation fails

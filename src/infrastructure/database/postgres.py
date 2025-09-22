@@ -1,9 +1,10 @@
-"""
-PostgreSQL database provider implementation.
-"""
+"""PostgreSQL database provider implementation."""
 
+import asyncio
 import logging
-from typing import Any
+import threading
+from collections.abc import Awaitable
+from typing import Any, TypeVar
 
 from pydantic import SecretStr
 from sqlalchemy.ext.asyncio import (
@@ -20,6 +21,8 @@ from src.infrastructure.database.sqlalchemy_provider import SQLAlchemyDatabasePr
 from src.shared.config.providers import PostgresConfig
 
 logger = logging.getLogger(__name__)
+
+T = TypeVar("T")
 
 
 class PostgresDatabaseProvider(SQLAlchemyDatabaseProvider):
@@ -58,14 +61,12 @@ class PostgresDatabaseProvider(SQLAlchemyDatabaseProvider):
         Returns:
             AsyncEngine configured for PostgreSQL
         """
-        # TODO: Refactor to handle async secret retrieval properly
-        # This is a temporary workaround - should use async factory pattern instead
-        import asyncio
-
-        # Get password from secret manager (blocking call for now)
-        password_coro = self.secret_manager.get_secret(self.config.password_secret_name)
+        # Get password from secret manager without blocking an active event loop
+        password_coro = self.secret_manager.get_secret(
+            self.config.password_secret_name
+        )
         try:
-            password = asyncio.run(password_coro)
+            password = self._run_coroutine_safely(password_coro)
         except KeyError:
             password = "postgres"  # nosec B105: fallback default for local/dev when secret is missing
         if isinstance(password, SecretStr):
@@ -119,6 +120,35 @@ class PostgresDatabaseProvider(SQLAlchemyDatabaseProvider):
         )
 
         return engine
+
+    def _run_coroutine_safely(self, coroutine: Awaitable[T]) -> T:
+        """Execute coroutine regardless of current event loop state."""
+
+        try:
+            asyncio.get_running_loop()
+        except RuntimeError:
+            return asyncio.run(coroutine)
+
+        result_holder: list[T] = []
+        error_container: list[BaseException] = []
+
+        def runner() -> None:
+            try:
+                result_holder.append(asyncio.run(coroutine))
+            except BaseException as exc:  # pragma: no cover - defensive
+                error_container.append(exc)
+
+        thread = threading.Thread(target=runner, daemon=True)
+        thread.start()
+        thread.join()
+
+        if error_container:
+            raise error_container[0]
+
+        if not result_holder:  # pragma: no cover - defensive
+            raise RuntimeError("Coroutine did not produce a result")
+
+        return result_holder[0]
 
     def _create_session_factory(
         self, engine: AsyncEngine

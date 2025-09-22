@@ -5,7 +5,6 @@ This module provides the CQRS infrastructure with dependency injection
 for handlers and dispatcher configuration.
 """
 
-import asyncio
 from collections.abc import Sequence
 from typing import Any
 
@@ -92,11 +91,9 @@ class HandlerFactory:
         Returns:
             Dictionary of dependencies keyed by parameter name
         """
-        company_repo, filing_repo, analysis_repo = await asyncio.gather(
-            self.repository_factory.get_company_repository(),
-            self.repository_factory.get_filing_repository(),
-            self.repository_factory.get_analysis_repository(),
-        )
+        company_repo = await self.repository_factory.get_company_repository()
+        filing_repo = await self.repository_factory.get_filing_repository()
+        analysis_repo = await self.repository_factory.get_analysis_repository()
 
         analysis_query_service: IAnalysisQueryService | None = (
             self.analysis_query_service_provider()

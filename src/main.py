@@ -47,7 +47,7 @@ async def main() -> None:
     # Wire modules that need dependency injection
     modules_to_wire = [
         "src.presentation.api.dependencies",
-        "src.presentation.api.routers.analysis",
+        "src.presentation.api.routers.analyses",
         "src.presentation.api.routers.company",
         "src.presentation.api.routers.filing",
         "src.presentation.api.routers.tasks",
