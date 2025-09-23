@@ -13,7 +13,6 @@ from src.shared.models.task import TaskMetadata
 from src.shared.types import CorrelationId, QueueMessageId, ReceiptHandle, TaskId
 
 
-# TODO: Could be removed if not needed
 class QueueMessageBody(BaseModel):
     """Structured body for queue messages."""
 

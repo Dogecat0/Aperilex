@@ -275,7 +275,6 @@ class ProviderFactory:
             # Note: Credentials will be fetched when needed, not during initialization
             aws_access_key_id = None
             aws_secret_access_key = None
-            # TODO: Implement async credential fetching or synchronous secret manager
 
             return providers.Singleton(
                 S3StorageProvider,

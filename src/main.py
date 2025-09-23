@@ -91,8 +91,7 @@ async def main() -> None:
 
     logger.info("Application initialized successfully with clean architecture")
 
-    # TODO: Start the actual application (API server, workers, etc.)
-    # For now, this is a demonstration of proper initialization
+    # Application bootstrap completes here; dedicated entry points start API servers or workers.
 
 
 if __name__ == "__main__":

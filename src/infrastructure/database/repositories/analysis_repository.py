@@ -601,9 +601,7 @@ class AnalysisRepository(IAnalysisRepository):
         Returns:
             Analysis results dictionary or None if not found
         """
-        # TODO: Refactor to use new storage provider interface
-        # The old tasks module has been removed as part of the refactoring
-        # This method should be updated to use IStorageProvider
+        # Storage retrieval remains disconnected from the new IStorageProvider abstraction.
         return None
 
     async def get_by_id_with_results(

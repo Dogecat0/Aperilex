@@ -4,10 +4,8 @@ This adapter keeps the original `ProcessingStatus` API alive for components that
 still import it directly (domain entities, response models, background
 services). Internally we lean on the newer shared enums, but we present the same
 interface so Stage 2 dependency-injection work can complete without a broad
-refactor.
-
-TODO(feature/di-provider-abstraction-refactor): remove this shim once callers
-have migrated to `src.shared.enums.status`.
+refactor. The shim stays in place until callers migrate to
+`src.shared.enums.status`.
 """
 
 from __future__ import annotations

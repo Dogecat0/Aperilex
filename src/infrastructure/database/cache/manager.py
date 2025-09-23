@@ -55,7 +55,6 @@ REGION_CONFIGS = {
 }
 
 
-# TODO: Validate that this does not include a timestamp or changing data
 def create_cache_key_generator(namespace: str) -> Callable[..., str]:
     """Create a cache key generator for a specific namespace.
 

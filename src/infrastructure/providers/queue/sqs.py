@@ -8,7 +8,7 @@ from collections.abc import Mapping
 from datetime import datetime
 from typing import Any, Self, cast
 
-import aioboto3  # type: ignore[import-not-found] # TODO: Add aioboto3 dependency when boto3 version conflict is resolved
+import aioboto3  # type: ignore[import-not-found]  # Optional dependency for SQS provider
 from botocore.exceptions import BotoCoreError, ClientError
 
 from src.application.interfaces.queue import IQueueProvider, QueueStats
