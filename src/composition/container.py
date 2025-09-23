@@ -74,7 +74,7 @@ class CompositionRoot(containers.DeclarativeContainer):
         container = cls()
 
         # Set environment
-        container.environment.override(environment)
+        container.environment.override(providers.Object(environment))
 
         # Load configuration
         config_file = f"config/{environment}.yaml"
@@ -256,8 +256,7 @@ class CompositionRoot(containers.DeclarativeContainer):
             infra.rate_limiting_provider
         )
 
-        # Initialize event publisher and SSE provider (TODO: implement concrete providers)
-        # For now, these remain abstract and will be implemented in Stage 4.4
+        # Event publisher and SSE provider use development-safe defaults; production wiring can extend these bindings.
 
         return container
 

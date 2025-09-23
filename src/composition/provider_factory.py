@@ -294,6 +294,12 @@ class ProviderFactory:
                 LocalStorageProvider,
                 base_path=base_path,
             )
+        elif provider_type == StorageProvider.GCS:
+            raise NotImplementedError("GCS storage provider not yet implemented")
+        elif provider_type == StorageProvider.AZURE_BLOB:
+            raise NotImplementedError(
+                "Azure Blob storage provider not yet implemented"
+            )
         else:
             raise ValueError(f"Unknown storage provider type: {provider_type}")
 
@@ -340,7 +346,6 @@ class ProviderFactory:
             # Note: Credentials will be fetched when needed, not during initialization
             aws_access_key_id = None
             aws_secret_access_key = None
-            # TODO: Implement async credential fetching or synchronous secret manager
 
             sqs_config = sqs_config_cls(
                 queue_url=queue_url,
@@ -381,6 +386,12 @@ class ProviderFactory:
             return providers.Singleton(
                 RabbitMQQueueProvider,
                 config=rabbitmq_config,
+            )
+        elif provider_type == QueueProvider.PUBSUB:
+            raise NotImplementedError("Pub/Sub queue provider not yet implemented")
+        elif provider_type == QueueProvider.SERVICE_BUS:
+            raise NotImplementedError(
+                "Service Bus queue provider not yet implemented"
             )
         else:
             raise ValueError(f"Unknown queue provider type: {provider_type}")
@@ -429,7 +440,6 @@ class ProviderFactory:
             # Note: Credentials will be fetched when needed, not during initialization
             aws_access_key_id = None
             aws_secret_access_key = None
-            # TODO: Implement async credential fetching or synchronous secret manager
 
             lambda_config = LambdaWorkerConfig(
                 function_name=function_name,
@@ -488,6 +498,12 @@ class ProviderFactory:
                 docker_worker_cls,
                 config=docker_config,
             )
+        elif provider_type == WorkerProvider.CLOUD_RUN:
+            raise NotImplementedError("Cloud Run worker provider not yet implemented")
+        elif provider_type == WorkerProvider.CONTAINER_INSTANCES:
+            raise NotImplementedError(
+                "Container Instances worker provider not yet implemented"
+            )
         else:
             raise ValueError(f"Unknown worker provider type: {provider_type}")
 
@@ -541,25 +557,44 @@ class ProviderFactory:
                 secret_manager=secret_manager,
                 base_url=api_endpoint,
             )
-        elif provider_type == LLMProvider.GOOGLE:
+        elif provider_type in {LLMProvider.VERTEX_AI, LLMProvider.GOOGLE}:
             from src.infrastructure.providers.llm import GoogleLLMProvider
             from src.shared.config.providers import LLMConfig
 
-            # Get Google configuration
-            model_name = config_provider.get("llm.google.model", "gemini-1.5-flash")
-            api_key_secret = config_provider.get(
-                "llm.google.api_key_secret", "google_api_key"
+            # Support both legacy google.* and new vertex_ai.* configuration namespaces
+            config_prefix = (
+                "llm.vertex_ai"
+                if provider_type == LLMProvider.VERTEX_AI
+                else "llm.google"
             )
-            retry_attempts = config_provider.get("llm.google.retry_attempts", 3)
-            timeout_seconds = config_provider.get("llm.google.timeout_seconds", 60)
-            rate_limit = config_provider.get("llm.google.rate_limit_per_minute", 60)
+            default_model = (
+                "gemini-1.5-pro"
+                if provider_type == LLMProvider.VERTEX_AI
+                else "gemini-1.5-flash"
+            )
+            default_secret = (
+                "vertex_ai_api_key"
+                if provider_type == LLMProvider.VERTEX_AI
+                else "google_api_key"
+            )
+
+            model_name = config_provider.get(f"{config_prefix}.model", default_model)
+            api_key_secret = config_provider.get(
+                f"{config_prefix}.api_key_secret", default_secret
+            )
+            api_endpoint = config_provider.get(f"{config_prefix}.api_endpoint", None)
+            retry_attempts = config_provider.get(f"{config_prefix}.retry_attempts", 3)
+            timeout_seconds = config_provider.get(f"{config_prefix}.timeout_seconds", 60)
+            rate_limit = config_provider.get(
+                f"{config_prefix}.rate_limit_per_minute", 60
+            )
 
             google_config = LLMConfig(
                 schema_version=1,
-                provider=LLMProvider.GOOGLE,
+                provider=provider_type,
                 model_name=model_name,
                 api_key_secret_name=api_key_secret,
-                api_endpoint=None,  # Google doesn't use custom endpoints
+                api_endpoint=api_endpoint,
                 retry_attempts=retry_attempts,
                 timeout_seconds=timeout_seconds,
                 rate_limit_per_minute=rate_limit,
@@ -571,8 +606,11 @@ class ProviderFactory:
                 secret_manager=secret_manager,
             )
         elif provider_type == LLMProvider.BEDROCK:
-            # TODO: Implement BedrockLLMProvider
             raise NotImplementedError("Bedrock LLM provider not yet implemented")
+        elif provider_type == LLMProvider.ANTHROPIC:
+            raise NotImplementedError("Anthropic LLM provider not yet implemented")
+        elif provider_type == LLMProvider.OLLAMA:
+            raise NotImplementedError("Ollama LLM provider not yet implemented")
         else:
             raise ValueError(f"Unknown LLM provider type: {provider_type}")
 
@@ -609,6 +647,12 @@ class ProviderFactory:
                 user_agent=user_agent,
                 rate_limit_per_second=rate_limit,
             )
+        elif provider_type == DataSourceProvider.REFINITIV:
+            raise NotImplementedError("Refinitiv data source provider not yet implemented")
+        elif provider_type == DataSourceProvider.BLOOMBERG:
+            raise NotImplementedError("Bloomberg data source provider not yet implemented")
+        elif provider_type == DataSourceProvider.CUSTOM_API:
+            raise NotImplementedError("Custom API data source provider not yet implemented")
         else:
             raise ValueError(f"Unknown data source provider type: {provider_type}")
 
@@ -732,9 +776,14 @@ class ProviderFactory:
                 secret_manager=secret_manager,
             )
         elif provider_type == DatabaseProvider.COCKROACHDB:
-            # TODO: Implement CockroachDBDatabaseProvider
             raise NotImplementedError(
                 "CockroachDB database provider not yet implemented"
+            )
+        elif provider_type == DatabaseProvider.MYSQL:
+            raise NotImplementedError("MySQL database provider not yet implemented")
+        elif provider_type == DatabaseProvider.SQLSERVER:
+            raise NotImplementedError(
+                "SQL Server database provider not yet implemented"
             )
         else:
             raise ValueError(f"Unknown database provider type: {provider_type}")

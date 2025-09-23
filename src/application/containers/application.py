@@ -70,7 +70,7 @@ class ApplicationContainer(containers.DeclarativeContainer):
         container = cls()
 
         # Set environment
-        container.configuration.environment.override(environment)
+        container.configuration.environment.override(providers.Object(environment))
 
         # Load configuration based on environment
         config_file = f"config/{environment}.yaml"

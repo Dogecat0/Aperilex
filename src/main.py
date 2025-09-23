@@ -48,8 +48,8 @@ async def main() -> None:
     modules_to_wire = [
         "src.presentation.api.dependencies",
         "src.presentation.api.routers.analyses",
-        "src.presentation.api.routers.company",
-        "src.presentation.api.routers.filing",
+        "src.presentation.api.routers.companies",
+        "src.presentation.api.routers.filings",
         "src.presentation.api.routers.tasks",
         "src.application.commands",
         "src.application.queries",
