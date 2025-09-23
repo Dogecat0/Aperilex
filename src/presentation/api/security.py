@@ -6,7 +6,7 @@ application-level authentication provider through dependency injection.
 
 from __future__ import annotations
 
-from typing import Annotated
+from typing import TYPE_CHECKING, Annotated, Any
 
 from fastapi import Depends, Header, HTTPException, Request, status
 
@@ -19,12 +19,16 @@ from src.presentation.api.dependencies import get_authentication_provider
 AuthHeader = Annotated[
     str | None, Header(alias="Authorization", convert_underscores=False)
 ]
+if TYPE_CHECKING:
+    AuthProviderDep = IAuthenticationProvider
+else:
+    AuthProviderDep = Annotated[Any, Depends(get_authentication_provider)]
 
 
 async def get_current_user(
     request: Request,
     authorization: AuthHeader,
-    auth_provider: IAuthenticationProvider = Depends(get_authentication_provider),
+    auth_provider: AuthProviderDep,
 ) -> AuthenticationResult:
     """Resolve and cache the authenticated user for the current request."""
     cached = getattr(request.state, "auth_result", None)

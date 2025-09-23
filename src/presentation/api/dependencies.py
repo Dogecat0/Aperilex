@@ -8,6 +8,7 @@ import logging
 import sys
 from functools import lru_cache
 from types import ModuleType
+from typing import cast
 
 from dependency_injector.wiring import Provide, inject
 
@@ -59,173 +60,166 @@ def get_container() -> ApplicationContainer:
 
 @inject
 async def get_application_service(
-    application_service: ApplicationService = Provide["cqrs.application_service"],
+    application_service=Provide["cqrs.application_service"],
 ) -> ApplicationService:
     """Get the application service for command/query execution."""
-    return application_service
+    return cast(ApplicationService, application_service)
 
 
 @inject
 async def get_dispatcher(
-    dispatcher: Dispatcher = Provide["cqrs.dispatcher"],
+    dispatcher=Provide["cqrs.dispatcher"],
 ) -> Dispatcher:
     """Get configured CQRS Dispatcher instance.
 
     Returns:
         Dispatcher for command and query routing
     """
-    return dispatcher
+    return cast(Dispatcher, dispatcher)
 
 
 @inject
 async def get_cqrs_handler_registrar(
-    registrar: HandlerRegistrar = Provide["cqrs.handler_registrar"],
+    registrar=Provide["cqrs.handler_registrar"],
 ) -> HandlerRegistrar:
     """Get configured CQRS Handler Registrar.
 
     Returns:
         Handler registrar for CQRS setup
     """
-    return registrar
+    return cast(HandlerRegistrar, registrar)
 
 
 @inject
 async def get_queue_provider(
-    queue_provider: IQueueProvider = Provide["providers_container.queue_provider"],
+    queue_provider=Provide["providers_container.queue_provider"],
 ) -> IQueueProvider:
     """Get configured Queue Provider instance.
 
     Returns:
         Queue provider for task submission
     """
-    return queue_provider
+    return cast(IQueueProvider, queue_provider)
 
 
 @inject
 async def get_storage_provider(
-    storage_provider: IStorageProvider = Provide[
-        "providers_container.storage_provider"
-    ],
+    storage_provider=Provide["providers_container.storage_provider"],
 ) -> IStorageProvider:
     """Get configured Storage Provider instance.
 
     Returns:
         Storage provider for file operations
     """
-    return storage_provider
+    return cast(IStorageProvider, storage_provider)
 
 
 @inject
 async def get_event_publisher(
-    event_publisher: IEventPublisher = Provide["orchestrator.event_publisher"],
+    event_publisher=Provide["orchestrator.event_publisher"],
 ) -> IEventPublisher:
     """Get configured Event Publisher instance.
 
     Returns:
         Event publisher for domain events
     """
-    return event_publisher
+    return cast(IEventPublisher, event_publisher)
 
 
 @inject
 async def get_event_store(
-    event_store: IEventStore = Provide["providers_container.event_store"],
+    event_store=Provide["providers_container.event_store"],
 ) -> IEventStore:
     """Get configured event store instance."""
-
-    return event_store
+    return cast(IEventStore, event_store)
 
 
 @inject
 async def get_authentication_provider(
-    auth_provider: IAuthenticationProvider = Provide[
-        "orchestrator.authentication_service"
-    ],
+    auth_provider=Provide["orchestrator.authentication_service"],
 ) -> IAuthenticationProvider:
     """Get configured Authentication Provider instance.
 
     Returns:
         Authentication provider for API security
     """
-    return auth_provider
+    return cast(IAuthenticationProvider, auth_provider)
 
 
 @inject
 async def get_sse_provider(
-    sse_provider: ISSEProvider = Provide["orchestrator.sse_provider"],
+    sse_provider=Provide["orchestrator.sse_provider"],
 ) -> ISSEProvider:
     """Get configured SSE Provider instance.
 
     Returns:
         SSE provider for real-time updates
     """
-    return sse_provider
+    return cast(ISSEProvider, sse_provider)
 
 
 @inject
 async def get_rate_limiter(
-    rate_limiter: ApiRateLimiter = Provide["orchestrator.rate_limiter"],
+    rate_limiter=Provide["orchestrator.rate_limiter"],
 ) -> ApiRateLimiter:
     """Get configured Rate Limiter instance.
 
     Returns:
         Rate limiter for API throttling
     """
-    return rate_limiter
+    return cast(ApiRateLimiter, rate_limiter)
 
 
 @inject
 async def get_sse_connection_manager(
-    sse_manager: SSEConnectionManager = Provide["orchestrator.sse_connection_manager"],
+    sse_manager=Provide["orchestrator.sse_connection_manager"],
 ) -> SSEConnectionManager:
     """Get configured SSE Connection Manager instance.
 
     Returns:
         SSE connection manager for handling connections
     """
-    return sse_manager
+    return cast(SSEConnectionManager, sse_manager)
 
 
 @inject
 async def get_worker_provider(
-    worker_provider: IWorkerProvider = Provide["providers_container.worker_provider"],
+    worker_provider=Provide["providers_container.worker_provider"],
 ) -> IWorkerProvider:
     """Get configured Worker Provider instance."""
-    return worker_provider
+    return cast(IWorkerProvider, worker_provider)
 
 
 @inject
 async def get_worker_service(
-    worker_service: WorkerService = Provide["cqrs.worker_service"],
+    worker_service=Provide["cqrs.worker_service"],
 ) -> WorkerService:
     """Get configured WorkerService instance."""
-    return worker_service
+    return cast(WorkerService, worker_service)
 
 
 @inject
 async def get_background_task_coordinator(
-    coordinator: BackgroundTaskCoordinator = Provide[
-        "cqrs.background_task_coordinator"
-    ],
+    coordinator=Provide["cqrs.background_task_coordinator"],
 ) -> BackgroundTaskCoordinator:
     """Get configured BackgroundTaskCoordinator instance."""
-    return coordinator
+    return cast(BackgroundTaskCoordinator, coordinator)
 
 
 @inject
 async def get_config_provider(
-    config_provider: IConfigProvider = Provide["config_provider"],
+    config_provider=Provide["config_provider"],
 ) -> IConfigProvider:
     """Get configured configuration provider instance."""
-    return config_provider
+    return cast(IConfigProvider, config_provider)
 
 
 @inject
 async def get_secret_manager(
-    secret_manager: ISecretManager = Provide["secret_manager"],
+    secret_manager=Provide["secret_manager"],
 ) -> ISecretManager:
     """Get configured secret manager instance."""
-    return secret_manager
+    return cast(ISecretManager, secret_manager)
 
 
 class ServiceLifecycle:

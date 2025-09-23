@@ -2,7 +2,7 @@
 
 import logging
 from datetime import date
-from typing import Annotated, cast
+from typing import TYPE_CHECKING, Annotated, Any, cast
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Path, Query, status
@@ -62,7 +62,10 @@ LIST_TO_SEARCH_SORT_FIELD_MAP: dict[
 }
 
 # Type aliases for dependencies
-ApplicationServiceDep = Annotated[ApplicationService, Depends(get_application_service)]
+if TYPE_CHECKING:
+    ApplicationServiceDep = ApplicationService
+else:
+    ApplicationServiceDep = Annotated[Any, Depends(get_application_service)]
 AccessionNumberPath = Annotated[str, Path(description="SEC filing accession number")]
 FilingIdPath = Annotated[UUID, Path(description="Filing UUID identifier")]
 AuthenticatedUserDep = Annotated[AuthenticationResult, Depends(get_current_user)]

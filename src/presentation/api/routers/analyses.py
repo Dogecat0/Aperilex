@@ -2,7 +2,7 @@
 
 import logging
 from datetime import datetime
-from typing import Annotated, cast
+from typing import TYPE_CHECKING, Annotated, Any, cast
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Path, Query, status
@@ -40,8 +40,11 @@ router = APIRouter(
 
 # Type aliases for dependencies
 AnalysisIdPath = Annotated[UUID, Path(description="Analysis ID")]
-ApplicationServiceDep = Annotated[ApplicationService, Depends(get_application_service)]
 AuthenticatedUserDep = Annotated[AuthenticationResult, Depends(get_current_user)]
+if TYPE_CHECKING:
+    ApplicationServiceDep = ApplicationService
+else:
+    ApplicationServiceDep = Annotated[Any, Depends(get_application_service)]
 
 
 @router.get(

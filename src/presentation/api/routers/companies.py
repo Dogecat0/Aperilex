@@ -1,7 +1,7 @@
 """API router for company-related endpoints."""
 
 import logging
-from typing import Annotated, cast
+from typing import TYPE_CHECKING, Annotated, Any, cast
 
 from fastapi import APIRouter, Depends, HTTPException, Path, Query, status
 
@@ -43,7 +43,10 @@ router = APIRouter(
 )
 
 # Type aliases for dependencies
-ApplicationServiceDep = Annotated[ApplicationService, Depends(get_application_service)]
+if TYPE_CHECKING:
+    ApplicationServiceDep = ApplicationService
+else:
+    ApplicationServiceDep = Annotated[Any, Depends(get_application_service)]
 AuthenticatedUserDep = Annotated[AuthenticationResult, Depends(get_current_user)]
 TickerPath = Annotated[
     str, Path(description="Company ticker symbol (e.g., 'AAPL', 'MSFT')")
@@ -243,9 +246,7 @@ async def list_company_analyses(
         )
 
         try:
-            company_info_result = await application_service.execute_query(
-                company_query
-            )
+            company_info_result = await application_service.execute_query(company_query)
         except Exception as e:
             logger.warning(
                 "Company not found for ticker",
