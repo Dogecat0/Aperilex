@@ -4,6 +4,7 @@ RabbitMQ queue provider implementation.
 
 import asyncio
 import hashlib
+import logging
 import uuid
 from datetime import datetime
 from typing import Any
@@ -23,6 +24,8 @@ from src.application.interfaces.queue import IQueueProvider, QueueStats
 from src.shared.config.providers import RabbitMQConfig
 from src.shared.models import QueueMessage, TaskMessage
 from src.shared.types import QueueMessageId, ReceiptHandle
+
+logger = logging.getLogger(__name__)
 
 
 class DeduplicationCache:
@@ -333,10 +336,7 @@ class RabbitMQQueueProvider(IQueueProvider):
 
         target_queue_name = queue_name or self.config.queue_name
 
-        if (
-            self.queue is not None
-            and target_queue_name == self.config.queue_name
-        ):
+        if self.queue is not None and target_queue_name == self.config.queue_name:
             target_queue = self.queue
         else:
             target_queue = await self.channel.declare_queue(
@@ -417,9 +417,13 @@ class RabbitMQQueueProvider(IQueueProvider):
         try:
             await self.connect()
             return True
-        except Exception as exc:  # pragma: no cover - connection failure
+        except Exception:  # pragma: no cover - connection failure
+            logger.warning(
+                "RabbitMQ health check failed; continuing without queue connectivity",
+                exc_info=True,
+            )
             await self.disconnect()
-            raise RuntimeError(f"RabbitMQ health check failed: {exc}") from exc
+            return False
 
     async def __aenter__(self) -> "RabbitMQQueueProvider":
         """Async context manager entry."""

@@ -199,6 +199,12 @@ class Settings(BaseSettings):
     rate_limiting_enabled: bool = Field(
         default=True, validation_alias="RATE_LIMITING_ENABLED"
     )
+
+    # Local development secrets file path
+    local_secrets_file: str = Field(
+        default=".secrets/local_secrets.json",
+        validation_alias="LOCAL_SECRETS_FILE",
+    )
     rate_limit_requests_per_hour: int | None = Field(
         default=None, validation_alias="RATE_LIMIT_REQUESTS_PER_HOUR"
     )

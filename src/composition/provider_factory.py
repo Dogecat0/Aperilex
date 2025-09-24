@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING
 from dependency_injector import providers
 
 from src.application.interfaces.worker import IWorkerProvider
+from src.shared.config.settings import settings
 from src.shared.enums import (
     DatabaseProvider,
     DataSourceProvider,
@@ -67,6 +68,9 @@ class _MissingWorkerProvider(IWorkerProvider):
     async def cancel_task(self, task_id: TaskId) -> bool:
         raise RuntimeError(self._message)
 
+    async def get_task_status(self, task_id: TaskId) -> WorkerTaskStatus | None:
+        raise RuntimeError(self._message)
+
 
 if TYPE_CHECKING:
     from src.application.interfaces import (
@@ -89,6 +93,7 @@ if TYPE_CHECKING:
         WorkerLogEntry,
         WorkerMetrics,
         WorkerResult,
+        WorkerTaskStatus,
     )
     from src.shared.models.queue import TaskMessage
     from src.shared.types import TaskId
@@ -166,18 +171,19 @@ class ProviderFactory:
         """
         from src.infrastructure.secret import LocalSecretManager
 
+        secrets_path = settings.local_secrets_file
+
         if environment in ["development", "test"]:
             return providers.Singleton(
                 LocalSecretManager,
-                secrets_file=".secrets/local_secrets.json",
+                secrets_file=secrets_path,
             )
-        else:
-            # Production environments would use AWS Secrets Manager
-            # For now, fall back to local implementation
-            return providers.Singleton(
-                LocalSecretManager,
-                secrets_file=".secrets/local_secrets.json",
-            )
+        # Production environments would use AWS Secrets Manager
+        # For now, fall back to local implementation while honoring overrides
+        return providers.Singleton(
+            LocalSecretManager,
+            secrets_file=secrets_path,
+        )
 
     @staticmethod
     def create_authentication_provider(
@@ -367,8 +373,11 @@ class ProviderFactory:
             )
 
             # Get RabbitMQ configuration
+            fallback_connection_url = (
+                settings.rabbitmq_url or "amqp://guest:guest@localhost:5672/"
+            )
             connection_url = config_provider.get(
-                "queue.rabbitmq.connection_url", "amqp://guest:guest@localhost:5672/"
+                "queue.rabbitmq.connection_url", fallback_connection_url
             )
             exchange_name = config_provider.get(
                 "queue.rabbitmq.exchange_name", "aperilex"

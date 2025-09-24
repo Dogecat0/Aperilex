@@ -65,3 +65,7 @@ class InMemoryEventStore(IEventStore):
                     "total_events": len(self._events),
                 },
             )
+
+    def can_handle(self, event: DomainEvent) -> bool:
+        """In-memory store accepts all domain events for persistence."""
+        return True

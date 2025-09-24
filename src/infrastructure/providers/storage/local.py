@@ -5,6 +5,7 @@ Local storage provider implementation.
 import hashlib
 import json
 import logging
+import tempfile
 import uuid
 from datetime import UTC, datetime
 from pathlib import Path
@@ -47,10 +48,15 @@ class LocalStorageProvider(IStorageProvider):
         try:
             self.base_path = resolved_path
             self._ensure_directories()
-        except PermissionError:
-            fallback = Path.cwd() / ".cache" / "storage"
+        except (PermissionError, OSError):
+            fallback = Path(tempfile.gettempdir()) / "aperilex" / "storage"
             fallback.mkdir(parents=True, exist_ok=True)
             self.base_path = fallback.resolve()
+            logger.warning(
+                "Local storage base path '%s' not writable; using fallback '%s'",
+                resolved_path,
+                self.base_path,
+            )
             self._ensure_directories()
 
     def _ensure_directories(self) -> None:

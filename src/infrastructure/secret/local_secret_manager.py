@@ -1,8 +1,7 @@
-"""
-Local file-based secret manager implementation for development.
-"""
+"""Local file-based secret manager implementation for development."""
 
 import json
+import logging
 import os
 from datetime import UTC, datetime
 from pathlib import Path
@@ -38,6 +37,9 @@ class SecretData(TypedDict, total=False):
     deletion_date: str
 
 
+logger = logging.getLogger(__name__)
+
+
 class LocalSecretManager(ISecretManager):
     """
     Local file-based secret manager for development environments.
@@ -45,33 +47,73 @@ class LocalSecretManager(ISecretManager):
     Stores secrets in a local JSON file. NOT FOR PRODUCTION USE.
     """
 
-    def __init__(self, secrets_file: str = ".secrets/local_secrets.json"):
+    def __init__(self, secrets_file: str | None = None):
         """
         Initialize the local secret manager.
 
         Args:
             secrets_file: Path to the secrets file
         """
-        self.secrets_file = Path(secrets_file)
-        self.secrets_file.parent.mkdir(parents=True, exist_ok=True)
+        resolved_path = secrets_file or os.environ.get("LOCAL_SECRETS_FILE")
+        if resolved_path is None:
+            resolved_path = ".secrets/local_secrets.json"
+
+        self.secrets_file = Path(resolved_path)
+        self._persistence_enabled = self._ensure_parent_directory()
         self._secrets: dict[str, SecretData] = {}
         self._load_secrets()
 
+    def _ensure_parent_directory(self) -> bool:
+        """Ensure the secrets directory exists and is writable."""
+        try:
+            self.secrets_file.parent.mkdir(parents=True, exist_ok=True)
+            if not os.access(self.secrets_file.parent, os.W_OK):
+                raise PermissionError(
+                    f"Directory '{self.secrets_file.parent}' is not writable"
+                )
+            return True
+        except PermissionError:
+            logger.warning(
+                "LocalSecretManager cannot create secrets directory; running without persistence",
+                extra={"secrets_dir": str(self.secrets_file.parent)},
+            )
+            return False
+
     def _load_secrets(self) -> None:
         """Load secrets from the local file."""
+        if not self._persistence_enabled:
+            return
+
         if self.secrets_file.exists():
             try:
                 with open(self.secrets_file) as f:
                     self._secrets = json.load(f)
+            except PermissionError:
+                logger.warning(
+                    "LocalSecretManager cannot read secrets file; disabling persistence",
+                    extra={"secrets_file": str(self.secrets_file)},
+                )
+                self._persistence_enabled = False
+                self._secrets = {}
             except (OSError, json.JSONDecodeError):
                 self._secrets = {}
 
     def _save_secrets(self) -> None:
         """Save secrets to the local file."""
-        with open(self.secrets_file, "w") as f:
-            json.dump(self._secrets, f, indent=2, default=str)
-        # Set restrictive permissions on the secrets file
-        os.chmod(self.secrets_file, 0o600)
+        if not self._persistence_enabled:
+            return
+
+        try:
+            with open(self.secrets_file, "w") as f:
+                json.dump(self._secrets, f, indent=2, default=str)
+            # Set restrictive permissions on the secrets file
+            os.chmod(self.secrets_file, 0o600)
+        except PermissionError:
+            logger.warning(
+                "LocalSecretManager cannot write secrets file; disabling persistence",
+                extra={"secrets_file": str(self.secrets_file)},
+            )
+            self._persistence_enabled = False
 
     async def get_secret(
         self,
