@@ -5,12 +5,13 @@ This module is responsible for wiring concrete implementations to abstract inter
 It serves as the composition root following clean architecture principles.
 """
 
-from .container import CompositionRoot
+from .container import CompositionRoot, CompositionRootInstance
 from .infrastructure_wiring import InfrastructureWiring
 from .provider_factory import ProviderFactory
 
 __all__ = [
     "CompositionRoot",
+    "CompositionRootInstance",
     "InfrastructureWiring",
     "ProviderFactory",
 ]

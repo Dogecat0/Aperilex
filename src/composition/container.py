@@ -6,8 +6,8 @@ abstract interfaces, following clean architecture principles.
 """
 
 from collections.abc import Sequence
+from dataclasses import dataclass
 from types import ModuleType
-from typing import Self
 
 from dependency_injector import containers, providers
 
@@ -55,7 +55,7 @@ class CompositionRoot(containers.DeclarativeContainer):
     infrastructure = providers.Container(InfrastructureWiring)
 
     @classmethod
-    def initialize(cls, environment: str = "development") -> Self:
+    def initialize(cls, environment: str = "development") -> "CompositionRootInstance":
         """
         Initialize the composition root with environment-specific configuration.
 
@@ -258,32 +258,33 @@ class CompositionRoot(containers.DeclarativeContainer):
 
         # Event publisher and SSE provider use development-safe defaults; production wiring can extend these bindings.
 
-        return container
+        return CompositionRootInstance(
+            container=container,
+            application_container=app_container,
+        )
+
+
+@dataclass(slots=True)
+class CompositionRootInstance:
+    """Runtime wrapper exposing helpers for the wired DI container."""
+
+    container: CompositionRoot
+    application_container: ApplicationContainer
 
     def wire_modules(self, modules: Sequence[ModuleType]) -> None:
-        """
-        Wire the container with specified modules.
-
-        Args:
-            modules: List of modules to wire with the container
-        """
         module_list = list(modules)
-        self.wire(modules=module_list)
-        app_container = self.application_container()
-        app_container.wire_modules(module_list)
+
+        # Ensure key application modules are wired for dependency injection
+        import src.application.services.application_service as application_module
+
+        if application_module not in module_list:
+            module_list.append(application_module)
+
+        self.container.wire(modules=module_list)
+        self.application_container.wire(modules=module_list)
 
     def get_application_container(self) -> ApplicationContainer:
-        """
-        Get the application container with all dependencies wired.
-
-        This method returns the ApplicationContainer that has been configured
-        with all concrete implementations during initialization.
-
-        Returns:
-            ApplicationContainer with all dependencies properly wired
-        """
-        # Return the already configured application container
-        return self.application_container()
+        return self.application_container
 
 
 def _get_config_value(

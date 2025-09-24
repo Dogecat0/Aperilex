@@ -8,7 +8,7 @@ import logging
 import sys
 from functools import lru_cache
 from types import ModuleType
-from typing import cast
+from typing import Any, cast
 
 from dependency_injector.wiring import Provide, inject
 
@@ -33,14 +33,14 @@ from src.application.services.background_task_coordinator import (
     BackgroundTaskCoordinator,
 )
 from src.application.services.worker_service import WorkerService
-from src.composition import CompositionRoot
+from src.composition import CompositionRoot, CompositionRootInstance
 from src.shared.config.settings import settings
 
 logger = logging.getLogger(__name__)
 
 
 @lru_cache
-def get_composition_root() -> CompositionRoot:
+def get_composition_root() -> CompositionRootInstance:
     """Initialize and cache the composition root for the application."""
     logger.debug(
         "Initializing CompositionRoot for environment: %s", settings.environment
@@ -60,7 +60,7 @@ def get_container() -> ApplicationContainer:
 
 @inject
 async def get_application_service(
-    application_service=Provide["cqrs.application_service"],
+    application_service: Any = Provide["cqrs.application_service"],
 ) -> ApplicationService:
     """Get the application service for command/query execution."""
     return cast(ApplicationService, application_service)
@@ -68,7 +68,7 @@ async def get_application_service(
 
 @inject
 async def get_dispatcher(
-    dispatcher=Provide["cqrs.dispatcher"],
+    dispatcher: Any = Provide["cqrs.dispatcher"],
 ) -> Dispatcher:
     """Get configured CQRS Dispatcher instance.
 
@@ -80,7 +80,7 @@ async def get_dispatcher(
 
 @inject
 async def get_cqrs_handler_registrar(
-    registrar=Provide["cqrs.handler_registrar"],
+    registrar: Any = Provide["cqrs.handler_registrar"],
 ) -> HandlerRegistrar:
     """Get configured CQRS Handler Registrar.
 
@@ -92,7 +92,7 @@ async def get_cqrs_handler_registrar(
 
 @inject
 async def get_queue_provider(
-    queue_provider=Provide["providers_container.queue_provider"],
+    queue_provider: Any = Provide["providers_container.queue_provider"],
 ) -> IQueueProvider:
     """Get configured Queue Provider instance.
 
@@ -104,7 +104,7 @@ async def get_queue_provider(
 
 @inject
 async def get_storage_provider(
-    storage_provider=Provide["providers_container.storage_provider"],
+    storage_provider: Any = Provide["providers_container.storage_provider"],
 ) -> IStorageProvider:
     """Get configured Storage Provider instance.
 
@@ -116,7 +116,7 @@ async def get_storage_provider(
 
 @inject
 async def get_event_publisher(
-    event_publisher=Provide["orchestrator.event_publisher"],
+    event_publisher: Any = Provide["orchestrator.event_publisher"],
 ) -> IEventPublisher:
     """Get configured Event Publisher instance.
 
@@ -128,7 +128,7 @@ async def get_event_publisher(
 
 @inject
 async def get_event_store(
-    event_store=Provide["providers_container.event_store"],
+    event_store: Any = Provide["providers_container.event_store"],
 ) -> IEventStore:
     """Get configured event store instance."""
     return cast(IEventStore, event_store)
@@ -136,7 +136,7 @@ async def get_event_store(
 
 @inject
 async def get_authentication_provider(
-    auth_provider=Provide["orchestrator.authentication_service"],
+    auth_provider: Any = Provide["orchestrator.authentication_service"],
 ) -> IAuthenticationProvider:
     """Get configured Authentication Provider instance.
 
@@ -148,7 +148,7 @@ async def get_authentication_provider(
 
 @inject
 async def get_sse_provider(
-    sse_provider=Provide["orchestrator.sse_provider"],
+    sse_provider: Any = Provide["orchestrator.sse_provider"],
 ) -> ISSEProvider:
     """Get configured SSE Provider instance.
 
@@ -160,7 +160,7 @@ async def get_sse_provider(
 
 @inject
 async def get_rate_limiter(
-    rate_limiter=Provide["orchestrator.rate_limiter"],
+    rate_limiter: Any = Provide["orchestrator.rate_limiter"],
 ) -> ApiRateLimiter:
     """Get configured Rate Limiter instance.
 
@@ -172,7 +172,7 @@ async def get_rate_limiter(
 
 @inject
 async def get_sse_connection_manager(
-    sse_manager=Provide["orchestrator.sse_connection_manager"],
+    sse_manager: Any = Provide["orchestrator.sse_connection_manager"],
 ) -> SSEConnectionManager:
     """Get configured SSE Connection Manager instance.
 
@@ -184,7 +184,7 @@ async def get_sse_connection_manager(
 
 @inject
 async def get_worker_provider(
-    worker_provider=Provide["providers_container.worker_provider"],
+    worker_provider: Any = Provide["providers_container.worker_provider"],
 ) -> IWorkerProvider:
     """Get configured Worker Provider instance."""
     return cast(IWorkerProvider, worker_provider)
@@ -192,7 +192,7 @@ async def get_worker_provider(
 
 @inject
 async def get_worker_service(
-    worker_service=Provide["cqrs.worker_service"],
+    worker_service: Any = Provide["cqrs.worker_service"],
 ) -> WorkerService:
     """Get configured WorkerService instance."""
     return cast(WorkerService, worker_service)
@@ -200,7 +200,7 @@ async def get_worker_service(
 
 @inject
 async def get_background_task_coordinator(
-    coordinator=Provide["cqrs.background_task_coordinator"],
+    coordinator: Any = Provide["cqrs.background_task_coordinator"],
 ) -> BackgroundTaskCoordinator:
     """Get configured BackgroundTaskCoordinator instance."""
     return cast(BackgroundTaskCoordinator, coordinator)
@@ -208,7 +208,7 @@ async def get_background_task_coordinator(
 
 @inject
 async def get_config_provider(
-    config_provider=Provide["config_provider"],
+    config_provider: Any = Provide["config_provider"],
 ) -> IConfigProvider:
     """Get configured configuration provider instance."""
     return cast(IConfigProvider, config_provider)
@@ -216,7 +216,7 @@ async def get_config_provider(
 
 @inject
 async def get_secret_manager(
-    secret_manager=Provide["secret_manager"],
+    secret_manager: Any = Provide["secret_manager"],
 ) -> ISecretManager:
     """Get configured secret manager instance."""
     return cast(ISecretManager, secret_manager)
