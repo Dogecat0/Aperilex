@@ -39,26 +39,45 @@ class AnalysisRepository(IAnalysisRepository):
         Returns:
             Analysis data for interface
         """
-        # Determine status from model - using a default for now
-        status = AnalysisStatus.COMPLETED  # Default status
+        # Determine status from model, defaulting to COMPLETED for legacy rows
+        status = (
+            AnalysisStatus(model.status)
+            if getattr(model, "status", None)
+            else AnalysisStatus.COMPLETED
+        )
 
-        # Build result dict from model data
-        result: dict[str, str | int | float | bool | list[Any] | dict[Any, Any]] = {}
-        if hasattr(model, "llm_provider") and model.llm_provider:
-            result["llm_provider"] = model.llm_provider
-        if hasattr(model, "llm_model") and model.llm_model:
-            result["llm_model"] = model.llm_model
-        if hasattr(model, "confidence_score") and model.confidence_score is not None:
-            result["confidence_score"] = model.confidence_score
+        # Align JSON result payload with latest schema expectations
+        raw_result = getattr(model, "result", None)
+        result: dict[str, Any] = raw_result if isinstance(raw_result, dict) else {}
+
+        # Preserve legacy metadata-based LLM info if result payload missing it
+        if not result and getattr(model, "meta_data", None):
+            legacy_result = model.meta_data.get("result")
+            if isinstance(legacy_result, dict):
+                result = legacy_result
+
+        if not result:
+            if hasattr(model, "llm_provider") and model.llm_provider:
+                result["llm_provider"] = model.llm_provider
+            if hasattr(model, "llm_model") and model.llm_model:
+                result["llm_model"] = model.llm_model
+            if (
+                hasattr(model, "confidence_score")
+                and model.confidence_score is not None
+            ):
+                result["confidence_score"] = model.confidence_score
+
+        user_id_value = getattr(model, "user_id", None)
+        if user_id_value is None and getattr(model, "created_by", None):
+            user_id_value = UUID(model.created_by)
+
+        if user_id_value is None:
+            user_id_value = UUID("00000000-0000-0000-0000-000000000000")
 
         return AnalysisData(
             id=AnalysisId(model.id),
             filing_id=FilingId(model.filing_id),
-            user_id=(
-                UserId(UUID(model.created_by))
-                if model.created_by
-                else UserId(UUID("00000000-0000-0000-0000-000000000000"))
-            ),
+            user_id=UserId(user_id_value),
             status=status,
             analysis_type=model.analysis_type,
             result=result,
@@ -84,7 +103,10 @@ class AnalysisRepository(IAnalysisRepository):
         return AnalysisModel(
             id=data.id,
             filing_id=data.filing_id,
+            user_id=data.user_id,
+            status=data.status.value,
             analysis_type=data.analysis_type,
+            result=dict(data.result) if data.result else {},
             created_by=str(data.user_id),
             llm_provider=llm_provider,
             llm_model=llm_model,
@@ -174,10 +196,10 @@ class AnalysisRepository(IAnalysisRepository):
         Returns:
             List of analyses for the user
         """
-        conditions = [AnalysisModel.created_by == str(user_id)]
+        conditions = [AnalysisModel.user_id == user_id]
 
-        # Note: The current model doesn't have a status field, so we skip status filtering
-        # This would need to be added to the model if status filtering is required
+        if status:
+            conditions.append(AnalysisModel.status == status.value)
 
         stmt = (
             select(AnalysisModel)
@@ -228,6 +250,9 @@ class AnalysisRepository(IAnalysisRepository):
         # Update model fields
         model.filing_id = analysis.filing_id
         model.analysis_type = analysis.analysis_type
+        model.user_id = analysis.user_id
+        model.status = analysis.status.value
+        model.result = dict(analysis.result) if analysis.result else {}
         model.created_by = str(analysis.user_id)
 
         # Extract LLM info from result if present
@@ -248,6 +273,10 @@ class AnalysisRepository(IAnalysisRepository):
                     model.confidence_score = None
             else:
                 model.confidence_score = None
+        else:
+            model.llm_provider = None
+            model.llm_model = None
+            model.confidence_score = None
 
         model.meta_data = dict(analysis.metadata) if analysis.metadata else {}
 
@@ -283,12 +312,14 @@ class AnalysisRepository(IAnalysisRepository):
         if not model:
             return False
 
-        # Store status in metadata since the model doesn't have a status field
-        if not model.meta_data:
-            model.meta_data = {}
-        model.meta_data["status"] = status.value
+        model.status = status.value
+
         if error_message:
+            if not model.meta_data:
+                model.meta_data = {}
             model.meta_data["error_message"] = error_message
+        elif model.meta_data and "error_message" in model.meta_data:
+            model.meta_data.pop("error_message")
 
         await self.session.flush()
 
@@ -347,10 +378,7 @@ class AnalysisRepository(IAnalysisRepository):
         if not model:
             return False
 
-        # Store result in metadata
-        if not model.meta_data:
-            model.meta_data = {}
-        model.meta_data["result"] = result
+        model.result = result
 
         # Also update LLM fields if present in result
         if "llm_provider" in result:
