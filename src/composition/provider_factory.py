@@ -644,9 +644,17 @@ class ProviderFactory:
             from src.infrastructure.providers.datasource import EDGARDataSourceProvider
 
             # Get EDGAR configuration
-            user_agent = config_provider.get(
-                "datasource.edgar.user_agent", "Aperilex/1.0 (support@aperilex.com)"
-            )
+            user_agent = config_provider.get("datasource.edgar.user_agent", "")
+
+            if not user_agent:
+                identity_email = settings.edgar_identity
+                if identity_email:
+                    user_agent = (
+                        f"{settings.app_name}/{settings.app_version}"
+                        f" ({identity_email})"
+                    )
+                else:
+                    user_agent = "Aperilex/1.0 (support@aperilex.com)"
             rate_limit = config_provider.get(
                 "datasource.edgar.rate_limit_per_second", 10
             )

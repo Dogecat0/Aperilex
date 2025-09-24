@@ -147,7 +147,7 @@ class CacheManager:
                 "Initialized cache region '%s': %s (TTL: %ds)",
                 region_name.value,
                 config.description,
-                # config.expiration_time,
+                config.expiration_time,
             )
 
     def get_region(self, name: CacheRegionName) -> CacheRegion:

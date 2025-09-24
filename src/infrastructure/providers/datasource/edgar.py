@@ -5,7 +5,9 @@ EDGAR data source provider implementation.
 import asyncio
 import logging
 import uuid
+from collections.abc import Iterable
 from datetime import datetime
+from typing import Any
 
 from edgar import Company, Filing, get_by_accession_number, set_identity
 
@@ -135,6 +137,59 @@ class EDGARDataSourceProvider(IDataSourceProvider):
 
         except Exception as e:
             raise DataSourceError(f"Failed to parse filing content: {e}") from e
+
+    def _extract_company_ticker(self, company: Company) -> Ticker | None:
+        """Extract the best available ticker from an EDGAR company object."""
+
+        def _coerce_candidate(candidate: Any) -> str | None:
+            if candidate is None:
+                return None
+            if isinstance(candidate, Ticker):
+                return candidate.value
+            if isinstance(candidate, str):
+                candidate = candidate.strip()
+                return candidate or None
+            try:
+                coerced = str(candidate).strip()
+            except Exception:
+                return None
+            return coerced or None
+
+        candidates: list[Any] = []
+
+        if hasattr(company, "get_ticker"):
+            try:
+                candidates.append(company.get_ticker())
+            except Exception as exc:
+                logger.debug(
+                    "Failed to extract ticker via get_ticker for CIK %s: %s",
+                    getattr(company, "cik", "unknown"),
+                    exc,
+                )
+
+        candidates.append(getattr(company, "ticker", None))
+
+        tickers_attr = getattr(company, "tickers", None)
+        if isinstance(tickers_attr, Iterable) and not isinstance(tickers_attr, str | bytes):
+            candidates.extend(tickers_attr)
+        else:
+            candidates.append(tickers_attr)
+
+        for candidate in candidates:
+            ticker_value = _coerce_candidate(candidate)
+            if not ticker_value:
+                continue
+            try:
+                return Ticker(value=ticker_value)
+            except Exception as exc:
+                logger.debug(
+                    "Discarding invalid ticker candidate %s for CIK %s: %s",
+                    ticker_value,
+                    getattr(company, "cik", "unknown"),
+                    exc,
+                )
+
+        return None
 
     async def get_filing_by_id(self, filing_id: FilingId) -> FilingContent:
         """
@@ -374,7 +429,7 @@ class EDGARDataSourceProvider(IDataSourceProvider):
 
             # Extract company information
             company_cik = CIK(value=str(company.cik).zfill(10))
-            company_ticker = Ticker(value=company.ticker) if company.ticker else None
+            company_ticker = self._extract_company_ticker(company)
 
             return CompanyInfo(
                 schema_version=1,
@@ -465,10 +520,11 @@ class EDGARDataSourceProvider(IDataSourceProvider):
             await self._rate_limit()
 
             company = Company(int(cik.value))
-            if not company.ticker:
+            ticker = self._extract_company_ticker(company)
+            if not ticker:
                 raise NotFoundError(f"No ticker found for CIK {cik.value}")
 
-            return Ticker(value=company.ticker)
+            return ticker
 
         except NotFoundError:
             raise
