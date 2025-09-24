@@ -261,94 +261,103 @@ async def search_filings(
 
 
 @router.post(
-    "/{accession_number}/analyze",
+    "/by-id/{filing_id}/analyze",
     response_model=TaskResponse,
     status_code=status.HTTP_202_ACCEPTED,
-    summary="Start analysis of a filing",
+    summary="Start analysis of a filing by UUID",
     description="""
-    Initiate background analysis of a specific SEC filing.
+    Initiate background analysis of a specific SEC filing using its UUID.
 
     The analysis process runs asynchronously and returns a task ID for tracking progress.
     Use the task ID to check status and retrieve results when complete.
     """,
 )
-async def analyze_filing(
-    accession_number: AccessionNumberPath,
+async def analyze_filing_by_id(
+    filing_id: FilingIdPath,
     application_service: ApplicationServiceDep,
     current_user: AuthenticatedUserDep,
 ) -> TaskResponse:
-    """Analyze a specific SEC filing.
-
-    Args:
-        accession_number: SEC filing accession number (e.g., "0000320193-23-000077")
-
-    Returns:
-        TaskResponse with task_id for tracking analysis progress
-
-    Raises:
-        HTTPException: 422 if accession number format is invalid
-        HTTPException: 404 if filing not found
-        HTTPException: 500 if analysis initiation fails
-    """
+    """Analyze a specific SEC filing identified by UUID."""
     logger.info(
-        "Starting filing analysis", extra={"accession_number": accession_number}
+        "Starting filing analysis by ID", extra={"filing_id": str(filing_id)}
     )
 
     try:
-        # Check if analysis is disabled (demo mode)
+        query = GetFilingQuery(
+            filing_id=filing_id,
+            include_analyses=False,
+            include_content_metadata=False,
+            user_id=user_id_str(current_user),
+        )
+
+        filing = cast(
+            FilingResponse,
+            await application_service.execute_query(query),
+        )
+
+        accession_number = AccessionNumber(value=filing.accession_number)
+        company_cik = CIK(value=accession_number.get_cik())
+
         from src.shared.config.settings import Settings
 
         settings = Settings()
         if not settings.analysis_enabled:
             logger.info(
                 "Analysis disabled in demo mode",
-                extra={"accession_number": accession_number},
+                extra={"filing_id": str(filing_id)},
             )
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail="Analysis is disabled for demonstration purposes. Try to view one of the complete analysis reports.",
+                detail=(
+                    "Analysis is disabled for demonstration purposes. "
+                    "Try to view one of the complete analysis reports."
+                ),
             )
-        # Validate accession number format
-        accession_num = AccessionNumber(value=accession_number)
 
-        # Extract CIK from accession number (first 10 digits)
-        cik_str = accession_number.split("-")[0]
-        # CIK expects string format, keep as string
-        company_cik = CIK(value=cik_str)
-
-        # Create command
         command = AnalyzeFilingCommand(
-            accession_number=accession_num,
+            accession_number=accession_number,
             company_cik=company_cik,
             user_id=user_id_str(current_user),
         )
 
-        # Execute command through application service
         result = cast(
             TaskResponse,
             await application_service.execute_command(command),
         )
 
         logger.info(
-            "Filing analysis initiated successfully",
-            extra={"accession_number": accession_number, "task_id": result.task_id},
+            "Filing analysis initiated successfully by ID",
+            extra={
+                "filing_id": str(filing_id),
+                "accession_number": filing.accession_number,
+                "task_id": result.task_id,
+            },
         )
 
         return result
 
+    except ResourceNotFoundError as e:
+        logger.info(
+            "Filing not found for analysis",
+            extra={"filing_id": str(filing_id), "error": str(e)},
+        )
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Filing with ID {filing_id} not found",
+        ) from e
     except ValueError as e:
         logger.warning(
-            "Invalid accession number format",
-            extra={"accession_number": accession_number, "error": str(e)},
+            "Invalid filing data for analysis",
+            extra={"filing_id": str(filing_id), "error": str(e)},
         )
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=f"Invalid accession number format: {str(e)}",
+            detail=str(e),
         ) from e
     except Exception:
         logger.error(
-            "Failed to analyze filing",
-            extra={"accession_number": accession_number},
+            "Failed to analyze filing by ID",
+            extra={"filing_id": str(filing_id)},
             exc_info=True,
         )
         raise HTTPException(

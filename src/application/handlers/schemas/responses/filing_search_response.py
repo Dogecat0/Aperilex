@@ -2,6 +2,7 @@
 
 from collections.abc import Mapping
 from datetime import date
+from uuid import UUID
 
 from pydantic import Field
 
@@ -25,6 +26,10 @@ class FilingSearchResult(SchemaVersionedModel):
         sections_count: Number of extracted sections (if available)
     """
 
+    filing_id: UUID | None = Field(
+        default=None,
+        description="UUID identifier for the filing when available",
+    )
     accession_number: str = Field(description="SEC accession number")
     filing_type: str = Field(description="Type of SEC filing")
     filing_date: date = Field(description="Date the filing was submitted")
@@ -73,6 +78,7 @@ class FilingSearchResult(SchemaVersionedModel):
         sections_count = len(sections) if isinstance(sections, list) else 0
 
         return cls(
+            filing_id=None,
             accession_number=str(filing_data.get("accession_number", "")),
             filing_type=str(filing_data.get("filing_type", "")),
             filing_date=filing_date,
