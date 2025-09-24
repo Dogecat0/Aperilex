@@ -14,7 +14,7 @@ import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { AnalysisCard } from './components/AnalysisCard'
 import { companyService } from '@/services/CompanyService'
-import type { AnalysisTemplate, ListAnalysesParams } from '@/api/types'
+import type { AnalysisType, ListAnalysesParams } from '@/api/types'
 
 export function AnalysesList() {
   const [searchTerm, setSearchTerm] = useState('')
@@ -206,23 +206,23 @@ export function AnalysesList() {
   const hasActiveFilters = useMemo(() => {
     return Boolean(
       filters.company_cik ||
-        filters.analysis_template ||
+        filters.analysis_type ||
         filters.created_from ||
         filters.created_to ||
         filters.min_confidence_score
-    )
-  }, [filters])
+  )
+}, [filters])
 
   const handlePageChange = (page: number) => {
     setFilters((prev) => ({ ...prev, page }))
   }
 
-  const analysisTypes: { value: AnalysisTemplate; label: string }[] = [
+  const analysisTypes: { value: AnalysisType; label: string }[] = [
+    { value: 'filing_analysis', label: 'Filing Analysis' },
     { value: 'comprehensive', label: 'Comprehensive Analysis' },
-    // Temporarily commented out due to current focus on comprehensive analysis.
-    // { value: 'financial_focused', label: 'Financial Focused' },
-    // { value: 'risk_focused', label: 'Risk Focused' },
-    // { value: 'business_focused', label: 'Business Focused' },
+    { value: 'custom_query', label: 'Custom Query' },
+    { value: 'comparison', label: 'Comparison Analysis' },
+    { value: 'historical_trend', label: 'Historical Trend' },
   ]
 
   if (error) {
@@ -356,9 +356,9 @@ export function AnalysesList() {
                   Analysis Type
                 </label>
                 <select
-                  value={filters.analysis_template || ''}
+                  value={filters.analysis_type || ''}
                   onChange={(e) =>
-                    handleFilterChange('analysis_template', e.target.value || undefined)
+                    handleFilterChange('analysis_type', e.target.value || undefined)
                   }
                   disabled={isFiltering}
                   className="w-full px-3 py-2 border border-input rounded-md bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50 disabled:cursor-not-allowed"

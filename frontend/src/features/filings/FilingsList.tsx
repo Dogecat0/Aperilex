@@ -53,8 +53,8 @@ export function FilingsList(_props: FilingsListProps) {
     }
   }
 
-  const handleViewDetails = (accessionNumber: string) => {
-    navigate(`/filings/${accessionNumber}`)
+  const handleViewDetails = (filingId: string) => {
+    navigate(`/filings/${filingId}`)
   }
 
   return (

@@ -2,7 +2,7 @@ import { useParams, Link } from 'react-router-dom'
 import { useEffect } from 'react'
 import { ArrowLeft, Target, Brain, Lightbulb, Building, Calendar } from 'lucide-react'
 import { useAnalysis } from '@/hooks/useAnalysis'
-import { useFilingAnalysis, useFiling, useFilingById } from '@/hooks/useFiling'
+import { useFilingAnalysis, useFiling } from '@/hooks/useFiling'
 import { AnalysisViewer } from './components/AnalysisViewer'
 import { SectionResults } from './components/SectionResults'
 import { AnalysisOverview } from './components/AnalysisOverview'
@@ -11,46 +11,44 @@ import { InsightGroup } from '@/components/analysis/InsightHighlight'
 import type { AnalysisResponse, ComprehensiveAnalysisResponse } from '@/api/types'
 
 export function AnalysisDetails() {
-  const { analysisId, accessionNumber } = useParams<{
+  const { analysisId, filingId } = useParams<{
     analysisId?: string
-    accessionNumber?: string
+    filingId?: string
   }>()
 
-  // Determine if we're using analysis ID or accession number
-  const isAccessionNumberRoute = !!accessionNumber
-  const identifier = accessionNumber || analysisId
+  // Determine if we're using analysis ID or filing ID
+  const isFilingRoute = !!filingId
+  const identifier = filingId || analysisId
 
   // Use appropriate hook based on route type
   const analysisQuery = useAnalysis(analysisId!, !!analysisId)
-  const filingAnalysisQuery = useFilingAnalysis(accessionNumber!, { enabled: !!accessionNumber })
+  const filingAnalysisQuery = useFilingAnalysis(filingId!, { enabled: !!filingId })
 
   // Select the appropriate query result
   const {
     data: analysis,
     isLoading,
     error,
-  } = isAccessionNumberRoute ? filingAnalysisQuery : analysisQuery
+  } = isFilingRoute ? filingAnalysisQuery : analysisQuery
 
   // Fetch filing data to get the actual filing date
-  // When coming from analysis route, use filing_id from analysis
-  // When coming from filing route, accessionNumber is available from URL
-  const shouldFetchByFilingId = !accessionNumber && analysis?.filing_id
-  const { data: filingDataById, isLoading: filingLoadingById } = useFilingById(
-    shouldFetchByFilingId ? analysis.filing_id : '',
-    {
-      enabled: Boolean(shouldFetchByFilingId),
-    }
-  )
+  const {
+    data: filingDataFromRoute,
+    isLoading: filingLoadingFromRoute,
+  } = useFiling(filingId || '', {
+    enabled: !!filingId,
+  })
 
-  // Fetch by accession number when available from route
-  const { data: filingDataByAccession, isLoading: filingLoadingByAccession } = useFiling(
-    accessionNumber || '',
-    { enabled: !!accessionNumber }
-  )
+  const shouldFetchAnalysisFiling = !filingId && analysis?.filing_id
+  const {
+    data: filingDataFromAnalysis,
+    isLoading: filingLoadingFromAnalysis,
+  } = useFiling(analysis?.filing_id ?? '', {
+    enabled: Boolean(shouldFetchAnalysisFiling),
+  })
 
-  // Use the appropriate filing data based on which query was executed
-  const filingData = filingDataByAccession || filingDataById
-  const filingLoading = filingLoadingByAccession || filingLoadingById
+  const filingData = filingDataFromRoute || filingDataFromAnalysis
+  const filingLoading = filingLoadingFromRoute || filingLoadingFromAnalysis
 
   // Close dropdowns when clicking outside
   useEffect(() => {
@@ -73,7 +71,7 @@ export function AnalysisDetails() {
         <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-4">
           <h3 className="text-destructive font-medium">Invalid Analysis ID</h3>
           <p className="text-destructive/80 text-sm mt-1">
-            The analysis ID or accession number is missing from the URL.
+            The analysis ID or filing ID is missing from the URL.
           </p>
         </div>
       </div>

@@ -15,7 +15,8 @@ import {
   Database,
   Cpu,
 } from 'lucide-react'
-import type { AnalysisResponse, AnalysisProgress, AnalysisTemplate } from '@/api/types'
+import type { AnalysisResponse, AnalysisProgress, AnalysisType } from '@/api/types'
+import { getAnalysisTypeLabel } from '@/utils/analysisMetricsUtils'
 
 interface FilingAnalysisSectionProps {
   analysis: AnalysisResponse | null
@@ -33,20 +34,7 @@ interface FilingAnalysisSectionProps {
 /**
  * Format analysis template for display
  */
-const formatAnalysisTemplate = (template: AnalysisTemplate): string => {
-  switch (template) {
-    case 'comprehensive':
-      return 'Comprehensive Analysis'
-    case 'financial_focused':
-      return 'Financial-Focused Analysis'
-    case 'risk_focused':
-      return 'Risk-Focused Analysis'
-    case 'business_focused':
-      return 'Business-Focused Analysis'
-    default:
-      return template
-  }
-}
+const formatAnalysisType = (analysisType: AnalysisType): string => getAnalysisTypeLabel(analysisType)
 
 /**
  * Get appropriate icon for analysis progress state
@@ -475,7 +463,7 @@ export const FilingAnalysisSection: React.FC<FilingAnalysisSectionProps> = ({
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
             <div>
               <p className="text-muted-foreground">Analysis Type</p>
-              <p className="font-medium">{formatAnalysisTemplate(analysis.analysis_template)}</p>
+              <p className="font-medium">{formatAnalysisType(analysis.analysis_type)}</p>
             </div>
             {analysis.confidence_score && (
               <div>

@@ -57,8 +57,12 @@ export const tasksApi = {
         onProgress(task)
       }
 
-      // Check if task completed (success, completed or failure)
-      if (task.status === 'success' || task.status === 'completed' || task.status === 'failure') {
+      // Check if task reached a terminal state
+      if (
+        task.status === 'COMPLETED' ||
+        task.status === 'FAILED' ||
+        task.status === 'CANCELLED'
+      ) {
         return task
       }
 

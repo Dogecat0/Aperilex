@@ -4,13 +4,13 @@ import type {
   AnalysisResponse,
   PaginatedResponse,
   FilingResponse,
-  AnalysisTemplate,
+  AnalysisType,
 } from './types'
 
 export interface CompanyAnalysesFilters {
   page?: number
   page_size?: number
-  analysis_template?: AnalysisTemplate
+  analysis_type?: AnalysisType
   start_date?: string
   end_date?: string
 }
@@ -54,7 +54,7 @@ export const companiesApi = {
     if (filters) {
       if (filters.page !== undefined) params.append('page', filters.page.toString())
       if (filters.page_size !== undefined) params.append('page_size', filters.page_size.toString())
-      if (filters.analysis_template) params.append('analysis_template', filters.analysis_template)
+      if (filters.analysis_type) params.append('analysis_type', filters.analysis_type)
       if (filters.start_date) params.append('start_date', filters.start_date)
       if (filters.end_date) params.append('end_date', filters.end_date)
     }

@@ -10,23 +10,15 @@ import type {
 } from '../types'
 
 /**
- * Service class for Filing-related operations
- *
- * Provides higher-level business logic and error handling around filing operations.
- * Wraps the basic API calls with additional functionality like status polling,
- * validation, and comprehensive error handling.
- *
- * Uses database-only search for filings - EDGAR direct search has been removed.
+ * Service class for Filing-related operations using filing UUIDs.
  */
 export class FilingService {
   /**
-   * Search filings by ticker with optional filters (database search)
-   *
-   * @param params - Search parameters including ticker and optional filters
-   * @returns Promise resolving to paginated filing results
-   * @throws APIError when search fails or ticker not found
+   * Search filings by ticker with optional filters (database search).
    */
-  async searchFilings(params: FilingSearchParams): Promise<PaginatedResponse<FilingResponse>> {
+  async searchFilings(
+    params: FilingSearchParams
+  ): Promise<PaginatedResponse<FilingResponse>> {
     this.validateSearchParams(params)
 
     try {
@@ -37,28 +29,7 @@ export class FilingService {
   }
 
   /**
-   * Get filing information by accession number
-   *
-   * @param accessionNumber - The SEC accession number (e.g., "0000320193-23-000106")
-   * @returns Promise resolving to filing details with metadata
-   * @throws APIError when filing not found or network issues occur
-   */
-  async getFiling(accessionNumber: string): Promise<FilingResponse> {
-    this.validateAccessionNumber(accessionNumber)
-
-    try {
-      return await filingsApi.getFiling(accessionNumber)
-    } catch (error) {
-      throw this.handleFilingError(error, 'retrieving filing', accessionNumber)
-    }
-  }
-
-  /**
-   * Get filing information by filing ID (UUID)
-   *
-   * @param filingId - The filing UUID (e.g., "12345678-1234-1234-1234-123456789abc")
-   * @returns Promise resolving to filing details with metadata
-   * @throws APIError when filing not found or network issues occur
+   * Retrieve filing information by filing UUID.
    */
   async getFilingById(filingId: string): Promise<FilingResponse> {
     this.validateFilingId(filingId)
@@ -66,74 +37,51 @@ export class FilingService {
     try {
       return await filingsApi.getFilingById(filingId)
     } catch (error) {
-      throw this.handleFilingError(error, 'retrieving filing by ID', filingId)
+      throw this.handleFilingError(error, 'retrieving filing', filingId)
     }
   }
 
   /**
-   * Analyze a filing using LLM processing
-   *
-   * Initiates the analysis process and returns a task for monitoring progress.
-   * The actual analysis is performed asynchronously by the backend.
-   *
-   * @param accessionNumber - The SEC accession number
-   * @param options - Analysis configuration options
-   * @returns Promise resolving to task information for tracking analysis progress
-   * @throws APIError when analysis cannot be initiated
+   * Initiate analysis of a filing identified by its UUID.
    */
   async analyzeFiling(
-    accessionNumber: string,
+    filingId: string,
     options?: AnalyzeFilingRequest
   ): Promise<TaskResponse> {
-    this.validateAccessionNumber(accessionNumber)
+    this.validateFilingId(filingId)
 
-    // Validate analysis options if provided
     if (options) {
       this.validateAnalysisOptions(options)
     }
 
     try {
-      const task = await filingsApi.analyzeFiling(accessionNumber, options)
-      return task
+      return await filingsApi.analyzeFiling(filingId, options)
     } catch (error) {
-      throw this.handleFilingError(error, 'initiating analysis for filing', accessionNumber)
+      throw this.handleFilingError(error, 'initiating analysis for filing', filingId)
     }
   }
 
   /**
-   * Get the comprehensive analysis results for a filing
-   *
-   * Retrieves the full LLM-generated analysis including executive summary,
-   * section breakdowns, financial insights, and risk assessments.
-   *
-   * @param accessionNumber - The SEC accession number
-   * @returns Promise resolving to comprehensive analysis results
-   * @throws APIError when analysis not found or not yet completed
+   * Retrieve the latest analysis for a filing by UUID.
    */
-  async getFilingAnalysis(accessionNumber: string): Promise<AnalysisResponse> {
-    this.validateAccessionNumber(accessionNumber)
+  async getFilingAnalysisById(filingId: string): Promise<AnalysisResponse> {
+    this.validateFilingId(filingId)
 
     try {
-      return await filingsApi.getFilingAnalysis(accessionNumber)
+      return await filingsApi.getFilingAnalysisById(filingId)
     } catch (error) {
-      throw this.handleFilingError(error, 'retrieving analysis for filing', accessionNumber)
+      throw this.handleFilingError(error, 'retrieving analysis for filing', filingId)
     }
   }
 
   /**
-   * Get comprehensive analysis results with full detail
-   *
-   * Similar to getFilingAnalysis but specifically typed for the comprehensive
-   * analysis response structure with all sections and subsections.
-   *
-   * @param accessionNumber - The SEC accession number
-   * @returns Promise resolving to comprehensive analysis with full detail
-   * @throws APIError when analysis not found or not yet completed
+   * Retrieve comprehensive analysis results for a filing.
    */
-  async getComprehensiveAnalysis(accessionNumber: string): Promise<ComprehensiveAnalysisResponse> {
-    const analysis = await this.getFilingAnalysis(accessionNumber)
+  async getComprehensiveAnalysis(
+    filingId: string
+  ): Promise<ComprehensiveAnalysisResponse> {
+    const analysis = await this.getFilingAnalysisById(filingId)
 
-    // The backend returns the comprehensive analysis in the full_results field
     if (!analysis.full_results) {
       const error: APIError = {
         detail: 'Comprehensive analysis results not available for this filing',
@@ -143,7 +91,6 @@ export class FilingService {
       throw error
     }
 
-    // Transform the analysis response to match the comprehensive structure
     return {
       filing_summary: analysis.filing_summary || '',
       executive_summary: analysis.executive_summary || '',
@@ -157,7 +104,7 @@ export class FilingService {
           section_name: section.section_name,
           section_summary: section.summary || '',
           consolidated_insights: [],
-          overall_sentiment: 0, // Will be properly mapped from backend data
+          overall_sentiment: 0,
           critical_findings: [],
           sub_sections: [],
           processing_time_ms: null,
@@ -168,21 +115,18 @@ export class FilingService {
       total_processing_time_ms: analysis.processing_time_seconds
         ? analysis.processing_time_seconds * 1000
         : null,
-      filing_type: '', // Will be populated from filing data
-      company_name: '', // Will be populated from filing data
+      filing_type: '',
+      company_name: '',
       analysis_timestamp: analysis.created_at,
     }
   }
 
   /**
-   * Check if a filing has been analyzed
-   *
-   * @param accessionNumber - The SEC accession number
-   * @returns Promise resolving to boolean indicating if analysis exists
+   * Determine whether a filing already has analysis results.
    */
-  async hasAnalysis(accessionNumber: string): Promise<boolean> {
+  async hasAnalysis(filingId: string): Promise<boolean> {
     try {
-      await this.getFilingAnalysis(accessionNumber)
+      await this.getFilingAnalysisById(filingId)
       return true
     } catch (error) {
       const apiError = error as APIError
@@ -194,26 +138,23 @@ export class FilingService {
   }
 
   /**
-   * Get filing status with analysis information
-   *
-   * Combines filing metadata with analysis status for a complete view.
-   *
-   * @param accessionNumber - The SEC accession number
-   * @returns Promise resolving to enriched filing status
+   * Retrieve filing metadata and analysis availability in a single call.
    */
-  async getFilingStatus(accessionNumber: string): Promise<
+  async getFilingStatus(
+    filingId: string
+  ): Promise<
     FilingResponse & {
       has_analysis: boolean
       analysis_date?: string
     }
   > {
-    const filing = await this.getFiling(accessionNumber)
-    const hasAnalysis = await this.hasAnalysis(accessionNumber)
+    const filing = await this.getFilingById(filingId)
+    const hasAnalysis = await this.hasAnalysis(filingId)
 
     let analysisDate: string | undefined
     if (hasAnalysis) {
       try {
-        const analysis = await this.getFilingAnalysis(accessionNumber)
+        const analysis = await this.getFilingAnalysisById(filingId)
         analysisDate = analysis.created_at
       } catch {
         // Ignore errors when fetching analysis date
@@ -228,17 +169,10 @@ export class FilingService {
   }
 
   /**
-   * Poll for analysis completion
-   *
-   * Useful for monitoring the progress of a filed analysis task.
-   *
-   * @param accessionNumber - The SEC accession number
-   * @param pollIntervalMs - Polling interval in milliseconds (default: 5000)
-   * @param maxAttempts - Maximum polling attempts (default: 24, ~2 minutes)
-   * @returns Promise resolving when analysis is complete
+   * Poll until an analysis result becomes available for the given filing.
    */
   async pollForAnalysisCompletion(
-    accessionNumber: string,
+    filingId: string,
     pollIntervalMs: number = 5000,
     maxAttempts: number = 24
   ): Promise<AnalysisResponse> {
@@ -246,22 +180,21 @@ export class FilingService {
 
     while (attempts < maxAttempts) {
       try {
-        const analysis = await this.getFilingAnalysis(accessionNumber)
-        return analysis
+        return await this.getFilingAnalysisById(filingId)
       } catch (error) {
         const apiError = error as APIError
         if (apiError.status_code !== 404) {
           throw error
         }
 
-        attempts++
+        attempts += 1
         if (attempts >= maxAttempts) {
-          const error: APIError = {
+          const timeoutError: APIError = {
             detail: 'Analysis did not complete within the expected timeframe',
             status_code: 408,
             error_code: 'ANALYSIS_TIMEOUT',
           }
-          throw error
+          throw timeoutError
         }
 
         await new Promise((resolve) => setTimeout(resolve, pollIntervalMs))
@@ -276,11 +209,6 @@ export class FilingService {
     throw error
   }
 
-  // Private helper methods
-
-  /**
-   * Validate search parameters
-   */
   private validateSearchParams(params: FilingSearchParams): void {
     if (!params.ticker || typeof params.ticker !== 'string') {
       const error: APIError = {
@@ -291,7 +219,6 @@ export class FilingService {
       throw error
     }
 
-    // Validate ticker format (basic check)
     const tickerRegex = /^[A-Z0-9.-]+$/i
     if (!tickerRegex.test(params.ticker)) {
       const error: APIError = {
@@ -303,7 +230,6 @@ export class FilingService {
       throw error
     }
 
-    // Validate date formats if provided
     if (params.start_date && !/^\d{4}-\d{2}-\d{2}$/.test(params.start_date)) {
       const error: APIError = {
         detail: 'Invalid start_date format. Expected format: YYYY-MM-DD',
@@ -322,7 +248,6 @@ export class FilingService {
       throw error
     }
 
-    // Validate pagination parameters
     if (params.page !== undefined && (params.page < 1 || !Number.isInteger(params.page))) {
       const error: APIError = {
         detail: 'Page must be a positive integer',
@@ -345,35 +270,6 @@ export class FilingService {
     }
   }
 
-  /**
-   * Validate accession number format
-   */
-  private validateAccessionNumber(accessionNumber: string): void {
-    if (!accessionNumber || typeof accessionNumber !== 'string') {
-      const error: APIError = {
-        detail: 'Accession number is required and must be a string',
-        status_code: 400,
-        error_code: 'INVALID_ACCESSION_NUMBER',
-      }
-      throw error
-    }
-
-    // Basic format validation for SEC accession numbers
-    // Format: XXXXXXXXXX-XX-XXXXXX (10 digits, dash, 2 digits, dash, 6 digits)
-    const accessionRegex = /^\d{10}-\d{2}-\d{6}$/
-    if (!accessionRegex.test(accessionNumber)) {
-      const error: APIError = {
-        detail: 'Invalid accession number format. Expected format: XXXXXXXXXX-XX-XXXXXX',
-        status_code: 400,
-        error_code: 'INVALID_ACCESSION_FORMAT',
-      }
-      throw error
-    }
-  }
-
-  /**
-   * Validate filing ID (UUID) format
-   */
   private validateFilingId(filingId: string): void {
     if (!filingId || typeof filingId !== 'string') {
       const error: APIError = {
@@ -384,8 +280,6 @@ export class FilingService {
       throw error
     }
 
-    // Basic format validation for UUIDs
-    // Format: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
     const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
     if (!uuidRegex.test(filingId)) {
       const error: APIError = {
@@ -398,9 +292,6 @@ export class FilingService {
     }
   }
 
-  /**
-   * Validate analysis options
-   */
   private validateAnalysisOptions(options: AnalyzeFilingRequest): void {
     if (options.sections && Array.isArray(options.sections)) {
       if (options.sections.length === 0) {
@@ -412,7 +303,6 @@ export class FilingService {
         throw error
       }
 
-      // Validate section names
       const validSections = [
         'business_analysis',
         'risk_factors',
@@ -435,28 +325,26 @@ export class FilingService {
     }
   }
 
-  /**
-   * Handle and enhance filing-related errors
-   */
-  private handleFilingError(error: unknown, operation: string, accessionNumber: string): APIError {
+  private handleFilingError(
+    error: unknown,
+    operation: string,
+    identifier: string
+  ): APIError {
     if (error && typeof error === 'object' && 'detail' in error && 'status_code' in error) {
       const apiError = error as APIError
-      // Enhance existing API errors with more context
       return {
-        detail: `Failed ${operation} ${accessionNumber}: ${apiError.detail}`,
+        detail: `Failed ${operation} ${identifier}: ${apiError.detail}`,
         status_code: apiError.status_code,
         error_code: apiError.error_code,
       }
     }
 
-    // Handle unexpected errors
     return {
-      detail: `Unexpected error occurred while ${operation} ${accessionNumber}`,
+      detail: `Unexpected error occurred while ${operation} ${identifier}`,
       status_code: 500,
       error_code: 'FILING_SERVICE_ERROR',
     }
   }
 }
 
-// Create a singleton instance
 export const filingService = new FilingService()

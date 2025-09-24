@@ -10,6 +10,7 @@ import {
 } from 'lucide-react'
 import { ConfidenceIndicator } from './ConfidenceIndicator'
 import type { AnalysisResponse } from '@/api/types'
+import { getAnalysisTypeColor, getAnalysisTypeLabel } from '@/utils/analysisMetricsUtils'
 
 interface AnalysisCardProps {
   analysis: AnalysisResponse
@@ -24,37 +25,71 @@ export function AnalysisCard({ analysis }: AnalysisCardProps) {
     })
   }
 
-  const getAnalysisTypeConfig = (type: string) => {
-    const configs = {
+  const typeConfig = (() => {
+    const configs: Record<string, { label: string; color: string; icon: typeof Target }> = {
+      filing_analysis: {
+        label: 'Filing Analysis',
+        color:
+          'bg-primary/10 text-primary border-primary/20 dark:bg-primary/20 dark:text-primary dark:border-primary/30',
+        icon: Target,
+      },
       comprehensive: {
         label: 'Comprehensive',
         color:
           'bg-primary/10 text-primary border-primary/20 dark:bg-primary/20 dark:text-primary dark:border-primary/30',
         icon: Target,
       },
-      financial_focused: {
-        label: 'Financial',
+      custom_query: {
+        label: 'Custom Query',
         color:
-          'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-500/20 dark:text-emerald-400 dark:border-emerald-500/30',
+          'bg-indigo-50 text-indigo-700 border-indigo-200 dark:bg-indigo-500/20 dark:text-indigo-300 dark:border-indigo-500/30',
+        icon: Brain,
+      },
+      comparison: {
+        label: 'Comparison',
+        color:
+          'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-500/20 dark:text-amber-300 dark:border-amber-500/30',
         icon: TrendingUp,
       },
-      risk_focused: {
-        label: 'Risk',
+      historical_trend: {
+        label: 'Historical Trend',
         color:
-          'bg-red-50 text-red-700 border-red-200 dark:bg-red-500/20 dark:text-red-400 dark:border-red-500/30',
+          'bg-teal-50 text-teal-700 border-teal-200 dark:bg-teal-500/20 dark:text-teal-300 dark:border-teal-500/30',
+        icon: Calendar,
+      },
+      risk_focused: {
+        label: 'Risk Focused',
+        color:
+          'bg-red-50 text-red-700 border-red-200 dark:bg-red-500/20 dark:text-red-300 dark:border-red-500/30',
         icon: AlertTriangle,
       },
-      business_focused: {
-        label: 'Business',
+      financial_focused: {
+        label: 'Financial Focused',
         color:
-          'bg-teal-50 text-teal-700 border-teal-200 dark:bg-teal-500/20 dark:text-teal-400 dark:border-teal-500/30',
+          'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-500/20 dark:text-emerald-300 dark:border-emerald-500/30',
+        icon: TrendingUp,
+      },
+      business_focused: {
+        label: 'Business Focused',
+        color:
+          'bg-teal-50 text-teal-700 border-teal-200 dark:bg-teal-500/20 dark:text-teal-300 dark:border-teal-500/30',
         icon: Brain,
       },
     }
-    return configs[type as keyof typeof configs] || configs.comprehensive
-  }
 
-  const typeConfig = getAnalysisTypeConfig(analysis.analysis_template)
+    const type = analysis.analysis_type
+    const config = configs[type]
+
+    if (config) {
+      return config
+    }
+
+    return {
+      label: getAnalysisTypeLabel(type),
+      color: `${getAnalysisTypeColor(type)} border-border dark:border-border/60`,
+      icon: Brain,
+    }
+  })()
   const TypeIcon = typeConfig.icon
 
   return (

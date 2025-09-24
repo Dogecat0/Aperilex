@@ -2,6 +2,7 @@ import React from 'react'
 import { Button } from '@/components/ui/Button'
 import { Building, MapPin, Calendar, BarChart3, ExternalLink } from 'lucide-react'
 import type { CompanyResponse } from '@/api/types'
+import { getAnalysisTypeLabel } from '@/utils/analysisMetricsUtils'
 
 interface CompanyHeaderProps {
   company: CompanyResponse
@@ -130,13 +131,13 @@ export const CompanyHeader = React.forwardRef<HTMLDivElement, CompanyHeaderProps
                   <div className="space-y-1">
                     <div className="flex items-center space-x-2">
                       <div className="w-2 h-2 bg-primary rounded-full" />
-                      <span className="text-sm font-medium">{analysis.analysis_template}</span>
-                    </div>
-                    {analysis.confidence_score !== undefined && (
-                      <span className="text-xs text-muted-foreground">
-                        Confidence: {Math.round(analysis.confidence_score * 100)}%
+                      <span className="text-sm font-medium">
+                        {getAnalysisTypeLabel(analysis.analysis_type)}
                       </span>
-                    )}
+                    </div>
+                    <span className="text-xs text-muted-foreground capitalize">
+                      Status: {analysis.status.toLowerCase()}
+                    </span>
                   </div>
                   <span className="text-xs text-muted-foreground">
                     {new Date(analysis.created_at).toLocaleDateString()}

@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/Button'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { AlertCircle, BarChart3, Calendar, TrendingUp } from 'lucide-react'
 import type { AnalysisResponse } from '@/api/types'
+import { getAnalysisTypeLabel } from '@/utils/analysisMetricsUtils'
 
 interface CompanyAnalysisCardProps {
   analysis: AnalysisResponse
@@ -21,20 +22,9 @@ const CompanyAnalysisCard = React.forwardRef<HTMLDivElement, CompanyAnalysisCard
       }
     }
 
-    const getTemplateDisplayName = (template: string | undefined) => {
-      if (!template) return 'Unknown Analysis'
-
-      const displayNames: Record<string, string> = {
-        comprehensive: 'Comprehensive Analysis',
-        filing_analysis: 'Filing Analysis',
-        custom_query: 'Custom Query',
-        comparison: 'Comparison Analysis',
-        historical_trend: 'Historical Trend Analysis',
-      }
-      return (
-        displayNames[template] ||
-        template.replace(/_/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase())
-      )
+    const getTypeDisplayName = (type: string | undefined) => {
+      if (!type) return 'Unknown Analysis'
+      return getAnalysisTypeLabel(type)
     }
 
     return (
@@ -44,9 +34,7 @@ const CompanyAnalysisCard = React.forwardRef<HTMLDivElement, CompanyAnalysisCard
             <div className="flex items-center space-x-2">
               <BarChart3 className="w-4 h-4 text-primary" />
               <span className="font-medium text-sm">
-                {getTemplateDisplayName(
-                  (analysis as any).analysis_type || analysis.analysis_template
-                )}
+                {getTypeDisplayName((analysis as any).analysis_type)}
               </span>
             </div>
           </div>

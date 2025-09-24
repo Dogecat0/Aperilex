@@ -2,6 +2,7 @@ import React from 'react'
 import { Button } from '@/components/ui/Button'
 import { Building, MapPin, Calendar, BarChart3 } from 'lucide-react'
 import type { CompanyResponse } from '@/api/types'
+import { getAnalysisTypeLabel } from '@/utils/analysisMetricsUtils'
 
 interface CompanyCardProps {
   company: CompanyResponse
@@ -94,7 +95,9 @@ export const CompanyCard = React.forwardRef<HTMLDivElement, CompanyCardProps>(
                 >
                   <div className="flex items-center space-x-2">
                     <div className="w-2 h-2 bg-primary rounded-full" />
-                    <span className="text-muted-foreground">{analysis.analysis_template}</span>
+                    <span className="text-muted-foreground">
+                      {getAnalysisTypeLabel(analysis.analysis_type)}
+                    </span>
                   </div>
                   <span className="text-xs text-muted-foreground">
                     {new Date(analysis.created_at).toLocaleDateString()}

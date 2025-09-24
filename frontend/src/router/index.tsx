@@ -21,8 +21,8 @@ export const router = createBrowserRouter([
       { path: 'companies/:ticker', element: <CompanyProfile /> },
       // Filing routes
       { path: 'filings', element: <FilingsList /> },
-      { path: 'filings/:accessionNumber', element: <FilingDetails /> },
-      { path: 'filings/:accessionNumber/analysis', element: <AnalysisDetails /> },
+      { path: 'filings/:filingId', element: <FilingDetails /> },
+      { path: 'filings/:filingId/analysis', element: <AnalysisDetails /> },
       // Analysis routes
       { path: 'analyses', element: <AnalysesList /> },
       { path: 'analyses/:analysisId', element: <AnalysisDetails /> },

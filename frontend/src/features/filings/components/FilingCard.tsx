@@ -21,8 +21,8 @@ interface FilingCardProps {
     company_name?: string
     company_ticker?: string
   }
-  onViewDetails?: (accessionNumber: string) => void
-  onAnalyze?: (accessionNumber: string) => void
+  onViewDetails?: (filingId: string) => void
+  onAnalyze?: (filingId: string) => void
   showCompanyInfo?: boolean
 }
 
@@ -86,13 +86,13 @@ export const FilingCard = React.forwardRef<HTMLDivElement, FilingCardProps>(
 
     const handleViewDetails = () => {
       if (onViewDetails) {
-        onViewDetails(filing.accession_number)
+        onViewDetails(filing.filing_id)
       }
     }
 
     const handleAnalyze = () => {
       if (onAnalyze) {
-        onAnalyze(filing.accession_number)
+        onAnalyze(filing.filing_id)
       }
     }
 

@@ -9,7 +9,7 @@ interface FilingSearchResultsProps {
   data?: PaginatedResponse<FilingResponse>
   isLoading?: boolean
   error?: any
-  onViewDetails?: (accessionNumber: string) => void
+  onViewDetails?: (filingId: string) => void
   onPageChange?: (page: number) => void
   companyName?: string
   searchTicker?: string

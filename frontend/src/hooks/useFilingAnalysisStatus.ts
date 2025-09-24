@@ -1,6 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
 import { analysesApi } from '@/api/analyses'
-import { filingsApi } from '@/api/filings'
 
 /**
  * Hook to check if a filing has analysis available by filing_id
@@ -35,52 +34,6 @@ export const useFilingHasAnalysis = (filingId?: string) => {
       }
     },
     enabled: !!filingId,
-    staleTime: 5 * 60 * 1000, // Cache for 5 minutes
-  })
-}
-
-/**
- * Hook to check if a filing has analysis available by accession_number
- * For Edgar search results that don't have filing_id
- */
-export const useFilingHasAnalysisByAccession = (accessionNumber?: string) => {
-  return useQuery({
-    queryKey: ['filing-analysis-status-by-accession', accessionNumber],
-    queryFn: async () => {
-      if (!accessionNumber) return { hasAnalysis: false, analysisCount: 0 }
-
-      try {
-        // First, try to get the filing by accession number to get the filing_id
-        const filing = await filingsApi.getFiling(accessionNumber)
-
-        // Then check for analyses using the filing_id
-        const response = await analysesApi.listAnalyses({
-          page: 1,
-          page_size: 100,
-        })
-
-        const analysesForFiling = response.items.filter(
-          (analysis) => analysis.filing_id === filing.filing_id
-        )
-
-        return {
-          hasAnalysis: analysesForFiling.length > 0,
-          analysisCount: analysesForFiling.length,
-          latestDate:
-            analysesForFiling.length > 0
-              ? analysesForFiling.reduce(
-                  (latest, analysis) =>
-                    analysis.created_at > latest ? analysis.created_at : latest,
-                  analysesForFiling[0].created_at
-                )
-              : undefined,
-        }
-      } catch {
-        // If filing doesn't exist in database, no analysis possible
-        return { hasAnalysis: false, analysisCount: 0 }
-      }
-    },
-    enabled: !!accessionNumber,
     staleTime: 5 * 60 * 1000, // Cache for 5 minutes
   })
 }

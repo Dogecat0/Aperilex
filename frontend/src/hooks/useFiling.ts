@@ -1,5 +1,5 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { useState, useCallback } from 'react'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useCallback, useState } from 'react'
 import { filingService } from '@/api/services/FilingService'
 import { tasksApi } from '@/api/tasks'
 import type {
@@ -14,11 +14,6 @@ export interface UseFilingOptions {
   enabled?: boolean
 }
 
-export interface UseFilingByIdOptions {
-  enabled?: boolean
-  byId?: boolean
-}
-
 /**
  * Hook to search filings by ticker with optional filters (database search)
  */
@@ -29,27 +24,14 @@ export const useFilingSearch = (params: FilingSearchParams, options: UseFilingOp
     queryKey: ['filings', 'search', params],
     queryFn: () => filingService.searchFilings(params),
     enabled: enabled && !!params.ticker,
-    placeholderData: (previousData) => previousData, // Keep previous results while loading new ones
-  })
-}
-
-/**
- * Hook to fetch filing data by accession number
- */
-export const useFiling = (accessionNumber: string, options: UseFilingOptions = {}) => {
-  const { enabled = true } = options
-
-  return useQuery({
-    queryKey: ['filing', accessionNumber],
-    queryFn: () => filingService.getFiling(accessionNumber),
-    enabled: enabled && !!accessionNumber,
+    placeholderData: (previousData) => previousData,
   })
 }
 
 /**
  * Hook to fetch filing data by filing ID (UUID)
  */
-export const useFilingById = (filingId: string, options: UseFilingOptions = {}) => {
+export const useFiling = (filingId: string, options: UseFilingOptions = {}) => {
   const { enabled = true } = options
 
   return useQuery({
@@ -60,31 +42,16 @@ export const useFilingById = (filingId: string, options: UseFilingOptions = {}) 
 }
 
 /**
- * Flexible hook to fetch filing data by either accession number or filing ID
+ * Hook to fetch filing analysis by filing ID
  */
-export const useFilingFlexible = (identifier: string, options: UseFilingByIdOptions = {}) => {
-  const { enabled = true, byId = false } = options
-
-  return useQuery({
-    queryKey: ['filing', byId ? 'by-id' : 'by-accession', identifier],
-    queryFn: () =>
-      byId ? filingService.getFilingById(identifier) : filingService.getFiling(identifier),
-    enabled: enabled && !!identifier,
-  })
-}
-
-/**
- * Hook to fetch filing analysis by accession number
- */
-export const useFilingAnalysis = (accessionNumber: string, options: UseFilingOptions = {}) => {
+export const useFilingAnalysis = (filingId: string, options: UseFilingOptions = {}) => {
   const { enabled = true } = options
 
   return useQuery({
-    queryKey: ['filing', accessionNumber, 'analysis'],
-    queryFn: () => filingService.getFilingAnalysis(accessionNumber),
-    enabled: enabled && !!accessionNumber,
+    queryKey: ['filing', 'by-id', filingId, 'analysis'],
+    queryFn: () => filingService.getFilingAnalysisById(filingId),
+    enabled: enabled && !!filingId,
     retry: (failureCount, error: any) => {
-      // Don't retry if analysis not found (404) - it might not exist yet
       if (error?.status_code === 404) {
         return false
       }
@@ -94,28 +61,28 @@ export const useFilingAnalysis = (accessionNumber: string, options: UseFilingOpt
 }
 
 /**
- * Hook to check if filing has analysis available
+ * Hook to check if a filing has analysis available
  */
-export const useFilingHasAnalysis = (accessionNumber: string, options: UseFilingOptions = {}) => {
+export const useFilingHasAnalysis = (filingId: string, options: UseFilingOptions = {}) => {
   const { enabled = true } = options
 
   return useQuery({
-    queryKey: ['filing', accessionNumber, 'hasAnalysis'],
-    queryFn: () => filingService.hasAnalysis(accessionNumber),
-    enabled: enabled && !!accessionNumber,
+    queryKey: ['filing', 'by-id', filingId, 'hasAnalysis'],
+    queryFn: () => filingService.hasAnalysis(filingId),
+    enabled: enabled && !!filingId,
   })
 }
 
 /**
  * Hook to get filing status with analysis information
  */
-export const useFilingStatus = (accessionNumber: string, options: UseFilingOptions = {}) => {
+export const useFilingStatus = (filingId: string, options: UseFilingOptions = {}) => {
   const { enabled = true } = options
 
   return useQuery({
-    queryKey: ['filing', accessionNumber, 'status'],
-    queryFn: () => filingService.getFilingStatus(accessionNumber),
-    enabled: enabled && !!accessionNumber,
+    queryKey: ['filing', 'by-id', filingId, 'status'],
+    queryFn: () => filingService.getFilingStatus(filingId),
+    enabled: enabled && !!filingId,
   })
 }
 
@@ -127,16 +94,18 @@ export const useFilingAnalyzeMutation = () => {
 
   return useMutation({
     mutationFn: ({
-      accessionNumber,
+      filingId,
       options,
     }: {
-      accessionNumber: string
+      filingId: string
       options?: AnalyzeFilingRequest
-    }) => filingService.analyzeFiling(accessionNumber, options),
+    }) => filingService.analyzeFiling(filingId, options),
     onSuccess: (_, variables) => {
-      // Invalidate related queries to trigger refetch
       queryClient.invalidateQueries({
-        queryKey: ['filing', variables.accessionNumber],
+        queryKey: ['filing', 'by-id', variables.filingId],
+      })
+      queryClient.invalidateQueries({
+        queryKey: ['filing', 'by-id', variables.filingId, 'analysis'],
       })
     },
   })
@@ -150,26 +119,25 @@ export const usePollAnalysisCompletion = () => {
 
   return useMutation({
     mutationFn: ({
-      accessionNumber,
+      filingId,
       pollIntervalMs,
       maxAttempts,
     }: {
-      accessionNumber: string
+      filingId: string
       pollIntervalMs?: number
       maxAttempts?: number
-    }) => filingService.pollForAnalysisCompletion(accessionNumber, pollIntervalMs, maxAttempts),
+    }) => filingService.pollForAnalysisCompletion(filingId, pollIntervalMs, maxAttempts),
     onSuccess: (_, variables) => {
-      // Invalidate related queries when analysis is complete
       queryClient.invalidateQueries({
-        queryKey: ['filing', variables.accessionNumber],
+        queryKey: ['filing', 'by-id', variables.filingId],
+      })
+      queryClient.invalidateQueries({
+        queryKey: ['filing', 'by-id', variables.filingId, 'analysis'],
       })
     },
   })
 }
 
-/**
- * Get appropriate progress message for analysis state
- */
 const getProgressMessage = (state: AnalysisStage, currentStep?: string): string => {
   if (currentStep) {
     return currentStep
@@ -195,14 +163,8 @@ const getProgressMessage = (state: AnalysisStage, currentStep?: string): string 
   }
 }
 
-/**
- * Map task to analysis stage using structured analysis_stage field
- * Falls back to basic task status if analysis_stage is not available
- */
 const mapTaskToProgressState = (task: TaskResponse): AnalysisStage => {
-  // Use structured analysis_stage field from backend
   if (task.analysis_stage) {
-    // Map backend AnalysisStage values to frontend AnalysisStage (with frontend extensions)
     switch (task.analysis_stage) {
       case 'idle':
         return 'idle'
@@ -221,29 +183,21 @@ const mapTaskToProgressState = (task: TaskResponse): AnalysisStage => {
       case 'background':
         return 'processing_background'
       default:
-        // If unknown analysis_stage, use a safe default based on task status
         if (task.status === 'failure') return 'error'
         if (task.status === 'success' || task.status === 'completed') return 'completed'
-        return 'analyzing_content' // Safe default for active tasks
+        return 'analyzing_content'
     }
   }
 
-  // If no analysis_stage field is provided, provide safe defaults based on basic task status
   if (task.status === 'failure') return 'error'
   if (task.status === 'success' || task.status === 'completed') return 'completed'
   if (task.status === 'pending') return 'initiating'
-
-  // Default for any other status (like 'started' without analysis_stage)
   return 'analyzing_content'
 }
 
-/**
- * Check if analysis completed after timeout
- */
 export const checkAnalysisAfterTimeout = async (taskId: string): Promise<TaskResponse | null> => {
   try {
-    const task = await tasksApi.getTask(taskId)
-    return task
+    return await tasksApi.getTask(taskId)
   } catch (error) {
     console.error('Error checking analysis status:', error)
     return null
@@ -262,9 +216,8 @@ export const useProgressiveFilingAnalysis = () => {
   const [backgroundTaskId, setBackgroundTaskId] = useState<string | null>(null)
 
   const startAnalysis = useCallback(
-    async (accessionNumber: string, options?: AnalyzeFilingRequest) => {
+    async (filingId: string, options?: AnalyzeFilingRequest) => {
       try {
-        // Set initial state - clear any previous error state
         setAnalysisProgress({
           state: 'initiating',
           message: getProgressMessage('initiating'),
@@ -273,18 +226,16 @@ export const useProgressiveFilingAnalysis = () => {
           task_id: undefined,
         })
 
-        // Start the analysis
-        const task = await filingService.analyzeFiling(accessionNumber, options)
+        const task = await filingService.analyzeFiling(filingId, options)
 
         setAnalysisProgress((prev) => ({
           ...prev,
           task_id: task.task_id,
         }))
 
-        // Poll for completion with progress updates and timeout handling
         const finalTask = await tasksApi.pollTask(task.task_id, {
           interval: 2000,
-          maxAttempts: 60, // 2 minutes of active polling
+          maxAttempts: 60,
           adaptivePolling: true,
           onProgress: (progressTask) => {
             const progressState = mapTaskToProgressState(progressTask)
@@ -301,8 +252,7 @@ export const useProgressiveFilingAnalysis = () => {
               task_id: progressTask.task_id,
             })
           },
-          onTimeout: (_attempts) => {
-            // Transition to background processing instead of error
+          onTimeout: () => {
             setBackgroundTaskId(task.task_id)
             setAnalysisProgress({
               state: 'processing_background',
@@ -314,7 +264,6 @@ export const useProgressiveFilingAnalysis = () => {
           },
         })
 
-        // Handle final state based on whether we timed out or completed
         if (finalTask.status === 'success' || finalTask.status === 'completed') {
           setAnalysisProgress({
             state: 'completed',
@@ -324,18 +273,17 @@ export const useProgressiveFilingAnalysis = () => {
           })
           setBackgroundTaskId(null)
 
-          // Invalidate related queries to refresh data
           queryClient.invalidateQueries({
-            queryKey: ['filing', accessionNumber],
+            queryKey: ['filing', 'by-id', filingId],
           })
-
-          // Also invalidate the analysis query specifically
           queryClient.invalidateQueries({
-            queryKey: ['filing', accessionNumber, 'analysis'],
+            queryKey: ['filing', 'by-id', filingId, 'analysis'],
           })
 
           return finalTask.result?.analysis
-        } else if (finalTask.status === 'failure') {
+        }
+
+        if (finalTask.status === 'failure') {
           setAnalysisProgress({
             state: 'error',
             message: finalTask.error_message || 'Analysis failed',
@@ -345,15 +293,15 @@ export const useProgressiveFilingAnalysis = () => {
           throw new Error(finalTask.error_message || 'Analysis failed')
         }
 
-        // If we reach here, we're in background processing mode
-        // The onTimeout callback already set the appropriate state
         return null
       } catch (error) {
-        // Only set error state if it's not a timeout (background processing)
         if (analysisProgress.state !== 'processing_background') {
           setAnalysisProgress({
             state: 'error',
-            message: error instanceof Error ? error.message : 'Analysis is disabled for demonstration purposes. Try to view one of the complete analysis reports.',
+            message:
+              error instanceof Error
+                ? error.message
+                : 'Analysis is disabled for demonstration purposes. Try to view one of the complete analysis reports.',
           })
           setBackgroundTaskId(null)
         }
@@ -379,13 +327,14 @@ export const useProgressiveFilingAnalysis = () => {
         })
         setBackgroundTaskId(null)
 
-        // Invalidate queries to refresh data
         queryClient.invalidateQueries({
           queryKey: ['filing'],
         })
 
         return task.result?.analysis
-      } else if (task?.status === 'failure') {
+      }
+
+      if (task?.status === 'failure') {
         setAnalysisProgress({
           state: 'error',
           message: task.error_message || 'Analysis failed',
@@ -395,7 +344,6 @@ export const useProgressiveFilingAnalysis = () => {
         return null
       }
 
-      // Still processing - update current step if available
       if (task?.current_step) {
         setAnalysisProgress((prev) => ({
           ...prev,

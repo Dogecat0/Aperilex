@@ -125,13 +125,13 @@ export class CompanyService {
    */
   async getMostRecentAnalysis(
     ticker: string,
-    analysisType?: CompanyAnalysesFilters['analysis_template']
+    analysisType?: CompanyAnalysesFilters['analysis_type']
   ): Promise<AnalysisResponse | null> {
     try {
       const analyses = await this.getCompanyAnalyses(ticker, {
         page: 1,
         page_size: 1,
-        analysis_template: analysisType,
+        analysis_type: analysisType,
       })
 
       // Handle both paginated and array responses

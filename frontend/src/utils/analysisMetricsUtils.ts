@@ -20,14 +20,41 @@ export function formatProcessingTime(seconds?: number | null): string {
  * @param type - Analysis type string
  * @returns CSS class string for text and background colors
  */
+const ANALYSIS_TYPE_COLORS: Record<string, string> = {
+  filing_analysis: 'text-primary-600 bg-primary-50',
+  comprehensive: 'text-primary-600 bg-primary-50',
+  custom_query: 'text-indigo-600 bg-indigo-50',
+  comparison: 'text-amber-600 bg-amber-50',
+  historical_trend: 'text-teal-600 bg-teal-50',
+  // Backward-compatibility for legacy template names that may still appear in cached data
+  financial_focused: 'text-success-600 bg-success-50',
+  risk_focused: 'text-error-600 bg-error-50',
+  business_focused: 'text-teal-600 bg-teal-50',
+}
+
 export function getAnalysisTypeColor(type: string): string {
-  const colors: Record<string, string> = {
-    comprehensive: 'text-primary-600 bg-primary-50',
-    financial_focused: 'text-success-600 bg-success-50',
-    risk_focused: 'text-error-600 bg-error-50',
-    business_focused: 'text-teal-600 bg-teal-50',
+  return ANALYSIS_TYPE_COLORS[type] || 'text-gray-600 bg-gray-50'
+}
+
+export function getAnalysisTypeLabel(type: string): string {
+  const labels: Record<string, string> = {
+    filing_analysis: 'Filing Analysis',
+    comprehensive: 'Comprehensive Analysis',
+    custom_query: 'Custom Query',
+    comparison: 'Comparison Analysis',
+    historical_trend: 'Historical Trend',
+    financial_focused: 'Financial Focused',
+    risk_focused: 'Risk Focused',
+    business_focused: 'Business Focused',
   }
-  return colors[type] || 'text-gray-600 bg-gray-50'
+
+  if (labels[type]) {
+    return labels[type]
+  }
+
+  return type
+    .replace(/_/g, ' ')
+    .replace(/\b\w/g, (match) => match.toUpperCase())
 }
 
 /**

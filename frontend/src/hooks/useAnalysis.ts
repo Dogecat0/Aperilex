@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { aperilexApi } from '@/api'
-import type { AnalyzeFilingRequest, ListAnalysesParams } from '@/api'
+import type { AnalyzeFilingRequest, AnalysisResponse, ListAnalysesParams } from '@/api'
 import { useAnalysisStore } from '@/lib/store'
 
 export const useAnalyses = (params?: ListAnalysesParams) => {
@@ -32,12 +32,12 @@ export const useAnalyzeFiling = () => {
 
   return useMutation({
     mutationFn: ({
-      accessionNumber,
+      filingId,
       request,
     }: {
-      accessionNumber: string
+      filingId: string
       request?: AnalyzeFilingRequest
-    }) => aperilexApi.filings.analyzeFiling(accessionNumber, request),
+    }) => aperilexApi.filings.analyzeFiling(filingId, request),
 
     onSuccess: async (task, variables) => {
       // Poll for task completion
@@ -48,15 +48,19 @@ export const useAnalyzeFiling = () => {
         },
       })
 
-      if (completedTask.status === 'success' && completedTask.result?.analysis?.analysis_id) {
+      const analysis = (completedTask.result as { analysis?: AnalysisResponse } | null)?.analysis
+
+      if (completedTask.status === 'COMPLETED' && analysis?.analysis_id) {
         // Add to recent analyses
-        addRecentAnalysis(completedTask.result.analysis.analysis_id)
+        addRecentAnalysis(analysis.analysis_id)
 
         // Invalidate relevant queries
         queryClient.invalidateQueries({ queryKey: ['analyses'] })
-        queryClient.invalidateQueries({
-          queryKey: ['filing', variables.accessionNumber, 'analysis'],
-        })
+        if (variables.filingId) {
+          queryClient.invalidateQueries({
+            queryKey: ['filing', 'by-id', variables.filingId, 'analysis'],
+          })
+        }
       }
 
       return completedTask

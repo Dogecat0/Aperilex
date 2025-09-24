@@ -10,7 +10,7 @@ import { AlertCircle, ExternalLink } from 'lucide-react'
 import type { AnalyzeFilingRequest } from '@/api/types'
 
 export function FilingDetails() {
-  const { accessionNumber } = useParams<{ accessionNumber: string }>()
+  const { filingId } = useParams<{ filingId: string }>()
   const navigate = useNavigate()
   const { setBreadcrumbs } = useAppStore()
 
@@ -18,8 +18,8 @@ export function FilingDetails() {
     data: filing,
     isLoading: filingLoading,
     error: filingError,
-  } = useFiling(accessionNumber || '', {
-    enabled: !!accessionNumber,
+  } = useFiling(filingId || '', {
+    enabled: !!filingId,
   })
 
   const {
@@ -27,8 +27,8 @@ export function FilingDetails() {
     isLoading: analysisLoading,
     error: analysisError,
     refetch: refetchAnalysis,
-  } = useFilingAnalysis(accessionNumber || '', {
-    enabled: !!accessionNumber,
+  } = useFilingAnalysis(filingId || '', {
+    enabled: !!filingId,
   })
 
   const {
@@ -41,7 +41,7 @@ export function FilingDetails() {
 
   // Set breadcrumbs when filing data loads
   React.useEffect(() => {
-    if (filing && accessionNumber) {
+    if (filing && filingId) {
       setBreadcrumbs([
         { label: 'Dashboard', href: '/' },
         { label: 'Filings', href: '/filings' },
@@ -50,14 +50,14 @@ export function FilingDetails() {
           isActive: true,
         },
       ])
-    } else if (accessionNumber) {
+    } else if (filingId) {
       setBreadcrumbs([
         { label: 'Dashboard', href: '/' },
         { label: 'Filings', href: '/filings' },
-        { label: accessionNumber, isActive: true },
+        { label: filingId, isActive: true },
       ])
     }
-  }, [filing, accessionNumber, setBreadcrumbs])
+  }, [filing, filingId, setBreadcrumbs])
 
   // Auto-refetch analysis when it completes
   React.useEffect(() => {
@@ -67,14 +67,11 @@ export function FilingDetails() {
   }, [analysisProgress.state, refetchAnalysis])
 
   const handleAnalyze = async (options?: AnalyzeFilingRequest) => {
-    if (!accessionNumber) return
+    if (!filingId) return
 
     try {
       // Use the progressive analysis system which handles progress tracking automatically
-      const result = await startAnalysis(
-        accessionNumber,
-        options || { analysis_template: 'comprehensive' }
-      )
+      const result = await startAnalysis(filingId, options)
 
       // If analysis completed successfully, refetch the analysis data
       if (result) {
@@ -87,8 +84,8 @@ export function FilingDetails() {
   }
 
   const handleViewFullAnalysis = () => {
-    if (accessionNumber) {
-      navigate(`/filings/${accessionNumber}/analysis`)
+    if (filingId) {
+      navigate(`/filings/${filingId}/analysis`)
     }
   }
 
@@ -100,7 +97,7 @@ export function FilingDetails() {
     }
   }
 
-  if (!accessionNumber) {
+  if (!filingId) {
     return (
       <div className="rounded-lg border border-destructive/20 bg-destructive/5 p-6">
         <div className="flex items-center space-x-2">
@@ -108,7 +105,7 @@ export function FilingDetails() {
           <div>
             <h3 className="font-medium text-destructive">Invalid Filing</h3>
             <p className="text-sm text-muted-foreground mt-1">
-              No accession number provided in the URL.
+              No filing ID provided in the URL.
             </p>
           </div>
         </div>
@@ -125,7 +122,7 @@ export function FilingDetails() {
             <div>
               <h3 className="font-medium text-destructive">Filing Not Found</h3>
               <p className="text-sm text-muted-foreground mt-1">
-                Could not find filing with accession number "{accessionNumber}".
+                Could not find filing with ID "{filingId}".
               </p>
             </div>
           </div>

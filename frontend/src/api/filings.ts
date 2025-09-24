@@ -20,7 +20,9 @@ export const filingsApi = {
   /**
    * Search filings by ticker with optional filters (database search)
    */
-  searchFilings: async (params: FilingSearchParams): Promise<PaginatedResponse<FilingResponse>> => {
+  searchFilings: async (
+    params: FilingSearchParams
+  ): Promise<PaginatedResponse<FilingResponse>> => {
     const searchParams = new URLSearchParams()
 
     if (params.filing_type) searchParams.append('filing_type', params.filing_type)
@@ -37,14 +39,6 @@ export const filingsApi = {
   },
 
   /**
-   * Get filing by accession number
-   */
-  getFiling: async (accessionNumber: string): Promise<FilingResponse> => {
-    const { data } = await api.get<FilingResponse>(`/api/filings/${accessionNumber}`)
-    return data
-  },
-
-  /**
    * Get filing by filing ID (UUID)
    */
   getFilingById: async (filingId: string): Promise<FilingResponse> => {
@@ -53,30 +47,25 @@ export const filingsApi = {
   },
 
   /**
-   * Analyze a filing
+   * Analyze a filing by filing ID
    */
   analyzeFiling: async (
-    accessionNumber: string,
-    request?: AnalyzeFilingRequest
+    filingId: string,
+    _request?: AnalyzeFilingRequest
   ): Promise<TaskResponse> => {
-    // Default to comprehensive analysis if no request provided or no analysis_template specified
-    const defaultRequest: AnalyzeFilingRequest = {
-      analysis_template: 'comprehensive',
-      ...request,
-    }
-
     const { data } = await api.post<TaskResponse>(
-      `/api/filings/${accessionNumber}/analyze`,
-      defaultRequest
+      `/api/filings/by-id/${filingId}/analyze`
     )
     return data
   },
 
   /**
-   * Get filing analysis
+   * Get filing analysis by filing ID
    */
-  getFilingAnalysis: async (accessionNumber: string): Promise<AnalysisResponse> => {
-    const { data } = await api.get<AnalysisResponse>(`/api/filings/${accessionNumber}/analysis`)
+  getFilingAnalysisById: async (filingId: string): Promise<AnalysisResponse> => {
+    const { data } = await api.get<AnalysisResponse>(
+      `/api/filings/by-id/${filingId}/analysis`
+    )
     return data
   },
 }

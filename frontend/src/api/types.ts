@@ -41,9 +41,9 @@ export interface CompanyResponse {
   business_address: CompanyAddress | null
   recent_analyses?: Array<{
     analysis_id: string
-    analysis_template: AnalysisTemplate
+    analysis_type: AnalysisType
     created_at: string
-    confidence_score?: number
+    status: string
   }>
 }
 
@@ -64,6 +64,13 @@ export interface FilingResponse {
 }
 
 // Analysis Types
+export type AnalysisType =
+  | 'filing_analysis'
+  | 'comprehensive'
+  | 'custom_query'
+  | 'comparison'
+  | 'historical_trend'
+
 export type AnalysisTemplate =
   | 'comprehensive'
   | 'financial_focused'
@@ -88,7 +95,8 @@ export interface AnalysisFullResults {
 export interface AnalysisResponse {
   analysis_id: string
   filing_id: string
-  analysis_template: AnalysisTemplate
+  analysis_type: AnalysisType
+  analysis_template?: AnalysisTemplate
   created_by: string | null
   created_at: string
   confidence_score: number | null
@@ -110,7 +118,14 @@ export interface AnalysisResponse {
 }
 
 // Task Types
-export type TaskStatus = 'pending' | 'started' | 'success' | 'failure' | 'completed'
+export type TaskStatus =
+  | 'PENDING'
+  | 'QUEUED'
+  | 'IN_PROGRESS'
+  | 'RETRY'
+  | 'COMPLETED'
+  | 'FAILED'
+  | 'CANCELLED'
 
 // Analysis Stage Types (structured progress from backend + frontend extensions)
 export type AnalysisStage =
@@ -124,12 +139,7 @@ export type AnalysisStage =
   | 'background'
   | 'processing_background' // Frontend-specific extension of 'background'
 
-export interface TaskResult {
-  analysis?: AnalysisResponse
-  filing?: FilingResponse
-  error?: string
-  metadata?: Record<string, string | number | boolean | null>
-}
+export type TaskResult = Record<string, unknown>
 
 export interface TaskResponse {
   task_id: string
@@ -152,28 +162,30 @@ export interface AnalysisProgress {
 }
 
 // Template Types
-export interface AnalysisTemplateConfig {
-  name: AnalysisTemplate
+export interface AnalysisTemplateInfo {
   description: string
-  sections: string[]
+  schemas: string[]
+  schema_count: number
+  estimated_time_minutes?: number
+  is_custom?: boolean
 }
 
 export interface TemplatesResponse {
-  templates: AnalysisTemplateConfig[]
+  templates: Record<AnalysisTemplate, AnalysisTemplateInfo>
+  total_count: number
 }
 
 // Request Types
 export interface AnalyzeFilingRequest {
-  analysis_template?: AnalysisTemplate
   sections?: string[]
-  force_reanalysis?: boolean
+  force_reprocess?: boolean
 }
 
 export interface ListAnalysesParams {
   page?: number
   page_size?: number
   company_cik?: string
-  analysis_template?: AnalysisTemplate
+  analysis_type?: AnalysisType
   created_from?: string
   created_to?: string
   min_confidence_score?: number
@@ -235,6 +247,7 @@ export interface ValidationError {
 
 // Filing Search Types
 export interface FilingSearchResult {
+  filing_id: string | null
   accession_number: string
   filing_type: string
   filing_date: string // ISO date string

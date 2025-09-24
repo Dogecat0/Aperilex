@@ -4,7 +4,7 @@ import { MetricsSummaryGrid } from './MetricsSummaryGrid'
 
 import { ConfidenceIndicator } from './ConfidenceIndicator'
 import { MetricsGrid } from '@/components/analysis/MetricsVisualization'
-import { getAnalysisTypeColor } from '@/utils/analysisMetricsUtils'
+import { getAnalysisTypeColor, getAnalysisTypeLabel } from '@/utils/analysisMetricsUtils'
 import type { AnalysisResponse, ComprehensiveAnalysisResponse } from '@/api/types'
 
 interface AnalysisOverviewProps {
@@ -32,22 +32,13 @@ export function AnalysisOverview({
       Array.isArray(comprehensiveData.section_analyses)
   )
 
-  const getAnalysisTypeLabel = (type: string) => {
-    const labels: Record<string, string> = {
-      comprehensive: 'Comprehensive Analysis',
-      financial_focused: 'Financial Analysis',
-      risk_focused: 'Risk Analysis',
-      business_focused: 'Business Analysis',
-    }
-    return labels[type] || type
-  }
-
   // Extract base analysis props for backward compatibility
   const baseAnalysis: AnalysisResponse = hasComprehensiveResults
     ? {
         analysis_id: (analysis as any).analysis_id || '',
         filing_id: (analysis as any).filing_id || '',
-        analysis_template: (analysis as any).analysis_template || 'comprehensive',
+        analysis_type:
+          (analysis as any).analysis_type || (analysis as any).analysis_template || 'comprehensive',
         created_by: (analysis as any).created_by || null,
         created_at: (analysis as any).created_at || new Date().toISOString(),
         confidence_score: comprehensiveData?.confidence_score || null,
@@ -84,9 +75,9 @@ export function AnalysisOverview({
               <span className="text-sm font-medium text-foreground/80">Analysis Type</span>
               <div className="flex">
                 <span
-                  className={`inline-flex items-center px-3.5 py-1 rounded-full text-sm font-medium opacity-30 ${getAnalysisTypeColor(baseAnalysis.analysis_template)}`}
+                  className={`inline-flex items-center px-3.5 py-1 rounded-full text-sm font-medium opacity-30 ${getAnalysisTypeColor(baseAnalysis.analysis_type)}`}
                 >
-                  {getAnalysisTypeLabel(baseAnalysis.analysis_template)}
+                  {getAnalysisTypeLabel(baseAnalysis.analysis_type)}
                 </span>
               </div>
             </div>

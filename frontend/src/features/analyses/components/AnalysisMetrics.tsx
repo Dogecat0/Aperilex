@@ -2,6 +2,7 @@ import { Clock, Target, Brain, TrendingUp, ArrowUpWideNarrow, Zap } from 'lucide
 import { MetricCard } from '@/components/charts/MetricCard'
 import { ConfidenceIndicator } from './ConfidenceIndicator'
 import type { AnalysisResponse } from '@/api/types'
+import { getAnalysisTypeColor, getAnalysisTypeLabel } from '@/utils/analysisMetricsUtils'
 
 interface AnalysisMetricsProps {
   analysis: AnalysisResponse
@@ -13,16 +14,6 @@ export function AnalysisMetrics({ analysis }: AnalysisMetricsProps) {
     if (seconds < 60) return `${seconds}s`
     if (seconds < 3600) return `${Math.floor(seconds / 60)}m ${seconds % 60}s`
     return `${Math.floor(seconds / 3600)}h ${Math.floor((seconds % 3600) / 60)}m`
-  }
-
-  const getAnalysisTypeColor = (type: string) => {
-    const colors = {
-      comprehensive: 'text-primary-600 bg-primary-50',
-      financial_focused: 'text-success-600 bg-success-50',
-      risk_focused: 'text-error-600 bg-error-50',
-      business_focused: 'text-teal-600 bg-teal-50',
-    }
-    return colors[type as keyof typeof colors] || 'text-gray-600 bg-gray-50'
   }
 
   const metrics = [
@@ -62,12 +53,9 @@ export function AnalysisMetrics({ analysis }: AnalysisMetricsProps) {
           <div className="flex items-center justify-between">
             <span className="text-sm font-medium text-gray-700">Analysis Type</span>
             <div
-              className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${getAnalysisTypeColor(analysis.analysis_template)}`}
+              className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${getAnalysisTypeColor(analysis.analysis_type)}`}
             >
-              {analysis.analysis_template
-                .replace('_', ' ')
-                .toLowerCase()
-                .replace(/\b\w/g, (l) => l.toUpperCase())}
+              {getAnalysisTypeLabel(analysis.analysis_type)}
             </div>
           </div>
 
