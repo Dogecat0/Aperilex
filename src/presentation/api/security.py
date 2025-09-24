@@ -15,6 +15,7 @@ from src.application.interfaces.authentication import (
     IAuthenticationProvider,
 )
 from src.presentation.api.dependencies import get_authentication_provider
+from src.shared.config.settings import settings
 
 AuthHeader = Annotated[
     str | None, Header(alias="Authorization", convert_underscores=False)
@@ -27,8 +28,8 @@ else:
 
 async def get_current_user(
     request: Request,
-    authorization: AuthHeader,
     auth_provider: AuthProviderDep,
+    authorization: AuthHeader = None,
 ) -> AuthenticationResult:
     """Resolve and cache the authenticated user for the current request."""
     cached = getattr(request.state, "auth_result", None)
@@ -40,6 +41,10 @@ async def get_current_user(
         return cached
 
     if not authorization:
+        if settings.debug or settings.environment == "development":
+            demo_result = await auth_provider.validate_token("dev-local-token")
+            request.state.auth_result = demo_result
+            return demo_result
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Missing Authorization header",
