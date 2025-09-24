@@ -8,21 +8,35 @@ import asyncio
 import logging
 import os
 import signal
+import sys
 from contextlib import suppress
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
+from pathlib import Path
 from typing import Any
 from uuid import UUID, uuid4
 
-from src.application.handlers.schemas.queries.get_analysis import GetAnalysisQuery
-from src.application.interfaces.worker import WorkerContext
-from src.application.services.application_service import ApplicationService
-from src.application.services.priority_queue_service import PriorityQueueService
-from src.application.services.worker_service import WorkerService
-from src.composition import CompositionRoot
-from src.shared.enums import TaskStatus
-from src.shared.models.queue import TaskQueueMessage
-from src.shared.types import CorrelationId, RequestId, TaskId
+# Add project root to Python path for src imports
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+
+from src.application.handlers.schemas.queries.get_analysis import (  # noqa: E402
+    GetAnalysisQuery,
+)
+from src.application.interfaces.worker import WorkerContext  # noqa: E402
+from src.application.services.application_service import (  # noqa: E402
+    ApplicationService,
+)
+from src.application.services.priority_queue_service import (  # noqa: E402
+    PriorityQueueService,
+)
+from src.application.services.worker_service import WorkerService  # noqa: E402
+from src.composition import CompositionRoot  # noqa: E402
+from src.shared.enums import TaskStatus  # noqa: E402
+from src.shared.models.queue import TaskQueueMessage  # noqa: E402
+from src.shared.types import CorrelationId, RequestId, TaskId  # noqa: E402
 
 
 def setup_logging(level: str) -> None:

@@ -52,12 +52,42 @@ run_migrations() {
     fi
 }
 
+is_truthy() {
+    local value="${1:-}"
+    value="$(echo "$value" | tr '[:upper:]' '[:lower:]')"
+
+    case "$value" in
+        true | 1 | yes | y) return 0 ;;
+        *) return 1 ;;
+    esac
+}
+
 # Main logic
 if [ "$1" = "app" ]; then
     echo "🌐 Starting web application..."
     wait_for_db
-    run_migrations
-    exec uvicorn src.presentation.api.app:app --host 0.0.0.0 --port 8000 --reload
+    if is_truthy "${RUN_MIGRATIONS_ON_STARTUP:-true}"; then
+        run_migrations
+    else
+        echo "⏭️  Skipping migrations on startup (RUN_MIGRATIONS_ON_STARTUP=${RUN_MIGRATIONS_ON_STARTUP})"
+    fi
+
+    UVICORN_COMMAND=(
+        uvicorn
+        src.presentation.api.app:app
+        --host 0.0.0.0
+        --port 8000
+    )
+
+    if is_truthy "${UVICORN_RELOAD:-true}"; then
+        UVICORN_COMMAND+=(--reload)
+    fi
+
+    if [ -n "${UVICORN_WORKERS:-}" ]; then
+        UVICORN_COMMAND+=(--workers "${UVICORN_WORKERS}")
+    fi
+
+    exec "${UVICORN_COMMAND[@]}"
 
 elif [ "$1" = "worker" ]; then
     echo "⚙️  Starting background worker..."

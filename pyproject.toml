@@ -39,6 +39,7 @@ cryptography = "^42.0.0"
 httpx = "^0.28.0"
 # Messaging and Queue (development dependencies)
 aio-pika = { version = "^9.4.0" }
+aiodocker = "^0.24.0"
 # AWS services (production dependencies)
 boto3 = { version = "1.40.16" }
 # Monitoring

@@ -244,7 +244,7 @@ class Settings(BaseSettings):
     @field_validator("worker_service_type")
     @classmethod
     def validate_worker_service_type(cls, v: str) -> str:
-        valid_types = ["local", "lambda", "mock"]
+        valid_types = ["local", "lambda", "docker", "mock"]
         if v not in valid_types:
             raise ValueError(f"worker_service_type must be one of {valid_types}")
         return v

@@ -24,8 +24,11 @@ services:
     environment:
       RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-aperilex}
       RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-dev_password}
+      RABBITMQ_LOAD_DEFINITIONS: /etc/rabbitmq/definitions.json
     volumes:
       - rabbitmq_data:/var/lib/rabbitmq
+      - ./docker/rabbitmq/definitions.json:/etc/rabbitmq/definitions.json:ro
+      - ./docker/rabbitmq/rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf:ro
     healthcheck:
       test: rabbitmq-diagnostics -q ping
       interval: 30s
@@ -45,6 +48,7 @@ services:
       # Messaging System (New)
       ENVIRONMENT: development
       MESSAGING_ENVIRONMENT: development
+      WORKER_SERVICE_TYPE: docker
       RABBITMQ_URL: amqp://${RABBITMQ_USER:-aperilex}:${RABBITMQ_PASSWORD:-dev_password}@rabbitmq:5672/
 
       # Application
@@ -72,56 +76,49 @@ services:
       - ./data:/app/data
     command: ["app"]
 
-  # worker:
-  #   build: .
-  #   env_file: .env
-  #   user: "${UID:-1000}:${GID:-1000}"
-  #   environment:
-  #     # Database
-  #     DATABASE_URL: postgresql+asyncpg://aperilex:${DB_PASSWORD:-dev_password}@postgres/aperilex
-
-  #     # Messaging System (New)
-  #     ENVIRONMENT: development
-  #     MESSAGING_ENVIRONMENT: development
-  #     RABBITMQ_URL: amqp://${RABBITMQ_USER:-aperilex}:${RABBITMQ_PASSWORD:-dev_password}@rabbitmq:5672/
-
-  #     # Application
-  #     SECRET_KEY: ${SECRET_KEY:-dev-secret-key-change-in-production}
-  #     ENCRYPTION_KEY: ${ENCRYPTION_KEY:-dev-encryption-key-32-characters}
-  #     DEBUG: "true"
-  #     EDGAR_IDENTITY: ${EDGAR_IDENTITY:-dev@aperilex.com}
-  #     EDGAR_DATA_DIR: /tmp/edgar_data
-  #     LOCAL_STORAGE_PATH: ${LOCAL_STORAGE_PATH:-/app/data}
-
-  #     # LLM Configuration
-  #     OPENAI_API_KEY: ${OPENAI_API_KEY:-dummy_openai_key}
-  #     GOOGLE_API_KEY: ${GOOGLE_API_KEY:-dummy_google_key}
-  #     DEFAULT_LLM_PROVIDER: ${DEFAULT_LLM_PROVIDER:-openai}
-
-  #   depends_on:
-  #     postgres:
-  #       condition: service_healthy
-  #     rabbitmq:
-  #       condition: service_healthy
-  #   volumes:
-  #     - ./src:/app/src
-  #     - ./tests:/app/tests
-  #     - ./scripts:/app/scripts
-  #     - ./data:/app/data
-  #   command: ["worker"]
-  #   restart: unless-stopped
-  #   healthcheck:
-  #     test:
-  #       [
-  #         "CMD",
-  #         "python",
-  #         "-c",
-  #         "import asyncio; import aio_pika; asyncio.run(aio_pika.connect('amqp://${RABBITMQ_USER:-aperilex}:${RABBITMQ_PASSWORD:-dev_password}@rabbitmq:5672/')); print('RabbitMQ connection successful')",
-  #       ]
-  #     interval: 30s
-  #     timeout: 10s
-  #     retries: 3
-  #     start_period: 40s
+  worker:
+    build: .
+    env_file: .env
+    user: "${UID:-1000}:${GID:-1000}"
+    environment:
+      DATABASE_URL: postgresql+asyncpg://aperilex:${DB_PASSWORD:-dev_password}@postgres/aperilex
+      ENVIRONMENT: development
+      MESSAGING_ENVIRONMENT: development
+      WORKER_SERVICE_TYPE: docker
+      RABBITMQ_URL: amqp://${RABBITMQ_USER:-aperilex}:${RABBITMQ_PASSWORD:-dev_password}@rabbitmq:5672/
+      SECRET_KEY: ${SECRET_KEY:-dev-secret-key-change-in-production}
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY:-dev-encryption-key-32-characters}
+      DEBUG: "true"
+      EDGAR_IDENTITY: ${EDGAR_IDENTITY:-dev@aperilex.com}
+      EDGAR_DATA_DIR: /tmp/edgar_data
+      LOCAL_STORAGE_PATH: ${LOCAL_STORAGE_PATH:-/app/data}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-dummy_openai_key}
+      GOOGLE_API_KEY: ${GOOGLE_API_KEY:-dummy_google_key}
+      DEFAULT_LLM_PROVIDER: ${DEFAULT_LLM_PROVIDER:-openai}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    volumes:
+      - ./src:/app/src
+      - ./tests:/app/tests
+      - ./scripts:/app/scripts
+      - ./data:/app/data
+    command: ["worker"]
+    restart: unless-stopped
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import asyncio; import aio_pika; asyncio.run(aio_pika.connect('amqp://${RABBITMQ_USER:-aperilex}:${RABBITMQ_PASSWORD:-dev_password}@rabbitmq:5672/')); print('RabbitMQ connection successful')",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
 
 volumes:
   postgres_data:

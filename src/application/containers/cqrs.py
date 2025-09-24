@@ -95,20 +95,31 @@ class HandlerFactory:
         filing_repo = await self.repository_factory.get_filing_repository()
         analysis_repo = await self.repository_factory.get_analysis_repository()
 
-        analysis_query_service: IAnalysisQueryService | None = (
-            self.analysis_query_service_provider()
-            if self.analysis_query_service_provider is not None
-            else None
+        def _resolve_dependency(candidate: Any | None) -> Any | None:
+            if candidate is None:
+                return None
+
+            if isinstance(candidate, Provider):
+                return candidate()
+
+            if callable(candidate):
+                try:
+                    return candidate()
+                except TypeError:
+                    # In some wiring configurations the concrete instance is passed
+                    # instead of a provider; fall back to returning the object.
+                    return candidate
+
+            return candidate
+
+        analysis_query_service: IAnalysisQueryService | None = _resolve_dependency(
+            self.analysis_query_service_provider
         )
-        company_query_service: ICompanyQueryService | None = (
-            self.company_query_service_provider()
-            if self.company_query_service_provider is not None
-            else None
+        company_query_service: ICompanyQueryService | None = _resolve_dependency(
+            self.company_query_service_provider
         )
-        filing_query_service: IFilingQueryService | None = (
-            self.filing_query_service_provider()
-            if self.filing_query_service_provider is not None
-            else None
+        filing_query_service: IFilingQueryService | None = _resolve_dependency(
+            self.filing_query_service_provider
         )
 
         dependencies: dict[str, Any] = {
