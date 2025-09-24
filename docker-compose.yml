@@ -16,21 +16,21 @@ services:
       timeout: 10s
       retries: 3
 
-  # rabbitmq:
-  #   image: rabbitmq:3-management-alpine
-  #   ports:
-  #     - "5672:5672" # AMQP port
-  #     - "15672:15672" # Management UI port
-  #   environment:
-  #     RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-aperilex}
-  #     RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-dev_password}
-  #   volumes:
-  #     - rabbitmq_data:/var/lib/rabbitmq
-  #   healthcheck:
-  #     test: rabbitmq-diagnostics -q ping
-  #     interval: 30s
-  #     timeout: 10s
-  #     retries: 3
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    ports:
+      - "5672:5672" # AMQP port
+      - "15672:15672" # Management UI port
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-aperilex}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-dev_password}
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    healthcheck:
+      test: rabbitmq-diagnostics -q ping
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
   app:
     build: .
@@ -63,8 +63,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-      # rabbitmq:
-      #   condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
     volumes:
       - ./src:/app/src
       - ./tests:/app/tests
@@ -125,4 +125,4 @@ services:
 
 volumes:
   postgres_data:
-  # rabbitmq_data:
+  rabbitmq_data:
