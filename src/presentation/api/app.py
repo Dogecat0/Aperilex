@@ -132,6 +132,12 @@ app.include_router(companies.router, prefix="/api")
 app.include_router(tasks.router, prefix="/api")
 
 
+@app.get("/health", include_in_schema=False)
+async def root_health() -> dict[str, Any]:
+    """Expose health check at legacy root path for tooling compatibility."""
+    return await health.health_check()
+
+
 @app.get("/")
 async def root() -> dict[str, Any]:
     """Root endpoint."""
