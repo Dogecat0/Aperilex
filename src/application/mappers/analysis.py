@@ -47,12 +47,12 @@ def analysis_data_to_domain(analysis_data: AnalysisData) -> Analysis:
 
 def _resolve_analysis_type(raw_type: str) -> AnalysisType:
     try:
-        return AnalysisType(raw_type)
+        return AnalysisType.from_raw(raw_type)
     except ValueError:
         logger.warning(
-            "Unknown analysis type '%s'; defaulting to CUSTOM_QUERY", raw_type
+            "Unknown analysis type '%s'; defaulting to CUSTOM", raw_type
         )
-        return AnalysisType.CUSTOM_QUERY
+        return AnalysisType.CUSTOM
 
 
 def _extract_optional_str(value: Any) -> str | None:

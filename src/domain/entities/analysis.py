@@ -105,15 +105,9 @@ class Analysis:
         return self._created_at
 
     def is_filing_analysis(self) -> bool:
-        """Check if this is a comprehensive filing analysis.
+        """Check if this analysis represents the comprehensive filing artifact."""
 
-        Returns:
-            True if analysis type is FILING_ANALYSIS or COMPREHENSIVE
-        """
-        return self._analysis_type in (
-            AnalysisType.FILING_ANALYSIS,
-            AnalysisType.COMPREHENSIVE,
-        )
+        return self._analysis_type == AnalysisType.COMPREHENSIVE
 
     def is_high_confidence(self) -> bool:
         """Check if analysis has high confidence.

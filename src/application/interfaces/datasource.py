@@ -52,7 +52,7 @@ class FilingContent(BaseModel):
     )
     metadata: FilingMetadata
     raw_content: str
-    parsed_sections: dict[str, str] = {}
+    parsed_sections: dict[str, str] = Field(default_factory=dict)
 
 
 class FilingSearchCriteria(BaseModel):

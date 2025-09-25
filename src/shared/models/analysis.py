@@ -9,21 +9,10 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field
 
+from src.shared.enums.analysis import AnalysisType
 from src.shared.enums.provider import LLMProvider
 from src.shared.enums.status import AnalysisStatus
 from src.shared.types.identifiers import AnalysisId, FilingId, TaskId, UserId
-
-
-class AnalysisType(str, Enum):
-    """Types of analysis that can be performed."""
-
-    SUMMARY = "SUMMARY"
-    KEY_METRICS = "KEY_METRICS"
-    RISK_FACTORS = "RISK_FACTORS"
-    FINANCIAL_HIGHLIGHTS = "FINANCIAL_HIGHLIGHTS"
-    SENTIMENT = "SENTIMENT"
-    COMPETITIVE_ANALYSIS = "COMPETITIVE_ANALYSIS"
-    CUSTOM = "CUSTOM"
 
 
 class ModelTier(str, Enum):
@@ -55,7 +44,8 @@ class AnalysisRequest(BaseModel):
 
     # Analysis parameters
     analysis_type: AnalysisType = Field(
-        default=AnalysisType.SUMMARY, description="Type of analysis to perform"
+        default=AnalysisType.COMPREHENSIVE,
+        description="Type of analysis to perform",
     )
     llm_provider: LLMProvider = Field(
         default=LLMProvider.OPENAI, description="LLM provider to use"
@@ -164,9 +154,6 @@ class AnalysisResult(BaseModel):
     # Analysis results
     content: str = Field(description="Main analysis content/response")
     summary: str | None = Field(default=None, description="Brief summary of analysis")
-    key_findings: list[str] | None = Field(
-        default=None, description="List of key findings"
-    )
 
     # Structured data (if applicable)
     # Using Any for structured_data as it can contain arbitrary nested financial data from LLM

@@ -152,29 +152,22 @@ class ListAnalysesQuery(BaseQuery):
         # Map analysis templates to database analysis types
         # Each template can potentially match multiple analysis types stored in the database
         template_to_types_mapping = {
-            # Comprehensive template includes all types of analysis
-            AnalysisTemplate.COMPREHENSIVE: [
-                AnalysisType.FILING_ANALYSIS,
-                AnalysisType.COMPREHENSIVE,
-                AnalysisType.CUSTOM_QUERY,  # May include comprehensive custom queries
-            ],
-            # Financial focused template should match analyses focused on financial data
+            # Comprehensive template maps directly to the unified comprehensive type
+            AnalysisTemplate.COMPREHENSIVE: [AnalysisType.COMPREHENSIVE],
+            # Focused templates currently fall back to comprehensive results until
+            # specialised pipelines are rolled out. Including the focus type keeps
+            # filters forward-compatible once those analyses exist.
             AnalysisTemplate.FINANCIAL_FOCUSED: [
-                AnalysisType.FILING_ANALYSIS,  # Filing analysis includes financial sections
-                AnalysisType.COMPREHENSIVE,  # Comprehensive analysis includes financial data
-                AnalysisType.CUSTOM_QUERY,  # Custom queries may be financial-focused
+                AnalysisType.FINANCIAL,
+                AnalysisType.COMPREHENSIVE,
             ],
-            # Risk focused template for risk assessment analyses
             AnalysisTemplate.RISK_FOCUSED: [
-                AnalysisType.FILING_ANALYSIS,  # Filing analysis includes risk sections
-                AnalysisType.COMPREHENSIVE,  # Comprehensive analysis includes risk analysis
-                AnalysisType.CUSTOM_QUERY,  # Custom queries may be risk-focused
+                AnalysisType.RISK,
+                AnalysisType.COMPREHENSIVE,
             ],
-            # Business focused template for strategic and operational analyses
             AnalysisTemplate.BUSINESS_FOCUSED: [
-                AnalysisType.FILING_ANALYSIS,  # Filing analysis includes business sections
-                AnalysisType.COMPREHENSIVE,  # Comprehensive analysis includes business analysis
-                AnalysisType.CUSTOM_QUERY,  # Custom queries may be business-focused
+                AnalysisType.BUSINESS,
+                AnalysisType.COMPREHENSIVE,
             ],
         }
 
