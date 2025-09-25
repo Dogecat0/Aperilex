@@ -73,14 +73,29 @@ class GetCompanyQueryHandler(QueryHandler[GetCompanyQuery, CompanyResponse]):
         try:
             # Step 1: Try to find company in database
             company_record: CompanyData | None = None
+            datasource_cik: CIK | None = None
+            datasource_ticker: Ticker | None = None
+
             if lookup_type == "cik":
-                company_record = await self.company_repository.get_by_cik(
-                    CIK(value=lookup_value)
-                )
+                cik_value = CIK(value=lookup_value)
+                company_record = await self.company_repository.get_by_cik(cik_value)
+                datasource_cik = cik_value
             elif lookup_type == "ticker":
+                ticker_value = Ticker(value=lookup_value)
                 company_record = await self.company_repository.get_by_ticker(
-                    Ticker(value=lookup_value)
+                    ticker_value
                 )
+                datasource_ticker = ticker_value
+            elif lookup_type == "company_id":
+                company_id = CompanyId(lookup_value)
+                company_record = await self.company_repository.get_by_id(company_id)
+                if company_record is None:
+                    raise ValueError(
+                        f"Company with ID {lookup_value} not found in database"
+                    )
+                datasource_cik = company_record.cik
+            else:
+                raise ValueError(f"Unsupported lookup type: {lookup_type}")
 
             company_domain = (
                 Company(
@@ -95,16 +110,18 @@ class GetCompanyQueryHandler(QueryHandler[GetCompanyQuery, CompanyResponse]):
 
             # Step 2: Get enriched data from DataSourceProvider
             try:
-                if lookup_type == "cik":
+                if datasource_cik is not None:
                     company_info = await self.data_source_provider.get_company_info(
-                        cik=CIK(value=lookup_value)
+                        cik=datasource_cik
                     )
-                elif lookup_type == "ticker":
+                elif datasource_ticker is not None:
                     company_info = await self.data_source_provider.get_company_info(
-                        ticker=Ticker(value=lookup_value)
+                        ticker=datasource_ticker
                     )
-                else:
-                    raise ValueError(f"Unsupported lookup type: {lookup_type}")
+                else:  # pragma: no cover - defensive guard
+                    raise ValueError(
+                        f"Unable to determine data source lookup for {lookup_type}"
+                    )
             except Exception as e:
                 logger.error(
                     "Failed to retrieve company data from data source",
