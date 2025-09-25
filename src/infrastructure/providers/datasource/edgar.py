@@ -5,7 +5,7 @@ EDGAR data source provider implementation.
 import asyncio
 import logging
 import uuid
-from collections.abc import Iterable, Mapping
+from collections.abc import Iterable
 from datetime import datetime
 from typing import Any
 
@@ -118,44 +118,8 @@ class EDGARDataSourceProvider(IDataSourceProvider):
                 url=filing.url,
             )
 
-            # Parse sections if available
-            parsed_sections = {}
-            try:
-                if hasattr(filing, "sections"):
-                    sections_attr = filing.sections
-                    sections_data: Any
-                    if callable(sections_attr):
-                        sections_data = sections_attr()
-                    else:
-                        sections_data = sections_attr
-
-                    iterable_items: Iterable[Any]
-                    if isinstance(sections_data, Mapping):
-                        iterable_items = sections_data.items()
-                    elif isinstance(sections_data, Iterable):
-                        iterable_items = sections_data
-                    else:
-                        iterable_items = ()
-
-                    for item in iterable_items:
-                        if isinstance(item, tuple) and len(item) == 2:
-                            section_name, section_content = item
-                        else:
-                            # Some edgar releases expose sections as objects with name/content
-                            section_name = getattr(item, "name", None)
-                            section_content = getattr(item, "content", None)
-
-                        if not section_name:
-                            continue
-
-                        if section_content is None:
-                            continue
-                        parsed_sections[str(section_name)] = str(section_content)
-            except Exception as e:  # pragma: no cover - defensive logging
-                logger.warning(
-                    "Failed to parse filing sections",
-                    extra={"error": str(e), "accession": getattr(filing, "accession_number", "unknown")},
-                )
+            # Parse sections using structured data objects with heuristic fallbacks
+            parsed_sections = self._collect_sections(filing)
 
             return FilingContent(
                 schema_version=1,
@@ -166,6 +130,266 @@ class EDGARDataSourceProvider(IDataSourceProvider):
 
         except Exception as e:
             raise DataSourceError(f"Failed to parse filing content: {e}") from e
+
+    def _collect_sections(self, filing: Filing) -> dict[str, str]:
+        """Collect structured sections from a filing using edgartools data objects."""
+
+        return self._extract_sections_from_data_object(filing)
+
+    def _extract_sections_from_data_object(self, filing: Filing) -> dict[str, str]:
+        """Extract sections using the edgartools data object abstraction."""
+
+        sections: dict[str, str] = {}
+        if not hasattr(filing, "obj"):
+            raise DataSourceError("Filing does not expose an edgartools data object")
+
+        data_object: Any | None = None
+        try:
+            data_object = filing.obj()
+        except Exception as exc:  # pragma: no cover - defensive logging
+            logger.debug(
+                "Failed to materialize data object for filing",
+                extra={
+                    "accession": getattr(filing, "accession_number", "unknown"),
+                    "error": str(exc),
+                },
+            )
+            raise DataSourceError("Unable to materialize filing data object") from exc
+
+        if data_object is None:
+            raise DataSourceError("Filing data object is empty")
+
+        form_value = getattr(filing, "form", "")
+        canonical_map = self._get_data_object_section_map(str(form_value).upper())
+        missing_sections: list[str] = []
+
+        form = str(form_value).upper()
+
+        for canonical_name, attribute_aliases in canonical_map.items():
+            section_text: str | None = None
+
+            for attr in attribute_aliases:
+                if not hasattr(data_object, attr):
+                    continue
+                value = getattr(data_object, attr)
+                section_text = self._coerce_section_text(value)
+                if section_text:
+                    break
+
+                # Some attributes expose callables returning content
+                if callable(value):
+                    try:
+                        section_text = self._coerce_section_text(value())
+                    except Exception:  # noqa: BLE001 - best effort
+                        section_text = None
+
+                if section_text:
+                    break
+
+            if not section_text:
+                # Attempt to resolve via get_section_text fallback if exposed
+                get_section_text = getattr(data_object, "get_section_text", None)
+                if callable(get_section_text):
+                    for alias in attribute_aliases:
+                        try:
+                            section_text = self._coerce_section_text(
+                                get_section_text(alias)
+                            )
+                        except Exception:  # noqa: BLE001 - best effort
+                            section_text = None
+
+                        if section_text:
+                            break
+
+            if section_text:
+                sections[canonical_name] = section_text
+            else:
+                if form.startswith("10-Q"):
+                    section_text = self._resolve_tenq_section(
+                        data_object, canonical_name
+                    )
+
+                if section_text:
+                    sections[canonical_name] = section_text
+                    continue
+
+                missing_sections.append(canonical_name)
+
+        if missing_sections:
+            raise DataSourceError(
+                "Missing required sections from filing data object: "
+                + ", ".join(missing_sections)
+            )
+
+        return sections
+
+    def _resolve_tenq_section(
+        self, data_object: Any, canonical_name: str
+    ) -> str | None:
+        """Resolve 10-Q specific sections that require part-aware lookups."""
+
+        part_map: dict[str, tuple[str, str]] = {
+            "Part II Item 1A - Risk Factors": ("Part II", "Item 1A"),
+            "Part I Item 2 - Management Discussion & Analysis": (
+                "Part I",
+                "Item 2",
+            ),
+        }
+
+        part_item = part_map.get(canonical_name)
+        if not part_item:
+            return None
+
+        try:
+            chunked_document = getattr(data_object, "chunked_document", None)
+            if chunked_document is None:
+                return None
+
+            get_item_with_part = getattr(chunked_document, "get_item_with_part", None)
+            if not callable(get_item_with_part):
+                return None
+
+            part, item = part_item
+            section_value = get_item_with_part(part, item)
+        except Exception:  # noqa: BLE001 - defensive
+            return None
+
+        return self._coerce_section_text(section_value)
+
+    def _get_data_object_section_map(
+        self, form: str | None
+    ) -> dict[str, tuple[str, ...]]:
+        """Return canonical section name aliases for data object extraction."""
+        business_aliases = (
+            "business",
+            "business_description",
+            "business_overview",
+        )
+        risk_aliases = (
+            "risk_factors",
+            "risks",
+        )
+        discussion_aliases = (
+            "management_discussion",
+            "managements_discussion",
+            "md_and_a",
+            "mda",
+            "results_operations",
+            "results_of_operations",
+        )
+        balance_aliases = (
+            "balance_sheet",
+            "balance_sheets",
+            "consolidated_balance_sheet",
+            "consolidated_balance_sheets",
+        )
+        income_aliases = (
+            "income_statement",
+            "income_statements",
+            "statement_of_operations",
+            "statements_of_operations",
+            "statements_of_income",
+        )
+        cashflow_aliases = (
+            "cashflow_statement",
+            "cash_flow_statement",
+            "cash_flows",
+            "statement_of_cash_flows",
+            "statements_of_cash_flows",
+        )
+
+        form = form or ""
+        if form.startswith("10-Q"):
+            return {
+                "Part II Item 1A - Risk Factors": risk_aliases,
+                "Part I Item 2 - Management Discussion & Analysis": discussion_aliases,
+                "Balance Sheet": balance_aliases,
+                "Income Statement": income_aliases,
+                "Cash Flow Statement": cashflow_aliases,
+            }
+
+        # Default to 10-K expectations
+        return {
+            "Item 1 - Business": business_aliases,
+            "Item 1A - Risk Factors": risk_aliases,
+            "Item 7 - Management Discussion & Analysis": discussion_aliases,
+            "Balance Sheet": balance_aliases,
+            "Income Statement": income_aliases,
+            "Cash Flow Statement": cashflow_aliases,
+        }
+
+    def _coerce_section_text(self, value: Any) -> str | None:
+        """Convert a section value into normalised text."""
+
+        if value is None:
+            return None
+
+        if isinstance(value, str):
+            text = value.strip()
+            return text or None
+
+        # Some data objects expose `.text` or `.content`
+        for attr in ("text", "content", "markdown", "html"):
+            if not hasattr(value, attr):
+                continue
+            candidate = getattr(value, attr)
+            try:
+                resolved = candidate() if callable(candidate) else candidate
+            except (AttributeError, TypeError, ValueError) as exc:
+                logger.debug(
+                    "Failed resolving attribute '%s' on %s: %s",
+                    attr,
+                    type(value).__name__,
+                    exc,
+                )
+            else:
+                text = self._coerce_section_text(resolved)
+                if text:
+                    return text
+
+        # Try rich conversions commonly exposed by edgartools wrappers
+        if hasattr(value, "to_markdown"):
+            try:
+                text = str(value.to_markdown()).strip()
+                if text:
+                    return text
+            except (AttributeError, TypeError, ValueError) as exc:
+                logger.debug(
+                    "to_markdown() failed on %s: %s",
+                    type(value).__name__,
+                    exc,
+                )
+
+        if hasattr(value, "to_text"):
+            try:
+                text = str(value.to_text()).strip()
+                if text:
+                    return text
+            except (AttributeError, TypeError, ValueError) as exc:
+                logger.debug(
+                    "to_text() failed on %s: %s",
+                    type(value).__name__,
+                    exc,
+                )
+
+        if callable(value):
+            try:
+                return self._coerce_section_text(value())
+            except (AttributeError, TypeError, ValueError) as exc:
+                logger.debug(
+                    "Callable value() failed on %s: %s",
+                    type(value).__name__,
+                    exc,
+                )
+                return None
+
+        try:
+            text_value = str(value).strip()
+        except (TypeError, ValueError) as exc:
+            logger.debug("String coercion failed on %s: %s", type(value).__name__, exc)
+            return None
+
+        return text_value or None
 
     def _extract_company_ticker(self, company: Company) -> Ticker | None:
         """Extract the best available ticker from an EDGAR company object."""
@@ -199,7 +423,9 @@ class EDGARDataSourceProvider(IDataSourceProvider):
         candidates.append(getattr(company, "ticker", None))
 
         tickers_attr = getattr(company, "tickers", None)
-        if isinstance(tickers_attr, Iterable) and not isinstance(tickers_attr, str | bytes):
+        if isinstance(tickers_attr, Iterable) and not isinstance(
+            tickers_attr, str | bytes
+        ):
             candidates.extend(tickers_attr)
         else:
             candidates.append(tickers_attr)
@@ -293,10 +519,18 @@ class EDGARDataSourceProvider(IDataSourceProvider):
                     f"Filing with accession {accession_number} not found"
                 )
 
-            # Verify CIK matches
-            filing_cik = str(filing.cik).zfill(10)
-            if filing_cik != str(cik):
-                raise ValidationError(f"CIK mismatch: expected {cik}, got {filing_cik}")
+            # Verify CIK matches (tolerate padded vs non-padded representations)
+            try:
+                filing_cik = CIK(value=str(filing.cik))
+            except ValueError as exc:
+                raise ValidationError(
+                    f"Invalid CIK value returned for filing: {filing.cik}"
+                ) from exc
+
+            if filing_cik != cik:
+                raise ValidationError(
+                    f"CIK mismatch: expected {cik.padded()}, got {filing_cik.padded()}"
+                )
 
             return self._parse_filing_content(filing)
 

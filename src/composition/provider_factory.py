@@ -534,7 +534,7 @@ class ProviderFactory:
             from src.shared.config.providers import LLMConfig
 
             # Get OpenAI configuration
-            model_name = config_provider.get("llm.openai.model", "gpt-5-nano")
+            model_name = config_provider.get("llm.openai.model", "gpt-4o-mini")
             api_key_secret = config_provider.get(
                 "llm.openai.api_key_secret", "openai_api_key"
             )

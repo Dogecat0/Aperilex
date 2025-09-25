@@ -30,11 +30,8 @@ class AnalysisResponse(SchemaVersionedModel):
 
         # Results data (included based on request)
         filing_summary: Brief summary of the filing (if available)
-        executive_summary: Executive summary of analysis (if available)
         key_insights: List of key insights extracted (if available)
-        risk_factors: List of identified risk factors (if available)
         opportunities: List of identified opportunities (if available)
-        financial_highlights: List of financial highlights (if available)
         sections_analyzed: Number of sections analyzed
         full_results: Complete analysis results (if requested)
     """
@@ -65,20 +62,11 @@ class AnalysisResponse(SchemaVersionedModel):
     filing_summary: str | None = Field(
         default=None, description="Brief summary of the filing"
     )
-    executive_summary: str | None = Field(
-        default=None, description="Executive summary of analysis"
-    )
     key_insights: list[str] | None = Field(
         default=None, description="List of key insights extracted"
     )
-    risk_factors: list[str] | None = Field(
-        default=None, description="Identified risk factors"
-    )
     opportunities: list[str] | None = Field(
         default=None, description="Identified opportunities"
-    )
-    financial_highlights: list[str] | None = Field(
-        default=None, description="Financial highlights"
     )
     sections_analyzed: int | None = Field(
         default=None, ge=0, description="Number of sections analyzed"
@@ -118,13 +106,8 @@ class AnalysisResponse(SchemaVersionedModel):
             processing_time_seconds=analysis.get_processing_time(),
             # Extract key data from storage results
             filing_summary=results.get("filing_summary") if results else None,
-            executive_summary=results.get("executive_summary") if results else None,
             key_insights=results.get("key_insights") if results else None,
-            risk_factors=results.get("risk_factors") if results else None,
             opportunities=results.get("opportunities") if results else None,
-            financial_highlights=(
-                results.get("financial_highlights") if results else None
-            ),
             sections_analyzed=(
                 len(results.get("section_analyses", [])) if results else None
             ),
@@ -211,12 +194,9 @@ class AnalysisResponse(SchemaVersionedModel):
         """Check if this is a comprehensive filing analysis.
 
         Returns:
-            True if analysis type is FILING_ANALYSIS or COMPREHENSIVE
+            True if analysis type is COMPREHENSIVE
         """
-        return self.analysis_type in (
-            AnalysisType.FILING_ANALYSIS,
-            AnalysisType.COMPREHENSIVE,
-        )
+        return self.analysis_type == AnalysisType.COMPREHENSIVE
 
     @property
     def has_insights(self) -> bool:
@@ -226,15 +206,6 @@ class AnalysisResponse(SchemaVersionedModel):
             True if key_insights is not empty
         """
         return self.key_insights is not None and len(self.key_insights) > 0
-
-    @property
-    def has_risks(self) -> bool:
-        """Check if analysis identified risk factors.
-
-        Returns:
-            True if risk_factors is not empty
-        """
-        return self.risk_factors is not None and len(self.risk_factors) > 0
 
     @property
     def has_opportunities(self) -> bool:
@@ -256,11 +227,6 @@ class AnalysisResponse(SchemaVersionedModel):
         if self.has_insights and self.key_insights:
             parts.append(
                 f"{len(self.key_insights)} insight{'s' if len(self.key_insights) != 1 else ''}"
-            )
-
-        if self.has_risks and self.risk_factors:
-            parts.append(
-                f"{len(self.risk_factors)} risk{'s' if len(self.risk_factors) != 1 else ''}"
             )
 
         if self.has_opportunities and self.opportunities:

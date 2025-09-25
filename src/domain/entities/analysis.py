@@ -148,29 +148,11 @@ class Analysis:
         # Results are now in storage, not in entity
         return ""
 
-    def get_executive_summary(self) -> str:
-        """Get executive summary from comprehensive analysis.
-
-        Returns:
-            Executive summary text if available, empty string otherwise
-        """
-        # Results are now in storage, not in entity
-        return ""
-
     def get_key_insights(self) -> list[str]:
         """Get key insights from analysis.
 
         Returns:
             List of key insights
-        """
-        # Results are now in storage, not in entity
-        return []
-
-    def get_risk_factors(self) -> list[str]:
-        """Get risk factors from analysis.
-
-        Returns:
-            List of risk factors
         """
         # Results are now in storage, not in entity
         return []
@@ -184,14 +166,6 @@ class Analysis:
         # Results are now in storage, not in entity
         return []
 
-    def get_financial_highlights(self) -> list[str]:
-        """Get financial highlights from analysis.
-
-        Returns:
-            List of financial highlights
-        """
-        # Results are now in storage, not in entity
-        return []
 
     def get_section_analyses(self) -> list[dict[str, Any]]:
         """Get section analyses from comprehensive filing analysis.
@@ -327,7 +301,6 @@ class Analysis:
                 {
                     "filing_summary": results.get("filing_summary", ""),
                     "key_insights_count": len(results.get("key_insights", [])),
-                    "risk_factors_count": len(results.get("risk_factors", [])),
                     "opportunities_count": len(results.get("opportunities", [])),
                     "sections_analyzed": len(results.get("section_analyses", [])),
                 }

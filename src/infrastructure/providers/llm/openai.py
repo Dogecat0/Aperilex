@@ -289,7 +289,7 @@ class OpenAILLMProvider(BaseLLMProvider):
         start_time = time.time()
 
         # Get the schema for this section type
-        section_schema = self.section_schemas.get(section_name)
+        section_schema = self._resolve_section_schema(section_name)
 
         if section_schema:
             # Extract subsection schemas dynamically
@@ -312,7 +312,11 @@ class OpenAILLMProvider(BaseLLMProvider):
 
         # Generate section summary using OpenAI's structured output
         summary_prompts = create_section_summary_prompts(
-            sub_sections, section_name, filing_type, company_name
+            sub_sections,
+            section_name,
+            filing_type,
+            company_name,
+            section_text,
         )
 
         try:
@@ -463,10 +467,7 @@ class OpenAILLMProvider(BaseLLMProvider):
 
             return ComprehensiveAnalysisResponse(
                 filing_summary=overall.filing_summary,
-                executive_summary=overall.executive_summary,
                 key_insights=overall.key_insights,
-                financial_highlights=overall.financial_highlights,
-                risk_factors=overall.risk_factors,
                 opportunities=overall.opportunities,
                 confidence_score=overall.confidence_score,
                 section_analyses=section_analyses,
@@ -483,10 +484,7 @@ class OpenAILLMProvider(BaseLLMProvider):
             # Return minimal comprehensive response on failure
             return ComprehensiveAnalysisResponse(
                 filing_summary="Analysis failed",
-                executive_summary=str(e),
                 key_insights=[],
-                financial_highlights=[],
-                risk_factors=[],
                 opportunities=[],
                 confidence_score=0.0,
                 section_analyses=section_analyses,

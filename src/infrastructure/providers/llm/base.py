@@ -1,6 +1,8 @@
 """Base classes and utilities for LLM providers with 3-level hierarchy support."""
 
 import asyncio
+import json
+import re
 from abc import ABC, abstractmethod
 from collections.abc import Callable, Sequence
 from typing import Any, ClassVar, Union, get_args, get_origin
@@ -192,14 +194,13 @@ class OverallAnalysisResponse(BaseModel):
     filing_summary: str = Field(
         ..., description="3-4 sentence summary of entire filing"
     )
-    executive_summary: str = Field(..., description="2-3 paragraph executive summary")
-    key_insights: list[str] = Field(..., description="7-10 most important insights")
-    financial_highlights: list[str] = Field(
+    key_insights: list[str] = Field(
         ...,
-        description="Key financial metrics with actual numbers/percentages from filing (e.g., 'Revenue grew 15% to $45.3B'). Use descriptive statements if specific numbers unavailable, never placeholder variables.",
+        description="7-10 most important insights blending quantitative and qualitative signals",
     )
-    risk_factors: list[str] = Field(..., description="Main risk factors identified")
-    opportunities: list[str] = Field(..., description="Growth opportunities mentioned")
+    opportunities: list[str] = Field(
+        ..., description="Forward-looking opportunities mentioned"
+    )
     confidence_score: float = Field(
         ..., ge=0, le=1, description="Confidence in analysis"
     )
@@ -212,14 +213,13 @@ class ComprehensiveAnalysisResponse(BaseModel):
     filing_summary: str = Field(
         ..., description="3-4 sentence summary of entire filing"
     )
-    executive_summary: str = Field(..., description="2-3 paragraph executive summary")
-    key_insights: list[str] = Field(..., description="7-10 most important insights")
-    financial_highlights: list[str] = Field(
+    key_insights: list[str] = Field(
         ...,
-        description="Key financial metrics with actual numbers/percentages from filing (e.g., 'Revenue grew 15% to $45.3B'). Use descriptive statements if specific numbers unavailable, never placeholder variables.",
+        description="7-10 most important insights blending quantitative and qualitative signals",
     )
-    risk_factors: list[str] = Field(..., description="Main risk factors identified")
-    opportunities: list[str] = Field(..., description="Growth opportunities mentioned")
+    opportunities: list[str] = Field(
+        ..., description="Forward-looking opportunities mentioned"
+    )
     confidence_score: float = Field(
         ..., ge=0, le=1, description="Confidence in analysis"
     )
@@ -260,6 +260,33 @@ class BaseLLMProvider(ABC, ILLMProvider):
         """
         self.config = config
         self.model_info = model_info
+
+    def _resolve_section_schema(
+        self, section_name: str
+    ) -> type[PydanticBaseModel] | None:
+        """Return the schema best matching the provided section heading."""
+
+        direct = SECTION_SCHEMAS.get(section_name)
+        if direct is not None:
+            return direct
+
+        canonical_key = _canonical_section_key(section_name)
+        if not canonical_key:
+            return None
+
+        match = CANONICAL_SECTION_SCHEMAS.get(canonical_key)
+        if match is not None:
+            return match
+
+        for key, schema in CANONICAL_SECTION_SCHEMAS.items():
+            if not key:
+                continue
+            if canonical_key.startswith(key) or key.startswith(canonical_key):
+                return schema
+            if key in canonical_key or canonical_key in key:
+                return schema
+
+        return None
 
     @abstractmethod
     async def analyze_filing_sections(
@@ -640,14 +667,43 @@ SECTION_SCHEMAS = {
     "Cash Flow Statement": schemas.CashFlowAnalysisSection,
 }
 
-SUBSECTION_NAME_MAP = {
-    "BusinessAnalysisSection": "Business Analysis",
-    "RiskFactorsAnalysisSection": "Risk Assessment",
-    "MDAAnalysisSection": "Management Discussion",
-    "BalanceSheetAnalysisSection": "Balance Sheet Review",
-    "IncomeStatementAnalysisSection": "Income Statement Review",
-    "CashFlowAnalysisSection": "Cash Flow Review",
+
+def _canonical_section_key(name: str) -> str:
+    """Return a canonical token for the provided section heading."""
+
+    if not name:
+        return ""
+
+    lowered = name.lower().replace("&", "and")
+    lowered = re.sub(r"\([^)]*\)", " ", lowered)
+    lowered = re.sub(r"\s+\d+$", "", lowered)
+    collapsed = re.sub(r"\s+", " ", lowered).strip()
+    return re.sub(r"[^a-z0-9]", "", collapsed)
+
+
+CANONICAL_SECTION_SCHEMAS: dict[str, type[PydanticBaseModel]] = {
+    _canonical_section_key(section_name): schema
+    for section_name, schema in SECTION_SCHEMAS.items()
 }
+
+CANONICAL_SECTION_SCHEMAS.update(
+    {
+        "balancesheets": schemas.BalanceSheetAnalysisSection,
+        "condensedconsolidatedbalancesheets": schemas.BalanceSheetAnalysisSection,
+        "consolidatedbalancesheets": schemas.BalanceSheetAnalysisSection,
+        "statementsofoperations": schemas.IncomeStatementAnalysisSection,
+        "condensedstatementsofoperations": schemas.IncomeStatementAnalysisSection,
+        "condensedconsolidatedstatementsofoperations": schemas.IncomeStatementAnalysisSection,
+        "statementsofcomprehensiveincome": schemas.IncomeStatementAnalysisSection,
+        "condensedconsolidatedstatementsofcomprehensiveincome": schemas.IncomeStatementAnalysisSection,
+        "statementsofcashflows": schemas.CashFlowAnalysisSection,
+        "condensedstatementsofcashflows": schemas.CashFlowAnalysisSection,
+        "condensedconsolidatedstatementsofcashflows": schemas.CashFlowAnalysisSection,
+        "item2managementsdiscussionandanalysisoffinancialconditionandresultsofoperations": schemas.MDAAnalysisSection,
+        "partiitem2managementdiscussionandanalysisoffinancialconditionandresultsofoperations": schemas.MDAAnalysisSection,
+        "item7managementsdiscussionandanalysisoffinancialconditionandresultsofoperations": schemas.MDAAnalysisSection,
+    }
+)
 
 
 def extract_subsection_schemas(
@@ -855,30 +911,80 @@ async def run_concurrent_subsection_analysis(
 
 
 def create_section_summary_prompts(
-    sub_sections: list[SubsectionAnalysisResponse],
+    sub_sections: Sequence[SubsectionAnalysisResponse],
     section_name: str,
     filing_type: FilingType,
     company_name: str,
+    section_text: str | None = None,
 ) -> tuple[str, str]:
     """Create standardized prompts for section summary generation.
 
     Returns:
         Tuple of (system_prompt, user_prompt)
     """
-    sub_sections_summary = "\n".join(
-        [
-            f"- {sub.sub_section_name}: {sub.schema_type} analysis completed"
-            for sub in sub_sections
-        ]
+
+    def _serialise_analysis_payload(payload: Any) -> str:
+        """Convert structured subsection output into a compact prompt fragment."""
+
+        if payload is None:
+            return ""
+
+        if hasattr(payload, "model_dump"):
+            payload = payload.model_dump()  # type: ignore[assignment]
+
+        if isinstance(payload, str):
+            text = payload.strip()
+        else:
+            try:
+                text = json.dumps(payload, ensure_ascii=False)
+            except TypeError:
+                text = str(payload)
+
+        max_length = 800
+        if len(text) > max_length:
+            text = text[:max_length].rstrip() + "..."
+        return text
+
+    formatted_sub_sections: list[str] = []
+
+    for sub in sub_sections:
+        payload: Any = getattr(sub, "analysis", None)
+
+        fragment = _serialise_analysis_payload(payload)
+
+        if not fragment:
+            fragment = "No structured findings were extracted."
+
+        formatted_sub_sections.append(
+            f"- {sub.sub_section_name} ({sub.schema_type}): {fragment}"
+        )
+
+    sub_sections_summary = "\n".join(formatted_sub_sections) or (
+        "- No structured sub-section analyses were generated."
     )
 
-    system_prompt = "You are a financial analyst. Provide a consolidated summary of the section based on sub-section analyses."
+    section_excerpt = ""
+    if section_text:
+        excerpt = section_text.strip()
+        if excerpt:
+            max_chars = 6000
+            if len(excerpt) > max_chars:
+                excerpt = excerpt[:max_chars].rstrip() + "..."
+            section_excerpt = f"Relevant Section Text (excerpt):\n{excerpt}\n\n"
+
+    system_prompt = (
+        "You are a financial analyst. Provide a consolidated summary of the section "
+        "using the evidence below. Quote actual figures and qualitative details when available."
+    )
 
     user_prompt = (
-        f"Based on the following sub-section analyses for the {section_name} section of {company_name}'s {filing_type.value} filing, provide a comprehensive section summary.\n\n"
-        f"        Sub-section Summaries:\n"
-        f"        {sub_sections_summary}\n\n"
-        f"        Consolidate the insights and provide an overall assessment of this section."
+        f"Based on the following sub-section analyses for the {section_name} section of "
+        f"{company_name}'s {filing_type.value} filing, provide a comprehensive section summary that "
+        f"integrates quantitative and qualitative signals.\n\n"
+        f"Sub-section Analyses:\n{sub_sections_summary}\n\n"
+        f"{section_excerpt}"
+        "Deliver a cohesive narrative, cite specific metrics when they appear, and avoid placeholder "
+        "language. If a data point is unavailable, explain the gap rather than inventing numbers."
     )
 
     return system_prompt, user_prompt
@@ -914,16 +1020,12 @@ def create_overall_analysis_prompts(
         f"Based on all section analyses of {company_name}'s {filing_type.value} filing, provide a comprehensive overall analysis.{focus_text}\n\n"
         f"        Section Summaries:\n"
         f"        {sections_summary}\n\n"
-        f"        Provide an executive-level analysis that synthesizes insights from all sections.\n\n"
-        f"        IMPORTANT for financial_highlights:\n"
-        f"        - Extract actual financial numbers, percentages, and dollar amounts from the filing content\n"
-        f"        - If specific numbers are mentioned in the sections, use those exact values\n"
-        f"        - If precise numbers aren't available, provide descriptive statements without placeholder variables (X, Y, Z)\n"
-        f"        - Examples of good financial highlights:\n"
-        f'          * "Revenue increased 15% year-over-year to $45.3 billion"\n'
-        f'          * "Operating margins improved significantly compared to prior year"\n'
-        f'          * "Strong cash position with substantial liquidity reserves"\n'
-        f"        - Never use placeholder letters like X%, Y%, Z billion, or A%"
+        f"        Deliverables:\n"
+        f"        - filing_summary: 3-4 sentences capturing the company's overall performance, strategic developments, and notable risks.\n"
+        f"        - key_insights: 7-10 bullet points combining quantitative results and qualitative context. Anchor insights in actual metrics when available and explain material risk or operational signals in plain language.\n"
+        f"        - opportunities: 3-5 bullet points highlighting forward-looking opportunities or strategic levers implied by the filing.\n"
+        f"        - confidence_score: Float between 0 and 1 indicating analysis confidence.\n"
+        f"        Avoid placeholder variables (X, Y, Z). If specific numbers are unavailable, use concrete descriptive statements instead."
     )
 
     return system_prompt, user_prompt
