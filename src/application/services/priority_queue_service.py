@@ -241,6 +241,7 @@ class PriorityQueueService:
                 task_message=task_message,
                 delay_seconds=delay_seconds,
                 message_group_id=queue_name,  # Use queue name as group ID for FIFO
+                deduplicate=dedup_enabled,
             )
 
             # Add to deduplication cache when enabled

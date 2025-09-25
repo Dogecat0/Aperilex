@@ -131,6 +131,8 @@ class RabbitMQQueueProvider(IQueueProvider):
         task_message: TaskMessage,
         delay_seconds: int = 0,
         message_group_id: str | None = None,
+        *,
+        deduplicate: bool = True,
     ) -> QueueMessageId:
         """Send a task message to the queue."""
         await self.connect()
@@ -139,7 +141,9 @@ class RabbitMQQueueProvider(IQueueProvider):
         message_id = QueueMessageId(str(uuid.uuid4()))
 
         # Create deduplication ID from task data
-        if self.config.enable_deduplication:
+        dedup_enabled = self.config.enable_deduplication and deduplicate
+        dedup_id: str | None = None
+        if dedup_enabled:
             dedup_data = f"{task_message.task_id}_{task_message.task_type}"
             dedup_id = hashlib.sha256(dedup_data.encode()).hexdigest()
 
@@ -182,7 +186,7 @@ class RabbitMQQueueProvider(IQueueProvider):
             return message_id
         except Exception as e:
             # Remove from dedup cache on failure
-            if self.config.enable_deduplication:
+            if dedup_enabled and dedup_id is not None:
                 await self.dedup_cache.remove(dedup_id)
             raise Exception(f"Failed to send message: {e}") from e
 

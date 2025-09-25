@@ -109,6 +109,8 @@ class SQSQueueProvider(IQueueProvider):
         task_message: TaskMessage,
         delay_seconds: int = 0,
         message_group_id: str | None = None,
+        *,
+        deduplicate: bool = True,
     ) -> QueueMessageId:
         """Send a task message to the queue."""
         await self._initialize()
@@ -151,7 +153,7 @@ class SQSQueueProvider(IQueueProvider):
             params["MessageGroupId"] = message_group_id or self.config.message_group_id
 
             # Create deduplication ID from task data
-            if self.config.enable_content_deduplication:
+            if self.config.enable_content_deduplication and deduplicate:
                 dedup_data = f"{task_message.task_id}_{task_message.task_type}"
                 params["MessageDeduplicationId"] = hashlib.sha256(
                     dedup_data.encode()

@@ -35,6 +35,8 @@ class IQueueProvider(Protocol):
         task_message: TaskMessage,
         delay_seconds: int = 0,
         message_group_id: str | None = None,
+        *,
+        deduplicate: bool = True,
     ) -> QueueMessageId:
         """
         Send a task message to the queue.
@@ -43,6 +45,7 @@ class IQueueProvider(Protocol):
             task_message: Task message to send
             delay_seconds: Optional delay before message becomes available
             message_group_id: Optional group ID for FIFO queues
+            deduplicate: Whether the provider should enforce deduplication
 
         Returns:
             Message ID of the sent message
