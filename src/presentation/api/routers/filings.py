@@ -11,6 +11,7 @@ from src.application.base.exceptions import ResourceNotFoundError
 from src.application.handlers.schemas.commands.analyze_filing import (
     AnalyzeFilingCommand,
 )
+from src.application.handlers.schemas.queries.get_company import GetCompanyQuery
 from src.application.handlers.schemas.queries.get_filing import GetFilingQuery
 from src.application.handlers.schemas.queries.list_company_filings import (
     FilingSortField as ListCompanyFilingSortField,
@@ -29,6 +30,9 @@ from src.application.handlers.schemas.responses import (
     FilingResponse,
     FilingSearchResult,
     PaginatedResponse,
+)
+from src.application.handlers.schemas.responses.company_response import (
+    CompanyResponse,
 )
 from src.application.handlers.schemas.responses.task_response import TaskResponse
 from src.application.interfaces.authentication import AuthenticationResult
@@ -295,8 +299,28 @@ async def analyze_filing_by_id(
             await application_service.execute_query(query),
         )
 
+        company_query = GetCompanyQuery(
+            company_id=filing.company_id,
+            user_id=user_id_str(current_user),
+        )
+
+        company_result = await application_service.execute_query(company_query)
+        if not isinstance(company_result, CompanyResponse):
+            logger.error(
+                "Unexpected response when resolving company for filing",
+                extra={
+                    "filing_id": str(filing_id),
+                    "company_id": str(filing.company_id),
+                    "returned_type": type(company_result).__name__,
+                },
+            )
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to resolve company for filing",
+            )
+
         accession_number = AccessionNumber(value=filing.accession_number)
-        company_cik = CIK(value=accession_number.get_cik())
+        company_cik = CIK(value=company_result.cik)
 
         from src.shared.config.settings import Settings
 

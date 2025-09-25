@@ -98,6 +98,26 @@ class LocalSecretManager(ISecretManager):
             except (OSError, json.JSONDecodeError):
                 self._secrets = {}
 
+    def _candidate_env_keys(self, secret_name: str) -> list[str]:
+        """Generate environment variable candidates for a given secret name."""
+        normalized = secret_name.replace(".", "_").replace("-", "_")
+        candidates = {
+            secret_name,
+            secret_name.upper(),
+            normalized,
+            normalized.upper(),
+        }
+
+        return [key for key in candidates if key]
+
+    def _find_env_secret(self, secret_name: str) -> str | None:
+        """Look up a secret value from environment variables."""
+        for candidate in self._candidate_env_keys(secret_name):
+            value = os.environ.get(candidate)
+            if value:
+                return value
+        return None
+
     def _save_secrets(self) -> None:
         """Save secrets to the local file."""
         if not self._persistence_enabled:
@@ -123,7 +143,24 @@ class LocalSecretManager(ISecretManager):
     ) -> str:
         """Retrieve a secret value."""
         if secret_name not in self._secrets:
-            raise KeyError(f"Secret '{secret_name}' not found")
+            env_value = self._find_env_secret(secret_name)
+            if env_value is not None:
+                logger.debug(
+                    "Loaded secret '%s' from environment variable",
+                    secret_name,
+                )
+                try:
+                    await self.create_secret(
+                        secret_name,
+                        env_value,
+                        description="Imported from environment variable",
+                        tags={"source": "env"},
+                    )
+                except ValueError:
+                    # Secret may have been created concurrently by another coroutine
+                    pass
+            else:
+                raise KeyError(f"Secret '{secret_name}' not found")
 
         secret_data = self._secrets[secret_name]
 

@@ -5,7 +5,7 @@ EDGAR data source provider implementation.
 import asyncio
 import logging
 import uuid
-from collections.abc import Iterable
+from collections.abc import Iterable, Mapping
 from datetime import datetime
 from typing import Any
 
@@ -121,12 +121,41 @@ class EDGARDataSourceProvider(IDataSourceProvider):
             # Parse sections if available
             parsed_sections = {}
             try:
-                # Try to extract common sections
                 if hasattr(filing, "sections"):
-                    for section_name, section_content in filing.sections.items():
-                        parsed_sections[section_name] = str(section_content)
-            except Exception as e:
-                logger.warning(f"Failed to parse filing sections: {e}")
+                    sections_attr = filing.sections
+                    sections_data: Any
+                    if callable(sections_attr):
+                        sections_data = sections_attr()
+                    else:
+                        sections_data = sections_attr
+
+                    iterable_items: Iterable[Any]
+                    if isinstance(sections_data, Mapping):
+                        iterable_items = sections_data.items()
+                    elif isinstance(sections_data, Iterable):
+                        iterable_items = sections_data
+                    else:
+                        iterable_items = ()
+
+                    for item in iterable_items:
+                        if isinstance(item, tuple) and len(item) == 2:
+                            section_name, section_content = item
+                        else:
+                            # Some edgar releases expose sections as objects with name/content
+                            section_name = getattr(item, "name", None)
+                            section_content = getattr(item, "content", None)
+
+                        if not section_name:
+                            continue
+
+                        if section_content is None:
+                            continue
+                        parsed_sections[str(section_name)] = str(section_content)
+            except Exception as e:  # pragma: no cover - defensive logging
+                logger.warning(
+                    "Failed to parse filing sections",
+                    extra={"error": str(e), "accession": getattr(filing, "accession_number", "unknown")},
+                )
 
             return FilingContent(
                 schema_version=1,

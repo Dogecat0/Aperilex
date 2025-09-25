@@ -303,9 +303,7 @@ class ProviderFactory:
         elif provider_type == StorageProvider.GCS:
             raise NotImplementedError("GCS storage provider not yet implemented")
         elif provider_type == StorageProvider.AZURE_BLOB:
-            raise NotImplementedError(
-                "Azure Blob storage provider not yet implemented"
-            )
+            raise NotImplementedError("Azure Blob storage provider not yet implemented")
         else:
             raise ValueError(f"Unknown storage provider type: {provider_type}")
 
@@ -399,9 +397,7 @@ class ProviderFactory:
         elif provider_type == QueueProvider.PUBSUB:
             raise NotImplementedError("Pub/Sub queue provider not yet implemented")
         elif provider_type == QueueProvider.SERVICE_BUS:
-            raise NotImplementedError(
-                "Service Bus queue provider not yet implemented"
-            )
+            raise NotImplementedError("Service Bus queue provider not yet implemented")
         else:
             raise ValueError(f"Unknown queue provider type: {provider_type}")
 
@@ -538,12 +534,15 @@ class ProviderFactory:
             from src.shared.config.providers import LLMConfig
 
             # Get OpenAI configuration
-            model_name = config_provider.get("llm.openai.model", "gpt-4o")
+            model_name = config_provider.get("llm.openai.model", "gpt-5-nano")
             api_key_secret = config_provider.get(
                 "llm.openai.api_key_secret", "openai_api_key"
             )
+            api_endpoint_default = (
+                settings.openai_base_url or "https://openrouter.ai/api/v1"
+            )
             api_endpoint = config_provider.get(
-                "llm.openai.api_endpoint", "https://api.openai.com/v1"
+                "llm.openai.api_endpoint", api_endpoint_default
             )
             retry_attempts = config_provider.get("llm.openai.retry_attempts", 3)
             timeout_seconds = config_provider.get("llm.openai.timeout_seconds", 60)
@@ -593,7 +592,9 @@ class ProviderFactory:
             )
             api_endpoint = config_provider.get(f"{config_prefix}.api_endpoint", None)
             retry_attempts = config_provider.get(f"{config_prefix}.retry_attempts", 3)
-            timeout_seconds = config_provider.get(f"{config_prefix}.timeout_seconds", 60)
+            timeout_seconds = config_provider.get(
+                f"{config_prefix}.timeout_seconds", 60
+            )
             rate_limit = config_provider.get(
                 f"{config_prefix}.rate_limit_per_minute", 60
             )
@@ -650,8 +651,7 @@ class ProviderFactory:
                 identity_email = settings.edgar_identity
                 if identity_email:
                     user_agent = (
-                        f"{settings.app_name}/{settings.app_version}"
-                        f" ({identity_email})"
+                        f"{settings.app_name}/{settings.app_version} ({identity_email})"
                     )
                 else:
                     user_agent = "Aperilex/1.0 (support@aperilex.com)"
@@ -665,11 +665,17 @@ class ProviderFactory:
                 rate_limit_per_second=rate_limit,
             )
         elif provider_type == DataSourceProvider.REFINITIV:
-            raise NotImplementedError("Refinitiv data source provider not yet implemented")
+            raise NotImplementedError(
+                "Refinitiv data source provider not yet implemented"
+            )
         elif provider_type == DataSourceProvider.BLOOMBERG:
-            raise NotImplementedError("Bloomberg data source provider not yet implemented")
+            raise NotImplementedError(
+                "Bloomberg data source provider not yet implemented"
+            )
         elif provider_type == DataSourceProvider.CUSTOM_API:
-            raise NotImplementedError("Custom API data source provider not yet implemented")
+            raise NotImplementedError(
+                "Custom API data source provider not yet implemented"
+            )
         else:
             raise ValueError(f"Unknown data source provider type: {provider_type}")
 

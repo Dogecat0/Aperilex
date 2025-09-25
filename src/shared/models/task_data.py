@@ -5,7 +5,7 @@ Task data models for workflow processing.
 from datetime import UTC, datetime
 from uuid import UUID
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 from src.shared.enums import FilingType, TaskPriority, TaskStatus, UserTier
 from src.shared.types import Email, FilingId, TaskId, Ticker, UserId
@@ -96,6 +96,22 @@ class TaskData(BaseModel):
         if not self.deduplication_id:
             self.deduplication_id = f"{self.filing_id}_{self.email.value}"
         return self
+
+    @field_validator("email", mode="before")
+    @classmethod
+    def _coerce_email(cls, value: Email | dict[str, str] | str) -> Email | dict[str, str] | str:
+        """Allow plain strings when reconstructing from serialized payloads."""
+        if isinstance(value, str):
+            return {"value": value}
+        return value
+
+    @field_validator("ticker", mode="before")
+    @classmethod
+    def _coerce_ticker(cls, value: Ticker | dict[str, str] | str) -> Ticker | dict[str, str] | str:
+        """Allow plain strings when reconstructing from serialized payloads."""
+        if isinstance(value, str):
+            return {"value": value}
+        return value
 
     @property
     def should_retry(self) -> bool:

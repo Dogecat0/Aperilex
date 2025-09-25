@@ -98,10 +98,18 @@ class CompanyRepository(ICompanyRepository):
         Returns:
             Company data if found, None otherwise
         """
-        cache_key = f"company:cik:{cik.value}"
+        # Normalise the CIK for lookups to ensure we match records stored without
+        # leading zeros (e.g. "320193" vs "0000320193").
+        normalized_cik = str(cik)
+        cache_key = f"company:cik:{normalized_cik}"
 
         async def fetch_from_db() -> CompanyData | None:
-            stmt = select(CompanyModel).where(CompanyModel.cik == str(cik.value))
+            cik_candidates = {normalized_cik}
+            raw_cik = cik.value
+            if raw_cik != normalized_cik:
+                cik_candidates.add(raw_cik)
+
+            stmt = select(CompanyModel).where(CompanyModel.cik.in_(cik_candidates))
             result = await self.session.execute(stmt)
             model = result.scalar_one_or_none()
             return self._model_to_data(model) if model else None
