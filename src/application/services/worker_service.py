@@ -374,6 +374,7 @@ class WorkerService:
         start_time = datetime.now(UTC)
         task_data = None
         analysis_request: AnalysisRequest | None = None
+        success = False
 
         try:
             # Step 1: Version check and schema migration
@@ -502,6 +503,7 @@ class WorkerService:
                 (datetime.now(UTC) - start_time).total_seconds() * 1000
             )
 
+            success = True
             return TaskResult(
                 task_id=task_data.task_id,
                 status=TaskStatus.COMPLETED,
@@ -568,6 +570,13 @@ class WorkerService:
                 processing_time_ms=processing_time,
                 retry_count=task_data.retry_count if task_data else 0,
             )
+        finally:
+            try:
+                await self.repository_factory.close(success=success)
+            except Exception as close_error:  # pragma: no cover - defensive logging
+                logger.error(
+                    "Failed to close repository factory: %s", close_error
+                )
 
     async def _validate_and_migrate_schema(
         self, task_data_dict: dict[str, Any]
@@ -953,7 +962,7 @@ class WorkerService:
         """Persist analysis completion result and status."""
         try:
             analysis_repo = await self.repository_factory.get_analysis_repository()
-            result_payload = result.dict()
+            result_payload = result.model_dump(mode="json")
             result_payload["storage_key"] = str(storage_key)
             await analysis_repo.save_result(result.analysis_id, result_payload)
             await analysis_repo.update_status(
@@ -1008,8 +1017,9 @@ class WorkerService:
 
             from src.shared.models import StorageMetadataFields
 
-            # Serialize result to bytes as expected by store_analysis
-            content = json.dumps(result.dict()).encode("utf-8")
+            # Serialize result with JSON-safe primitives
+            payload = result.model_dump(mode="json")
+            content = json.dumps(payload).encode("utf-8")
 
             # Create proper metadata object
             metadata = StorageMetadataFields(
