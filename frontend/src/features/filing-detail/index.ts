@@ -1,0 +1,1 @@
+export { FilingDetailPage } from './FilingDetailPage'

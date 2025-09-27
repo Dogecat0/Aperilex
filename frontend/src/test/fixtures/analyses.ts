@@ -1,0 +1,275 @@
+import type { AnalysisResponse, PaginatedAnalysesResponse } from '@/lib/types/analysis'
+
+export const mockPaginatedAnalysesResponse: PaginatedAnalysesResponse = {
+  items: [
+    {
+      analysis_id: '11111111-1111-1111-1111-111111111111',
+      filing_id: '22222222-2222-2222-2222-222222222222',
+      analysis_type: 'COMPREHENSIVE',
+      created_at: '2025-06-12T13:45:00.000Z',
+      created_by: 'analyst@aperilex.ai',
+      confidence_score: 0.87,
+      llm_provider: 'openai',
+      llm_model: 'gpt-4o-mini',
+      processing_time_seconds: 42,
+      filing_summary: 'Services expansion continues to accelerate revenue growth while margins hold.',
+      key_insights: ['Revenue up 12% YoY', 'Operating margin expanded 90 bps'],
+      opportunities: ['Practice reading MD&A sentiment shifts'],
+      sections_analyzed: 3,
+      full_results: {
+        schema_version: 1,
+        analysis_id: '11111111-1111-1111-1111-111111111111',
+        filing_id: '22222222-2222-2222-2222-222222222222',
+        summary: 'Apple Inc. delivered strong services growth with expanding margins.',
+        structured_data: {
+          filing_summary: 'Apple Inc. delivered strong services growth with expanding margins.',
+          key_insights: [
+            'Services revenue accelerated while hardware stabilized.',
+            'Free cash flow conversion remains resilient despite capital investments.',
+          ],
+          opportunities: [
+            'Turn MD&A sentiment into a quick self quiz.',
+            'Summarize new supply chain disclosures for your saved companies.',
+          ],
+          confidence_score: 0.87,
+          section_analyses: [
+            {
+              section_name: 'Management Discussion & Analysis',
+              section_summary: 'Margin expansion driven by disciplined expense control and services mix.',
+              overall_sentiment: 0.32,
+              consolidated_insights: [
+                'Services mix shift drove higher recurring margin profile.',
+                'Hardware remained resilient with stabilizing demand signals.',
+              ],
+              critical_findings: ['Supply chain remains a watchpoint heading into holiday season.'],
+              processing_time_ms: 10450,
+              sub_section_count: 3,
+              sub_sections: [],
+            },
+            {
+              section_name: 'Risk Factors',
+              section_summary: 'Supplier concentration and regulatory scrutiny remain focal risks.',
+              overall_sentiment: -0.18,
+              consolidated_insights: ['Management expanded commentary on supplier diversification.'],
+              critical_findings: ['Regulatory risk highlighted for App Store changes.'],
+              processing_time_ms: 8450,
+              sub_section_count: 2,
+              sub_sections: [],
+            },
+            {
+              section_name: 'Financial Statements',
+              section_summary: 'Cash flow to debt ratio dipped modestly on higher capex.',
+              overall_sentiment: 0.05,
+              consolidated_insights: ['Inventory build tied to upcoming product cycle.'],
+              processing_time_ms: 9250,
+              sub_section_count: 2,
+              sub_sections: [],
+            },
+          ],
+          total_sections_analyzed: 3,
+          total_sub_sections_analyzed: 7,
+          total_processing_time_ms: 28150,
+          filing_type: '10-Q',
+          company_name: 'Apple Inc.',
+          analysis_timestamp: '2025-06-12T13:45:00.000Z',
+          metadata: {
+            ticker: 'AAPL',
+            segment: 'Consumer Electronics',
+          },
+        },
+        status: 'COMPLETED',
+        llm_provider: 'openai',
+        model_name: 'gpt-4o-mini',
+        processing_time_ms: 42000,
+        confidence_score: 0.87,
+        token_usage: {
+          prompt_tokens: 12842,
+          completion_tokens: 2458,
+          total_tokens: 15200,
+        },
+        quality_metrics: {},
+        metadata: {
+          company_name: 'Apple Inc.',
+          filing_date: '2025-06-10',
+          filing_type: '10-Q',
+          analysis_template: 'financial_focused',
+        },
+      },
+    },
+  ],
+  pagination: {
+    page: 1,
+    page_size: 8,
+    total_items: 1,
+    total_pages: 1,
+    has_next: false,
+    has_previous: false,
+    next_page: null,
+    previous_page: null,
+  },
+  query_id: '33333333-3333-3333-3333-333333333333',
+  filters_applied: 'analysis_type=COMPREHENSIVE',
+}
+
+export const mockAnalysisDetail: AnalysisResponse = {
+  analysis_id: '44444444-4444-4444-4444-444444444444',
+  filing_id: '55555555-5555-5555-5555-555555555555',
+  analysis_type: 'COMPREHENSIVE',
+  created_at: '2025-06-12T13:45:00.000Z',
+  created_by: 'analyst@aperilex.ai',
+  confidence_score: 0.91,
+  llm_provider: 'openai',
+  llm_model: 'gpt-4o-mini',
+  processing_time_seconds: 48,
+  filing_summary:
+    'Services growth and disciplined operating expenses drove positive sentiment across disclosures.',
+  key_insights: ['Revenue rose 5.4% YoY as services mix expanded.', 'Operating expenses stayed flat.'],
+  opportunities: ['Turn the MD&A narrative into a reflection exercise.'],
+  sections_analyzed: 3,
+  full_results: {
+    schema_version: 1,
+    analysis_id: '44444444-4444-4444-4444-444444444444',
+    filing_id: '55555555-5555-5555-5555-555555555555',
+    summary:
+      'Apple Inc. delivered steady revenue growth with resilient margins driven by premium services uptake.',
+    content:
+      'Narrative summary: Apple Inc. posted another quarter of balanced growth driven by services and disciplined cost controls.',
+    structured_data: {
+      filing_summary:
+        'Apple Inc. delivered steady revenue growth with resilient margins driven by premium services uptake.',
+      key_insights: [
+        'Services revenue accelerated while hardware stabilized.',
+        'Cash flow conversion remained strong despite increased capital investment.',
+      ],
+      opportunities: [
+        'Practice summarizing the MD&A to align with your learning goals.',
+        'Track sentiment swings across the last three filings to build a comparison deck.',
+      ],
+      confidence_score: 0.91,
+      section_analyses: [
+        {
+          section_name: 'Management Discussion & Analysis',
+          section_summary:
+            'Margin expansion stems from services mix and disciplined OpEx; management highlights supply chain resilience.',
+          overall_sentiment: 0.32,
+          consolidated_insights: [
+            'Services mix shift improved recurring revenue visibility.',
+            'Hardware demand stabilized after prior quarter volatility.',
+          ],
+          critical_findings: ['Watch for regional FX headwinds pressuring guidance.'],
+          processing_time_ms: 11850,
+          sub_section_count: 2,
+          sub_sections: [
+            {
+              sub_section_name: 'Revenue Drivers',
+              schema_type: 'revenue_trend',
+              analysis: {
+                metric_name: 'Total Revenue',
+                current_value: 118.4,
+                previous_value: 112.3,
+                delta_percentage: 5.4,
+                unit: 'B',
+                interpretation: 'Revenue climbed 5.4% YoY, supported by services growth.',
+              },
+            },
+            {
+              sub_section_name: 'Operating Margin',
+              schema_type: 'margin_profile',
+              analysis: {
+                metric_name: 'Operating Margin',
+                current_value: 0.29,
+                previous_value: 0.28,
+                delta_percentage: 1.1,
+                unit: '%',
+                interpretation: 'Operating margin expanded 110 bps due to cost discipline.',
+              },
+            },
+          ],
+        },
+        {
+          section_name: 'Risk Factors',
+          section_summary:
+            'Supplier concentration and regulatory developments remain key watchpoints, though mitigation plans are underway.',
+          overall_sentiment: -0.12,
+          consolidated_insights: ['Management outlined supplier diversification milestones.'],
+          critical_findings: ['Regulatory risk persists around App Store policy changes.'],
+          processing_time_ms: 8450,
+          sub_section_count: 1,
+          sub_sections: [
+            {
+              sub_section_name: 'Regulatory Outlook',
+              analysis: {
+                metric_name: 'Regulatory Filings',
+                current_value: 4,
+                previous_value: 3,
+                delta: 1,
+                interpretation: 'Regulatory inquiries increased as global policy scrutiny persists.',
+              },
+            },
+          ],
+        },
+        {
+          section_name: 'Financial Statements',
+          section_summary:
+            'Cash flow to debt ratio dipped modestly due to elevated capital expenditures ahead of product launches.',
+          overall_sentiment: 0.04,
+          consolidated_insights: ['Inventory build tied to upcoming hardware cycle.'],
+          processing_time_ms: 9020,
+          sub_section_count: 2,
+          sub_sections: [
+            {
+              sub_section_name: 'Cash Flow',
+              analysis: {
+                metric_name: 'Free Cash Flow',
+                current_value: 28.1,
+                previous_value: 29.4,
+                delta_percentage: -4.4,
+                unit: 'B',
+                interpretation: 'Free cash flow softened as capex increased ahead of product refresh.',
+              },
+            },
+            {
+              sub_section_name: 'Debt Coverage',
+              analysis: {
+                metric_name: 'Cash-to-Debt Ratio',
+                current_value: 0.92,
+                previous_value: 0.97,
+                delta_percentage: -5.2,
+                unit: '%',
+                interpretation: 'Coverage dipped but remains within historical range.',
+              },
+            },
+          ],
+        },
+      ],
+      total_sections_analyzed: 3,
+      total_sub_sections_analyzed: 5,
+      total_processing_time_ms: 29320,
+      filing_type: '10-Q',
+      company_name: 'Apple Inc.',
+      analysis_timestamp: '2025-06-12T13:45:00.000Z',
+      metadata: {
+        ticker: 'AAPL',
+        filing_date: '2025-06-10',
+        segment: 'Consumer Electronics',
+      },
+    },
+    status: 'COMPLETED',
+    llm_provider: 'openai',
+    model_name: 'gpt-4o-mini',
+    processing_time_ms: 48000,
+    confidence_score: 0.91,
+    token_usage: {
+      prompt_tokens: 13012,
+      completion_tokens: 2512,
+      total_tokens: 15524,
+    },
+    quality_metrics: {},
+    metadata: {
+      company_name: 'Apple Inc.',
+      filing_date: '2025-06-10',
+      filing_type: '10-Q',
+      analysis_template: 'financial_focused',
+    },
+  },
+}
