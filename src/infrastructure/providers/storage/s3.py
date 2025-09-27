@@ -152,7 +152,7 @@ class S3StorageProvider(IStorageProvider):
             now = datetime.now(UTC).isoformat()
             metadata = StorageMetadata(
                 schema_version=1,
-                content_type="application/octet-stream",
+                content_type="application/json",
                 size=len(request.content),
                 checksum=self._calculate_checksum(request.content),
                 created_at=now,

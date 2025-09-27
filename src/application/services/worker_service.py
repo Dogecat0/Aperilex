@@ -6,6 +6,7 @@ provider interfaces and dependency injection. It absorbs the functionality
 from AnalysisOrchestrator for a unified processing pipeline.
 """
 
+import json
 import uuid
 from collections.abc import Callable, Coroutine
 from datetime import UTC, datetime, timedelta
@@ -17,7 +18,11 @@ from src.application.handlers.schemas.commands.analyze_filing import (
     AnalysisTemplate,
     AnalyzeFilingCommand,
 )
-from src.application.interfaces.datasource import FilingContent, IDataSourceProvider
+from src.application.interfaces.datasource import (
+    FilingContent,
+    FilingMetadata,
+    IDataSourceProvider,
+)
 from src.application.interfaces.events import (
     AnalysisCompletedEvent,
     AnalysisFailedEvent,
@@ -206,6 +211,21 @@ class WorkerService:
             ],
         }
 
+        self.section_keys_by_schema: dict[str, tuple[str, ...]] = {
+            "BusinessAnalysisSection": ("Item 1 - Business",),
+            "RiskFactorsAnalysisSection": (
+                "Item 1A - Risk Factors",
+                "Part II Item 1A - Risk Factors",
+            ),
+            "MDAAnalysisSection": (
+                "Item 7 - Management Discussion & Analysis",
+                "Part I Item 2 - Management Discussion & Analysis",
+            ),
+            "BalanceSheetAnalysisSection": ("Balance Sheet",),
+            "IncomeStatementAnalysisSection": ("Income Statement",),
+            "CashFlowAnalysisSection": ("Cash Flow Statement",),
+        }
+
     def prepare_analysis_task_data(
         self,
         command: AnalyzeFilingCommand,
@@ -374,6 +394,7 @@ class WorkerService:
         start_time = datetime.now(UTC)
         task_data = None
         analysis_request: AnalysisRequest | None = None
+        fetched_filing_content: FilingContent | None = None
         success = False
 
         try:
@@ -410,15 +431,16 @@ class WorkerService:
                     analysis_request=analysis_request,
                     task_data=task_data,
                 )
-                filing_content = await self._fetch_filing(
+                fetched_filing_content = await self._fetch_filing(
                     task_data.ticker,
                     task_data.filing_type,
                     context.correlation_id,
                     task_data.metadata,  # Pass metadata for accession_number and cik
                 )
+                filing_bytes = self._encode_filing_content(fetched_filing_content)
                 await self._store_filing(
                     task_data.filing_id,
-                    filing_content,
+                    filing_bytes,
                     task_data,
                 )
                 await self._track_progress(
@@ -439,16 +461,49 @@ class WorkerService:
             )
             # Extract sections based on template
             template = self._get_template_from_metadata(task_data.metadata)
-            extracted_content = await self._extract_filing_sections(
-                task_data.filing_id,
-                template,
-            )
+            structured_sections: dict[str, str] | None = None
 
-            analysis_result = await self._perform_llm_analysis_with_sections(
-                analysis_request,
-                task_data.filing_id,
-                extracted_content,
-            )
+            if analysis_request.analysis_type == AnalysisType.COMPREHENSIVE:
+                structured_sections = await self._prepare_structured_sections(
+                    task_data=task_data,
+                    template=template,
+                    correlation_id=context.correlation_id,
+                    fetched_filing=fetched_filing_content,
+                )
+
+            if structured_sections:
+                company_name = self._resolve_company_name(
+                    task_data.metadata, task_data.ticker
+                )
+                analysis_focus = self._resolve_analysis_focus(
+                    template, task_data.metadata
+                )
+                analysis_result = await self._perform_structured_comprehensive_analysis(
+                    request=analysis_request,
+                    filing_id=task_data.filing_id,
+                    filing_type=task_data.filing_type,
+                    filing_sections=structured_sections,
+                    company_name=company_name,
+                    analysis_focus=analysis_focus,
+                )
+            else:
+                if analysis_request.analysis_type == AnalysisType.COMPREHENSIVE:
+                    logger.debug(
+                        "Structured sections unavailable; falling back to prompt-based analysis",
+                        extra={"filing_id": str(task_data.filing_id)},
+                    )
+                extracted_content = await self._extract_filing_sections(
+                    task_data=task_data,
+                    template=template,
+                    correlation_id=context.correlation_id,
+                    fetched_filing=fetched_filing_content,
+                )
+
+                analysis_result = await self._perform_llm_analysis_with_sections(
+                    analysis_request,
+                    task_data.filing_id,
+                    extracted_content,
+                )
             await self._track_progress(
                 progress_callback,
                 0.7,
@@ -574,9 +629,7 @@ class WorkerService:
             try:
                 await self.repository_factory.close(success=success)
             except Exception as close_error:  # pragma: no cover - defensive logging
-                logger.error(
-                    "Failed to close repository factory: %s", close_error
-                )
+                logger.error("Failed to close repository factory: %s", close_error)
 
     async def _validate_and_migrate_schema(
         self, task_data_dict: dict[str, Any]
@@ -620,8 +673,7 @@ class WorkerService:
                 )
             except VersioningMigrationError as exc:  # noqa: BLE001
                 raise SchemaVersionError(
-                    "Failed to migrate TaskData payload: "
-                    f"{exc}"
+                    f"Failed to migrate TaskData payload: {exc}"
                 ) from exc
 
         # Parse and validate using Pydantic
@@ -694,7 +746,9 @@ class WorkerService:
         }
 
         if command.company_cik is not None:
-            metadata["company_cik"] = str(command.company_cik)
+            cik_value = str(command.company_cik)
+            metadata["company_cik"] = cik_value
+            metadata["cik"] = cik_value
         if command.accession_number is not None:
             metadata["accession_number"] = str(command.accession_number)
 
@@ -733,10 +787,10 @@ class WorkerService:
     async def _fetch_filing(
         self,
         ticker: Ticker,
-        filing_type: str,
+        filing_type: FilingType,
         correlation_id: str,
         metadata: dict[str, str] | None = None,
-    ) -> bytes:
+    ) -> FilingContent:
         """
         Fetch filing from data source using accession number for accuracy.
 
@@ -747,7 +801,7 @@ class WorkerService:
             metadata: Optional metadata containing accession_number and cik
 
         Returns:
-            Filing content as bytes
+            Filing content including parsed sections when available
 
         Raises:
             FilingFetchError: If fetch fails
@@ -756,37 +810,222 @@ class WorkerService:
             filing_data: FilingContent
             metadata = metadata or {}
 
-            # Use accession number if provided (most accurate method)
-            if "accession_number" in metadata and "cik" in metadata:
+            accession_number = metadata.get("accession_number")
+            cik_value = (
+                metadata.get("cik")
+                or metadata.get("company_cik")
+                or metadata.get("company_cik_value")
+            )
+
+            if accession_number and cik_value:
                 filing_data = await self.datasource.get_filing_by_accession(
-                    CIK(value=metadata["cik"]),
-                    metadata["accession_number"],
+                    CIK(value=cik_value),
+                    accession_number,
                 )
             else:
                 # Fallback to latest filing if no accession number
                 filing_data = await self.datasource.get_latest_filing(
                     ticker=ticker,
-                    filing_type=FilingType(filing_type),
+                    filing_type=filing_type,
                 )
 
-            if not filing_data:
+            if not filing_data or not filing_data.raw_content:
                 raise FilingFetchError(
-                    f"No filing found for {ticker.value} {filing_type}"
+                    f"No filing found for {ticker.value} {filing_type.value}"
                 )
 
-            # FilingContent has raw_content field as a string
-            return filing_data.raw_content.encode("utf-8")
+            actual_type = filing_data.metadata.filing_type
+            allowed_types = {FilingType.FORM_10K, FilingType.FORM_10Q}
+            if actual_type not in allowed_types:
+                raise FilingFetchError(
+                    f"Unsupported filing type {actual_type.value} for analysis"
+                )
+
+            return filing_data
 
         except Exception as e:
             raise FilingFetchError(
                 f"Failed to fetch filing for {ticker.value}: {str(e)}"
             ) from e
 
+    def _encode_filing_content(self, filing: FilingContent) -> bytes:
+        """Serialize filing content including parsed sections for storage."""
+
+        payload = {
+            "schema_version": filing.schema_version,
+            "metadata": filing.metadata.model_dump(mode="json"),
+            "raw_content": filing.raw_content,
+            "parsed_sections": filing.parsed_sections,
+        }
+
+        try:
+            return json.dumps(payload, ensure_ascii=False).encode("utf-8")
+        except (TypeError, ValueError) as exc:
+            logger.debug(
+                "JSON encoding failed for filing %s: %s",
+                filing.metadata.filing_id,
+                exc,
+            )
+            # Fall back to raw content only if serialization fails unexpectedly
+            return filing.raw_content.encode("utf-8", errors="ignore")
+
+    def _deserialize_filing_payload(self, data: bytes) -> dict[str, Any]:
+        """Deserialize stored filing bytes into structured payload."""
+
+        text_data = data.decode("utf-8", errors="ignore")
+        try:
+            payload = json.loads(text_data)
+        except json.JSONDecodeError:
+            return {
+                "raw_content": text_data,
+                "parsed_sections": {},
+                "metadata": None,
+                "schema_version": 1,
+            }
+
+        if not isinstance(payload, dict):
+            return {
+                "raw_content": text_data,
+                "parsed_sections": {},
+                "metadata": None,
+                "schema_version": 1,
+            }
+
+        raw_content = payload.get("raw_content")
+        if not isinstance(raw_content, str):
+            raw_content = text_data
+
+        parsed_sections = payload.get("parsed_sections")
+        if not isinstance(parsed_sections, dict):
+            parsed_sections = {}
+
+        metadata_dict = payload.get("metadata")
+        metadata_obj: FilingMetadata | None = None
+        if isinstance(metadata_dict, dict):
+            try:
+                metadata_obj = FilingMetadata.model_validate(metadata_dict)
+            except Exception:  # pragma: no cover - defensive fallback
+                metadata_obj = None
+
+        return {
+            "raw_content": raw_content,
+            "parsed_sections": parsed_sections,
+            "metadata": metadata_obj,
+            "schema_version": payload.get("schema_version", 1),
+        }
+
+    async def _load_stored_filing_payload(
+        self, filing_id: FilingId
+    ) -> dict[str, Any] | None:
+        """Load serialized filing payload from storage if available."""
+
+        try:
+            if not await self.storage.exists(filing_id):
+                return None
+        except Exception:
+            return None
+
+        try:
+            stored = await self.storage.get_filing(filing_id)
+        except Exception as exc:  # pragma: no cover - defensive fallback
+            logger.debug(
+                "Failed to load filing %s from storage: %s",
+                filing_id,
+                exc,
+            )
+            return None
+
+        return self._deserialize_filing_payload(stored.data)
+
+    async def _get_filing_payload(
+        self,
+        *,
+        task_data: TaskData,
+        correlation_id: str,
+        fetched_filing: FilingContent | None = None,
+    ) -> tuple[str, dict[str, str]]:
+        """Ensure filing payload is available with parsed sections when possible."""
+
+        filing_id = task_data.filing_id
+        stored_payload = await self._load_stored_filing_payload(filing_id)
+
+        if stored_payload and stored_payload.get("raw_content"):
+            raw_content = stored_payload["raw_content"]
+            metadata_obj = stored_payload.get("metadata")
+            if isinstance(metadata_obj, FilingMetadata):
+                task_data.filing_type = metadata_obj.filing_type
+
+            sections = stored_payload.get("parsed_sections") or {}
+
+            if sections:
+                required_keys = self._required_section_keys(task_data.filing_type)
+                if all(sections.get(key) for key in required_keys):
+                    return raw_content, dict(sections)
+
+            try:
+                fetched = fetched_filing or await self._fetch_filing(
+                    task_data.ticker,
+                    task_data.filing_type,
+                    correlation_id,
+                    task_data.metadata,
+                )
+            except Exception as exc:  # pragma: no cover - defensive fallback
+                logger.debug(
+                    "Unable to refresh filing %s for sections: %s",
+                    filing_id,
+                    exc,
+                )
+                raise FilingFetchError(
+                    f"Unable to refresh structured sections for filing {filing_id}"
+                ) from exc
+
+            task_data.filing_type = fetched.metadata.filing_type
+            sections = dict(fetched.parsed_sections)
+            if not sections:
+                raise FilingFetchError(
+                    f"Structured sections missing for filing {filing_id}"
+                )
+            await self._store_filing(
+                filing_id,
+                self._encode_filing_content(fetched),
+                task_data,
+                publish_event=False,
+            )
+            return fetched.raw_content, sections
+
+        if not fetched_filing:
+            fetched_filing = await self._fetch_filing(
+                task_data.ticker,
+                task_data.filing_type,
+                correlation_id,
+                task_data.metadata,
+            )
+
+        task_data.filing_type = fetched_filing.metadata.filing_type
+        raw_content = fetched_filing.raw_content
+        sections = dict(fetched_filing.parsed_sections)
+
+        if not sections:
+            raise FilingFetchError(
+                f"Structured sections missing for filing {filing_id}"
+            )
+
+        await self._store_filing(
+            filing_id,
+            self._encode_filing_content(fetched_filing),
+            task_data,
+            publish_event=False,
+        )
+
+        return raw_content, sections
+
     async def _store_filing(
         self,
         filing_id: FilingId,
         content: bytes,
         task_data: TaskData,
+        *,
+        publish_event: bool = True,
     ) -> StorageKey:
         """
         Store filing in storage provider.
@@ -818,10 +1057,11 @@ class WorkerService:
             storage_key = await self.storage.store_filing(request)
             logger.info(f"Stored filing {filing_id} with key {storage_key}")
 
-            await self._publish_filing_imported_event(
-                task_data=task_data,
-                storage_key=storage_key,
-            )
+            if publish_event:
+                await self._publish_filing_imported_event(
+                    task_data=task_data,
+                    storage_key=storage_key,
+                )
             return storage_key
 
         except Exception as e:
@@ -848,7 +1088,10 @@ class WorkerService:
         try:
             # Retrieve filing content for analysis
             filing_obj = await self.storage.get_filing(filing_id)
-            filing_content = filing_obj.data
+            filing_payload = self._deserialize_filing_payload(filing_obj.data)
+            filing_content = filing_payload.get("raw_content", "")
+            if not isinstance(filing_content, str):
+                filing_content = ""
 
             # Prepare LLM request
             llm_request = LLMRequest(
@@ -1080,8 +1323,7 @@ class WorkerService:
         event = AnalysisStartedEvent(
             event_id=uuid.uuid4(),
             timestamp=datetime.now(UTC).isoformat(),
-            correlation_id=analysis_request.correlation_id
-            or task_data.correlation_id,
+            correlation_id=analysis_request.correlation_id or task_data.correlation_id,
             user_id=task_data.user_id,
             analysis_id=analysis_request.analysis_id,
             filing_id=analysis_request.filing_id,
@@ -1100,7 +1342,9 @@ class WorkerService:
                 },
                 exc_info=True,
             )
-            logger.debug("AnalysisStartedEvent publish error", extra={"error": str(exc)})
+            logger.debug(
+                "AnalysisStartedEvent publish error", extra={"error": str(exc)}
+            )
 
     async def _publish_progress_event(
         self,
@@ -1118,8 +1362,7 @@ class WorkerService:
         event = AnalysisProgressEvent(
             event_id=uuid.uuid4(),
             timestamp=datetime.now(UTC).isoformat(),
-            correlation_id=analysis_request.correlation_id
-            or task_data.correlation_id,
+            correlation_id=analysis_request.correlation_id or task_data.correlation_id,
             user_id=task_data.user_id,
             analysis_id=analysis_request.analysis_id,
             progress_percentage=percentage,
@@ -1144,7 +1387,9 @@ class WorkerService:
                 },
                 exc_info=True,
             )
-            logger.debug("AnalysisProgressEvent publish error", extra={"error": str(exc)})
+            logger.debug(
+                "AnalysisProgressEvent publish error", extra={"error": str(exc)}
+            )
 
     async def _publish_filing_imported_event(
         self,
@@ -1378,7 +1623,7 @@ class WorkerService:
             filing_id=task_data.filing_id,
             task_id=task_data.task_id,
             user_id=task_data.user_id,
-            analysis_type=AnalysisType.SUMMARY,  # Default, could be from task metadata
+            analysis_type=AnalysisType.COMPREHENSIVE,  # Default, could be from task metadata
             model_tier=self._get_model_tier_for_user(task_data.user_tier),
             correlation_id=task_data.correlation_id,
             metadata=task_data.metadata,
@@ -1440,12 +1685,35 @@ class WorkerService:
             text = text[:max_length] + "... [truncated]"
 
         prompts = {
-            AnalysisType.SUMMARY: f"Please provide a comprehensive summary of the following SEC filing:\n\n{text}",
-            AnalysisType.KEY_METRICS: f"Extract and analyze the key financial metrics from the following SEC filing:\n\n{text}",
-            AnalysisType.RISK_FACTORS: f"Identify and analyze the risk factors mentioned in the following SEC filing:\n\n{text}",
-            AnalysisType.FINANCIAL_HIGHLIGHTS: f"Provide the financial highlights from the following SEC filing:\n\n{text}",
-            AnalysisType.SENTIMENT: f"Analyze the overall sentiment and tone of the following SEC filing:\n\n{text}",
-            AnalysisType.COMPETITIVE_ANALYSIS: f"Analyze competitive positioning and market dynamics from the following SEC filing:\n\n{text}",
+            AnalysisType.COMPREHENSIVE: (
+                "Provide a comprehensive executive-level synthesis of the following SEC filing, "
+                "covering business strategy, financial performance, risk posture, opportunities, and any notable trends.\n\n"
+                f"{text}"
+            ),
+            AnalysisType.FINANCIAL: (
+                "Extract and analyse the key financial themes, metrics, and capital allocation insights from the following SEC filing.\n\n"
+                f"{text}"
+            ),
+            AnalysisType.RISK: (
+                "Identify and analyse the principal risk factors, mitigations, and emerging threats discussed in the following SEC filing.\n\n"
+                f"{text}"
+            ),
+            AnalysisType.COMPETITION: (
+                "Assess the competitive positioning, market dynamics, and peer benchmarks highlighted within the following SEC filing.\n\n"
+                f"{text}"
+            ),
+            AnalysisType.BUSINESS: (
+                "Summarise the company's business model, strategic priorities, and operational highlights from the following SEC filing.\n\n"
+                f"{text}"
+            ),
+            AnalysisType.TREND: (
+                "Analyse notable historical or forward-looking trends referenced in the following SEC filing, including momentum across key metrics and initiatives.\n\n"
+                f"{text}"
+            ),
+            AnalysisType.SENTIMENT: (
+                "Provide a sentiment and tone assessment of the following SEC filing, noting confidence, caution, or shifts in messaging.\n\n"
+                f"{text}"
+            ),
         }
 
         return prompts.get(
@@ -1526,7 +1794,10 @@ class WorkerService:
             metadata = task_data.metadata or {}
 
             # Validate we have necessary identifiers
-            if "accession_number" not in metadata or "cik" not in metadata:
+            cik_value = metadata.get("cik") or metadata.get("company_cik")
+            accession_number = metadata.get("accession_number")
+
+            if not accession_number or not cik_value:
                 # Try to fetch latest filing to validate access
                 # Note: validate_filing_access may not exist, using get_latest_filing as validation
                 try:
@@ -1541,8 +1812,8 @@ class WorkerService:
                 # Validate specific filing access
                 try:
                     await self.datasource.get_filing_by_accession(
-                        CIK(value=metadata["cik"]),
-                        metadata["accession_number"],
+                        CIK(value=cik_value),
+                        accession_number,
                     )
                 except Exception:
                     # If get_filing_by_accession fails, access is invalid
@@ -1583,73 +1854,343 @@ class WorkerService:
 
     async def _extract_filing_sections(
         self,
-        filing_id: FilingId,
+        *,
+        task_data: TaskData,
         template: AnalysisTemplate,
+        correlation_id: str,
+        fetched_filing: FilingContent | None = None,
     ) -> str:
         """
         Extract relevant sections from filing based on template.
 
-        This implements intelligent section filtering to reduce token usage
-        by only extracting sections relevant to the analysis template.
+        This extracts canonical sections required by the analysis template using
+        previously persisted structured sections.
 
         Args:
-            filing_id: Filing identifier
+            task_data: Task payload containing filing identifiers
             template: Analysis template defining which sections to extract
+            correlation_id: Correlation identifier for tracing refetches
+            fetched_filing: Optional filing content already retrieved upstream
 
         Returns:
             Extracted and filtered filing content
         """
+        _, stored_sections = await self._get_filing_payload(
+            task_data=task_data,
+            correlation_id=correlation_id,
+            fetched_filing=fetched_filing,
+        )
+
+        if not stored_sections:
+            raise FilingFetchError(
+                f"Structured sections unavailable for filing {task_data.filing_id}"
+            )
+
+        selected_sections = self._filter_sections_by_template(
+            stored_sections,
+            template,
+            task_data.filing_type,
+        )
+
+        extracted_chunks: list[str] = []
+        max_length = 50000
+
+        for section_name, section_text in selected_sections.items():
+            if not section_text:
+                continue
+
+            snippet = section_text
+            if len(snippet) > max_length:
+                snippet = snippet[:max_length] + "... [truncated]"
+
+            extracted_chunks.append(f"--- {section_name} ---\n{snippet}\n")
+
+        if not extracted_chunks:
+            raise FilingFetchError(
+                f"No sections extracted for filing {task_data.filing_id}"
+            )
+
+        return "\n".join(extracted_chunks)
+
+    async def _prepare_structured_sections(
+        self,
+        task_data: TaskData,
+        template: AnalysisTemplate,
+        correlation_id: str,
+        fetched_filing: FilingContent | None = None,
+    ) -> dict[str, str]:
+        """Prepare a mapping of filing sections for structured LLM analysis."""
+
+        _, stored_sections = await self._get_filing_payload(
+            task_data=task_data,
+            correlation_id=correlation_id,
+            fetched_filing=fetched_filing,
+        )
+
+        if not stored_sections:
+            raise FilingFetchError(
+                f"Structured sections unavailable for filing {task_data.filing_id}"
+            )
+
+        filtered = self._filter_sections_by_template(
+            stored_sections,
+            template,
+            task_data.filing_type,
+        )
+
+        if not filtered:
+            raise FilingFetchError(
+                f"Required sections missing for filing {task_data.filing_id}"
+            )
+
+        return filtered
+
+    def _filter_sections_by_template(
+        self,
+        sections: dict[str, str],
+        template: AnalysisTemplate,
+        filing_type: FilingType,
+    ) -> dict[str, str]:
+        """Filter parsed sections using canonical section keys."""
+
+        if not sections:
+            return {}
+
+        required_schemas = self.template_schemas.get(template, [])
+        if not required_schemas:
+            return sections
+
+        matched: dict[str, str] = {}
+        missing_schemas: list[str] = []
+
+        for schema in required_schemas:
+            if filing_type == FilingType.FORM_10Q and schema == "BusinessAnalysisSection":
+                continue
+
+            keys = self.section_keys_by_schema.get(schema, ())
+            section_found = False
+            for key in keys:
+                section_text = sections.get(key)
+                if section_text:
+                    matched[key] = section_text
+                    section_found = True
+                    break
+
+            if not section_found:
+                missing_schemas.append(schema)
+
+        if missing_schemas:
+            raise FilingFetchError(
+                "Missing required sections for analysis template: "
+                + ", ".join(missing_schemas)
+            )
+
+        return matched
+
+    def _required_section_keys(self, filing_type: FilingType) -> tuple[str, ...]:
+        """Return canonical section keys that must exist for a filing."""
+
+        if filing_type == FilingType.FORM_10Q:
+            return (
+                "Part II Item 1A - Risk Factors",
+                "Part I Item 2 - Management Discussion & Analysis",
+                "Balance Sheet",
+                "Income Statement",
+                "Cash Flow Statement",
+            )
+
+        # Default to 10-K requirements
+        return (
+            "Item 1 - Business",
+            "Item 1A - Risk Factors",
+            "Item 7 - Management Discussion & Analysis",
+            "Balance Sheet",
+            "Income Statement",
+            "Cash Flow Statement",
+        )
+
+    def _resolve_company_name(
+        self, metadata: dict[str, str] | None, ticker: Ticker
+    ) -> str:
+        """Resolve company name from metadata or fall back to ticker."""
+
+        if metadata:
+            for key in ("company_name", "company", "name"):
+                value = metadata.get(key)
+                if value:
+                    return value
+
+        return ticker.value
+
+    def _resolve_analysis_focus(
+        self,
+        template: AnalysisTemplate,
+        metadata: dict[str, str] | None,
+    ) -> list[str] | None:
+        """Determine focus areas for structured analysis."""
+
+        focus_values: list[str] = []
+
+        if metadata:
+            raw_focus = metadata.get("analysis_focus") or metadata.get("focus_areas")
+            if raw_focus:
+                parsed: list[str] = []
+                try:
+                    loaded = json.loads(raw_focus)
+                    if isinstance(loaded, list):
+                        parsed = [str(item) for item in loaded if str(item).strip()]
+                except Exception:  # noqa: BLE001 - fall back to comma parsing
+                    parsed = [
+                        part.strip() for part in raw_focus.split(",") if part.strip()
+                    ]
+
+                focus_values.extend(parsed)
+
+        if focus_values:
+            return focus_values
+
+        template_focus_map = {
+            AnalysisTemplate.FINANCIAL_FOCUSED: [
+                "Financial performance",
+                "Capital allocation",
+            ],
+            AnalysisTemplate.RISK_FOCUSED: [
+                "Risk posture",
+                "Mitigation strategies",
+            ],
+            AnalysisTemplate.BUSINESS_FOCUSED: [
+                "Business strategy",
+                "Operational execution",
+            ],
+        }
+
+        return template_focus_map.get(template)
+
+    async def _perform_structured_comprehensive_analysis(
+        self,
+        request: AnalysisRequest,
+        filing_id: FilingId,
+        filing_type: FilingType,
+        filing_sections: dict[str, str],
+        company_name: str,
+        analysis_focus: list[str] | None,
+    ) -> AnalysisResult:
+        """Run the hierarchical LLM workflow for comprehensive filings."""
+
+        analyze_sections = getattr(self.llm, "analyze_filing_sections", None)
+        if analyze_sections is None or not callable(analyze_sections):
+            raise LLMProcessingError(
+                "Configured LLM provider does not support structured filing analysis"
+            )
+
+        if not filing_sections:
+            raise LLMProcessingError("No filing sections available for analysis")
+
+        start_time = datetime.now(UTC)
+
+        comprehensive_response = await analyze_sections(  # type: ignore[func-returns-value]
+            filing_sections=filing_sections,
+            filing_type=filing_type,
+            company_name=company_name,
+            analysis_focus=analysis_focus,
+        )
+
         try:
-            # Get full filing content
-            filing_obj = await self.storage.get_filing(filing_id)
-            filing_content = filing_obj.data.decode("utf-8")
+            model_info = await self.llm.get_model_info()
+            model_name = model_info.model_name
+        except Exception:
+            model_name = request.model_name or "unknown"
 
-            # Get schemas for this template
-            required_schemas = self.template_schemas.get(template, [])
+        processing_time_ms = comprehensive_response.total_processing_time_ms or int(
+            (datetime.now(UTC) - start_time).total_seconds() * 1000
+        )
 
-            if not required_schemas:
-                # Return full content if no specific schemas
-                return filing_content
+        structured_payload = comprehensive_response.model_dump(mode="json")
+        # Remove legacy keys and normalise required section fields
+        for deprecated in ("executive_summary", "financial_highlights", "risk_factors"):
+            structured_payload.pop(deprecated, None)
 
-            # Section mapping for extraction
-            section_patterns = {
-                "BusinessAnalysisSection": ["Item 1", "Business", "Overview"],
-                "RiskFactorsAnalysisSection": ["Item 1A", "Risk Factors"],
-                "MDAAnalysisSection": ["Item 7", "Management's Discussion"],
-                "BalanceSheetAnalysisSection": ["Balance Sheet", "Financial Position"],
-                "IncomeStatementAnalysisSection": ["Income Statement", "Operations"],
-                "CashFlowAnalysisSection": ["Cash Flow", "Liquidity"],
-            }
+        sections = structured_payload.get("section_analyses") or []
+        for section in sections:
+            summary_text = str(section.get("section_summary") or "").strip()
+            section["section_summary"] = summary_text or "Summary unavailable."
 
-            extracted_sections = []
+            insights = section.get("consolidated_insights") or []
+            section["consolidated_insights"] = (
+                insights if isinstance(insights, list) else []
+            )
 
-            for schema in required_schemas:
-                patterns = section_patterns.get(schema, [])
-                for pattern in patterns:
-                    # Simple section extraction (can be enhanced with regex)
-                    start_idx = filing_content.lower().find(pattern.lower())
-                    if start_idx != -1:
-                        # Extract section (simplified - can be improved)
-                        end_idx = start_idx + 50000  # Max section length
-                        section = filing_content[start_idx:end_idx]
-                        extracted_sections.append(f"--- {schema} ---\n{section}\n")
-                        break
+            sentiment = section.get("overall_sentiment")
+            if not isinstance(sentiment, (int | float)):
+                sentiment = 0.0
+            section["overall_sentiment"] = float(sentiment)
 
-            # Join extracted sections or return full content if extraction failed
-            if extracted_sections:
-                return "\n".join(extracted_sections)
-            else:
-                logger.warning(
-                    f"Section extraction failed for template {template}, "
-                    "using full content"
-                )
-                return filing_content
+            findings = section.get("critical_findings") or []
+            section["critical_findings"] = findings if isinstance(findings, list) else []
 
-        except Exception as e:
-            logger.error(f"Error extracting filing sections: {str(e)}")
-            # Fallback to full content
-            filing_obj = await self.storage.get_filing(filing_id)
-            return filing_obj.data.decode("utf-8")
+        structured_payload["section_analyses"] = sections
+
+        narrative_parts: list[str] = []
+        summary_text = (comprehensive_response.filing_summary or "").strip()
+        if summary_text:
+            narrative_parts.append(summary_text)
+
+        if comprehensive_response.key_insights:
+            insight_lines = "\n".join(
+                f"- {insight}" for insight in comprehensive_response.key_insights
+            )
+            narrative_parts.append(f"Key insights:\n{insight_lines}")
+
+        if comprehensive_response.opportunities:
+            opportunity_lines = "\n".join(
+                f"- {item}" for item in comprehensive_response.opportunities
+            )
+            narrative_parts.append(f"Opportunities:\n{opportunity_lines}")
+
+        content_body = "\n\n".join(part for part in narrative_parts if part)
+        if not content_body:
+            content_body = "Analysis generated without narrative details."
+
+        focus_metadata = dict(request.metadata)
+        if analysis_focus:
+            focus_metadata["analysis_focus"] = ",".join(analysis_focus)
+
+        quality_metrics = {
+            "total_sections_analyzed": float(
+                comprehensive_response.total_sections_analyzed
+            ),
+            "total_subsections_analyzed": float(
+                comprehensive_response.total_sub_sections_analyzed
+            ),
+            "confidence_score": comprehensive_response.confidence_score,
+        }
+
+        return AnalysisResult(
+            schema_version=1,
+            analysis_id=request.analysis_id,
+            filing_id=filing_id,
+            task_id=request.task_id,
+            user_id=request.user_id,
+            content=content_body,
+            summary=comprehensive_response.filing_summary,
+            structured_data=structured_payload,
+            analysis_type=request.analysis_type,
+            status=AnalysisStatus.COMPLETED,
+            llm_provider=request.llm_provider,
+            model_name=model_name,
+            token_usage=TokenUsage(
+                prompt_tokens=0,
+                completion_tokens=0,
+                total_tokens=0,
+            ),
+            processing_time_ms=processing_time_ms,
+            estimated_cost=None,
+            confidence_score=comprehensive_response.confidence_score,
+            quality_metrics=quality_metrics,
+            created_at=start_time,
+            completed_at=datetime.now(UTC),
+            metadata=focus_metadata,
+        )
 
     async def _perform_llm_analysis_with_sections(
         self,
@@ -1748,12 +2289,35 @@ class WorkerService:
             content = content[:max_length] + "... [truncated]"
 
         prompts = {
-            AnalysisType.SUMMARY: f"Please provide a comprehensive summary of the following SEC filing sections:\n\n{content}",
-            AnalysisType.KEY_METRICS: f"Extract and analyze the key financial metrics from the following SEC filing sections:\n\n{content}",
-            AnalysisType.RISK_FACTORS: f"Identify and analyze the risk factors mentioned in the following SEC filing sections:\n\n{content}",
-            AnalysisType.FINANCIAL_HIGHLIGHTS: f"Provide the financial highlights from the following SEC filing sections:\n\n{content}",
-            AnalysisType.SENTIMENT: f"Analyze the overall sentiment and tone of the following SEC filing sections:\n\n{content}",
-            AnalysisType.COMPETITIVE_ANALYSIS: f"Analyze competitive positioning and market dynamics from the following SEC filing sections:\n\n{content}",
+            AnalysisType.COMPREHENSIVE: (
+                "Provide a comprehensive executive-level synthesis of the following SEC filing sections, "
+                "covering strategy, financials, risk posture, and opportunities.\n\n"
+                f"{content}"
+            ),
+            AnalysisType.FINANCIAL: (
+                "Extract and analyse the key financial insights from the following SEC filing sections, including performance drivers, liquidity, and capital allocation.\n\n"
+                f"{content}"
+            ),
+            AnalysisType.RISK: (
+                "Identify and analyse the principal risk factors discussed in the following SEC filing sections, highlighting potential impacts and mitigations.\n\n"
+                f"{content}"
+            ),
+            AnalysisType.COMPETITION: (
+                "Assess competitive positioning and market dynamics described in the following SEC filing sections.\n\n"
+                f"{content}"
+            ),
+            AnalysisType.BUSINESS: (
+                "Summarise the company's business model, strategic priorities, and operational highlights from the following SEC filing sections.\n\n"
+                f"{content}"
+            ),
+            AnalysisType.TREND: (
+                "Analyse historical or emerging trends referenced in the following SEC filing sections.\n\n"
+                f"{content}"
+            ),
+            AnalysisType.SENTIMENT: (
+                "Provide a sentiment assessment for the following SEC filing sections.\n\n"
+                f"{content}"
+            ),
         }
 
         return prompts.get(

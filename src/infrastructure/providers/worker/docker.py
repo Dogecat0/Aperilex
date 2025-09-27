@@ -4,11 +4,11 @@ Docker worker provider implementation for local development.
 
 import asyncio
 import json
-from datetime import datetime
-from typing import Any
+from datetime import UTC, datetime
+from typing import Any, cast
 
-import aiodocker  # type: ignore[import-not-found]
-from aiodocker.exceptions import DockerError  # type: ignore[import-not-found]
+import aiodocker
+from aiodocker.exceptions import DockerError
 
 from src.application.interfaces.worker import (
     IWorkerProvider,
@@ -34,6 +34,7 @@ class DockerWorkerProvider(IWorkerProvider):
         self.docker_client: aiodocker.Docker | None = None
         self.active_containers: dict[TaskId, str] = {}  # task_id -> container_id
         self.container_logs: dict[TaskId, list[WorkerLogEntry]] = {}
+        self.task_statuses: dict[TaskId, WorkerTaskStatus] = {}
         self._start_time = datetime.utcnow()
         self._error_count = 0
         self._last_activity = datetime.utcnow()
@@ -113,6 +114,67 @@ class DockerWorkerProvider(IWorkerProvider):
 
         return config
 
+    @staticmethod
+    def _parse_docker_timestamp(value: str | None) -> datetime | None:
+        """Convert Docker ISO8601 timestamps to naive UTC datetimes."""
+        if not value or value == "0001-01-01T00:00:00Z":
+            return None
+
+        normalized = value
+        if normalized.endswith("Z"):
+            normalized = f"{normalized[:-1]}+00:00"
+
+        try:
+            parsed = datetime.fromisoformat(normalized)
+        except ValueError:
+            return None
+
+        if parsed.tzinfo is not None:
+            return parsed.astimezone(UTC).replace(tzinfo=None)
+        return parsed
+
+    def _update_task_status(
+        self,
+        *,
+        task_id: TaskId,
+        status: TaskStatus,
+        result: WorkerResultData | dict[str, object] | None = None,
+        error: str | None = None,
+        started_at: datetime | None = None,
+        completed_at: datetime | None = None,
+        message: str | None = None,
+        progress: float | None = None,
+        analysis_stage: str | None = None,
+    ) -> WorkerTaskStatus:
+        """Persist an updated task status snapshot for later polling."""
+
+        existing = self.task_statuses.get(task_id)
+        effective_started_at = started_at or (existing.started_at if existing else None)
+
+        if isinstance(result, WorkerResultData):
+            result_payload: dict[str, object] | None = cast(
+                dict[str, object], result.model_dump()
+            )
+        elif isinstance(result, dict):
+            result_payload = cast(dict[str, object], result)
+        else:
+            result_payload = None
+
+        status_snapshot = WorkerTaskStatus(
+            task_id=task_id,
+            status=status,
+            result=result_payload,
+            error=error,
+            started_at=effective_started_at,
+            completed_at=completed_at,
+            progress_percent=progress,
+            message=message,
+            analysis_stage=analysis_stage,
+        )
+
+        self.task_statuses[task_id] = status_snapshot
+        return status_snapshot
+
     async def execute_task(
         self,
         task_message: TaskMessage,
@@ -123,6 +185,12 @@ class DockerWorkerProvider(IWorkerProvider):
         await self._ensure_network()
 
         start_time = datetime.utcnow()
+        self._update_task_status(
+            task_id=context.task_id,
+            status=TaskStatus.IN_PROGRESS,
+            started_at=start_time,
+            message="Container starting",
+        )
         container = None
 
         try:
@@ -205,7 +273,22 @@ class DockerWorkerProvider(IWorkerProvider):
                 )
             ]
 
-            self._last_activity = datetime.utcnow()
+            completed_at = datetime.utcnow()
+
+            self._update_task_status(
+                task_id=context.task_id,
+                status=status,
+                result=result_data,
+                error=error_message,
+                completed_at=completed_at,
+                message=(
+                    "Task completed successfully"
+                    if status == TaskStatus.COMPLETED
+                    else error_message
+                ),
+            )
+
+            self._last_activity = completed_at
 
             return WorkerResult(
                 task_id=context.task_id,
@@ -220,14 +303,22 @@ class DockerWorkerProvider(IWorkerProvider):
 
         except Exception as e:
             self._error_count += 1
-            execution_time_ms = int(
-                (datetime.utcnow() - start_time).total_seconds() * 1000
+            completed_at = datetime.utcnow()
+            execution_time_ms = int((completed_at - start_time).total_seconds() * 1000)
+
+            error_message = str(e)
+            self._update_task_status(
+                task_id=context.task_id,
+                status=TaskStatus.FAILED,
+                error=error_message,
+                completed_at=completed_at,
+                message=error_message,
             )
 
             return WorkerResult(
                 task_id=context.task_id,
                 status=TaskStatus.FAILED,
-                error_message=str(e),
+                error_message=error_message,
                 error_type=type(e).__name__,
                 execution_time_ms=execution_time_ms,
                 retry_count=context.retry_attempt,
@@ -455,10 +546,74 @@ class DockerWorkerProvider(IWorkerProvider):
             # Remove from active containers
             del self.active_containers[task_id]
 
+            self._update_task_status(
+                task_id=task_id,
+                status=TaskStatus.CANCELLED,
+                completed_at=datetime.utcnow(),
+                message="Task cancelled by request",
+            )
+
             return True
         except DockerError:
             return False
 
     async def get_task_status(self, task_id: TaskId) -> WorkerTaskStatus | None:
-        """Docker provider delegates task status management to orchestrator."""
-        return None
+        """Return the latest known task status, refreshing from Docker if possible."""
+
+        status_snapshot = self.task_statuses.get(task_id)
+
+        if task_id in self.active_containers:
+            try:
+                client = await self._get_client()
+                container_id = self.active_containers[task_id]
+                container = await client.containers.get(container_id)
+                details = await container.show()
+                state = details.get("State", {}) if isinstance(details, dict) else {}
+
+                docker_status = str(state.get("Status", "")).lower()
+                exit_code = state.get("ExitCode")
+                started_at = self._parse_docker_timestamp(state.get("StartedAt")) or (
+                    status_snapshot.started_at if status_snapshot else None
+                )
+                finished_at = self._parse_docker_timestamp(state.get("FinishedAt"))
+
+                if docker_status == "exited":
+                    resolved_status = (
+                        TaskStatus.COMPLETED
+                        if exit_code in (0, "0", None)
+                        else TaskStatus.FAILED
+                    )
+                elif docker_status in {"running", "created", "paused", "removing"}:
+                    resolved_status = TaskStatus.IN_PROGRESS
+                elif docker_status == "restarting":
+                    resolved_status = TaskStatus.RETRY
+                else:
+                    resolved_status = (
+                        status_snapshot.status
+                        if status_snapshot is not None
+                        else TaskStatus.IN_PROGRESS
+                    )
+
+                refreshed_status = self._update_task_status(
+                    task_id=task_id,
+                    status=resolved_status,
+                    started_at=started_at,
+                    completed_at=finished_at
+                    if resolved_status != TaskStatus.IN_PROGRESS
+                    else None,
+                    message=state.get("Error") or state.get("Status"),
+                )
+
+                if (
+                    resolved_status != TaskStatus.IN_PROGRESS
+                    and task_id in self.active_containers
+                ):
+                    # Container finished while we were polling; stop tracking it as active.
+                    del self.active_containers[task_id]
+
+                return refreshed_status
+            except DockerError:
+                # Fall back to the snapshot we already have.
+                pass
+
+        return status_snapshot
