@@ -1,6 +1,6 @@
 export type FilingTypeFilter = '10-Q' | '10-K'
 export type DateRangeFilter = '90d' | '180d' | '365d' | 'all'
-export type SegmentFilter = 'overview' | 'risk' | 'financial'
+export type SegmentFilter = 'all' | 'attention' | 'ready_for_review' | 'flagged'
 
 export interface DashboardFiltersState {
   filingType: FilingTypeFilter
@@ -27,9 +27,10 @@ const dateRangeOptions: { label: string; value: DateRangeFilter }[] = [
 ]
 
 const segmentOptions: { label: string; value: SegmentFilter }[] = [
-  { label: 'Overview', value: 'overview' },
-  { label: 'Risk Signals', value: 'risk' },
-  { label: 'Financial Pulse', value: 'financial' },
+  { label: 'All Analyses', value: 'all' },
+  { label: 'Needs Attention', value: 'attention' },
+  { label: 'Ready for Review', value: 'ready_for_review' },
+  { label: 'Flagged Follow-up', value: 'flagged' },
 ]
 
 export function DashboardFilters({ state, onChange, disabled }: DashboardFiltersProps) {

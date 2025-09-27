@@ -14,18 +14,12 @@ import type { AnalysisResponse, ListAnalysesParams, SectionAnalysis } from '@/li
 const DEFAULT_FILTERS: DashboardFiltersState = {
   filingType: '10-Q',
   dateRange: '180d',
-  segment: 'overview',
+  segment: 'all',
 }
 
-const filingTypeToTemplate: Record<DashboardFiltersState['filingType'], string> = {
-  '10-Q': 'financial_focused',
-  '10-K': 'comprehensive',
-}
-
-const segmentToAnalysisType: Record<SegmentFilter, ListAnalysesParams['analysis_type']> = {
-  overview: 'COMPREHENSIVE',
-  risk: 'RISK',
-  financial: 'FINANCIAL',
+const filingTypeToSearch: Record<DashboardFiltersState['filingType'], string> = {
+  '10-Q': '10-Q',
+  '10-K': '10-K',
 }
 
 const DATE_RANGE_IN_DAYS: Record<Exclude<DashboardFiltersState['dateRange'], 'all'>, number> = {
@@ -45,8 +39,8 @@ function deriveDateFilters(range: DashboardFiltersState['dateRange']) {
   from.setDate(now.getDate() - days)
 
   return {
-    created_from: from.toISOString(),
-    created_to: now.toISOString(),
+    created_after: from.toISOString(),
+    created_before: now.toISOString(),
   }
 }
 
@@ -124,19 +118,32 @@ function buildSummaryCards(analyses: AnalysisResponse[], latestDetail?: Analysis
     ]
   }
 
-  const latest = latestDetail ?? analyses[0]
-  const structured = latest.full_results?.structured_data
-  const metadata = (latest.full_results?.metadata ?? {}) as Record<string, unknown>
-  const companyName =
-    (structured?.company_name ?? metadata.company_name ?? metadata.company ?? metadata.ticker ?? 'Unknown company') as string
-  const filingType =
-    (structured?.filing_type ?? metadata.filing_type ?? metadata.analysis_template ?? 'Filing overview') as string
-  const filingDate = (metadata.filing_date as string | undefined) ?? latest.created_at
-  const confidence = typeof latest.confidence_score === 'number' ? Math.round(latest.confidence_score * 100) : null
-  const avgSentiment = computeAverageSentiment(structured?.section_analyses)
-  const opportunities = structured?.opportunities?.length ?? 0
-  const keyInsights = structured?.key_insights?.length ?? 0
-  const processingSeconds = latest.processing_time_seconds
+  const listSource = analyses[0]
+  const detailSource =
+    latestDetail && latestDetail.analysis_id === listSource.analysis_id ? latestDetail : undefined
+
+  const summary = detailSource?.summary ?? listSource.summary
+  const fullResults = detailSource?.full_results ?? listSource.full_results
+  const structured = fullResults?.structured_data
+
+  const companyName = summary.company.name ?? 'Unknown company'
+  const filingType = summary.filing.type ?? 'Filing overview'
+  const filingDate = summary.filing.date ?? summary.processing?.completed_at ?? listSource.created_at
+  const confidence =
+    typeof summary.confidence?.score === 'number' ? Math.round(summary.confidence.score * 100) : null
+  const avgSentiment =
+    typeof summary.sentiment?.average === 'number'
+      ? summary.sentiment.average
+      : computeAverageSentiment(structured?.section_analyses)
+  const opportunityCount =
+    summary.insight_counts?.opportunities ?? structured?.opportunities?.length ?? 0
+  const insightCount = summary.insight_counts?.key_insights ?? structured?.key_insights?.length ?? 0
+  const processingSeconds =
+    typeof summary.processing?.duration_seconds === 'number'
+      ? summary.processing.duration_seconds
+      : typeof fullResults?.processing_time_ms === 'number'
+        ? fullResults.processing_time_ms / 1000
+        : null
 
   return [
     {
@@ -159,10 +166,10 @@ function buildSummaryCards(analyses: AnalysisResponse[], latestDetail?: Analysis
     {
       id: 'learning-momentum',
       title: 'Learning Momentum',
-      headline: keyInsights > 0 ? `${keyInsights} insights ready` : 'Insights in progress',
+      headline: insightCount > 0 ? `${insightCount} insights ready` : 'Insights in progress',
       supportingText:
-        opportunities > 0
-          ? `${opportunities} practice prompts queued from latest filing.`
+        opportunityCount > 0
+          ? `${opportunityCount} practice prompts queued from latest filing.`
           : 'Complete onboarding to tailor micro-lessons from your filings.',
     },
   ]
@@ -176,54 +183,112 @@ function buildInsights(
     return []
   }
 
-  const latest = latestDetail ?? analyses[0]
-  const structured = latest.full_results?.structured_data
+  const listSource = analyses[0]
+  const detailSource =
+    latestDetail && latestDetail.analysis_id === listSource.analysis_id ? latestDetail : undefined
+
+  const summary = detailSource?.summary ?? listSource.summary
+  const fullResults = detailSource?.full_results ?? listSource.full_results
+  const structured = fullResults?.structured_data
   const sections = structured?.section_analyses ?? []
 
-  const sectionInsights: InsightListItem[] = sections.flatMap((section) => {
-    const insights: InsightListItem[] = []
+  if (sections.length > 0) {
+    const sectionInsights: InsightListItem[] = sections.flatMap((section) => {
+      const insights: InsightListItem[] = []
 
-    if (section.section_summary) {
-      insights.push({
-        id: `${section.section_name}-summary`,
-        title: section.section_summary,
-        description: section.consolidated_insights?.[0],
-        tone: toSentimentTone(section.overall_sentiment),
-        contextLabel: section.section_name,
-      })
-    }
+      if (section.section_summary) {
+        insights.push({
+          id: `${section.section_name}-summary`,
+          title: section.section_summary,
+          description: section.consolidated_insights?.[0],
+          tone: toSentimentTone(section.overall_sentiment),
+          contextLabel: section.section_name,
+        })
+      }
 
-    section.critical_findings?.forEach((finding, index) => {
-      insights.push({
-        id: `${section.section_name}-critical-${index}`,
-        title: finding,
-        tone: 'negative',
-        contextLabel: `${section.section_name} • Critical`,
+      section.critical_findings?.forEach((finding, index) => {
+        insights.push({
+          id: `${section.section_name}-critical-${index}`,
+          title: finding,
+          tone: 'negative',
+          contextLabel: `${section.section_name} • Critical`,
+        })
       })
+
+      return insights
     })
 
-    return insights
-  })
-
-  const keyInsightItems = (structured?.key_insights ?? []).map((insight, index): InsightListItem => ({
-    id: `key-insight-${index}`,
-    title: insight,
-    tone: 'positive',
-    contextLabel: 'Key Insight',
-  }))
-
-  const combined = [...sectionInsights, ...keyInsightItems]
-
-  if (combined.length === 0 && structured?.opportunities?.length) {
-    return structured.opportunities.slice(0, 4).map((opportunity, index) => ({
-      id: `opportunity-${index}`,
-      title: opportunity,
-      tone: 'neutral',
-      contextLabel: 'Opportunity',
+    const keyInsightItems = (structured?.key_insights ?? []).map((insight, index): InsightListItem => ({
+      id: `key-insight-${index}`,
+      title: insight,
+      tone: 'positive',
+      contextLabel: 'Key Insight',
     }))
+
+    const combined = [...sectionInsights, ...keyInsightItems]
+
+    if (combined.length === 0 && structured?.opportunities?.length) {
+      return structured.opportunities.slice(0, 4).map((opportunity, index) => ({
+        id: `opportunity-${index}`,
+        title: opportunity,
+        tone: 'neutral',
+        contextLabel: 'Opportunity',
+      }))
+    }
+
+    if (combined.length > 0) {
+      return combined.slice(0, 6)
+    }
   }
 
-  return combined.slice(0, 6)
+  const sentimentSections = summary.sentiment?.sections ?? []
+  if (sentimentSections.length > 0) {
+    return sentimentSections.slice(0, 6).map((section, index): InsightListItem => {
+      const safeId = section.section.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')
+      const scoreLabel = typeof section.score === 'number' ? `${Math.round(section.score * 100)}%` : 'N/A'
+      return {
+        id: `sentiment-${safeId || index}`,
+        title: section.section,
+        description: `Sentiment score ${scoreLabel}`,
+        tone: toSentimentTone(section.score),
+        contextLabel: 'Section sentiment',
+      }
+    })
+  }
+
+  const counts = summary.insight_counts ?? {}
+  const derived: InsightListItem[] = []
+  if (typeof counts.key_insights === 'number') {
+    derived.push({
+      id: 'summary-key-insights',
+      title: `${counts.key_insights} key insights surfaced`,
+      description: 'Open the filing to review the latest highlights.',
+      tone: 'positive',
+      contextLabel: 'Insight rollup',
+    })
+  }
+
+  if (typeof counts.critical_findings === 'number') {
+    derived.push({
+      id: 'summary-critical-findings',
+      title: `${counts.critical_findings} critical findings to review`,
+      description: 'Flagged risks are ready for follow-up in the detail view.',
+      tone: 'negative',
+      contextLabel: 'Risk alerts',
+    })
+  }
+
+  if (typeof counts.opportunities === 'number') {
+    derived.push({
+      id: 'summary-opportunities',
+      title: `${counts.opportunities} opportunities identified`,
+      description: 'Convert these into lessons once you open the filing.',
+      tone: 'neutral',
+      contextLabel: 'Practice queue',
+    })
+  }
+
+  return derived.slice(0, 6)
 }
 
 function buildLearningPrompts(
@@ -241,8 +306,13 @@ function buildLearningPrompts(
     ]
   }
 
-  const latest = latestDetail ?? analyses[0]
-  const structured = latest.full_results?.structured_data
+  const listSource = analyses[0]
+  const detailSource =
+    latestDetail && latestDetail.analysis_id === listSource.analysis_id ? latestDetail : undefined
+
+  const summary = detailSource?.summary ?? listSource.summary
+  const fullResults = detailSource?.full_results ?? listSource.full_results
+  const structured = fullResults?.structured_data
 
   const prompts = (structured?.opportunities ?? []).map((opportunity, index) => ({
     id: `opportunity-${index}`,
@@ -265,6 +335,29 @@ function buildLearningPrompts(
     }))
   }
 
+  const counts = summary.insight_counts ?? {}
+  if ((counts.opportunities ?? 0) > 0) {
+    return [
+      {
+        id: 'summary-opportunity-nudge',
+        title: `${counts.opportunities} opportunities waiting`,
+        description: 'Open the latest filing to convert opportunities into guided lessons.',
+        actionLabel: 'Review opportunities',
+      },
+    ]
+  }
+
+  if ((counts.key_insights ?? 0) > 0) {
+    return [
+      {
+        id: 'summary-insight-nudge',
+        title: `${counts.key_insights} insights surfaced`,
+        description: 'Drill into the filing detail to explore fresh takeaways.',
+        actionLabel: 'View insights',
+      },
+    ]
+  }
+
   return [
     {
       id: 'explore-sections',
@@ -281,13 +374,21 @@ export function DashboardPage() {
 
   const queryParams = useMemo<ListAnalysesParams>(() => {
     const dateFilters = deriveDateFilters(filters.dateRange)
-
-    return {
-      analysis_type: segmentToAnalysisType[filters.segment],
-      analysis_template: filingTypeToTemplate[filters.filingType],
+    const params: ListAnalysesParams = {
+      segment: filters.segment,
+      status: 'COMPLETED',
+      sort: 'created_at',
+      direction: 'desc',
       page_size: 8,
       ...dateFilters,
     }
+
+    const searchTerm = filingTypeToSearch[filters.filingType]
+    if (searchTerm) {
+      params.search = searchTerm
+    }
+
+    return params
   }, [filters])
 
   const analysesQuery = useAnalyses(queryParams)

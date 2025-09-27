@@ -253,7 +253,7 @@ function combineConfidence(analysis?: AnalysisResponse | null, structured?: Stru
     return structured.confidence_score
   }
 
-  return analysis?.confidence_score ?? null
+  return analysis?.summary.confidence?.score ?? null
 }
 
 export function FilingDetailPage() {
@@ -266,7 +266,8 @@ export function FilingDetailPage() {
   const analysis = detailQuery.data
   const structured = analysis?.full_results?.structured_data
   const sections = structured?.section_analyses ?? []
-  const analysisTimestamp = structured?.analysis_timestamp ?? analysis?.created_at ?? null
+  const analysisTimestamp =
+    structured?.analysis_timestamp ?? analysis?.summary.processing?.completed_at ?? analysis?.created_at ?? null
 
   const sentiment = useSentimentBreakdown(sections)
   const metrics = useMemo(() => buildMetricData(sections), [sections])
@@ -319,29 +320,39 @@ export function FilingDetailPage() {
   }
 
   const metadata = (analysis.full_results?.metadata ?? {}) as Record<string, unknown>
-  const companyName =
-    (structured?.company_name ?? metadata.company_name ?? metadata.company ?? metadata.ticker ?? 'Unknown company') as string
-  const filingType =
-    (structured?.filing_type ?? metadata.filing_type ?? analysis.analysis_type ?? 'Filing overview') as string
-  const filingDate = (metadata.filing_date as string | undefined) ?? structured?.analysis_timestamp
-  const headlineDate = formatDate(filingDate ?? analysis.created_at)
+  const summarySnapshot = analysis.summary
+  const fallbackCompany =
+    (structured?.company_name ?? metadata.company_name ?? metadata.company ?? metadata.ticker) as
+      | string
+      | undefined
+  const companyName = summarySnapshot.company.name ?? fallbackCompany ?? 'Unknown company'
+  const fallbackFilingType =
+    (structured?.filing_type ?? metadata.filing_type ?? analysis.analysis_type) as string | undefined
+  const filingType = summarySnapshot.filing.type ?? fallbackFilingType ?? 'Filing overview'
+  const filingDate =
+    summarySnapshot.filing.date ??
+    summarySnapshot.processing?.completed_at ??
+    (metadata.filing_date as string | undefined) ??
+    structured?.analysis_timestamp ??
+    analysis.created_at
+  const headlineDate = formatDate(filingDate)
 
   const confidenceValue = combineConfidence(analysis, structured)
   const confidence = formatConfidence(confidenceValue)
   const processingTime = formatProcessingTime(
-    analysis.full_results?.processing_time_ms ??
-      (typeof analysis.processing_time_seconds === 'number'
-        ? analysis.processing_time_seconds * 1000
-        : undefined)
+    typeof summarySnapshot.processing?.duration_seconds === 'number'
+      ? summarySnapshot.processing.duration_seconds * 1000
+      : analysis.full_results?.processing_time_ms
   )
-  const sectionsAnalyzed = structured?.total_sections_analyzed ?? analysis.sections_analyzed ?? sections.length
+  const sectionsAnalyzed =
+    summarySnapshot.insight_counts?.sections_analyzed ?? structured?.total_sections_analyzed ?? sections.length
 
-  const summary =
+  const filingSummary =
     structured?.filing_summary ??
-    analysis.filing_summary ??
+    analysis.full_results?.summary ??
     'Summary will populate once the analysis completes narrative synthesis.'
-  const keyInsights = structured?.key_insights ?? analysis.key_insights ?? []
-  const opportunities = structured?.opportunities ?? analysis.opportunities ?? []
+  const keyInsights = structured?.key_insights ?? []
+  const opportunities = structured?.opportunities ?? []
   const rawNarrative = analysis.full_results?.content ?? analysis.full_results?.summary ?? null
 
   const tabs: { key: TabKey; label: string }[] = [
@@ -446,7 +457,7 @@ export function FilingDetailPage() {
                   <h2 className="text-base font-semibold text-[var(--colors-foreground)]">
                     Filing summary
                   </h2>
-                  <p className="text-sm leading-relaxed text-[var(--colors-foregroundMuted)]">{summary}</p>
+          <p className="text-sm leading-relaxed text-[var(--colors-foregroundMuted)]">{filingSummary}</p>
                 </article>
 
                 <div className="grid gap-4 lg:grid-cols-2">

@@ -10,13 +10,11 @@ interface SearchBarProps {
 }
 
 function formatSearchResult(analysis: AnalysisResponse) {
-  const structured = analysis.full_results?.structured_data
-  const metadata = (analysis.full_results?.metadata ?? {}) as Record<string, unknown>
-  const companyName =
-    (structured?.company_name ?? metadata.company_name ?? metadata.company ?? 'Unknown company') as string
-  const filingType =
-    (structured?.filing_type ?? metadata.filing_type ?? analysis.analysis_type ?? 'Filing') as string
-  const createdAt = new Date(analysis.created_at)
+  const summary = analysis.summary
+  const companyName = summary.company.name ?? 'Unknown company'
+  const filingType = summary.filing.type ?? analysis.analysis_type ?? 'Filing'
+  const rawDate = summary.filing.date ?? summary.processing?.completed_at ?? analysis.created_at
+  const createdAt = new Date(rawDate ?? analysis.created_at)
   const formattedDate = Number.isNaN(createdAt.getTime())
     ? 'Date pending'
     : new Intl.DateTimeFormat('en-US', {

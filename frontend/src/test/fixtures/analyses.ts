@@ -1,103 +1,57 @@
 import type { AnalysisResponse, PaginatedAnalysesResponse } from '@/lib/types/analysis'
 
+const listSummary: AnalysisResponse['summary'] = {
+  company: {
+    name: 'Apple Inc.',
+    cik: '0000320193',
+    ticker: 'AAPL',
+  },
+  filing: {
+    type: '10-Q',
+    date: '2025-06-10',
+    analysis_template: 'financial_focused',
+  },
+  confidence: {
+    score: 0.87,
+    bucket: 'high',
+  },
+  sentiment: {
+    average: 0.06,
+    sections: [
+      { section: 'Management Discussion & Analysis', score: 0.32 },
+      { section: 'Risk Factors', score: -0.18 },
+      { section: 'Financial Statements', score: 0.05 },
+    ],
+  },
+  insight_counts: {
+    key_insights: 2,
+    opportunities: 2,
+    critical_findings: 2,
+    sections_analyzed: 3,
+  },
+  processing: {
+    duration_seconds: 42,
+    completed_at: '2025-06-12T13:45:42.000Z',
+  },
+}
+
 export const mockPaginatedAnalysesResponse: PaginatedAnalysesResponse = {
+  schema_version: 2,
   items: [
     {
+      schema_version: 2,
       analysis_id: '11111111-1111-1111-1111-111111111111',
       filing_id: '22222222-2222-2222-2222-222222222222',
       analysis_type: 'COMPREHENSIVE',
+      status: 'COMPLETED',
       created_at: '2025-06-12T13:45:00.000Z',
       created_by: 'analyst@aperilex.ai',
-      confidence_score: 0.87,
-      llm_provider: 'openai',
-      llm_model: 'gpt-4o-mini',
-      processing_time_seconds: 42,
-      filing_summary: 'Services expansion continues to accelerate revenue growth while margins hold.',
-      key_insights: ['Revenue up 12% YoY', 'Operating margin expanded 90 bps'],
-      opportunities: ['Practice reading MD&A sentiment shifts'],
-      sections_analyzed: 3,
-      full_results: {
-        schema_version: 1,
-        analysis_id: '11111111-1111-1111-1111-111111111111',
-        filing_id: '22222222-2222-2222-2222-222222222222',
-        summary: 'Apple Inc. delivered strong services growth with expanding margins.',
-        structured_data: {
-          filing_summary: 'Apple Inc. delivered strong services growth with expanding margins.',
-          key_insights: [
-            'Services revenue accelerated while hardware stabilized.',
-            'Free cash flow conversion remains resilient despite capital investments.',
-          ],
-          opportunities: [
-            'Turn MD&A sentiment into a quick self quiz.',
-            'Summarize new supply chain disclosures for your saved companies.',
-          ],
-          confidence_score: 0.87,
-          section_analyses: [
-            {
-              section_name: 'Management Discussion & Analysis',
-              section_summary: 'Margin expansion driven by disciplined expense control and services mix.',
-              overall_sentiment: 0.32,
-              consolidated_insights: [
-                'Services mix shift drove higher recurring margin profile.',
-                'Hardware remained resilient with stabilizing demand signals.',
-              ],
-              critical_findings: ['Supply chain remains a watchpoint heading into holiday season.'],
-              processing_time_ms: 10450,
-              sub_section_count: 3,
-              sub_sections: [],
-            },
-            {
-              section_name: 'Risk Factors',
-              section_summary: 'Supplier concentration and regulatory scrutiny remain focal risks.',
-              overall_sentiment: -0.18,
-              consolidated_insights: ['Management expanded commentary on supplier diversification.'],
-              critical_findings: ['Regulatory risk highlighted for App Store changes.'],
-              processing_time_ms: 8450,
-              sub_section_count: 2,
-              sub_sections: [],
-            },
-            {
-              section_name: 'Financial Statements',
-              section_summary: 'Cash flow to debt ratio dipped modestly on higher capex.',
-              overall_sentiment: 0.05,
-              consolidated_insights: ['Inventory build tied to upcoming product cycle.'],
-              processing_time_ms: 9250,
-              sub_section_count: 2,
-              sub_sections: [],
-            },
-          ],
-          total_sections_analyzed: 3,
-          total_sub_sections_analyzed: 7,
-          total_processing_time_ms: 28150,
-          filing_type: '10-Q',
-          company_name: 'Apple Inc.',
-          analysis_timestamp: '2025-06-12T13:45:00.000Z',
-          metadata: {
-            ticker: 'AAPL',
-            segment: 'Consumer Electronics',
-          },
-        },
-        status: 'COMPLETED',
-        llm_provider: 'openai',
-        model_name: 'gpt-4o-mini',
-        processing_time_ms: 42000,
-        confidence_score: 0.87,
-        token_usage: {
-          prompt_tokens: 12842,
-          completion_tokens: 2458,
-          total_tokens: 15200,
-        },
-        quality_metrics: {},
-        metadata: {
-          company_name: 'Apple Inc.',
-          filing_date: '2025-06-10',
-          filing_type: '10-Q',
-          analysis_template: 'financial_focused',
-        },
-      },
+      summary: listSummary,
+      full_results: null,
     },
   ],
   pagination: {
+    schema_version: 1,
     page: 1,
     page_size: 8,
     total_items: 1,
@@ -107,25 +61,52 @@ export const mockPaginatedAnalysesResponse: PaginatedAnalysesResponse = {
     next_page: null,
     previous_page: null,
   },
-  query_id: '33333333-3333-3333-3333-333333333333',
-  filters_applied: 'analysis_type=COMPREHENSIVE',
+}
+
+const detailSummary: AnalysisResponse['summary'] = {
+  company: {
+    name: 'Apple Inc.',
+    cik: '0000320193',
+    ticker: 'AAPL',
+  },
+  filing: {
+    type: '10-Q',
+    date: '2025-06-10',
+    analysis_template: 'financial_focused',
+  },
+  confidence: {
+    score: 0.91,
+    bucket: 'high',
+  },
+  sentiment: {
+    average: 0.08,
+    sections: [
+      { section: 'Management Discussion & Analysis', score: 0.32 },
+      { section: 'Risk Factors', score: -0.12 },
+      { section: 'Financial Statements', score: 0.04 },
+    ],
+  },
+  insight_counts: {
+    key_insights: 2,
+    opportunities: 2,
+    critical_findings: 2,
+    sections_analyzed: 3,
+  },
+  processing: {
+    duration_seconds: 48,
+    completed_at: '2025-06-12T13:45:48.000Z',
+  },
 }
 
 export const mockAnalysisDetail: AnalysisResponse = {
+  schema_version: 2,
   analysis_id: '44444444-4444-4444-4444-444444444444',
   filing_id: '55555555-5555-5555-5555-555555555555',
   analysis_type: 'COMPREHENSIVE',
+  status: 'COMPLETED',
   created_at: '2025-06-12T13:45:00.000Z',
   created_by: 'analyst@aperilex.ai',
-  confidence_score: 0.91,
-  llm_provider: 'openai',
-  llm_model: 'gpt-4o-mini',
-  processing_time_seconds: 48,
-  filing_summary:
-    'Services growth and disciplined operating expenses drove positive sentiment across disclosures.',
-  key_insights: ['Revenue rose 5.4% YoY as services mix expanded.', 'Operating expenses stayed flat.'],
-  opportunities: ['Turn the MD&A narrative into a reflection exercise.'],
-  sections_analyzed: 3,
+  summary: detailSummary,
   full_results: {
     schema_version: 1,
     analysis_id: '44444444-4444-4444-4444-444444444444',
