@@ -91,9 +91,9 @@ class AnalysisRecord(BaseModel):
     status: AnalysisStatus = Field(description="Current analysis status")
     analysis_type: AnalysisType = Field(description="Type of analysis performed")
 
-    # Results (stored in storage, this is reference/cache)
-    result: dict[str, Any] | None = Field(
-        default=None, description="Analysis results (reference to storage)"
+    # Summary payload persisted in Postgres
+    summary: dict[str, Any] | None = Field(
+        default=None, description="Compact summary persisted alongside metadata"
     )
     storage_key: str | None = Field(
         default=None, description="Storage location for full results"

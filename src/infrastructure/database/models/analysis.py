@@ -2,7 +2,7 @@ from datetime import datetime
 from typing import TYPE_CHECKING, Any
 from uuid import UUID, uuid4
 
-from sqlalchemy import JSON, DateTime, Float, ForeignKey, String, func
+from sqlalchemy import JSON, DateTime, ForeignKey, String, func
 from sqlalchemy.dialects.postgresql import UUID as PostgresUUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -42,29 +42,12 @@ class Analysis(Base):
         nullable=False,
         index=True,
     )
-    result: Mapped[dict[str, Any] | None] = mapped_column(
-        JSON,
-        nullable=True,
-    )
     summary: Mapped[dict[str, Any] | None] = mapped_column(
         JSON,
         nullable=True,
     )
     created_by: Mapped[str | None] = mapped_column(
         String(255),
-        nullable=True,
-        index=True,
-    )
-    llm_provider: Mapped[str | None] = mapped_column(
-        String(50),
-        nullable=True,
-    )
-    llm_model: Mapped[str | None] = mapped_column(
-        String(100),
-        nullable=True,
-    )
-    confidence_score: Mapped[float | None] = mapped_column(
-        Float,
         nullable=True,
         index=True,
     )

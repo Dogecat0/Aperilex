@@ -160,29 +160,23 @@ class AnalysisRepository(IAnalysisRepository):
             else AnalysisStatus.COMPLETED
         )
 
-        # Align JSON result payload with latest schema expectations
-        raw_result = getattr(model, "result", None)
-        result: dict[str, Any] = raw_result if isinstance(raw_result, dict) else {}
+        summary_raw = getattr(model, "summary", None)
+        summary: dict[str, Any] | None = (
+            summary_raw if isinstance(summary_raw, dict) else None
+        )
 
         meta_data_raw = getattr(model, "meta_data", None)
-        meta_data = meta_data_raw if isinstance(meta_data_raw, dict) else None
+        metadata: dict[str, Any] = (
+            meta_data_raw if isinstance(meta_data_raw, dict) else {}
+        )
 
-        # Preserve legacy metadata-based LLM info if result payload missing it
-        if not result and meta_data:
-            legacy_result = meta_data.get("result")
-            if isinstance(legacy_result, dict):
-                result = legacy_result
-
-        if not result:
-            if hasattr(model, "llm_provider") and model.llm_provider:
-                result["llm_provider"] = model.llm_provider
-            if hasattr(model, "llm_model") and model.llm_model:
-                result["llm_model"] = model.llm_model
-            if (
-                hasattr(model, "confidence_score")
-                and model.confidence_score is not None
-            ):
-                result["confidence_score"] = model.confidence_score
+        completed_at: datetime | None = None
+        completed_raw = metadata.get("analysis_completed_at")
+        if isinstance(completed_raw, str):
+            try:
+                completed_at = datetime.fromisoformat(completed_raw)
+            except ValueError:  # pragma: no cover - defensive parsing
+                completed_at = None
 
         user_id_value = getattr(model, "user_id", None)
         created_by_value = getattr(model, "created_by", None)
@@ -199,11 +193,11 @@ class AnalysisRepository(IAnalysisRepository):
             created_by=created_by_value,
             status=status,
             analysis_type=model.analysis_type,
-            result=result,
-            summary=getattr(model, "summary", None),
-            metadata=meta_data or {},
+            summary=summary,
+            metadata=metadata,
             created_at=model.created_at if hasattr(model, "created_at") else None,
             updated_at=model.updated_at if hasattr(model, "updated_at") else None,
+            completed_at=completed_at,
         )
 
     def _data_to_model(self, data: AnalysisData) -> AnalysisModel:
@@ -215,23 +209,14 @@ class AnalysisRepository(IAnalysisRepository):
         Returns:
             Analysis database model
         """
-        # Extract LLM info from result if present
-        llm_provider = data.result.get("llm_provider") if data.result else None
-        llm_model = data.result.get("llm_model") if data.result else None
-        confidence_score = data.result.get("confidence_score") if data.result else None
-
         return AnalysisModel(
             id=data.id,
             filing_id=data.filing_id,
             user_id=data.user_id,
             status=data.status.value,
             analysis_type=data.analysis_type,
-            result=dict(data.result) if data.result else {},
             summary=dict(data.summary) if data.summary else None,
             created_by=data.created_by or str(data.user_id),
-            llm_provider=llm_provider,
-            llm_model=llm_model,
-            confidence_score=confidence_score,
             meta_data=dict(data.metadata) if data.metadata else {},
         )
 
@@ -373,33 +358,9 @@ class AnalysisRepository(IAnalysisRepository):
         model.analysis_type = analysis.analysis_type
         model.user_id = analysis.user_id
         model.status = analysis.status.value
-        model.result = dict(analysis.result) if analysis.result else {}
-        model.created_by = str(analysis.user_id)
-
-        # Extract LLM info from result if present
-        if analysis.result:
-            llm_provider = analysis.result.get("llm_provider")
-            model.llm_provider = str(llm_provider) if llm_provider is not None else None
-
-            llm_model = analysis.result.get("llm_model")
-            model.llm_model = str(llm_model) if llm_model is not None else None
-
-            confidence_score = analysis.result.get("confidence_score")
-            if confidence_score is not None and isinstance(
-                confidence_score, int | float | str
-            ):
-                try:
-                    model.confidence_score = float(confidence_score)
-                except (ValueError, TypeError):
-                    model.confidence_score = None
-            else:
-                model.confidence_score = None
-        else:
-            model.llm_provider = None
-            model.llm_model = None
-            model.confidence_score = None
-
+        model.summary = dict(analysis.summary) if analysis.summary else None
         model.meta_data = dict(analysis.metadata) if analysis.metadata else {}
+        model.created_by = analysis.created_by or str(analysis.user_id)
 
         await self.session.flush()
 
@@ -478,20 +439,15 @@ class AnalysisRepository(IAnalysisRepository):
         result = await self.session.execute(stmt)
         return result.scalar_one_or_none() is not None
 
-    async def save_result(
+    async def save_summary(
         self,
         analysis_id: AnalysisId,
-        result: dict[str, Any],
+        summary: dict[str, Any],
+        *,
+        metadata_updates: dict[str, str | int | float | bool] | None = None,
     ) -> bool:
-        """Save analysis result.
+        """Persist the compact summary payload for an analysis."""
 
-        Args:
-            analysis_id: Analysis identifier
-            result: Analysis result data
-
-        Returns:
-            True if saved successfully
-        """
         stmt = select(AnalysisModel).where(AnalysisModel.id == analysis_id)
         db_result = await self.session.execute(stmt)
         model = db_result.scalar_one_or_none()
@@ -499,21 +455,20 @@ class AnalysisRepository(IAnalysisRepository):
         if not model:
             return False
 
-        model.result = result
+        model.summary = dict(summary)
 
-        # Also update LLM fields if present in result
-        if "llm_provider" in result:
-            model.llm_provider = result["llm_provider"]
-        if "llm_model" in result:
-            model.llm_model = result["llm_model"]
-        if "confidence_score" in result:
-            model.confidence_score = result["confidence_score"]
+        if metadata_updates:
+            existing_meta = (
+                dict(model.meta_data) if isinstance(model.meta_data, dict) else {}
+            )
+            existing_meta.update(metadata_updates)
+            model.meta_data = existing_meta
 
         await self.session.flush()
 
-        # Invalidate cache
         cache_key = f"analysis:id:{analysis_id}"
         self.cache_manager.invalidate_key(self.cache_region, cache_key)
+        self.cache_manager.invalidate_region(CacheRegionName.QUERY)
 
         return True
 

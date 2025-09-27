@@ -6,6 +6,7 @@ import json
 import logging
 import re
 from datetime import UTC, datetime
+from typing import Any
 from uuid import uuid4
 
 import asyncpg  # type: ignore[import-untyped]
@@ -161,7 +162,10 @@ class AuroraDatabaseProvider(IDatabaseProvider):
                     filing_id UUID NOT NULL,
                     user_id UUID NOT NULL,
                     status VARCHAR(50) NOT NULL,
-                    result JSONB DEFAULT '{}',
+                    analysis_type VARCHAR(50) NOT NULL DEFAULT 'COMPREHENSIVE',
+                    summary JSONB DEFAULT '{}',
+                    meta_data JSONB DEFAULT '{}',
+                    created_by VARCHAR(255),
                     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
                     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
                 ) WITH (
@@ -363,20 +367,33 @@ class AuroraDatabaseProvider(IDatabaseProvider):
             try:
                 pool = await self._ensure_pool()
                 async with pool.acquire() as conn:
+                    summary_payload = self._compose_summary_from_result_data(result)
+                    metadata_updates = self._compose_analysis_metadata(
+                        result,
+                        status,
+                        summary_payload,
+                    )
+
                     await conn.execute(
                         """
-                        INSERT INTO analyses (id, filing_id, user_id, status, result, updated_at)
-                        VALUES ($1, $2, $3, $4, $5, NOW())
+                        INSERT INTO analyses (id, filing_id, user_id, status, analysis_type, summary, meta_data, created_by, updated_at)
+                        VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7::jsonb, $8, NOW())
                         ON CONFLICT (id) DO UPDATE SET
                             status = EXCLUDED.status,
-                            result = EXCLUDED.result,
+                            analysis_type = EXCLUDED.analysis_type,
+                            summary = EXCLUDED.summary,
+                            meta_data = EXCLUDED.meta_data,
+                            created_by = COALESCE(EXCLUDED.created_by, analyses.created_by),
                             updated_at = NOW()
                         """,
                         analysis_id,
                         filing_id,
                         user_id,
                         status.value,
-                        json.dumps(result.model_dump()),
+                        result.analysis_type,
+                        json.dumps(summary_payload),
+                        json.dumps(metadata_updates),
+                        metadata_updates.get("created_by"),
                     )
                     return True
             except asyncpg.exceptions.ConnectionDoesNotExistError as e:
@@ -407,17 +424,7 @@ class AuroraDatabaseProvider(IDatabaseProvider):
                     if not row:
                         raise ValueError(f"Analysis {analysis_id} not found")
 
-                    return AnalysisRecord(
-                        analysis_id=AnalysisId(row["id"]),
-                        filing_id=FilingId(row["filing_id"]),
-                        user_id=UserId(row["user_id"]),
-                        status=AnalysisStatus(row["status"]),
-                        analysis_type=AnalysisType(row.get("analysis_type", "GENERAL")),
-                        result=row.get("result", {}),
-                        metadata=row.get("metadata", {}),
-                        created_at=row["created_at"],
-                        updated_at=row["updated_at"],
-                    )
+                    return self._analysis_row_to_record(row)
             except asyncpg.exceptions.ConnectionDoesNotExistError as e:
                 last_error = e
                 retries += 1
@@ -461,22 +468,7 @@ class AuroraDatabaseProvider(IDatabaseProvider):
                         offset,
                     )
 
-                    return [
-                        AnalysisRecord(
-                            analysis_id=AnalysisId(row["id"]),
-                            filing_id=FilingId(row["filing_id"]),
-                            user_id=UserId(row["user_id"]),
-                            status=AnalysisStatus(row["status"]),
-                            analysis_type=AnalysisType(
-                                row.get("analysis_type", "GENERAL")
-                            ),
-                            result=row.get("result", {}),
-                            metadata=row.get("metadata", {}),
-                            created_at=row["created_at"],
-                            updated_at=row["updated_at"],
-                        )
-                        for row in rows
-                    ]
+                    return [self._analysis_row_to_record(row) for row in rows]
             except asyncpg.exceptions.ConnectionDoesNotExistError as e:
                 last_error = e
                 retries += 1
@@ -488,6 +480,234 @@ class AuroraDatabaseProvider(IDatabaseProvider):
         if last_error:
             raise last_error
         return []
+
+    def _analysis_row_to_record(self, row: asyncpg.Record) -> AnalysisRecord:
+        """Convert an Aurora row into an `AnalysisRecord`."""
+
+        metadata_raw = row.get("meta_data") or {}
+        if isinstance(metadata_raw, str):
+            try:
+                metadata_dict = json.loads(metadata_raw)
+            except json.JSONDecodeError:
+                metadata_dict = {}
+        elif isinstance(metadata_raw, dict):
+            metadata_dict = dict(metadata_raw)
+        else:
+            metadata_dict = {}
+
+        summary_raw = row.get("summary")
+        if isinstance(summary_raw, str):
+            try:
+                summary = json.loads(summary_raw) if summary_raw else None
+            except json.JSONDecodeError:
+                summary = None
+        elif isinstance(summary_raw, dict):
+            summary = summary_raw
+        else:
+            summary = None
+
+        llm_provider_raw = metadata_dict.get("llm_provider")
+        llm_provider = llm_provider_raw if isinstance(llm_provider_raw, str) else None
+
+        llm_model_raw = metadata_dict.get("llm_model")
+        llm_model = llm_model_raw if isinstance(llm_model_raw, str) else None
+
+        storage_key_raw = metadata_dict.get("storage_key")
+        storage_key = storage_key_raw if isinstance(storage_key_raw, str) else None
+
+        confidence_score = self._coerce_float(metadata_dict.get("confidence_score"))
+        token_count = self._coerce_int(metadata_dict.get("token_usage_total"))
+        processing_time_ms = self._coerce_int(
+            metadata_dict.get("analysis_processing_time_ms")
+        )
+        estimated_cost = self._coerce_float(metadata_dict.get("estimated_cost"))
+
+        analysis_type_raw = row.get("analysis_type") or AnalysisType.COMPREHENSIVE.value
+        try:
+            analysis_type = AnalysisType(analysis_type_raw)
+        except ValueError:
+            analysis_type = AnalysisType.COMPREHENSIVE
+
+        return AnalysisRecord(
+            analysis_id=AnalysisId(row["id"]),
+            filing_id=FilingId(row["filing_id"]),
+            user_id=UserId(row["user_id"]),
+            status=AnalysisStatus(row["status"]),
+            analysis_type=analysis_type,
+            summary=summary,
+            storage_key=storage_key,
+            llm_provider=llm_provider,
+            llm_model=llm_model,
+            confidence_score=confidence_score,
+            token_count=token_count,
+            processing_time_ms=processing_time_ms,
+            cost=estimated_cost,
+            created_by=row.get("created_by"),
+            metadata=metadata_dict,
+            created_at=row["created_at"],
+            updated_at=row["updated_at"],
+        )
+
+    @staticmethod
+    def _compose_summary_from_result_data(result: AnalysisResultData) -> dict[str, Any]:
+        metadata = dict(result.metadata)
+        metrics = dict(result.metrics)
+
+        confidence_score = AuroraDatabaseProvider._coerce_float(
+            metrics.get("confidence_score")
+        )
+        sentiment_average = AuroraDatabaseProvider._coerce_float(
+            metrics.get("sentiment_average") or metrics.get("sentiment_score")
+        )
+
+        processing_ms = metrics.get("processing_time_ms")
+        if not isinstance(processing_ms, int | float):
+            processing_ms = metrics.get("duration_ms")
+        duration_seconds = (
+            float(processing_ms) / 1000.0
+            if isinstance(processing_ms, int | float)
+            else None
+        )
+
+        completed_at = metadata.get("analysis_completed_at")
+        if not isinstance(completed_at, str):
+            completed_at = datetime.now(UTC).isoformat()
+
+        insight_count = len(result.insights) if result.insights else None
+        opportunities_count = AuroraDatabaseProvider._coerce_int(
+            metrics.get("opportunities")
+        )
+        critical_findings = AuroraDatabaseProvider._coerce_int(
+            metrics.get("critical_findings")
+        )
+        sections_analyzed = AuroraDatabaseProvider._coerce_int(
+            metrics.get("total_sections")
+        )
+
+        return {
+            "company": {
+                "name": metadata.get("company_name"),
+                "cik": metadata.get("company_cik"),
+                "ticker": metadata.get("ticker"),
+            },
+            "filing": {
+                "type": metadata.get("filing_type"),
+                "date": metadata.get("filing_date"),
+                "analysis_template": metadata.get("analysis_template"),
+            },
+            "confidence": {
+                "score": confidence_score,
+                "bucket": AuroraDatabaseProvider._confidence_bucket(confidence_score),
+            },
+            "sentiment": {
+                "average": sentiment_average,
+                "sections": [],
+            },
+            "insight_counts": {
+                "key_insights": insight_count,
+                "opportunities": opportunities_count,
+                "critical_findings": critical_findings,
+                "sections_analyzed": sections_analyzed,
+            },
+            "processing": {
+                "duration_seconds": duration_seconds,
+                "completed_at": completed_at,
+            },
+            "narrative": result.summary,
+            "insights": list(result.insights),
+        }
+
+    @staticmethod
+    def _compose_analysis_metadata(
+        result: AnalysisResultData,
+        status: AnalysisStatus,
+        summary: dict[str, Any],
+    ) -> dict[str, str | int | float | bool]:
+        metadata = dict(result.metadata)
+
+        completed_at = summary.get("processing", {}).get("completed_at")
+        if not isinstance(completed_at, str):
+            completed_at = datetime.now(UTC).isoformat()
+
+        duration_seconds = summary.get("processing", {}).get("duration_seconds")
+        duration_float = AuroraDatabaseProvider._coerce_float(duration_seconds)
+        processing_ms = int(duration_float * 1000) if duration_float is not None else None
+
+        confidence_score = AuroraDatabaseProvider._coerce_float(
+            summary.get("confidence", {}).get("score")
+        )
+
+        metadata.update(
+            {
+                "analysis_schema_version": result.schema_version,
+                "summary_schema_version": 2,
+                "analysis_status": status.value,
+                "analysis_completed_at": completed_at,
+            }
+        )
+
+        if processing_ms is not None:
+            metadata["analysis_processing_time_ms"] = processing_ms
+        if confidence_score is not None:
+            metadata["confidence_score"] = confidence_score
+
+        cleaned: dict[str, str | int | float | bool] = {}
+        for key, value in metadata.items():
+            coerced = AuroraDatabaseProvider._coerce_metadata_value(value)
+            if coerced is not None:
+                cleaned[key] = coerced
+
+        return cleaned
+
+    @staticmethod
+    def _coerce_metadata_value(
+        value: Any,
+    ) -> str | int | float | bool | None:
+        if value is None:
+            return None
+        if isinstance(value, str | int | float | bool):
+            return value
+        if isinstance(value, datetime):
+            return value.isoformat()
+        return str(value)
+
+    @staticmethod
+    def _confidence_bucket(score: float | None) -> str | None:
+        if score is None:
+            return None
+        if score >= 0.8:
+            return "high"
+        if score >= 0.5:
+            return "medium"
+        return "low"
+
+    @staticmethod
+    def _coerce_float(value: Any) -> float | None:
+        if isinstance(value, bool) or value is None:
+            return None
+        if isinstance(value, int | float):
+            return float(value)
+        if isinstance(value, str):
+            try:
+                return float(value)
+            except ValueError:
+                return None
+        return None
+
+    @staticmethod
+    def _coerce_int(value: Any) -> int | None:
+        if isinstance(value, bool) or value is None:
+            return None
+        if isinstance(value, int):
+            return value
+        if isinstance(value, float):
+            return int(value)
+        if isinstance(value, str):
+            try:
+                return int(float(value))
+            except ValueError:
+                return None
+        return None
 
     async def begin_transaction(
         self,

@@ -85,7 +85,6 @@ class AnalysisData(BaseModel):
     )
     status: AnalysisStatus
     analysis_type: str
-    result: dict[str, Any] = Field(default_factory=dict)
     summary: dict[str, Any] | None = Field(
         default=None,
         description="Compact summary payload persisted in Postgres",
@@ -597,24 +596,26 @@ class IAnalysisRepository(Protocol):
         ...
 
     @abstractmethod
-    async def save_result(
+    async def save_summary(
         self,
         analysis_id: AnalysisId,
-        result: dict[str, Any],
+        summary: dict[str, Any],
+        *,
+        metadata_updates: dict[str, str | int | float | bool] | None = None,
     ) -> bool:
-        """
-        Save analysis result.
+        """Persist the compact summary payload for an analysis.
 
         Args:
             analysis_id: Analysis identifier
-            result: Analysis result data
+            summary: Summary payload to store in Postgres
+            metadata_updates: Optional metadata entries to merge into `meta_data`
 
         Returns:
             True if saved successfully
 
         Raises:
             NotFoundError: If analysis not found
-            ValidationError: If result data is invalid
+            ValidationError: If summary data is invalid
             DatabaseError: If database operation fails
         """
         ...

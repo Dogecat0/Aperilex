@@ -17,16 +17,18 @@ def analysis_data_to_domain(analysis_data: AnalysisData) -> Analysis:
     """Convert repository `AnalysisData` objects into domain `Analysis` entities."""
     analysis_type = _resolve_analysis_type(analysis_data.analysis_type)
 
-    result_payload: dict[str, Any] = dict(analysis_data.result)
-    llm_provider = _extract_optional_str(result_payload.get("llm_provider"))
-    llm_model = _extract_optional_str(result_payload.get("llm_model"))
-    confidence_value = result_payload.get("confidence_score")
-    if confidence_value is None and "confidenceScore" in result_payload:
-        confidence_value = result_payload.get("confidenceScore")
-    confidence_score = _extract_confidence_score(confidence_value)
-
     metadata_raw: dict[str, str | int | float | bool] = dict(analysis_data.metadata)
     metadata = cast(dict[str, Any], metadata_raw)
+
+    llm_provider = _extract_optional_str(metadata.get("llm_provider"))
+    llm_model = _extract_optional_str(metadata.get("llm_model"))
+
+    confidence_value: Any = metadata.get("confidence_score")
+    if confidence_value is None and analysis_data.summary:
+        summary_confidence = analysis_data.summary.get("confidence")
+        if isinstance(summary_confidence, dict):
+            confidence_value = summary_confidence.get("score")
+    confidence_score = _extract_confidence_score(confidence_value)
 
     analysis_id = cast(UUID, analysis_data.id)
     filing_id = cast(UUID, analysis_data.filing_id)

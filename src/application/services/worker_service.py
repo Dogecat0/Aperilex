@@ -514,7 +514,11 @@ class WorkerService:
 
             # Step 6: Store analysis result
             storage_key = await self._store_analysis(analysis_result)
-            await self._persist_analysis_completed(analysis_result, storage_key)
+            await self._persist_analysis_completed(
+                analysis_result,
+                storage_key,
+                task_data,
+            )
             task_data.mark_completed()
             await self._track_progress(
                 progress_callback,
@@ -1201,13 +1205,21 @@ class WorkerService:
         self,
         result: AnalysisResult,
         storage_key: StorageKey,
+        task_data: TaskData,
     ) -> None:
         """Persist analysis completion result and status."""
+
         try:
             analysis_repo = await self.repository_factory.get_analysis_repository()
-            result_payload = result.model_dump(mode="json")
-            result_payload["storage_key"] = str(storage_key)
-            await analysis_repo.save_result(result.analysis_id, result_payload)
+
+            summary_payload = self._build_summary_payload(result, task_data)
+            metadata_updates = self._build_completion_metadata(result, storage_key)
+
+            await analysis_repo.save_summary(
+                result.analysis_id,
+                summary_payload,
+                metadata_updates=metadata_updates,
+            )
             await analysis_repo.update_status(
                 result.analysis_id, AnalysisStatus.COMPLETED
             )
@@ -1219,6 +1231,169 @@ class WorkerService:
                     "error": str(exc),
                 },
             )
+
+    def _build_summary_payload(
+        self,
+        result: AnalysisResult,
+        task_data: TaskData,
+    ) -> dict[str, Any]:
+        """Construct the compact summary payload persisted alongside the analysis."""
+
+        task_metadata = dict(task_data.metadata)
+        structured_data = (
+            result.structured_data if isinstance(result.structured_data, dict) else {}
+        )
+
+        sections_raw = structured_data.get("section_analyses")
+        sections: list[dict[str, Any]]
+        if isinstance(sections_raw, list):
+            sections = [section for section in sections_raw if isinstance(section, dict)]
+        else:
+            sections = []
+
+        sentiment_sections: list[dict[str, Any]] = []
+        sentiment_scores: list[float] = []
+        for section in sections:
+            name_raw = section.get("section_name") or section.get("section") or ""
+            section_name = str(name_raw).strip() or "Unknown"
+            score = self._coerce_float(section.get("overall_sentiment"))
+            if score is not None:
+                sentiment_scores.append(score)
+            sentiment_sections.append({"section": section_name, "score": score})
+
+        average_sentiment = (
+            sum(sentiment_scores) / len(sentiment_scores)
+            if sentiment_scores
+            else None
+        )
+
+        key_insights = structured_data.get("key_insights")
+        opportunities = structured_data.get("opportunities")
+
+        key_insights_count = (
+            len(key_insights) if isinstance(key_insights, list) else None
+        )
+        opportunities_count = (
+            len(opportunities) if isinstance(opportunities, list) else None
+        )
+
+        critical_counts: list[int] = []
+        for section in sections:
+            findings = section.get("critical_findings")
+            if isinstance(findings, list):
+                critical_counts.append(len(findings))
+        if sections:
+            critical_findings_total = sum(critical_counts)
+        else:
+            critical_findings_total = None
+
+        sections_analyzed = structured_data.get("total_sections_analyzed")
+        if not isinstance(sections_analyzed, int):
+            sections_analyzed = len(sections)
+
+        confidence_score = result.confidence_score
+        if confidence_score is None:
+            fallback_score = structured_data.get("confidence_score")
+            confidence_score = self._coerce_float(fallback_score)
+
+        duration_seconds: float | None
+        if isinstance(result.processing_time_ms, int):
+            duration_seconds = result.processing_time_ms / 1000.0
+        else:
+            duration_seconds = None
+
+        summary = {
+            "company": {
+                "name": self._resolve_company_name(task_metadata, task_data.ticker),
+                "cik": task_metadata.get("company_cik")
+                or task_metadata.get("cik"),
+                "ticker": str(task_data.ticker),
+            },
+            "filing": {
+                "type": task_data.filing_type.value,
+                "date": task_metadata.get("filing_date"),
+                "analysis_template": task_metadata.get("analysis_template"),
+            },
+            "confidence": {
+                "score": confidence_score,
+                "bucket": self._confidence_bucket(confidence_score),
+            },
+            "sentiment": {
+                "average": average_sentiment,
+                "sections": sentiment_sections,
+            },
+            "insight_counts": {
+                "key_insights": key_insights_count,
+                "opportunities": opportunities_count,
+                "critical_findings": critical_findings_total,
+                "sections_analyzed": sections_analyzed,
+            },
+            "processing": {
+                "duration_seconds": duration_seconds,
+                "completed_at": result.completed_at.isoformat(),
+            },
+        }
+
+        return summary
+
+    def _build_completion_metadata(
+        self,
+        result: AnalysisResult,
+        storage_key: StorageKey,
+    ) -> dict[str, str | int | float | bool]:
+        """Assemble metadata updates associated with the persisted analysis."""
+
+        metadata: dict[str, str | int | float | bool] = {
+            "storage_key": str(storage_key),
+            "analysis_schema_version": result.schema_version,
+            "analysis_processing_time_ms": result.processing_time_ms,
+            "analysis_status": result.status.value,
+            "analysis_completed_at": result.completed_at.isoformat(),
+            "summary_schema_version": 2,
+        }
+
+        metadata["llm_provider"] = result.llm_provider.value
+        metadata["llm_model"] = result.model_name
+
+        if result.confidence_score is not None:
+            metadata["confidence_score"] = float(result.confidence_score)
+
+        if result.token_usage:
+            metadata["token_usage_total"] = int(result.token_usage.total_tokens)
+            metadata["token_usage_prompt"] = int(result.token_usage.prompt_tokens)
+            metadata["token_usage_completion"] = int(result.token_usage.completion_tokens)
+
+        if result.estimated_cost is not None:
+            metadata["estimated_cost"] = float(result.estimated_cost)
+
+        return metadata
+
+    @staticmethod
+    def _confidence_bucket(score: float | None) -> str | None:
+        """Translate a numeric confidence score into a qualitative bucket."""
+
+        if score is None:
+            return None
+        if score >= 0.8:
+            return "high"
+        if score >= 0.5:
+            return "medium"
+        return "low"
+
+    @staticmethod
+    def _coerce_float(value: Any) -> float | None:
+        """Best-effort conversion of heterogeneous sentiment/confidence values."""
+
+        if isinstance(value, bool):
+            return None
+        if isinstance(value, int | float):
+            return float(value)
+        if isinstance(value, str):
+            try:
+                return float(value)
+            except ValueError:
+                return None
+        return None
 
     async def _persist_analysis_failed(
         self,

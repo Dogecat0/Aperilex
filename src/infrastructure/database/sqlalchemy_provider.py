@@ -7,6 +7,8 @@ the IDatabaseProvider protocol and manages repository access.
 
 import logging
 import re
+from datetime import UTC, datetime
+from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
@@ -249,25 +251,36 @@ class SQLAlchemyDatabaseProvider(IDatabaseProvider):
             try:
                 from .models.analysis import Analysis
 
-                # Check if analysis exists
+                summary_payload = self._compose_summary_from_result_data(result)
+                metadata_updates = self._compose_analysis_metadata(
+                    result,
+                    status,
+                    summary_payload,
+                )
+
                 existing = await session.get(Analysis, analysis_id)
 
                 if existing:
-                    # Update existing analysis
                     existing.filing_id = filing_id
                     existing.user_id = user_id
                     existing.status = status.value
                     existing.analysis_type = result.analysis_type
-                    existing.result = result.model_dump()
+                    existing.summary = summary_payload
+                    existing.meta_data = metadata_updates
+                    if metadata_updates.get("created_by"):
+                        existing.created_by = str(metadata_updates.get("created_by"))
                 else:
-                    # Create new analysis
                     analysis = Analysis(
                         id=analysis_id,
                         filing_id=filing_id,
                         user_id=user_id,
                         status=status.value,
                         analysis_type=result.analysis_type,
-                        result=result.model_dump(),
+                        summary=summary_payload,
+                        meta_data=metadata_updates,
+                        created_by=str(metadata_updates.get("created_by"))
+                        if metadata_updates.get("created_by")
+                        else str(user_id),
                     )
                     session.add(analysis)
 
@@ -296,21 +309,7 @@ class SQLAlchemyDatabaseProvider(IDatabaseProvider):
             if not analysis:
                 raise ValueError(f"Analysis {analysis_id} not found")
 
-            return AnalysisRecord(
-                analysis_id=AnalysisId(analysis.id),
-                filing_id=FilingId(analysis.filing_id),
-                user_id=UserId(analysis.user_id),
-                status=AnalysisStatus(analysis.status),
-                analysis_type=AnalysisType(analysis.analysis_type),
-                result=analysis.result,
-                llm_provider=analysis.llm_provider,
-                llm_model=analysis.llm_model,
-                confidence_score=analysis.confidence_score,
-                created_by=analysis.created_by,
-                metadata=analysis.meta_data or {},
-                created_at=analysis.created_at,
-                updated_at=analysis.created_at,  # Using created_at as Analysis model doesn't have updated_at
-            )
+            return self._analysis_model_to_record(analysis)
 
     async def list_user_analyses(
         self,
@@ -345,24 +344,223 @@ class SQLAlchemyDatabaseProvider(IDatabaseProvider):
             result = await session.execute(stmt)
             analyses = result.scalars().all()
 
-            return [
-                AnalysisRecord(
-                    analysis_id=AnalysisId(analysis.id),
-                    filing_id=FilingId(analysis.filing_id),
-                    user_id=UserId(analysis.user_id),
-                    status=AnalysisStatus(analysis.status),
-                    analysis_type=AnalysisType(analysis.analysis_type),
-                    result=analysis.result,
-                    llm_provider=analysis.llm_provider,
-                    llm_model=analysis.llm_model,
-                    confidence_score=analysis.confidence_score,
-                    created_by=analysis.created_by,
-                    metadata=analysis.meta_data or {},
-                    created_at=analysis.created_at,
-                    updated_at=analysis.created_at,  # Using created_at as Analysis model doesn't have updated_at
-                )
-                for analysis in analyses
-            ]
+            return [self._analysis_model_to_record(analysis) for analysis in analyses]
+
+    def _analysis_model_to_record(self, analysis: Any) -> AnalysisRecord:
+        """Convert a SQLAlchemy Analysis model into an `AnalysisRecord`."""
+
+        metadata_raw = getattr(analysis, "meta_data", {})
+        metadata_dict = dict(metadata_raw) if isinstance(metadata_raw, dict) else {}
+
+        summary_raw = getattr(analysis, "summary", None)
+        summary = summary_raw if isinstance(summary_raw, dict) else None
+
+        llm_provider_raw = metadata_dict.get("llm_provider")
+        llm_provider = llm_provider_raw if isinstance(llm_provider_raw, str) else None
+
+        llm_model_raw = metadata_dict.get("llm_model")
+        llm_model = llm_model_raw if isinstance(llm_model_raw, str) else None
+
+        storage_key_raw = metadata_dict.get("storage_key")
+        storage_key = storage_key_raw if isinstance(storage_key_raw, str) else None
+
+        confidence_score = self._coerce_float(metadata_dict.get("confidence_score"))
+        token_count = self._coerce_int(metadata_dict.get("token_usage_total"))
+        processing_time_ms = self._coerce_int(
+            metadata_dict.get("analysis_processing_time_ms")
+        )
+        estimated_cost = self._coerce_float(metadata_dict.get("estimated_cost"))
+
+        record_metadata = metadata_dict
+
+        return AnalysisRecord(
+            analysis_id=AnalysisId(analysis.id),
+            filing_id=FilingId(analysis.filing_id),
+            user_id=UserId(analysis.user_id),
+            status=AnalysisStatus(analysis.status),
+            analysis_type=AnalysisType(analysis.analysis_type),
+            summary=summary,
+            storage_key=storage_key,
+            llm_provider=llm_provider,
+            llm_model=llm_model,
+            confidence_score=confidence_score,
+            token_count=token_count,
+            processing_time_ms=processing_time_ms,
+            cost=estimated_cost,
+            created_by=getattr(analysis, "created_by", None),
+            metadata=record_metadata,
+            created_at=analysis.created_at,
+            updated_at=analysis.created_at,
+        )
+
+    @staticmethod
+    def _compose_summary_from_result_data(result: AnalysisResultData) -> dict[str, Any]:
+        """Build a summary payload compatible with the v2 list contract."""
+
+        metadata = dict(result.metadata)
+        metrics = dict(result.metrics)
+
+        confidence_score = SQLAlchemyDatabaseProvider._coerce_float(
+            metrics.get("confidence_score")
+        )
+        sentiment_average = SQLAlchemyDatabaseProvider._coerce_float(
+            metrics.get("sentiment_average") or metrics.get("sentiment_score")
+        )
+
+        processing_ms = metrics.get("processing_time_ms")
+        if not isinstance(processing_ms, int | float):
+            processing_ms = metrics.get("duration_ms")
+        duration_seconds = (
+            float(processing_ms) / 1000.0
+            if isinstance(processing_ms, int | float)
+            else None
+        )
+
+        completed_at = metadata.get("analysis_completed_at")
+        if not isinstance(completed_at, str):
+            completed_at = datetime.now(UTC).isoformat()
+
+        insight_count = len(result.insights) if result.insights else None
+        opportunities_count = SQLAlchemyDatabaseProvider._coerce_int(
+            metrics.get("opportunities")
+        )
+        critical_findings = SQLAlchemyDatabaseProvider._coerce_int(
+            metrics.get("critical_findings")
+        )
+        sections_analyzed = SQLAlchemyDatabaseProvider._coerce_int(
+            metrics.get("total_sections")
+        )
+
+        summary: dict[str, Any] = {
+            "company": {
+                "name": metadata.get("company_name"),
+                "cik": metadata.get("company_cik"),
+                "ticker": metadata.get("ticker"),
+            },
+            "filing": {
+                "type": metadata.get("filing_type"),
+                "date": metadata.get("filing_date"),
+                "analysis_template": metadata.get("analysis_template"),
+            },
+            "confidence": {
+                "score": confidence_score,
+                "bucket": SQLAlchemyDatabaseProvider._confidence_bucket(confidence_score),
+            },
+            "sentiment": {
+                "average": sentiment_average,
+                "sections": [],
+            },
+            "insight_counts": {
+                "key_insights": insight_count,
+                "opportunities": opportunities_count,
+                "critical_findings": critical_findings,
+                "sections_analyzed": sections_analyzed,
+            },
+            "processing": {
+                "duration_seconds": duration_seconds,
+                "completed_at": completed_at,
+            },
+            "narrative": result.summary,
+            "insights": list(result.insights),
+        }
+
+        return summary
+
+    @staticmethod
+    def _compose_analysis_metadata(
+        result: AnalysisResultData,
+        status: AnalysisStatus,
+        summary: dict[str, Any],
+    ) -> dict[str, str | int | float | bool]:
+        """Prepare metadata dictionary aligned with summary persistence."""
+
+        metadata = dict(result.metadata)
+
+        completed_at = summary.get("processing", {}).get("completed_at")
+        if not isinstance(completed_at, str):
+            completed_at = datetime.now(UTC).isoformat()
+
+        duration_seconds = summary.get("processing", {}).get("duration_seconds")
+        duration_float = SQLAlchemyDatabaseProvider._coerce_float(duration_seconds)
+        processing_ms = int(duration_float * 1000) if duration_float is not None else None
+
+        confidence_score = SQLAlchemyDatabaseProvider._coerce_float(
+            summary.get("confidence", {}).get("score")
+        )
+
+        metadata.update(
+            {
+                "analysis_schema_version": result.schema_version,
+                "summary_schema_version": 2,
+                "analysis_status": status.value,
+                "analysis_completed_at": completed_at,
+            }
+        )
+
+        if processing_ms is not None:
+            metadata["analysis_processing_time_ms"] = processing_ms
+        if confidence_score is not None:
+            metadata["confidence_score"] = confidence_score
+
+        cleaned: dict[str, str | int | float | bool] = {}
+        for key, value in metadata.items():
+            coerced = SQLAlchemyDatabaseProvider._coerce_metadata_value(value)
+            if coerced is not None:
+                cleaned[key] = coerced
+
+        return cleaned
+
+    @staticmethod
+    def _coerce_metadata_value(
+        value: Any,
+    ) -> str | int | float | bool | None:
+        """Normalize metadata values to primitives accepted by the schema."""
+
+        if value is None:
+            return None
+        if isinstance(value, str | int | float | bool):
+            return value
+        if isinstance(value, datetime):
+            return value.isoformat()
+        return str(value)
+
+    @staticmethod
+    def _confidence_bucket(score: float | None) -> str | None:
+        if score is None:
+            return None
+        if score >= 0.8:
+            return "high"
+        if score >= 0.5:
+            return "medium"
+        return "low"
+
+    @staticmethod
+    def _coerce_float(value: Any) -> float | None:
+        if isinstance(value, bool) or value is None:
+            return None
+        if isinstance(value, int | float):
+            return float(value)
+        if isinstance(value, str):
+            try:
+                return float(value)
+            except ValueError:
+                return None
+        return None
+
+    @staticmethod
+    def _coerce_int(value: Any) -> int | None:
+        if isinstance(value, bool) or value is None:
+            return None
+        if isinstance(value, int):
+            return value
+        if isinstance(value, float):
+            return int(value)
+        if isinstance(value, str):
+            try:
+                return int(float(value))
+            except ValueError:
+                return None
+        return None
 
     async def begin_transaction(
         self,
