@@ -1,28 +1,35 @@
 """API router for analysis-related endpoints."""
 
+from __future__ import annotations
+
 import logging
 from datetime import datetime
-from typing import TYPE_CHECKING, Annotated, Any, cast
+from typing import TYPE_CHECKING, Annotated, Any
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Path, Query, status
+from pydantic import BaseModel, Field, field_validator, model_validator
 
-from src.application.handlers.schemas.commands.analyze_filing import AnalysisTemplate
 from src.application.handlers.schemas.queries import (
     GetAnalysisQuery,
     GetTemplatesQuery,
     ListAnalysesQuery,
 )
+from src.application.handlers.schemas.queries.list_analyses import (
+    AnalysisSegment,
+    AnalysisSortField,
+    SortDirection,
+)
 from src.application.handlers.schemas.responses import (
+    AnalysesListResponse,
     AnalysisResponse,
-    PaginatedResponse,
     TemplatesResponse,
 )
 from src.application.interfaces.authentication import AuthenticationResult
 from src.application.services.application_service import ApplicationService
-from src.domain.entities.analysis import AnalysisType
 from src.presentation.api.dependencies import get_application_service
 from src.presentation.api.security import get_current_user, user_id_str
+from src.shared.enums import AnalysisStatus
 from src.shared.types import CIK
 
 logger = logging.getLogger(__name__)
@@ -47,123 +54,235 @@ else:
     ApplicationServiceDep = Annotated[Any, Depends(get_application_service)]
 
 
+class AnalysesListParams(BaseModel):
+    """Normalized query parameters for the analyses list endpoint."""
+
+    search: str | None = Field(
+        default=None,
+        description="Full-text search input",
+    )
+    segment: AnalysisSegment = Field(
+        default=AnalysisSegment.ALL,
+        description="Dashboard segment filter",
+    )
+    statuses: list[AnalysisStatus] | None = Field(
+        default=None,
+        description="Comma-separated analysis statuses",
+    )
+    created_after: datetime | None = Field(
+        default=None,
+        description="Filter analyses created after this timestamp",
+    )
+    created_before: datetime | None = Field(
+        default=None,
+        description="Filter analyses created before this timestamp",
+    )
+    created_by: str | None = Field(
+        default=None,
+        description="Restrict analyses to those created by the supplied identifier",
+    )
+    sort: AnalysisSortField = Field(
+        default=AnalysisSortField.CREATED_AT,
+        description="Field used for sorting",
+    )
+    direction: SortDirection = Field(
+        default=SortDirection.DESC,
+        description="Sorting direction",
+    )
+    page: int = Field(default=1, ge=1, description="Requested page number")
+    page_size: int = Field(
+        default=20,
+        ge=1,
+        le=100,
+        description="Number of analyses per page (max 100)",
+    )
+
+    @field_validator("search", mode="before")
+    @classmethod
+    def _normalize_search(cls, raw: str | None) -> str | None:
+        if raw is None:
+            return None
+        normalized = raw.strip()
+        if not normalized:
+            return None
+        return normalized[:128]
+
+    @field_validator("created_by", mode="before")
+    @classmethod
+    def _normalize_created_by(cls, raw: str | None) -> str | None:
+        if raw is None:
+            return None
+        normalized = raw.strip()
+        return normalized or None
+
+    @field_validator("statuses", mode="before")
+    @classmethod
+    def _split_statuses(cls, raw: list[str] | str | None) -> list[str] | None:
+        if raw is None:
+            return None
+        if isinstance(raw, list):
+            return raw or None
+        tokens = [token.strip() for token in raw.split(",")]
+        values = [token for token in tokens if token]
+        return values or None
+
+    @field_validator("statuses")
+    @classmethod
+    def _dedupe_statuses(
+        cls, statuses: list[AnalysisStatus] | None
+    ) -> list[AnalysisStatus] | None:
+        if statuses is None:
+            return None
+        unique: list[AnalysisStatus] = []
+        seen: set[AnalysisStatus] = set()
+        for analysis_status in statuses:
+            if analysis_status not in seen:
+                unique.append(analysis_status)
+                seen.add(analysis_status)
+        return unique or None
+
+    @model_validator(mode="after")
+    def _validate_chronology(self) -> AnalysesListParams:
+        if (
+            self.created_after
+            and self.created_before
+            and self.created_after > self.created_before
+        ):
+            raise ValueError("created_after cannot be later than created_before")
+        return self
+
+    @classmethod
+    def as_dependency(
+        cls,
+        search: Annotated[str | None, Query(description="Full-text search term")] = None,
+        segment: Annotated[
+            AnalysisSegment,
+            Query(description="Segment filter", alias="segment"),
+        ] = AnalysisSegment.ALL,
+        status: Annotated[
+            list[str] | str | None,
+            Query(
+                description="Comma-separated list of analysis statuses",
+                alias="status",
+            ),
+        ] = None,
+        created_after: Annotated[
+            datetime | None, Query(description="Created after timestamp")
+        ] = None,
+        created_before: Annotated[
+            datetime | None, Query(description="Created before timestamp")
+        ] = None,
+        created_by: Annotated[
+            str | None, Query(description="Filter by analysis creator")
+        ] = None,
+        sort: Annotated[
+            AnalysisSortField,
+            Query(description="Sort field", alias="sort"),
+        ] = AnalysisSortField.CREATED_AT,
+        direction: Annotated[
+            SortDirection,
+            Query(description="Sort direction", alias="direction"),
+        ] = SortDirection.DESC,
+        page: Annotated[int, Query(ge=1, description="Page number")] = 1,
+        page_size: Annotated[
+            int,
+            Query(ge=1, le=100, description="Number of results per page (max 100)"),
+        ] = 20,
+    ) -> AnalysesListParams:
+        return cls(
+            search=search,
+            segment=segment,
+            statuses=status,
+            created_after=created_after,
+            created_before=created_before,
+            created_by=created_by,
+            sort=sort,
+            direction=direction,
+            page=page,
+            page_size=page_size,
+        )
+
+    def to_query(
+        self,
+        *,
+        user_id: str | None,
+        company_cik: CIK | None = None,
+    ) -> ListAnalysesQuery:
+        return ListAnalysesQuery(
+            user_id=user_id,
+            company_cik=company_cik,
+            search=self.search,
+            segment=self.segment,
+            statuses=self.statuses,
+            created_after=self.created_after,
+            created_before=self.created_before,
+            created_by=self.created_by,
+            sort_by=self.sort,
+            sort_direction=self.direction,
+            page=self.page,
+            page_size=self.page_size,
+        )
+
+
+ListParamsDep = Annotated[
+    AnalysesListParams, Depends(AnalysesListParams.as_dependency)
+]
+
 @router.get(
     "",
-    response_model=PaginatedResponse[AnalysisResponse],
+    response_model=AnalysesListResponse,
     summary="List analyses",
     description="""
-    List analyses with optional filtering and pagination.
+    List analyses with rich filtering, pagination, and sorting.
 
-    Supports filtering by company CIK, analysis type, analysis template, date range, and confidence score.
-    Results are ordered by creation date (newest first) and support pagination.
-
-    Note: analysis_template and analysis_type filters can be used independently or together.
+    Supports full-text search, dashboard segments, lifecycle status filters,
+    creator scoping, and server-side sorting by key metrics.
     """,
 )
 async def list_analyses(
     application_service: ApplicationServiceDep,
     current_user: AuthenticatedUserDep,
-    # Filtering parameters
-    company_cik: Annotated[
-        str | None, Query(description="Filter by company CIK (e.g., '0000320193')")
-    ] = None,
-    analysis_type: Annotated[
-        AnalysisType | None, Query(description="Filter by analysis type")
-    ] = None,
-    analysis_template: Annotated[
-        AnalysisTemplate | None,
-        Query(
-            description="Filter by analysis template (comprehensive, financial_focused, risk_focused, business_focused)"
-        ),
-    ] = None,
-    min_confidence_score: Annotated[
-        float | None,
-        Query(ge=0.0, le=1.0, description="Minimum confidence score (0.0-1.0)"),
-    ] = None,
-    created_from: Annotated[
-        datetime | None, Query(description="Filter analyses created from this date")
-    ] = None,
-    created_to: Annotated[
-        datetime | None, Query(description="Filter analyses created to this date")
-    ] = None,
-    # Pagination parameters
-    page: Annotated[int, Query(ge=1, description="Page number (1-based)")] = 1,
-    page_size: Annotated[
-        int, Query(ge=1, le=100, description="Number of analyses per page (max 100)")
-    ] = 20,
-) -> PaginatedResponse[AnalysisResponse]:
-    """List analyses with filtering and pagination.
-
-    Args:
-        company_cik: Optional CIK to filter by specific company
-        analysis_type: Optional analysis type filter
-        analysis_template: Optional analysis template filter
-        min_confidence_score: Optional minimum confidence score filter
-        created_from: Optional start date filter
-        created_to: Optional end date filter
-        page: Page number for pagination (1-based)
-        page_size: Number of results per page
-
-    Returns:
-        List of AnalysisResponse objects matching the filters
-
-    Raises:
-        HTTPException: 422 if query parameters are invalid
-        HTTPException: 500 if listing fails
-    """
+    params: ListParamsDep,
+) -> AnalysesListResponse:
+    """List analyses with filtering and pagination."""
     logger.info(
         "Listing analyses",
         extra={
-            "company_cik": company_cik,
-            "analysis_type": analysis_type.value if analysis_type else None,
-            "analysis_template": analysis_template.value if analysis_template else None,
-            "min_confidence_score": min_confidence_score,
-            "page": page,
-            "page_size": page_size,
+            "search": params.search,
+            "segment": params.segment.value,
+            "statuses": [status.value for status in params.statuses]
+            if params.statuses
+            else None,
+            "created_after": (
+                params.created_after.isoformat() if params.created_after else None
+            ),
+            "created_before": (
+                params.created_before.isoformat() if params.created_before else None
+            ),
+            "created_by": params.created_by,
+            "sort": params.sort.value,
+            "direction": params.direction.value,
+            "page": params.page,
+            "page_size": params.page_size,
         },
     )
 
     try:
-        # Validate and convert CIK if provided
-        cik_obj = None
-        if company_cik:
-            try:
-                cik_obj = CIK(value=company_cik)
-            except ValueError as e:
-                raise HTTPException(
-                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                    detail=f"Invalid CIK format: {str(e)}",
-                ) from e
+        if not current_user.authenticated or current_user.user_id is None:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Authenticated user context required to list analyses",
+            )
 
-        # Calculate offset for pagination
-        (page - 1) * page_size
+        query = params.to_query(user_id=user_id_str(current_user))
 
-        # Create query
-        # Convert single analysis_type to list for schema compatibility
-        analysis_types = [analysis_type] if analysis_type else None
-
-        # Remove the hardcoded template mapping logic - let the query schema handle this
-
-        query = ListAnalysesQuery(
-            user_id=user_id_str(current_user),
-            company_cik=cik_obj,
-            analysis_types=analysis_types,
-            analysis_template=analysis_template,
-            created_from=created_from,
-            created_to=created_to,
-            min_confidence_score=min_confidence_score,
-            page=page,
-            page_size=page_size,
-        )
-
-        # Execute query through application service
         results_obj = await application_service.execute_query(query)
-        if not isinstance(results_obj, PaginatedResponse):
+        if not isinstance(results_obj, AnalysesListResponse):
             logger.error(
                 "Unexpected response type when listing analyses",
                 extra={
                     "returned_type": type(results_obj).__name__,
-                    "expected_type": "PaginatedResponse",
+                    "expected_type": "AnalysesListResponse",
                 },
             )
             raise HTTPException(
@@ -171,7 +290,7 @@ async def list_analyses(
                 detail="Unexpected response type from application service",
             )
 
-        results = cast(PaginatedResponse[AnalysisResponse], results_obj)
+        results = results_obj
 
         logger.info(
             "Listed analyses successfully",
@@ -186,17 +305,16 @@ async def list_analyses(
         return results
 
     except HTTPException:
-        # Re-raise HTTP exceptions
         raise
     except Exception:
         logger.error(
             "Failed to list analyses",
             extra={
-                "company_cik": company_cik,
-                "analysis_type": analysis_type.value if analysis_type else None,
-                "analysis_template": (
-                    analysis_template.value if analysis_template else None
-                ),
+                "search": params.search,
+                "segment": params.segment.value,
+                "statuses": [status.value for status in params.statuses]
+                if params.statuses
+                else None,
             },
             exc_info=True,
         )

@@ -6,14 +6,11 @@ from typing import TYPE_CHECKING, Annotated, Any, cast
 from fastapi import APIRouter, Depends, HTTPException, Path, Query, status
 
 from src.application.handlers.schemas.queries.get_company import GetCompanyQuery
-from src.application.handlers.schemas.queries.list_analyses import (
-    ListAnalysesQuery,
-)
 from src.application.handlers.schemas.queries.list_company_filings import (
     ListCompanyFilingsQuery,
 )
 from src.application.handlers.schemas.responses.analysis_response import (
-    AnalysisResponse,
+    AnalysesListResponse,
 )
 from src.application.handlers.schemas.responses.company_response import (
     CompanyResponse,
@@ -25,8 +22,8 @@ from src.application.handlers.schemas.responses.paginated_response import (
 from src.application.interfaces.authentication import AuthenticationResult
 from src.application.services.application_service import ApplicationService
 from src.presentation.api.dependencies import get_application_service
+from src.presentation.api.routers.analyses import AnalysesListParams
 from src.presentation.api.security import get_current_user, user_id_str
-from src.shared.enums.analysis import AnalysisType
 from src.shared.enums.filing import FilingType
 
 logger = logging.getLogger(__name__)
@@ -50,6 +47,9 @@ else:
 AuthenticatedUserDep = Annotated[AuthenticationResult, Depends(get_current_user)]
 TickerPath = Annotated[
     str, Path(description="Company ticker symbol (e.g., 'AAPL', 'MSFT')")
+]
+CompanyAnalysesParamsDep = Annotated[
+    AnalysesListParams, Depends(AnalysesListParams.as_dependency)
 ]
 
 
@@ -172,74 +172,50 @@ async def get_company(
 
 @router.get(
     "/{ticker}/analyses",
-    response_model=PaginatedResponse[AnalysisResponse],
+    response_model=AnalysesListResponse,
     summary="List company analyses",
     description="""
     List all analyses for a specific company, filtered by ticker symbol.
 
-    Returns analyses ordered by creation date (newest first) with optional
-    filtering by analysis type, confidence score, and pagination support.
+    Exposes the same filtering contract as `/api/analyses` while
+    implicitly scoping results to the selected company.
     """,
 )
 async def list_company_analyses(
     ticker: TickerPath,
     application_service: ApplicationServiceDep,
     current_user: AuthenticatedUserDep,
-    # Filtering parameters
-    analysis_type: Annotated[
-        AnalysisType | None, Query(description="Filter by analysis type")
-    ] = None,
-    min_confidence: Annotated[
-        float | None,
-        Query(ge=0.0, le=1.0, description="Minimum confidence score (0.0-1.0)"),
-    ] = None,
-    # Pagination parameters
-    page: Annotated[int, Query(ge=1, description="Page number (1-based)")] = 1,
-    page_size: Annotated[
-        int, Query(ge=1, le=100, description="Number of analyses per page (max 100)")
-    ] = 20,
-) -> PaginatedResponse[AnalysisResponse]:
-    """List all analyses for a specific company.
-
-    Args:
-        ticker: Company ticker symbol (case-insensitive)
-        analysis_type: Optional analysis type filter
-        min_confidence: Optional minimum confidence score filter
-        page: Page number for pagination (1-based)
-        page_size: Number of results per page
-
-    Returns:
-        PaginatedResponse containing AnalysisResponse objects for the company
-
-    Raises:
-        HTTPException: 422 if ticker format is invalid
-        HTTPException: 404 if company not found
-        HTTPException: 500 if listing fails
-    """
+    params: CompanyAnalysesParamsDep,
+) -> AnalysesListResponse:
+    """List all analyses for a specific company."""
     logger.info(
         "Listing company analyses",
         extra={
             "ticker": ticker,
-            "analysis_type": analysis_type.value if analysis_type else None,
-            "min_confidence": min_confidence,
-            "page": page,
-            "page_size": page_size,
+            "search": params.search,
+            "segment": params.segment.value,
+            "statuses": [status.value for status in params.statuses]
+            if params.statuses
+            else None,
+            "page": params.page,
+            "page_size": params.page_size,
         },
     )
 
     try:
-        # Normalize ticker
-        ticker_normalized = ticker.upper().strip()
+        if not current_user.authenticated or current_user.user_id is None:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Authenticated user context required to list company analyses",
+            )
 
-        # Basic validation
+        ticker_normalized = ticker.upper().strip()
         if not ticker_normalized:
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                 detail="Ticker cannot be empty",
             )
 
-        # First, we need to get the company to find its CIK
-        # This is needed because ListAnalysesQuery filters by CIK, not ticker
         company_query = GetCompanyQuery(
             ticker=ticker_normalized,
             user_id=user_id_str(current_user),
@@ -247,15 +223,15 @@ async def list_company_analyses(
 
         try:
             company_info_result = await application_service.execute_query(company_query)
-        except Exception as e:
+        except Exception as exc:
             logger.warning(
                 "Company not found for ticker",
-                extra={"ticker": ticker, "error": str(e)},
+                extra={"ticker": ticker, "error": str(exc)},
             )
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"Company with ticker '{ticker}' not found",
-            ) from e
+            ) from exc
 
         if not isinstance(company_info_result, CompanyResponse):
             logger.error(
@@ -272,35 +248,24 @@ async def list_company_analyses(
             )
 
         company_info = company_info_result
-        company_cik_str = company_info.cik
 
-        # Convert CIK string to CIK object for the analyses query
-        from src.shared.types import CIK
+        from src.shared.types import CIK  # Local import to avoid circulars during module load  # noqa: I001
 
-        company_cik = CIK(value=company_cik_str)
+        company_cik = CIK(value=company_info.cik)
 
-        # Create analyses list query filtered by company CIK
-        # Convert single analysis_type to list for schema compatibility
-        analysis_types = [analysis_type] if analysis_type else None
-
-        analyses_query = ListAnalysesQuery(
-            company_cik=company_cik,
-            analysis_types=analysis_types,
-            min_confidence_score=min_confidence,
-            page=page,
-            page_size=page_size,
+        query = params.to_query(
             user_id=user_id_str(current_user),
+            company_cik=company_cik,
         )
 
-        # Dispatch analyses query
-        results_obj = await application_service.execute_query(analyses_query)
-        if not isinstance(results_obj, PaginatedResponse):
+        results_obj = await application_service.execute_query(query)
+        if not isinstance(results_obj, AnalysesListResponse):
             logger.error(
                 "Unexpected response type when listing analyses",
                 extra={
                     "ticker": ticker,
                     "returned_type": type(results_obj).__name__,
-                    "expected_type": "PaginatedResponse",
+                    "expected_type": "AnalysesListResponse",
                 },
             )
             raise HTTPException(
@@ -308,13 +273,13 @@ async def list_company_analyses(
                 detail="Unexpected response type from application service",
             )
 
-        results = cast(PaginatedResponse[AnalysisResponse], results_obj)
+        results = results_obj
 
         logger.info(
             "Company analyses listed successfully",
             extra={
                 "ticker": ticker,
-                "company_cik": company_cik_str,
+                "company_cik": company_info.cik,
                 "results_count": results.pagination.total_items,
                 "page": results.pagination.page,
                 "page_size": results.pagination.page_size,
@@ -325,16 +290,15 @@ async def list_company_analyses(
         return results
 
     except HTTPException:
-        # Re-raise HTTP exceptions
         raise
-    except ValueError as e:
+    except ValueError as exc:
         logger.warning(
-            "Invalid ticker format", extra={"ticker": ticker, "error": str(e)}
+            "Invalid ticker format", extra={"ticker": ticker, "error": str(exc)}
         )
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=f"Invalid ticker format: {str(e)}",
-        ) from e
+            detail=f"Invalid ticker format: {str(exc)}",
+        ) from exc
     except Exception:
         logger.error(
             "Failed to list company analyses", extra={"ticker": ticker}, exc_info=True

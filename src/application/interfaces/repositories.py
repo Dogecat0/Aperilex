@@ -79,9 +79,17 @@ class AnalysisData(BaseModel):
     id: AnalysisId
     filing_id: FilingId
     user_id: UserId
+    created_by: str | None = Field(
+        default=None,
+        description="Identifier of the actor that initiated the analysis",
+    )
     status: AnalysisStatus
     analysis_type: str
     result: dict[str, Any] = Field(default_factory=dict)
+    summary: dict[str, Any] | None = Field(
+        default=None,
+        description="Compact summary payload persisted in Postgres",
+    )
     error_message: str | None = None
     metadata: dict[str, str | int | float | bool] = Field(default_factory=dict)
     created_at: datetime | None = None
@@ -555,63 +563,37 @@ class IAnalysisRepository(Protocol):
     @abstractmethod
     async def count_with_filters(
         self,
-        company_cik: Any = None,
-        analysis_types: list[str] | None = None,
-        created_from: datetime | None = None,
-        created_to: datetime | None = None,
-        min_confidence_score: float | None = None,
+        *,
+        company_cik: Any | None = None,
+        search: str | None = None,
+        segment: str | None = None,
+        statuses: list[str] | None = None,
+        created_after: datetime | None = None,
+        created_before: datetime | None = None,
+        created_by: str | None = None,
     ) -> int:
-        """
-        Count analyses matching the provided filters.
+        """Count analyses matching the provided filters."""
 
-        Args:
-            company_cik: Optional company CIK filter
-            analysis_types: Optional list of analysis types
-            created_from: Optional start datetime filter
-            created_to: Optional end datetime filter
-            min_confidence_score: Optional minimum confidence score filter
-
-        Returns:
-            Number of analyses matching the filters
-
-        Raises:
-            DatabaseError: If database operation fails
-        """
         ...
 
     @abstractmethod
     async def find_with_filters(
         self,
-        company_cik: Any = None,
-        analysis_types: list[str] | None = None,
-        created_from: datetime | None = None,
-        created_to: datetime | None = None,
-        min_confidence_score: float | None = None,
-        sort_by: Any | None = None,
-        sort_direction: Any | None = None,
+        *,
+        company_cik: Any | None = None,
+        search: str | None = None,
+        segment: str | None = None,
+        statuses: list[str] | None = None,
+        created_after: datetime | None = None,
+        created_before: datetime | None = None,
+        created_by: str | None = None,
+        sort_by: str | None = None,
+        sort_direction: str | None = None,
         page: int = 1,
         page_size: int = 20,
     ) -> list[AnalysisData]:
-        """
-        Retrieve analyses with optional filtering, sorting, and pagination.
+        """Retrieve analyses with optional filtering, sorting, and pagination."""
 
-        Args:
-            company_cik: Optional company CIK filter
-            analysis_types: Optional list of analysis types
-            created_from: Optional start datetime filter
-            created_to: Optional end datetime filter
-            min_confidence_score: Optional minimum confidence score filter
-            sort_by: Optional sort field
-            sort_direction: Optional sort direction
-            page: Page number (1-based)
-            page_size: Number of results per page
-
-        Returns:
-            List of analyses matching the filters
-
-        Raises:
-            DatabaseError: If database operation fails
-        """
         ...
 
     @abstractmethod

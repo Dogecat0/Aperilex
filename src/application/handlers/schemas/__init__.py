@@ -36,7 +36,10 @@ from src.application.handlers.schemas.queries.list_company_filings import (
     SortDirection as CompanyFilingsSortDirection,
 )
 from src.application.handlers.schemas.responses import *  # noqa: F403, F401
-from src.application.handlers.schemas.responses.analysis_response import AnalysisResponse
+from src.application.handlers.schemas.responses.analysis_response import (
+    AnalysesListResponse,
+    AnalysisResponse,
+)
 from src.application.handlers.schemas.responses.error_response import ErrorResponse, ErrorType
 from src.application.handlers.schemas.responses.filing_response import FilingResponse
 from src.application.handlers.schemas.responses.paginated_response import (
@@ -61,6 +64,7 @@ __all__ = [
     # Responses
     "FilingResponse",
     "AnalysisResponse",
+    "AnalysesListResponse",
     "TaskResponse",
     "ErrorResponse",
     "PaginatedResponse",

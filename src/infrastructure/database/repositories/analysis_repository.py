@@ -4,9 +4,10 @@ from datetime import datetime
 from typing import Any, cast
 from uuid import UUID
 
-from sqlalchemy import and_, select
+from sqlalchemy import Integer, and_, false, func, or_, select
+from sqlalchemy import cast as sa_cast
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.sql import ColumnElement
+from sqlalchemy.sql import ColumnElement, Select
 
 from src.application.interfaces.repositories import AnalysisData, IAnalysisRepository
 from src.infrastructure.database.cache.manager import CacheRegionName, cache_manager
@@ -30,6 +31,119 @@ class AnalysisRepository(IAnalysisRepository):
         self.cache_manager = cache_manager
         self.cache_region = CacheRegionName.ANALYSIS
 
+    def _critical_findings_expression(self) -> ColumnElement[int]:
+        """Expression extracting critical findings count from summary JSON."""
+
+        return sa_cast(
+            AnalysisModel.summary["insight_counts"]["critical_findings"].astext,
+            Integer,
+        )
+
+    def _resolve_status_filters(
+        self, segment: str | None, statuses: list[str] | None
+    ) -> tuple[list[str] | None, bool]:
+        """Resolve combined status filters based on segment and explicit statuses."""
+
+        normalized_segment = (segment or "all").lower()
+
+        segment_statuses: set[str] | None
+        requires_flagged = False
+
+        if normalized_segment == "attention":
+            segment_statuses = {
+                AnalysisStatus.INITIATED.value,
+                AnalysisStatus.FETCHING.value,
+                AnalysisStatus.PARSING.value,
+                AnalysisStatus.ANALYZING.value,
+                AnalysisStatus.STORING.value,
+                AnalysisStatus.ERROR.value,
+                AnalysisStatus.EXPIRED.value,
+            }
+        elif normalized_segment == "ready_for_review":
+            segment_statuses = {AnalysisStatus.COMPLETED.value}
+        elif normalized_segment == "flagged":
+            segment_statuses = {AnalysisStatus.COMPLETED.value}
+            requires_flagged = True
+        else:
+            segment_statuses = None
+
+        explicit_statuses = {status.upper() for status in statuses or []}
+
+        combined: set[str] | None = None
+
+        if segment_statuses is not None:
+            combined = set(segment_statuses)
+
+        if explicit_statuses:
+            if combined is None:
+                combined = set(explicit_statuses)
+            else:
+                combined.intersection_update(explicit_statuses)
+
+        if combined is not None and len(combined) == 0:
+            return [], requires_flagged
+
+        return (list(combined) if combined is not None else None, requires_flagged)
+
+    def _apply_filters(
+        self,
+        stmt,
+        *,
+        company_cik: Any | None,
+        search: str | None,
+        segment: str | None,
+        statuses: list[str] | None,
+        created_after: datetime | None,
+        created_before: datetime | None,
+        created_by: str | None,
+    ) -> Select:
+        stmt = stmt.join(FilingModel, AnalysisModel.filing_id == FilingModel.id)
+        stmt = stmt.join(CompanyModel, FilingModel.company_id == CompanyModel.id)
+
+        status_filters, requires_flagged = self._resolve_status_filters(
+            segment, statuses
+        )
+
+        conditions: list[ColumnElement[bool]] = []
+
+        if status_filters == []:
+            return stmt.where(false())
+
+        if status_filters:
+            conditions.append(AnalysisModel.status.in_(status_filters))
+
+        if company_cik:
+            conditions.append(CompanyModel.cik == str(company_cik))
+
+        if created_after:
+            conditions.append(AnalysisModel.created_at >= created_after)
+
+        if created_before:
+            conditions.append(AnalysisModel.created_at <= created_before)
+
+        if created_by:
+            conditions.append(AnalysisModel.created_by == created_by)
+
+        if search:
+            search_value = f"%{search.lower()}%"
+            ticker_expr = CompanyModel.meta_data["ticker"].astext
+            conditions.append(
+                or_(
+                    func.lower(CompanyModel.name).like(search_value),
+                    func.lower(CompanyModel.cik).like(search_value),
+                    func.lower(ticker_expr).like(search_value),
+                    func.lower(FilingModel.filing_type).like(search_value),
+                )
+            )
+
+        if requires_flagged:
+            conditions.append(self._critical_findings_expression() > 0)
+
+        if conditions:
+            stmt = stmt.where(and_(*conditions))
+
+        return stmt
+
     def _model_to_data(self, model: AnalysisModel) -> AnalysisData:
         """Convert AnalysisModel to AnalysisData.
 
@@ -50,9 +164,12 @@ class AnalysisRepository(IAnalysisRepository):
         raw_result = getattr(model, "result", None)
         result: dict[str, Any] = raw_result if isinstance(raw_result, dict) else {}
 
+        meta_data_raw = getattr(model, "meta_data", None)
+        meta_data = meta_data_raw if isinstance(meta_data_raw, dict) else None
+
         # Preserve legacy metadata-based LLM info if result payload missing it
-        if not result and getattr(model, "meta_data", None):
-            legacy_result = model.meta_data.get("result")
+        if not result and meta_data:
+            legacy_result = meta_data.get("result")
             if isinstance(legacy_result, dict):
                 result = legacy_result
 
@@ -68,8 +185,9 @@ class AnalysisRepository(IAnalysisRepository):
                 result["confidence_score"] = model.confidence_score
 
         user_id_value = getattr(model, "user_id", None)
-        if user_id_value is None and getattr(model, "created_by", None):
-            user_id_value = UUID(model.created_by)
+        created_by_value = getattr(model, "created_by", None)
+        if user_id_value is None and created_by_value:
+            user_id_value = UUID(created_by_value)
 
         if user_id_value is None:
             user_id_value = UUID("00000000-0000-0000-0000-000000000000")
@@ -78,10 +196,12 @@ class AnalysisRepository(IAnalysisRepository):
             id=AnalysisId(model.id),
             filing_id=FilingId(model.filing_id),
             user_id=UserId(user_id_value),
+            created_by=created_by_value,
             status=status,
             analysis_type=model.analysis_type,
             result=result,
-            metadata=model.meta_data or {},
+            summary=getattr(model, "summary", None),
+            metadata=meta_data or {},
             created_at=model.created_at if hasattr(model, "created_at") else None,
             updated_at=model.updated_at if hasattr(model, "updated_at") else None,
         )
@@ -107,7 +227,8 @@ class AnalysisRepository(IAnalysisRepository):
             status=data.status.value,
             analysis_type=data.analysis_type,
             result=dict(data.result) if data.result else {},
-            created_by=str(data.user_id),
+            summary=dict(data.summary) if data.summary else None,
+            created_by=data.created_by or str(data.user_id),
             llm_provider=llm_provider,
             llm_model=llm_model,
             confidence_score=confidence_score,
@@ -470,148 +591,79 @@ class AnalysisRepository(IAnalysisRepository):
 
     async def count_with_filters(
         self,
-        company_cik: Any = None,
-        analysis_types: list[str] | None = None,
-        created_from: datetime | None = None,
-        created_to: datetime | None = None,
-        min_confidence_score: float | None = None,
+        *,
+        company_cik: Any | None = None,
+        search: str | None = None,
+        segment: str | None = None,
+        statuses: list[str] | None = None,
+        created_after: datetime | None = None,
+        created_before: datetime | None = None,
+        created_by: str | None = None,
     ) -> int:
-        """Count analyses with optional filters.
-
-        Args:
-            company_cik: Filter by company CIK
-            analysis_types: Filter by analysis types
-            created_from: Filter by creation date (from)
-            created_to: Filter by creation date (to)
-            min_confidence_score: Filter by minimum confidence score
-
-        Returns:
-            Count of analyses matching filters
-        """
-        from sqlalchemy import func
-
-        conditions = []
-
-        if company_cik:
-            # Join with Filing and Company tables to filter by company CIK
-
-            stmt = (
-                select(func.count(AnalysisModel.id))
-                .join(FilingModel, AnalysisModel.filing_id == FilingModel.id)
-                .join(CompanyModel, FilingModel.company_id == CompanyModel.id)
-            )
-            conditions.append(CompanyModel.cik == str(company_cik))
-        else:
-            stmt = select(func.count(AnalysisModel.id))
-
-        if analysis_types:
-            type_values = analysis_types
-            conditions.append(AnalysisModel.analysis_type.in_(type_values))
-
-        if created_from:
-            conditions.append(AnalysisModel.created_at >= created_from)
-
-        if created_to:
-            conditions.append(AnalysisModel.created_at <= created_to)
-
-        if min_confidence_score is not None:
-            conditions.append(AnalysisModel.confidence_score >= min_confidence_score)
-
-        if conditions:
-            stmt = stmt.where(and_(*conditions))
+        stmt = select(func.count(AnalysisModel.id)).select_from(AnalysisModel)
+        stmt = self._apply_filters(
+            stmt,
+            company_cik=company_cik,
+            search=search,
+            segment=segment,
+            statuses=statuses,
+            created_after=created_after,
+            created_before=created_before,
+            created_by=created_by,
+        )
 
         result = await self.session.execute(stmt)
         return result.scalar() or 0
 
     async def find_with_filters(
         self,
-        company_cik: Any = None,
-        analysis_types: list[str] | None = None,
-        created_from: datetime | None = None,
-        created_to: datetime | None = None,
-        min_confidence_score: float | None = None,
-        sort_by: Any = None,
-        sort_direction: Any = None,
+        *,
+        company_cik: Any | None = None,
+        search: str | None = None,
+        segment: str | None = None,
+        statuses: list[str] | None = None,
+        created_after: datetime | None = None,
+        created_before: datetime | None = None,
+        created_by: str | None = None,
+        sort_by: str | None = None,
+        sort_direction: str | None = None,
         page: int = 1,
         page_size: int = 20,
     ) -> list[AnalysisData]:
-        """Find analyses with optional filters, sorting, and pagination.
+        stmt = select(AnalysisModel)
 
-        Args:
-            company_cik: Filter by company CIK
-            analysis_types: Filter by analysis types
-            created_from: Filter by creation date (from)
-            created_to: Filter by creation date (to)
-            min_confidence_score: Filter by minimum confidence score
-            sort_by: Field to sort by
-            sort_direction: Sort direction
-            page: Page number (1-based)
-            page_size: Items per page
-
-        Returns:
-            List of Analysis entities matching filters
-        """
-        from src.application.handlers.schemas.queries.list_analyses import (
-            AnalysisSortField,
-            SortDirection,
+        stmt = self._apply_filters(
+            stmt,
+            company_cik=company_cik,
+            search=search,
+            segment=segment,
+            statuses=statuses,
+            created_after=created_after,
+            created_before=created_before,
+            created_by=created_by,
         )
 
-        conditions = []
+        summary_critical_expr = self._critical_findings_expression()
 
-        if company_cik:
-            # Join with Filing and Company tables to filter by company CIK
+        sort_expr: ColumnElement[Any] = AnalysisModel.created_at
+        if sort_by == "confidence_score":
+            sort_expr = AnalysisModel.confidence_score
+        elif sort_by == "insight_counts.critical_findings":
+            sort_expr = summary_critical_expr
 
-            stmt = (
-                select(AnalysisModel)
-                .join(FilingModel, AnalysisModel.filing_id == FilingModel.id)
-                .join(CompanyModel, FilingModel.company_id == CompanyModel.id)
-            )
-            conditions.append(CompanyModel.cik == str(company_cik))
+        direction = (sort_direction or "desc").lower()
+        if direction == "asc":
+            stmt = stmt.order_by(sort_expr.asc().nullslast())
         else:
-            stmt = select(AnalysisModel)
+            stmt = stmt.order_by(sort_expr.desc().nullslast())
 
-        if analysis_types:
-            type_values = analysis_types
-            conditions.append(AnalysisModel.analysis_type.in_(type_values))
-
-        if created_from:
-            conditions.append(AnalysisModel.created_at >= created_from)
-
-        if created_to:
-            conditions.append(AnalysisModel.created_at <= created_to)
-
-        if min_confidence_score is not None:
-            conditions.append(AnalysisModel.confidence_score >= min_confidence_score)
-
-        if conditions:
-            stmt = stmt.where(and_(*conditions))
-
-        # Apply sorting
-        if sort_by and sort_direction:
-            sort_field: Any = None
-            if sort_by == AnalysisSortField.CREATED_AT:
-                sort_field = AnalysisModel.created_at
-            elif sort_by == AnalysisSortField.CONFIDENCE_SCORE:
-                sort_field = AnalysisModel.confidence_score
-            elif sort_by == AnalysisSortField.ANALYSIS_TYPE:
-                sort_field = AnalysisModel.analysis_type
-
-            if sort_field is not None:
-                if sort_direction == SortDirection.DESC:
-                    stmt = stmt.order_by(sort_field.desc())
-                else:
-                    stmt = stmt.order_by(sort_field.asc())
-        else:
-            # Default sort by created_at desc
-            stmt = stmt.order_by(AnalysisModel.created_at.desc())
-
-        # Apply pagination
         page_offset = (page - 1) * page_size
         stmt = stmt.offset(page_offset).limit(page_size)
 
         result = await self.session.execute(stmt)
         models = result.scalars().all()
         return [self._model_to_data(model) for model in models]
+
 
     async def get_analysis_results_from_storage(
         self,

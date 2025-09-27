@@ -12,7 +12,6 @@ from src.application.handlers.schemas.responses.analysis_response import (
 )
 from src.application.interfaces.repositories import IAnalysisRepository
 from src.application.interfaces.storage import IStorageProvider
-from src.application.mappers import analysis_data_to_domain
 from src.shared.types import AnalysisId
 
 logger = logging.getLogger(__name__)
@@ -106,24 +105,22 @@ class GetAnalysisQueryHandler(QueryHandler[GetAnalysisQuery, AnalysisResponse]):
                 )
 
             # Convert to response DTO based on requested detail level
-            analysis_domain = analysis_data_to_domain(analysis)
-
-            if query.include_full_results:
-                response = AnalysisResponse.from_domain(
-                    analysis_domain, include_full_results=True, results=results
-                )
-            else:
-                response = AnalysisResponse.from_domain(
-                    analysis_domain, include_full_results=False, results=results
-                )
+            response = AnalysisResponse.from_data(
+                analysis,
+                summary_payload=analysis.summary,
+                full_results=results if query.include_full_results else None,
+            )
 
             logger.info(
                 f"Successfully retrieved analysis {query.analysis_id}",
                 extra={
                     "analysis_id": str(query.analysis_id),
                     "analysis_type": response.analysis_type,
-                    "confidence_score": response.confidence_score,
-                    "sections_analyzed": response.sections_analyzed,
+                    "status": response.status.value,
+                    "confidence_score": response.summary.confidence.score,
+                    "critical_findings": (
+                        response.summary.insight_counts.critical_findings
+                    ),
                 },
             )
 

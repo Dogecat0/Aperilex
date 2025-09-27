@@ -1,32 +1,30 @@
 """Handler for ListAnalysesQuery - retrieves analyses with filtering and pagination."""
 
 import logging
-from uuid import uuid4
 
 from src.application.base.handlers import QueryHandler
 from src.application.handlers.schemas.queries.list_analyses import ListAnalysesQuery
 from src.application.handlers.schemas.responses.analysis_response import (
+    AnalysesListResponse,
     AnalysisResponse,
 )
 from src.application.handlers.schemas.responses.paginated_response import (
-    PaginatedResponse,
+    PaginationMetadata,
 )
 from src.application.interfaces.repositories import IAnalysisRepository
-from src.application.mappers import analysis_data_to_domain
 
 logger = logging.getLogger(__name__)
 
 
 class ListAnalysesQueryHandler(
-    QueryHandler[ListAnalysesQuery, PaginatedResponse[AnalysisResponse]]
+    QueryHandler[ListAnalysesQuery, AnalysesListResponse]
 ):
     """Handler for listing analyses with filtering and pagination.
 
     This handler processes ListAnalysesQuery by:
-    - Applying filters for company, date range, and analysis types
-    - Implementing pagination with sorting
-    - Converting results to response DTOs
-    - Providing filter summary for client consumption
+    - Applying filters for company scope, search, segment, status, and date ranges
+    - Implementing pagination with richer sorting options
+    - Hydrating summary DTOs directly from denormalized database payloads
 
     The handler focuses on data retrieval and pagination without presentation concerns.
     """
@@ -41,14 +39,14 @@ class ListAnalysesQueryHandler(
 
     async def handle(
         self, query: ListAnalysesQuery
-    ) -> PaginatedResponse[AnalysisResponse]:
+    ) -> AnalysesListResponse:
         """Process the list analyses query.
 
         Args:
             query: The query containing filtering and pagination parameters
 
         Returns:
-            PaginatedResponse[AnalysisResponse]: Paginated list of analyses
+            AnalysesListResponse: Paginated list of analyses
 
         Raises:
             ValueError: If query parameters are invalid
@@ -58,21 +56,18 @@ class ListAnalysesQueryHandler(
             extra={
                 "user_id": query.user_id,
                 "company_cik": str(query.company_cik) if query.company_cik else None,
-                "analysis_types": (
-                    [t.value for t in query.analysis_types]
-                    if query.analysis_types
-                    else None
+                "search": query.search,
+                "segment": query.segment.value,
+                "statuses": [status.value for status in query.statuses]
+                if query.statuses
+                else None,
+                "created_after": (
+                    query.created_after.isoformat() if query.created_after else None
                 ),
-                "analysis_template": (
-                    query.analysis_template.value if query.analysis_template else None
+                "created_before": (
+                    query.created_before.isoformat() if query.created_before else None
                 ),
-                "created_from": (
-                    query.created_from.isoformat() if query.created_from else None
-                ),
-                "created_to": (
-                    query.created_to.isoformat() if query.created_to else None
-                ),
-                "min_confidence_score": query.min_confidence_score,
+                "created_by": query.created_by,
                 "sort_by": query.sort_by.value,
                 "sort_direction": query.sort_direction.value,
                 "page": query.page,
@@ -81,101 +76,54 @@ class ListAnalysesQueryHandler(
         )
 
         try:
-            # Determine which analysis types to filter by
-            # Priority: explicit analysis_types > template mapping > no filter
-            filter_analysis_types = query.analysis_types
-
-            # If no explicit analysis_types but template is provided, use template mapping
-            if not filter_analysis_types and query.has_template_filter:
-                filter_analysis_types = query.get_analysis_types_for_template()
-
-            # Build filter summary for response
-            filter_parts = []
-
-            if query.has_company_filter:
-                filter_parts.append(f"company: {query.company_cik}")
-
-            if query.has_type_filter and query.analysis_types:
-                types_str = ", ".join([t.value for t in query.analysis_types])
-                filter_parts.append(f"types: {types_str}")
-
-            if query.has_template_filter and query.analysis_template:
-                filter_parts.append(f"template: {query.analysis_template.value}")
-                # If template is used for filtering (no explicit types), show mapped types
-                if not query.has_type_filter and filter_analysis_types:
-                    mapped_types_str = ", ".join(
-                        [t.value for t in filter_analysis_types]
-                    )
-                    filter_parts.append(f"mapped_to_types: {mapped_types_str}")
-
-            if query.has_date_range_filter:
-                if query.created_from and query.created_to:
-                    filter_parts.append(
-                        f"date: {query.created_from.date()} to {query.created_to.date()}"
-                    )
-                elif query.created_from:
-                    filter_parts.append(f"date: from {query.created_from.date()}")
-                elif query.created_to:
-                    filter_parts.append(f"date: until {query.created_to.date()}")
-
-            if query.min_confidence_score is not None:
-                filter_parts.append(f"min_confidence: {query.min_confidence_score}")
-
-            filters_applied = ", ".join(filter_parts) if filter_parts else "none"
-
-            # Get total count for pagination using determined analysis types
-            repository_analysis_types = (
-                [analysis_type.value for analysis_type in filter_analysis_types]
-                if filter_analysis_types
+            company_cik_value = str(query.company_cik) if query.company_cik else None
+            status_filters = (
+                [status.value for status in query.statuses]
+                if query.statuses
                 else None
             )
 
             total_count = await self.analysis_repository.count_with_filters(
-                company_cik=query.company_cik,
-                analysis_types=repository_analysis_types,
-                created_from=query.created_from,
-                created_to=query.created_to,
-                min_confidence_score=query.min_confidence_score,
+                company_cik=company_cik_value,
+                search=query.search,
+                segment=query.segment.value,
+                statuses=status_filters,
+                created_after=query.created_after,
+                created_before=query.created_before,
+                created_by=query.created_by,
             )
 
-            # If no results, return empty response
             if total_count == 0:
-                return PaginatedResponse.empty(
-                    page=query.page,
-                    page_size=query.page_size,
-                    query_id=uuid4(),
-                    filters_applied=filters_applied,
+                pagination = PaginationMetadata.create(
+                    query.page, query.page_size, total_items=0
                 )
+                return AnalysesListResponse(items=[], pagination=pagination)
 
-            # Get paginated results using determined analysis types
             analyses = await self.analysis_repository.find_with_filters(
-                company_cik=query.company_cik,
-                analysis_types=repository_analysis_types,
-                created_from=query.created_from,
-                created_to=query.created_to,
-                min_confidence_score=query.min_confidence_score,
-                sort_by=query.sort_by,
-                sort_direction=query.sort_direction,
+                company_cik=company_cik_value,
+                search=query.search,
+                segment=query.segment.value,
+                statuses=status_filters,
+                created_after=query.created_after,
+                created_before=query.created_before,
+                created_by=query.created_by,
+                sort_by=query.sort_by.value,
+                sort_direction=query.sort_direction.value,
                 page=query.page,
                 page_size=query.page_size,
             )
 
-            # Convert to response DTOs (summary version for list view)
             analysis_responses = [
-                AnalysisResponse.summary_from_domain(
-                    analysis_data_to_domain(analysis)
-                )
-                for analysis in analyses
+                AnalysisResponse.from_data(analysis) for analysis in analyses
             ]
 
-            # Create paginated response
-            response = PaginatedResponse.create(
+            pagination = PaginationMetadata.create(
+                query.page, query.page_size, total_items=total_count
+            )
+
+            response = AnalysesListResponse(
                 items=analysis_responses,
-                page=query.page,
-                page_size=query.page_size,
-                total_items=total_count,
-                query_id=uuid4(),
-                filters_applied=filters_applied,
+                pagination=pagination,
             )
 
             logger.info(
@@ -185,17 +133,16 @@ class ListAnalysesQueryHandler(
                     "page": query.page,
                     "page_size": query.page_size,
                     "returned_count": len(analysis_responses),
-                    "filters_applied": filters_applied,
                 },
             )
 
             return response
 
-        except Exception as e:
+        except Exception as exc:
             logger.error(
                 "Failed to list analyses",
                 extra={
-                    "error": str(e),
+                    "error": str(exc),
                     "user_id": query.user_id,
                     "page": query.page,
                     "page_size": query.page_size,

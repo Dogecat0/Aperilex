@@ -46,6 +46,10 @@ class Analysis(Base):
         JSON,
         nullable=True,
     )
+    summary: Mapped[dict[str, Any] | None] = mapped_column(
+        JSON,
+        nullable=True,
+    )
     created_by: Mapped[str | None] = mapped_column(
         String(255),
         nullable=True,

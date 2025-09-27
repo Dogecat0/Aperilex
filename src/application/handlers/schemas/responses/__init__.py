@@ -15,6 +15,7 @@ Response DTOs available:
 # ruff: noqa: I001
 
 from src.application.handlers.schemas.responses.analysis_response import (
+    AnalysesListResponse,
     AnalysisResponse,
 )
 from src.application.handlers.schemas.responses.error_response import ErrorResponse
@@ -33,6 +34,7 @@ from src.application.handlers.schemas.responses.filing_search_response import (
 __all__ = [
     "FilingResponse",
     "AnalysisResponse",
+    "AnalysesListResponse",
     "TaskResponse",
     "ErrorResponse",
     "PaginatedResponse",
