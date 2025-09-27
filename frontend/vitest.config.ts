@@ -44,6 +44,7 @@ export default defineConfig({
       exclude: [
         'node_modules/**',
         'src/test/**',
+        'src/_legacy/**',
         'src/**/*.test.{ts,tsx}',
         'src/**/*.spec.{ts,tsx}',
         'src/main.tsx',
@@ -68,7 +69,7 @@ export default defineConfig({
     },
     // Improved test matching patterns
     include: ['src/**/*.{test,spec}.{ts,tsx}'],
-    exclude: ['node_modules/', 'dist/', 'coverage/', 'src/api/generated-types.ts'],
+    exclude: ['node_modules/', 'dist/', 'coverage/', 'src/_legacy/**', 'src/api/generated-types.ts'],
     // Mock handling
     server: {
       deps: {
