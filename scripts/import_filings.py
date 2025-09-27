@@ -1,809 +1,621 @@
 #!/usr/bin/env python3
+"""Seed SEC filings into the local database from repository datasets.
+
+This simplified importer loads filing content from the repository's
+`data/filings` directory and persists the corresponding company and filing
+records so the analysis pipeline can run end-to-end in a Docker environment.
 """
-SEC Filing Batch Import Management Command
 
-This script provides a comprehensive command-line interface for importing SEC filings
-in batch from the Edgar database. It supports multiple import strategies, flexible
-filtering options, and robust validation to ensure reliable operation.
-
-The script uses the current storage architecture where filing content is stored in
-external storage (local files or S3) while metadata is kept in the database for
-fast lookups and filtering.
-
-FEATURES:
-    - Multiple import strategies (by companies, by date range)
-    - Support for both ticker symbols and CIK numbers
-    - Flexible filing type filtering (10-K, 10-Q, 8-K, etc.)
-    - Date range filtering for historical analysis
-    - Comprehensive parameter validation
-    - Dry-run mode for preview and validation
-    - Verbose logging for troubleshooting
-    - Progress tracking and summary reporting
-
-USAGE EXAMPLES:
-    Basic company import:
-        python scripts/import_filings.py --tickers AAPL,MSFT,GOOGL
-
-    Using CIK numbers:
-        python scripts/import_filings.py --ciks 320193,789019,1652044
-
-    Custom filing types and limits:
-        python scripts/import_filings.py --tickers AAPL --filing-types 10-K,8-K --limit 10
-
-    Date range import:
-        python scripts/import_filings.py --tickers TSLA --start-date 2023-01-01 --end-date 2023-12-31
-
-    Preview mode (dry run):
-        python scripts/import_filings.py --tickers AAPL,MSFT --dry-run
-
-    Verbose logging:
-        python scripts/import_filings.py --tickers GOOGL --verbose
-
-IMPORT STRATEGIES:
-    BY_COMPANIES (default):
-        Imports the most recent filings for specified companies. Efficient for getting
-        current data from specific entities. Requires --tickers or --ciks.
-
-    BY_DATE_RANGE:
-        Imports all filings within a date range, optionally filtered by companies.
-        Best for historical analysis. Automatically selected when both --start-date
-        and --end-date are provided.
-
-SUPPORTED FILING TYPES:
-    - 10-K: Annual reports (comprehensive company overview)
-    - 10-Q: Quarterly reports (quarterly financial updates)
-    - 8-K: Current reports (material events and changes)
-    - DEF 14A: Proxy statements (shareholder meeting info)
-    - S-1: Registration statements (IPO filings)
-    - 20-F: Foreign company annual reports
-    - 13F: Institutional holdings reports
-    - 3, 4, 5: Insider trading forms
-
-    Default: 10-K,10-Q (most commonly used for analysis)
-
-PERFORMANCE CONSIDERATIONS:
-    - SEC Edgar has rate limits (10 requests/second maximum)
-    - Large date ranges can result in substantial processing time
-    - Higher --limit values increase total processing time
-    - Multiple filing types multiply the number of requests
-    - Use --dry-run to estimate scope before large imports
-
-ENVIRONMENT VARIABLES:
-    EDGAR_USER_AGENT: Required. User agent string for SEC compliance
-                     Format: "Company Name email@domain.com"
-                     Example: "MyCompany investor.relations@mycompany.com"
-
-    FILING_STORAGE_PATH: Optional. Local storage path for filing content (default: ./data/filings)
-
-    USE_S3_STORAGE: Optional. Set to "true" to use S3 storage instead of local files
-
-    AWS_S3_BUCKET: Required when USE_S3_STORAGE=true. S3 bucket name for storage
-
-    AWS_REGION: Required when USE_S3_STORAGE=true. AWS region for S3 bucket
-
-    DATABASE_URL: Optional. Database connection string (uses default if not set)
-
-ERROR HANDLING:
-    The script provides comprehensive error handling with specific exit codes:
-    - 0: Successful completion
-    - 1: Validation error, configuration issue, or import failure
-    - 130: User interruption (Ctrl+C)
-
-VALIDATION:
-    All parameters are validated before import execution:
-    - Company identifiers must be valid tickers or CIK numbers
-    - Date ranges must be chronologically correct and in the past
-    - Filing types must be supported by the system
-    - Limits must be within allowed bounds (1-100)
-
-LOGGING:
-    - Default: INFO level with progress updates and summaries
-    - --verbose: DEBUG level with detailed operation logs
-    - All logs include timestamps and operation context
-    - Errors include diagnostic information for troubleshooting
-
-EXAMPLES BY USE CASE:
-    Getting latest filings for analysis:
-        python scripts/import_filings.py --tickers AAPL,MSFT,TSLA --limit 5
-
-    Historical quarterly data:
-        python scripts/import_filings.py --tickers GOOGL --filing-types 10-Q \\
-               --start-date 2022-01-01 --end-date 2022-12-31
-
-    Event-driven analysis:
-        python scripts/import_filings.py --tickers TSLA --filing-types 8-K --limit 20
-
-    Comprehensive data collection:
-        python scripts/import_filings.py --tickers AAPL --filing-types 10-K,10-Q,8-K \\
-               --limit 10 --verbose
-
-TROUBLESHOOTING:
-    Common issues and solutions:
-
-    1. "Invalid company identifier" error:
-       - Ensure tickers are valid symbols (e.g., AAPL, not Apple)
-       - CIKs should be numeric (e.g., 320193, not AAPL)
-       - Check spelling and format
-
-    2. "start_date cannot be in the future" error:
-       - Use dates in YYYY-MM-DD format
-       - Ensure dates are in the past
-       - Check system clock if dates appear correct
-
-    3. Rate limiting or connection errors:
-       - Verify EDGAR_USER_AGENT is set correctly
-       - Check internet connectivity
-       - Try smaller batches or add delays between runs
-       - Use --verbose to see detailed error information
-
-    4. "Service initialization failed" error:
-       - Check database connectivity
-       - Verify all environment variables are set
-       - Ensure required services are running
-       - For S3 storage, verify AWS credentials and bucket access
-
-    Use --verbose flag for detailed diagnostic information.
-
-NOTE:
-    This script is part of the Aperilex SEC filing analysis system. For additional
-    documentation and support, refer to the project documentation and the
-    ImportFilingsCommand class documentation.
-"""
+from __future__ import annotations
 
 import argparse
 import asyncio
+import json
 import logging
+import os
 import sys
-from datetime import datetime
+from collections.abc import Iterable
+from dataclasses import dataclass
+from datetime import date, datetime
 from pathlib import Path
 from typing import Any
+from uuid import NAMESPACE_DNS, uuid4, uuid5
 
-# Add project root to Python path for src imports
-project_root = Path(__file__).parent.parent
-if str(project_root) not in sys.path:
-    sys.path.insert(0, str(project_root))
-
-from src.application.schemas.commands.import_filings import (  # noqa: E402
-    ImportFilingsCommand,
-    ImportStrategy,
+from src.application.interfaces.repositories import CompanyData, FilingData
+from src.application.interfaces.storage import StorageRequest
+from src.infrastructure.database.models.base import async_session_maker
+from src.infrastructure.database.repositories.company_repository import (
+    CompanyRepository,
 )
-from src.domain.value_objects.filing_type import FilingType  # noqa: E402
+from src.infrastructure.database.repositories.filing_repository import FilingRepository
+from src.infrastructure.providers.storage.local import LocalStorageProvider
+from src.shared.enums import FilingType, TaskStatus
+from src.shared.types import CIK, AccessionNumber, CompanyId, FilingId, Ticker
 
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
-)
-logger = logging.getLogger(__name__)
+REPO_ROOT = Path(__file__).resolve().parent.parent
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+
+DEFAULT_FILING_TYPES = [FilingType.FORM_10K, FilingType.FORM_10Q]
+DATASET_ENV_VAR = "IMPORT_DATASET_PATH"
+STORAGE_ENV_VAR = "LOCAL_STORAGE_PATH"
 
 
-class FilingImportManager:
-    """Manager for batch filing import operations."""
+@dataclass
+class ImportOptions:
+    identifiers: list[str]
+    filing_types: list[FilingType]
+    limit: int
+    start_date: date | None
+    end_date: date | None
+    dry_run: bool
+    verbose: bool
 
-    def __init__(self) -> None:
-        """Initialize the filing import manager."""
-        self.background_task_coordinator = None
 
-    async def initialize_services(self) -> None:
-        """Initialize required services for filing import."""
-        try:
-            logger.info("Services initialized successfully")
-        except Exception as e:
-            logger.error(f"Failed to initialize services: {e}")
-            raise
+@dataclass
+class FilingImportPayload:
+    filing_id: FilingId
+    accession_number: AccessionNumber
+    filing_type: FilingType
+    filing_date: datetime
+    content: bytes
+    metadata: dict[str, str]
+    seed_path: str | None = None
 
-    async def import_filings(self, command: ImportFilingsCommand) -> None:
-        """Execute the filing import command.
 
-        Args:
-            command: The import command to execute
-        """
-        try:
-            # Validate command
-            logger.info("Validating import command...")
-            command.validate()
-            logger.info("Command validation successful")
+@dataclass
+class CompanyImportPayload:
+    cik: CIK
+    name: str
+    ticker: Ticker | None
+    filings: list[FilingImportPayload]
+    source: str
 
-            # Display import parameters
-            self._display_import_summary(command)
 
-            # Execute the actual batch import using direct filing operations
-            logger.info("Starting batch filing import...")
+def parse_filing_type_label(label: str) -> FilingType:
+    """Parse a filing type label into the internal enumeration."""
 
-            import secrets
-            import time
-            from datetime import datetime
-            from uuid import uuid4
+    cleaned = label.strip().upper()
+    if not cleaned:
+        raise ValueError("Filing type cannot be empty")
 
-            from edgar import Company
+    normalized = cleaned.replace("-", "").replace(" ", "")
+    if normalized.endswith("/A"):
+        normalized = normalized[:-2]
 
-            from src.domain.entities.company import Company as CompanyEntity
-            from src.domain.entities.filing import Filing
-            from src.domain.value_objects.accession_number import AccessionNumber
-            from src.domain.value_objects.cik import CIK
-            from src.domain.value_objects.filing_type import FilingType as FilingTypeVO
-            from src.domain.value_objects.ticker import Ticker
+    for filing_type in FilingType:
+        candidate = filing_type.value.upper().replace("-", "").replace(" ", "")
+        if candidate == normalized:
+            return filing_type
 
-            # Import required modules for direct execution
-            from src.infrastructure.database.base import async_session_maker
-            from src.infrastructure.edgar.service import EdgarService
-            from src.infrastructure.repositories.company_repository import (
-                CompanyRepository,
+    raise ValueError(f"Unsupported filing type: {label}")
+
+
+def parse_iso_date(value: str) -> date:
+    """Parse a date string in ISO format."""
+
+    try:
+        return datetime.fromisoformat(value).date()
+    except ValueError as exc:
+        raise ValueError(f"Invalid date format: {value}") from exc
+
+
+def generate_filing_id(accession_number: str) -> FilingId:
+    """Generate a deterministic filing ID from an accession number."""
+
+    clean_value = accession_number.replace("-", "")
+    filing_uuid = uuid5(NAMESPACE_DNS, clean_value)
+    return FilingId(filing_uuid)
+
+
+class LocalDatasetImporter:
+    """Importer that seeds filings using the local dataset bundle."""
+
+    def __init__(self, options: ImportOptions) -> None:
+        self.options = options
+
+        dataset_root = os.environ.get(DATASET_ENV_VAR, "data/filings")
+        self.dataset_root = Path(dataset_root).resolve()
+        self.storage_root = Path(os.environ.get(STORAGE_ENV_VAR, "./data")).resolve()
+        self.storage = LocalStorageProvider(str(self.storage_root))
+
+    async def execute(self) -> None:
+        if not self.dataset_root.exists():
+            logging.error(
+                "Dataset directory %s not found. Set %s to override.",
+                self.dataset_root,
+                DATASET_ENV_VAR,
             )
-            from src.infrastructure.repositories.filing_repository import (
-                FilingRepository,
-            )
-            from src.infrastructure.tasks.analysis_tasks import store_filing_content
+            return
 
-            task_id = f"script-task-{secrets.token_hex(8)}"
-            start_time = time.time()
+        identifiers = self.options.identifiers
+        if not identifiers:
+            logging.error("No tickers or CIKs provided; nothing to import.")
+            return
 
-            # Initialize counters
-            total_companies = len(command.companies or [])
-            processed_companies = 0
-            failed_companies = 0
-            total_filings_created = 0
-            total_filings_existing = 0
-            failed_companies_details = []
+        results: list[dict[str, Any]] = []
 
-            logger.info(f"Processing {total_companies} companies")
+        async with async_session_maker() as session:
+            company_repo = CompanyRepository(session)
+            filing_repo = FilingRepository(session)
 
-            # Process each company
-            for company_identifier in command.companies or []:
-                try:
-                    logger.info(f"Processing company: {company_identifier}")
-
-                    # Execute the filing fetch logic directly
-                    async with async_session_maker() as session:
-                        company_repo = CompanyRepository(session)
-                        filing_repo = FilingRepository(session)
-                        edgar_service = EdgarService()
-
-                        # Determine if input is a CIK or ticker
-                        is_numeric_cik = company_identifier.isdigit()
-
-                        # Get or create company
-                        if is_numeric_cik:
-                            # Input is a CIK
-                            company = await company_repo.get_by_cik(
-                                CIK(company_identifier)
-                            )
-                            if not company:
-                                # Fetch company info from Edgar using CIK
-                                company_data = (
-                                    await edgar_service.get_company_by_cik_async(
-                                        CIK(company_identifier)
-                                    )
-                                )
-                                # Create Company entity from CompanyData
-                                company_entity = CompanyEntity(
-                                    id=uuid4(),
-                                    cik=CIK(company_data.cik),
-                                    name=company_data.name,
-                                    metadata={
-                                        "ticker": company_data.ticker,
-                                        "sic_code": company_data.sic_code,
-                                        "sic_description": company_data.sic_description,
-                                        "address": company_data.address,
-                                    },
-                                )
-                                company = await company_repo.create(company_entity)
-                                await company_repo.commit()
-                                logger.info(
-                                    f"Created new company: {company.name} ({company.cik})"
-                                )
-
-                            # Create Edgar company object using CIK
-                            edgar_company = Company(int(company_identifier))
-                        else:
-                            # Input is a ticker symbol
-                            # First try to get company data from Edgar using ticker
-                            company_data = edgar_service.get_company_by_ticker(
-                                Ticker(company_identifier)
-                            )
-
-                            # Check if company exists in our database
-                            company = await company_repo.get_by_cik(
-                                CIK(company_data.cik)
-                            )
-                            if not company:
-                                # Create Company entity from CompanyData
-                                company_entity = CompanyEntity(
-                                    id=uuid4(),
-                                    cik=CIK(company_data.cik),
-                                    name=company_data.name,
-                                    metadata={
-                                        "ticker": company_data.ticker,
-                                        "sic_code": company_data.sic_code,
-                                        "sic_description": company_data.sic_description,
-                                        "address": company_data.address,
-                                    },
-                                )
-                                company = await company_repo.create(company_entity)
-                                await company_repo.commit()
-                                logger.info(
-                                    f"Created new company: {company.name} ({company.cik})"
-                                )
-
-                            # Create Edgar company object using ticker
-                            edgar_company = Company(company_identifier)
-
-                        # Fetch filings from Edgar
-                        filing_data_list = []
-                        if command.filing_types:
-                            for form_type in command.filing_types:
-                                filings = edgar_company.get_filings(form=form_type)
-                                # Convert to list and limit
-                                filings_iter = list(filings)[
-                                    : command.limit_per_company
-                                ]
-                                for filing in filings_iter:
-                                    filing_data_list.append(
-                                        edgar_service._extract_filing_data(filing)
-                                    )
-                        else:
-                            # Get all filings if no specific form types
-                            filings = edgar_company.get_filings()
-                            filings_iter = list(filings)[: command.limit_per_company]
-                            for filing in filings_iter:
-                                filing_data_list.append(
-                                    edgar_service._extract_filing_data(filing)
-                                )
-
-                        created_count = 0
-                        existing_count = 0
-
-                        for filing_data in filing_data_list:
-                            # Check if filing already exists
-                            existing_filing = await filing_repo.get_by_accession_number(
-                                AccessionNumber(filing_data.accession_number)
-                            )
-
-                            if existing_filing:
-                                existing_count += 1
-                                logger.debug(
-                                    f"Filing {filing_data.accession_number} already exists"
-                                )
-                                continue
-
-                            # Store filing content in storage
-                            filing_content = {
-                                "content_text": filing_data.content_text,
-                                "sections": filing_data.sections,
-                                "company_name": filing_data.company_name,
-                                "filing_type": filing_data.filing_type,
-                                "filing_date": filing_data.filing_date,
-                                "accession_number": filing_data.accession_number,
-                                "cik": filing_data.cik,
-                                "ticker": filing_data.ticker,
-                            }
-
-                            # Store content in storage (local files or S3)
-                            storage_success = await store_filing_content(
-                                AccessionNumber(filing_data.accession_number),
-                                CIK(filing_data.cik),
-                                filing_content,
-                            )
-
-                            if not storage_success:
-                                logger.warning(
-                                    f"Failed to store filing content for {filing_data.accession_number}"
-                                )
-
-                            # Create new filing with minimal metadata in database
-                            # Build metadata from available filing data fields
-                            metadata = {
-                                "company_name": filing_data.company_name,
-                                "cik": filing_data.cik,
-                                "ticker": filing_data.ticker,
-                                "content_length": (
-                                    len(filing_data.content_text)
-                                    if filing_data.content_text
-                                    else 0
-                                ),
-                                "has_sections": bool(filing_data.sections),
-                                "section_count": (
-                                    len(filing_data.sections)
-                                    if filing_data.sections
-                                    else 0
-                                ),
-                                "stored_in_storage": storage_success,
-                            }
-
-                            # Parse filing date string to date object
-                            # FilingData returns date as string, Filing entity expects date object
-                            filing_date = datetime.strptime(
-                                filing_data.filing_date, "%Y-%m-%d"
-                            ).date()
-
-                            filing = Filing(
-                                id=uuid4(),
-                                company_id=company.id,
-                                accession_number=AccessionNumber(
-                                    filing_data.accession_number
-                                ),
-                                filing_type=FilingTypeVO(filing_data.filing_type),
-                                filing_date=filing_date,
-                                metadata=metadata,
-                            )
-
-                            await filing_repo.create(filing)
-                            created_count += 1
-                            logger.info(
-                                f"Created filing {filing_data.accession_number} - content stored: {storage_success}"
-                            )
-
-                        await filing_repo.commit()
-
-                        company_result = {
-                            "status": "completed",
-                            "created_count": created_count,
-                            "updated_count": existing_count,
-                            "company_name": company.name,
-                        }
-
-                    if company_result.get("status") == "completed":
-                        processed_companies += 1
-                        created = company_result.get("created_count", 0)
-                        existing = company_result.get("updated_count", 0)
-                        total_filings_created += (
-                            created if isinstance(created, int) else 0
-                        )
-                        total_filings_existing += (
-                            existing if isinstance(existing, int) else 0
-                        )
-                        logger.info(
-                            f"Successfully processed {company_identifier}: {company_result.get('created_count', 0)} created, {company_result.get('updated_count', 0)} existing"
-                        )
-                    else:
-                        failed_companies += 1
-                        error_msg = company_result.get("error", "Unknown error")
-                        failed_companies_details.append(
-                            {"company": company_identifier, "error": error_msg}
-                        )
-                        logger.error(
-                            f"Failed to process {company_identifier}: {error_msg}"
-                        )
-
-                except Exception as e:
-                    failed_companies += 1
-                    error_msg = str(e)
-                    failed_companies_details.append(
-                        {
-                            "company": company_identifier,
-                            "error": error_msg,
-                            "error_type": type(e).__name__,
-                        }
+            for identifier in identifiers:
+                payload = self._load_local_dataset(identifier)
+                if payload is None:
+                    logging.warning(
+                        "No local dataset entries found for %s; skipping.", identifier
                     )
-                    logger.error(
-                        f"Exception processing {company_identifier}: {error_msg}"
-                    )
+                    continue
 
-            # Calculate results
-            processing_time = time.time() - start_time
-            success_rate = (
-                processed_companies / total_companies if total_companies > 0 else 0
+                if not payload.filings:
+                    logging.info(
+                        "Dataset for %s contains no filings after filtering; skipping.",
+                        identifier,
+                    )
+                    continue
+
+                result = await self._process_company(
+                    session, company_repo, filing_repo, payload
+                )
+                results.append(result)
+
+            if self.options.dry_run:
+                await session.rollback()
+
+        self._log_summary(results)
+
+    def _load_local_dataset(self, identifier: str) -> CompanyImportPayload | None:
+        match = self._find_company_directory(identifier)
+        if match is None:
+            return None
+
+        company_dir, sample_data = match
+        company_name = str(sample_data.get("company_name", "Unknown Company")).strip()
+        cik_value = str(sample_data.get("company_cik", "")).strip()
+        if not cik_value:
+            logging.debug("Sample data for %s missing CIK; skipping.", identifier)
+            return None
+
+        try:
+            company_cik = CIK(value=cik_value)
+        except ValueError:
+            logging.debug("Invalid CIK %s for %s; skipping.", cik_value, identifier)
+            return None
+
+        ticker_obj: Ticker | None = None
+        ticker_value = sample_data.get("ticker")
+        if ticker_value:
+            try:
+                ticker_obj = Ticker(value=str(ticker_value))
+            except ValueError:
+                ticker_obj = None
+
+        filings = self._collect_filings(company_dir, company_name, ticker_obj)
+        if not filings:
+            return CompanyImportPayload(
+                cik=company_cik,
+                name=company_name,
+                ticker=ticker_obj,
+                filings=[],
+                source="local_dataset",
             )
 
-            result = {
-                "task_id": task_id,
-                "total_companies": total_companies,
-                "processed_companies": processed_companies,
-                "failed_companies": failed_companies,
-                "total_filings_created": total_filings_created,
-                "total_filings_existing": total_filings_existing,
-                "processing_time_seconds": round(processing_time, 2),
-                "chunks_processed": 1,
-                "success_rate": round(success_rate, 3),
-                "average_time_per_company": (
-                    round(processing_time / total_companies, 2)
-                    if total_companies > 0
-                    else 0
-                ),
-                "failed_companies_details": failed_companies_details,
-                "status": "completed",
+        filings.sort(key=lambda item: item.filing_date, reverse=True)
+        limited_filings = filings[: self.options.limit]
+
+        return CompanyImportPayload(
+            cik=company_cik,
+            name=company_name,
+            ticker=ticker_obj,
+            filings=limited_filings,
+            source="local_dataset",
+        )
+
+    def _collect_filings(
+        self,
+        company_dir: Path,
+        company_name: str,
+        ticker: Ticker | None,
+    ) -> list[FilingImportPayload]:
+        payloads: list[FilingImportPayload] = []
+        json_files = sorted(company_dir.glob("*.json"))
+
+        for json_path in json_files:
+            data = self._load_json(json_path)
+            if not data:
+                continue
+
+            accession_raw = data.get("accession_number") or data.get("accessionNumber")
+            filing_type_raw = data.get("filing_type") or data.get("form")
+            filing_date_raw = data.get("filing_date") or data.get("filingDate")
+            content_text = data.get("content_text") or data.get("content")
+
+            if not accession_raw or not filing_type_raw or not filing_date_raw:
+                continue
+
+            try:
+                accession = AccessionNumber(value=str(accession_raw))
+            except ValueError:
+                logging.debug(
+                    "Skipping filing with invalid accession %s in %s",
+                    accession_raw,
+                    json_path,
+                )
+                continue
+
+            try:
+                filing_type = parse_filing_type_label(str(filing_type_raw))
+            except ValueError:
+                logging.debug(
+                    "Skipping filing with unsupported type %s in %s",
+                    filing_type_raw,
+                    json_path,
+                )
+                continue
+
+            if (
+                self.options.filing_types
+                and filing_type not in self.options.filing_types
+            ):
+                continue
+
+            try:
+                filing_date_only = parse_iso_date(str(filing_date_raw))
+            except ValueError:
+                logging.debug(
+                    "Skipping filing with invalid date %s in %s",
+                    filing_date_raw,
+                    json_path,
+                )
+                continue
+
+            if self.options.start_date and filing_date_only < self.options.start_date:
+                continue
+            if self.options.end_date and filing_date_only > self.options.end_date:
+                continue
+
+            if not content_text:
+                logging.debug(
+                    "Filing %s in %s has no content; skipping.",
+                    accession_raw,
+                    json_path,
+                )
+                continue
+
+            filing_datetime = datetime.combine(filing_date_only, datetime.min.time())
+            filing_id = generate_filing_id(accession.value)
+            metadata = {
+                "company_name": company_name,
+                "cik": accession.get_cik(),
+                "ticker": str(ticker.value) if ticker else "",
+                "accession_number": accession.value,
+                "source_file": str(json_path.relative_to(self.dataset_root))
+                if json_path.is_relative_to(self.dataset_root)
+                else str(json_path),
             }
 
-            # Display results
-            logger.info("Batch import completed!")
-            self._display_import_results(result)
-
-        except ValueError as e:
-            logger.error(f"Command validation failed: {e}")
-            raise
-        except Exception as e:
-            logger.error(f"Import failed: {e}")
-            raise
-
-    def _display_import_summary(self, command: ImportFilingsCommand) -> None:
-        """Display a summary of the import operation.
-
-        Args:
-            command: The import command
-        """
-        print("\n" + "=" * 60)
-        print("BATCH FILING IMPORT SUMMARY")
-        print("=" * 60)
-
-        print(f"Import Strategy: {command.import_strategy.value}")
-
-        if command.companies:
-            print(
-                f"Companies: {', '.join(command.companies)} ({len(command.companies)} total)"
+            payloads.append(
+                FilingImportPayload(
+                    filing_id=filing_id,
+                    accession_number=accession,
+                    filing_type=filing_type,
+                    filing_date=filing_datetime,
+                    content=str(content_text).encode("utf-8", errors="ignore"),
+                    metadata=metadata,
+                    seed_path=str(json_path),
+                )
             )
 
-        print(f"Filing Types: {', '.join(command.filing_types)}")
-        print(f"Limit Per Company: {command.limit_per_company}")
+        return payloads
 
-        if command.start_date:
-            print(f"Start Date: {command.start_date.strftime('%Y-%m-%d')}")
-        if command.end_date:
-            print(f"End Date: {command.end_date.strftime('%Y-%m-%d')}")
+    def _find_company_directory(
+        self, identifier: str
+    ) -> tuple[Path, dict[str, Any]] | None:
+        normalized = identifier.strip()
+        if not normalized:
+            return None
 
-        if command.import_strategy == ImportStrategy.BY_COMPANIES:
-            expected_count = command.expected_filings_count
-            if expected_count > 0:
-                print(f"Expected Filings: ~{expected_count}")
+        is_cik = normalized.isdigit()
+        normalized_upper = normalized.upper()
 
-        print("=" * 60)
-        print()
+        for company_dir in sorted(self.dataset_root.iterdir()):
+            if not company_dir.is_dir():
+                continue
 
-    def _display_import_results(self, result: dict[str, Any]) -> None:
-        """Display the results of the import operation.
+            sample_path = next(
+                (path for path in sorted(company_dir.glob("*.json")) if path.is_file()),
+                None,
+            )
+            if sample_path is None:
+                continue
 
-        Args:
-            result: The result dictionary from batch_import_filings_task
-        """
-        print("\n" + "=" * 60)
-        print("BATCH FILING IMPORT RESULTS")
-        print("=" * 60)
+            sample_data = self._load_json(sample_path)
+            if not sample_data:
+                continue
 
-        print(f"Task ID: {result.get('task_id', 'N/A')}")
-        print(f"Status: {result.get('status', 'unknown')}")
-        print(f"Total Companies: {result.get('total_companies', 0)}")
-        print(f"Successfully Processed: {result.get('processed_companies', 0)}")
-        print(f"Failed Companies: {result.get('failed_companies', 0)}")
-        print(f"New Filings Created: {result.get('total_filings_created', 0)}")
-        print(f"Existing Filings Found: {result.get('total_filings_existing', 0)}")
-        print(
-            f"Processing Time: {result.get('processing_time_seconds', 0):.2f} seconds"
-        )
-        print(f"Success Rate: {result.get('success_rate', 0):.1%}")
-        print(f"Chunks Processed: {result.get('chunks_processed', 0)}")
+            ticker_value = sample_data.get("ticker")
+            cik_value_raw = sample_data.get("company_cik")
 
-        # Show failed companies details if any
-        failed_details = result.get("failed_companies_details", [])
-        if failed_details:
-            print("\nFailed Companies:")
-            for detail in failed_details:
-                print(
-                    f"  - {detail.get('company', 'Unknown')}: {detail.get('error', 'Unknown error')}"
+            if is_cik and cik_value_raw is not None:
+                try:
+                    if int(str(cik_value_raw)) == int(normalized):
+                        return company_dir, sample_data
+                except ValueError:
+                    continue
+            elif not is_cik and ticker_value:
+                if str(ticker_value).upper() == normalized_upper:
+                    return company_dir, sample_data
+
+        return None
+
+    async def _process_company(
+        self,
+        session,
+        company_repo: CompanyRepository,
+        filing_repo: FilingRepository,
+        payload: CompanyImportPayload,
+    ) -> dict[str, Any]:
+        existing_company = await company_repo.get_by_cik(payload.cik)
+        created_company = False
+
+        if existing_company is None:
+            company_record = CompanyData(
+                id=CompanyId(uuid4()),
+                cik=payload.cik,
+                name=payload.name,
+                ticker=payload.ticker,
+                metadata={
+                    "source": payload.source,
+                    "ticker": str(payload.ticker.value)
+                    if payload.ticker is not None
+                    else "",
+                },
+            )
+            if not self.options.dry_run:
+                company_record = await company_repo.create(company_record)
+                created_company = True
+        else:
+            company_record = existing_company
+
+        created_filings = 0
+        skipped_filings = 0
+
+        for filing in payload.filings:
+            existing = await filing_repo.get_by_accession_number(
+                filing.accession_number
+            )
+            if existing is not None:
+                skipped_filings += 1
+                continue
+
+            if self.options.dry_run:
+                created_filings += 1
+                continue
+
+            if await self.storage.exists(filing.filing_id):
+                logging.debug(
+                    "Storage already contains filing %s; reusing existing data.",
+                    filing.accession_number.value,
                 )
+                storage_key_str = (
+                    f"filing:{filing.filing_id}"  # matches provider format
+                )
+            else:
+                storage_key = await self.storage.store_filing(
+                    StorageRequest(
+                        filing_id=filing.filing_id,
+                        content=filing.content,
+                        metadata={
+                            "company_name": payload.name,
+                            "cik": payload.cik.padded(),
+                            "ticker": str(payload.ticker.value)
+                            if payload.ticker
+                            else "",
+                            "accession_number": filing.accession_number.value,
+                        },
+                    )
+                )
+                storage_key_str = str(storage_key)
 
-        # Show error if task failed
-        if result.get("error"):
-            print(f"\nTask Error: {result.get('error')}")
+            filing_metadata = dict(filing.metadata)
+            filing_metadata.update(
+                {
+                    "storage_key": storage_key_str,
+                    "source": payload.source,
+                }
+            )
+            if filing.seed_path:
+                filing_metadata["seed_path"] = filing.seed_path
 
-        print("=" * 60)
-        print()
+            filing_record = FilingData(
+                id=filing.filing_id,
+                company_id=company_record.id,
+                filing_type=filing.filing_type,
+                accession_number=filing.accession_number,
+                filing_date=filing.filing_date,
+                processing_status=TaskStatus.PENDING,
+                metadata=filing_metadata,
+            )
 
+            await filing_repo.create(filing_record)
+            created_filings += 1
 
-def parse_date(date_str: str) -> datetime:
-    """Parse date string in YYYY-MM-DD format.
+        if not self.options.dry_run and (created_company or created_filings):
+            await session.commit()
 
-    Args:
-        date_str: Date string to parse
+        return {
+            "cik": payload.cik.padded(),
+            "company_name": payload.name,
+            "ticker": str(payload.ticker.value) if payload.ticker else None,
+            "created_company": created_company,
+            "created_filings": created_filings,
+            "skipped_filings": skipped_filings,
+        }
 
-    Returns:
-        Parsed datetime object
+    def _load_json(self, path: Path) -> dict[str, Any] | None:
+        try:
+            with path.open("r", encoding="utf-8") as handle:
+                return json.load(handle)
+        except (OSError, json.JSONDecodeError) as exc:
+            logging.debug("Failed to load %s: %s", path, exc)
+            return None
 
-    Raises:
-        ValueError: If date format is invalid
-    """
-    try:
-        return datetime.strptime(date_str, "%Y-%m-%d")
-    except ValueError as err:
-        raise ValueError(
-            f"Invalid date format: {date_str}. Use YYYY-MM-DD format."
-        ) from err
+    def _log_summary(self, results: Iterable[dict[str, Any]]) -> None:
+        results_list = list(results)
+        if not results_list:
+            logging.info("Import finished: no companies processed.")
+            return
 
+        total_created = sum(item["created_filings"] for item in results_list)
+        total_skipped = sum(item["skipped_filings"] for item in results_list)
 
-def parse_comma_separated_list(value: str) -> list[str]:
-    """Parse comma-separated list and clean up values.
-
-    Args:
-        value: Comma-separated string
-
-    Returns:
-        List of cleaned string values
-    """
-    return [item.strip().upper() for item in value.split(",") if item.strip()]
-
-
-def validate_filing_types(filing_types: list[str]) -> None:
-    """Validate that filing types are supported.
-
-    Args:
-        filing_types: List of filing type strings
-
-    Raises:
-        ValueError: If any filing type is not supported
-    """
-    valid_types = {ft.value for ft in FilingType}
-    invalid_types = [ft for ft in filing_types if ft not in valid_types]
-
-    if invalid_types:
-        raise ValueError(
-            f"Invalid filing types: {', '.join(invalid_types)}. "
-            f"Valid types: {', '.join(sorted(valid_types))}"
+        logging.info(
+            "Import finished: %d companies processed, %d filings created, %d skipped%s.",
+            len(results_list),
+            total_created,
+            total_skipped,
+            " (dry run)" if self.options.dry_run else "",
         )
 
+        for item in results_list:
+            ticker_display = f" ({item['ticker']})" if item["ticker"] else ""
+            logging.info(
+                " - %s%s: %d created, %d skipped%s",
+                item["company_name"],
+                ticker_display,
+                item["created_filings"],
+                item["skipped_filings"],
+                " (new company)" if item["created_company"] else "",
+            )
 
-def create_argument_parser() -> argparse.ArgumentParser:
-    """Create and configure the argument parser.
 
-    Returns:
-        Configured argument parser
-    """
+def parse_identifiers(raw: str | None) -> list[str]:
+    if not raw:
+        return []
+    values = [item.strip() for item in raw.split(",") if item.strip()]
+    return values
+
+
+def build_options(
+    argv: argparse.Namespace, parser: argparse.ArgumentParser
+) -> ImportOptions:
+    tickers = [value.upper() for value in parse_identifiers(argv.tickers)]
+    ciks = parse_identifiers(argv.ciks)
+    identifiers = list(dict.fromkeys(tickers + ciks))
+
+    if not identifiers:
+        parser.error("Provide at least one ticker or CIK via --tickers/--ciks")
+
+    limit = argv.limit
+    if limit <= 0:
+        parser.error("--limit must be greater than zero")
+
+    filing_types: list[FilingType] = []
+    if argv.filing_types:
+        raw_types = [
+            item.strip() for item in argv.filing_types.split(",") if item.strip()
+        ]
+        if any(item.lower() == "all" for item in raw_types):
+            filing_types = []
+        else:
+            try:
+                filing_types = [parse_filing_type_label(item) for item in raw_types]
+            except ValueError as exc:
+                parser.error(str(exc))
+    else:
+        filing_types = DEFAULT_FILING_TYPES.copy()
+
+    start_date: date | None = None
+    end_date: date | None = None
+
+    if argv.start_date:
+        try:
+            start_date = parse_iso_date(argv.start_date)
+        except ValueError as exc:
+            parser.error(str(exc))
+
+    if argv.end_date:
+        try:
+            end_date = parse_iso_date(argv.end_date)
+        except ValueError as exc:
+            parser.error(str(exc))
+
+    if start_date and end_date and end_date < start_date:
+        parser.error("--end-date must be on or after --start-date")
+
+    return ImportOptions(
+        identifiers=identifiers,
+        filing_types=filing_types,
+        limit=limit,
+        start_date=start_date,
+        end_date=end_date,
+        dry_run=argv.dry_run,
+        verbose=argv.verbose,
+    )
+
+
+def parse_args() -> ImportOptions:
     parser = argparse.ArgumentParser(
-        description="Import SEC filings in batch",
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog="""
-Examples:
-  # Import recent filings for specific tickers
-  python scripts/import_filings.py --tickers AAPL,MSFT,GOOGL
-
-  # Import using CIKs instead of tickers
-  python scripts/import_filings.py --ciks 320193,789019,1652044
-
-  # Import specific filing types with limit
-  python scripts/import_filings.py --tickers AAPL --filing-types 10-K,10-Q --limit 2
-
-  # Import filings within date range
-  python scripts/import_filings.py --tickers TSLA --start-date 2023-01-01 --end-date 2023-12-31
-
-Valid filing types: 10-K, 10-Q, 8-K, DEF 14A, S-1, 20-F
-        """,
+        description="Seed companies and filings from the local dataset for analysis tests.",
     )
-
-    # Company identifier arguments (mutually exclusive)
-    company_group = parser.add_mutually_exclusive_group(required=True)
-    company_group.add_argument(
+    parser.add_argument(
         "--tickers",
-        type=str,
-        metavar="SYMBOLS",
-        help="Comma-separated list of stock ticker symbols (e.g., AAPL,MSFT,GOOGL). "
-        "Case-insensitive input, supports dots (BRK.B) and hyphens (BRK-A). "
-        "Cannot be used with --ciks",
+        help="Comma-separated list of ticker symbols to import (e.g., AAPL,MSFT)",
     )
-    company_group.add_argument(
+    parser.add_argument(
         "--ciks",
-        type=str,
-        metavar="NUMBERS",
-        help="Comma-separated list of SEC Central Index Key numbers "
-        "(e.g., 320193,789019,1652044). Leading zeros optional "
-        "(320193 and 0000320193 are equivalent). Cannot be used with --tickers",
+        help="Comma-separated list of CIK numbers to import",
     )
-
-    # Filing parameters
     parser.add_argument(
         "--filing-types",
-        type=str,
-        default="10-K,10-Q",
-        metavar="TYPES",
-        help="Comma-separated list of SEC filing types to import (default: 10-K,10-Q). "
-        "Common types: 10-K (annual), 10-Q (quarterly), 8-K (events), "
-        "DEF 14A (proxy), S-1 (registration)",
+        help="Comma-separated filing types (default: 10-K,10-Q). Use 'all' for no filter.",
     )
     parser.add_argument(
         "--limit",
         type=int,
         default=4,
-        metavar="N",
-        help="Maximum number of filings to import per company per filing type "
-        "(range: 1-100, default: 4). Total filings = companies × filing_types × limit",
+        help="Maximum number of filings per company after filtering (default: 4)",
     )
-
-    # Date range filters
     parser.add_argument(
         "--start-date",
-        type=str,
-        metavar="DATE",
-        help="Start date for filtering filings (YYYY-MM-DD format, e.g., 2023-01-01). "
-        "When provided with end-date, switches to BY_DATE_RANGE strategy. "
-        "Must be in the past and before end-date",
+        help="Optional start date filter (YYYY-MM-DD)",
     )
     parser.add_argument(
         "--end-date",
-        type=str,
-        metavar="DATE",
-        help="End date for filtering filings (YYYY-MM-DD format, e.g., 2023-12-31). "
-        "When provided with start-date, switches to BY_DATE_RANGE strategy. "
-        "Must be in the past and after start-date",
-    )
-
-    # Operation parameters
-    parser.add_argument(
-        "--verbose",
-        "-v",
-        action="store_true",
-        help="Enable verbose logging (DEBUG level) for detailed progress tracking and troubleshooting",
+        help="Optional end date filter (YYYY-MM-DD)",
     )
     parser.add_argument(
         "--dry-run",
         action="store_true",
-        help="Preview mode: show what would be imported without actually importing. "
-        "Useful for validating parameters and estimating scope before running large imports",
+        help="Show what would be imported without writing to storage or the database",
+    )
+    parser.add_argument(
+        "--verbose",
+        action="store_true",
+        help="Enable debug logging",
     )
 
-    return parser
+    options = build_options(parser.parse_args(), parser)
+    return options
 
 
-async def main() -> None:
-    """Main entry point for the filing import script."""
-    parser = create_argument_parser()
-    args = parser.parse_args()
+async def run_import(options: ImportOptions) -> None:
+    importer = LocalDatasetImporter(options)
+    await importer.execute()
 
-    # Configure logging level
-    if args.verbose:
-        logging.getLogger().setLevel(logging.DEBUG)
+
+def main() -> None:
+    options = parse_args()
+    logging.basicConfig(
+        level=logging.DEBUG if options.verbose else logging.INFO,
+        format="%(levelname)s %(message)s",
+    )
 
     try:
-        # Parse company identifiers
-        companies: list[str] | None = None
-        if args.tickers:
-            companies = parse_comma_separated_list(args.tickers)
-            logger.info(f"Parsed tickers: {companies}")
-        elif args.ciks:
-            companies = parse_comma_separated_list(args.ciks)
-            logger.info(f"Parsed CIKs: {companies}")
-
-        # Parse filing types
-        filing_types = parse_comma_separated_list(args.filing_types)
-        validate_filing_types(filing_types)
-        logger.info(f"Filing types: {filing_types}")
-
-        # Parse dates
-        start_date = parse_date(args.start_date) if args.start_date else None
-        end_date = parse_date(args.end_date) if args.end_date else None
-
-        # Validate date range
-        if start_date and end_date and start_date >= end_date:
-            raise ValueError("start-date must be before end-date")
-
-        # Create import command
-        command = ImportFilingsCommand(
-            companies=companies,
-            filing_types=filing_types,
-            limit_per_company=args.limit,
-            start_date=start_date,
-            end_date=end_date,
-            import_strategy=ImportStrategy.BY_COMPANIES,
-        )
-
-        # Initialize import manager
-        manager = FilingImportManager()
-        await manager.initialize_services()
-
-        if args.dry_run:
-            logger.info("DRY RUN: Showing what would be imported...")
-            manager._display_import_summary(command)
-            logger.info("DRY RUN completed. No filings were actually imported.")
-        else:
-            # Execute import
-            await manager.import_filings(command)
-            logger.info("Filing import completed successfully")
-
-    except ValueError as e:
-        logger.error(f"Invalid arguments: {e}")
-        parser.print_help()
-        sys.exit(1)
+        asyncio.run(run_import(options))
     except KeyboardInterrupt:
-        logger.info("Import cancelled by user")
-        sys.exit(130)
-    except Exception as e:
-        logger.error(f"Import failed: {e}")
-        sys.exit(1)
+        logging.info("Import cancelled by user")
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    main()
