@@ -21,20 +21,33 @@ from pathlib import Path
 from typing import Any
 from uuid import NAMESPACE_DNS, uuid4, uuid5
 
-from src.application.interfaces.repositories import CompanyData, FilingData
-from src.application.interfaces.storage import StorageRequest
-from src.infrastructure.database.models.base import async_session_maker
-from src.infrastructure.database.repositories.company_repository import (
-    CompanyRepository,
-)
-from src.infrastructure.database.repositories.filing_repository import FilingRepository
-from src.infrastructure.providers.storage.local import LocalStorageProvider
-from src.shared.enums import FilingType, TaskStatus
-from src.shared.types import CIK, AccessionNumber, CompanyId, FilingId, Ticker
-
 REPO_ROOT = Path(__file__).resolve().parent.parent
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
+
+from src.application.interfaces.repositories import (  # noqa: E402
+    CompanyData,
+    FilingData,
+)
+from src.application.interfaces.storage import StorageRequest  # noqa: E402
+from src.infrastructure.database.models.base import async_session_maker  # noqa: E402
+from src.infrastructure.database.repositories.company_repository import (  # noqa: E402
+    CompanyRepository,
+)
+from src.infrastructure.database.repositories.filing_repository import (  # noqa: E402
+    FilingRepository,
+)
+from src.infrastructure.providers.storage.local import (  # noqa: E402
+    LocalStorageProvider,
+)
+from src.shared.enums import FilingType, TaskStatus  # noqa: E402
+from src.shared.types import (  # noqa: E402
+    CIK,
+    AccessionNumber,
+    CompanyId,
+    FilingId,
+    Ticker,
+)
 
 DEFAULT_FILING_TYPES = [FilingType.FORM_10K, FilingType.FORM_10Q]
 DATASET_ENV_VAR = "IMPORT_DATASET_PATH"
