@@ -372,6 +372,28 @@ function buildLearningPrompts(
 
 export function DashboardPage() {
   const [filters, setFilters] = useState<DashboardFiltersState>(DEFAULT_FILTERS)
+  const completedAnalysesQuery = useAnalyses(
+    {
+      segment: 'all',
+      status: 'COMPLETED',
+      page_size: 1,
+    },
+    {
+      staleTime: 1000 * 60 * 5,
+      gcTime: 1000 * 60 * 30,
+    }
+  )
+
+  const anyAnalysesQuery = useAnalyses(
+    {
+      segment: 'all',
+      page_size: 1,
+    },
+    {
+      staleTime: 1000 * 60 * 5,
+      gcTime: 1000 * 60 * 30,
+    }
+  )
 
   const queryParams = useMemo<ListAnalysesParams>(() => {
     const dateFilters = deriveDateFilters(filters.dateRange)
@@ -447,8 +469,43 @@ export function DashboardPage() {
   )
 
   const hasAnalyses = (analysesQuery.data?.items?.length ?? 0) > 0
+  const hasCompletedAnalyses =
+    hasAnalyses || (completedAnalysesQuery.data?.items?.length ?? 0) > 0
+  const hasAnyAnalyses = (anyAnalysesQuery.data?.items?.length ?? 0) > 0
+
+  const isLoadingAnyAnalyses =
+    analysesQuery.isLoading ||
+    analysesQuery.isFetching ||
+    completedAnalysesQuery.isLoading ||
+    completedAnalysesQuery.isFetching ||
+    anyAnalysesQuery.isLoading ||
+    anyAnalysesQuery.isFetching
+
   const showFirstRunLaunchpad =
-    !hasAnalyses && !analysesQuery.isLoading && !analysesQuery.isFetching
+    !hasAnyAnalyses &&
+    !isLoadingAnyAnalyses &&
+    !analysesQuery.error &&
+    !completedAnalysesQuery.error &&
+    !anyAnalysesQuery.error
+
+  const showProcessingState =
+    !hasAnalyses &&
+    !hasCompletedAnalyses &&
+    hasAnyAnalyses &&
+    !isLoadingAnyAnalyses &&
+    !analysesQuery.error &&
+    !completedAnalysesQuery.error &&
+    !anyAnalysesQuery.error
+
+  const showFilteredEmptyState =
+    !hasAnalyses &&
+    hasCompletedAnalyses &&
+    !isLoadingAnyAnalyses &&
+    !analysesQuery.error &&
+    !completedAnalysesQuery.error &&
+    !anyAnalysesQuery.error
+
+  const handleResetFilters = () => setFilters({ ...DEFAULT_FILTERS })
 
   return (
     <div className="flex flex-col gap-6">
@@ -481,6 +538,55 @@ export function DashboardPage() {
 
       {showFirstRunLaunchpad ? (
         <FirstRunLaunchpad />
+      ) : showProcessingState ? (
+        <section
+          className="flex flex-col gap-4 rounded-3xl border p-6"
+          style={{
+            borderColor: 'var(--colors-border)',
+            background: 'var(--colors-surfaceMuted)',
+            boxShadow: 'var(--shadows-soft)',
+          }}
+        >
+          <div className="space-y-2">
+            <h2 className="text-xl font-semibold text-[var(--colors-foreground)]">
+              Analyses are still processing
+            </h2>
+            <p className="text-sm text-[var(--colors-foregroundMuted)]">
+              Check back in a moment—fresh filings are moving through the workflow and will populate this
+              dashboard once completed.
+            </p>
+          </div>
+        </section>
+      ) : showFilteredEmptyState ? (
+        <section
+          className="flex flex-col items-start gap-4 rounded-3xl border p-6"
+          style={{
+            borderColor: 'var(--colors-border)',
+            background: 'var(--colors-surface)',
+            boxShadow: 'var(--shadows-soft)',
+          }}
+        >
+          <div className="space-y-2">
+            <h2 className="text-xl font-semibold text-[var(--colors-foreground)]">
+              No analyses match these filters
+            </h2>
+            <p className="text-sm text-[var(--colors-foregroundMuted)]">
+              Adjust the filing type, date range, or segment focus to surface your saved analyses.
+            </p>
+          </div>
+
+          <button
+            type="button"
+            onClick={handleResetFilters}
+            className="inline-flex items-center justify-center rounded-full border px-6 py-3 text-sm font-semibold uppercase tracking-wide"
+            style={{
+              borderColor: 'var(--colors-border)',
+              color: 'var(--colors-foreground)',
+            }}
+          >
+            Reset filters
+          </button>
+        </section>
       ) : (
         <>
           <section className="grid gap-4 md:grid-cols-3">

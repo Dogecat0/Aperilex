@@ -232,6 +232,7 @@ export function AnalyzeFilingsPage() {
       const finalStatus = await pollTaskStatus(task.task_id, {
         signal: controller.signal,
         onUpdate: (status) => setTaskStatus(status),
+        timeoutMs: 0,
       })
 
       resetPollingState()
@@ -272,6 +273,12 @@ export function AnalyzeFilingsPage() {
         return
       }
 
+      const lastKnownStatus =
+        (error as Error & { lastKnownStatus?: TaskResponse }).lastKnownStatus
+      if (lastKnownStatus) {
+        setTaskStatus(lastKnownStatus)
+      }
+
       setPollError(getErrorMessage(error))
     }
   }
@@ -279,6 +286,7 @@ export function AnalyzeFilingsPage() {
   const isAnalyzing = analyzeMutation.isPending || Boolean(pollingTaskId)
 
   const mutationError = getErrorMessage(analyzeMutation.error)
+  const searchError = filingSearch.error ? getErrorMessage(filingSearch.error) : null
 
   const searchValues: FilingSearchFormValues = useMemo(
     () => ({
@@ -320,6 +328,7 @@ export function AnalyzeFilingsPage() {
           onSelect={setSelectedResult}
           pagination={filingSearch.data?.pagination}
           onPageChange={handlePageChange}
+          error={searchError}
         />
 
         <FilingDetailPanel

@@ -7,6 +7,7 @@ interface FilingResultsListProps {
   onSelect: (result: FilingSearchResult) => void
   pagination?: PaginatedFilingSearchResponse['pagination']
   onPageChange?: (page: number) => void
+  error?: string | null
 }
 
 export function FilingResultsList({
@@ -16,6 +17,7 @@ export function FilingResultsList({
   onSelect,
   pagination,
   onPageChange,
+  error,
 }: FilingResultsListProps) {
   const hasResults = results.length > 0
   const canGoPrevious = pagination?.has_previous ?? false
@@ -65,7 +67,11 @@ export function FilingResultsList({
       </header>
 
       <div className="flex-1 overflow-y-auto">
-        {isLoading ? (
+        {error ? (
+          <div className="rounded-xl border p-4 text-xs" style={{ borderColor: 'rgba(248, 113, 113, 0.35)', color: 'var(--sentiment-negative)' }}>
+            {error}
+          </div>
+        ) : isLoading ? (
           <ul className="space-y-3">
             {Array.from({ length: 4 }).map((_, index) => (
               // eslint-disable-next-line react/no-array-index-key

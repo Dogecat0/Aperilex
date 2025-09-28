@@ -36,7 +36,8 @@ function formatStatus(status?: string | null) {
     return 'Unknown'
   }
 
-  return status.replace(/_/g, ' ')
+  const normalized = status.replace(/_/g, ' ').toLowerCase()
+  return normalized.replace(/\b\w/g, (char) => char.toUpperCase())
 }
 
 export function FilingDetailPanel({
@@ -196,6 +197,11 @@ export function FilingDetailPanel({
             <p className="mt-1 text-[var(--colors-foregroundMuted)]">
               Status: {formatStatus(taskStatus.status)}
             </p>
+            {taskStatus.analysis_stage ? (
+              <p className="mt-1 text-[var(--colors-foregroundMuted)]">
+                Stage: {formatStatus(taskStatus.analysis_stage)}
+              </p>
+            ) : null}
             {taskStatus.current_step ? (
               <p className="mt-1 text-[var(--colors-foregroundMuted)]">
                 Step: {taskStatus.current_step}
