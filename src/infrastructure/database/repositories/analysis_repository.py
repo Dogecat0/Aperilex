@@ -4,7 +4,7 @@ from datetime import datetime
 from typing import Any, cast
 from uuid import UUID
 
-from sqlalchemy import Integer, and_, false, func, or_, select
+from sqlalchemy import Integer, String, and_, false, func, or_, select
 from sqlalchemy import cast as sa_cast
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql import ColumnElement, Select
@@ -35,9 +35,21 @@ class AnalysisRepository(IAnalysisRepository):
         """Expression extracting critical findings count from summary JSON."""
 
         return sa_cast(
-            AnalysisModel.summary["insight_counts"]["critical_findings"].astext,
+            self._json_text(AnalysisModel.summary, "insight_counts", "critical_findings"),
             Integer,
         )
+
+    def _json_text(self, column: ColumnElement[Any], *path: str) -> ColumnElement[str]:
+        """Extract a text value from a JSON column using Postgres operators."""
+
+        expr: ColumnElement[Any] = column
+        if not path:
+            return sa_cast(expr, String)
+
+        for key in path[:-1]:
+            expr = expr.op("->")(key)
+
+        return expr.op("->>")(path[-1])
 
     def _resolve_status_filters(
         self, segment: str | None, statuses: list[str] | None
@@ -126,13 +138,31 @@ class AnalysisRepository(IAnalysisRepository):
 
         if search:
             search_value = f"%{search.lower()}%"
-            ticker_expr = CompanyModel.meta_data["ticker"].astext
+
+            ticker_expr = self._json_text(CompanyModel.meta_data, "ticker")
+            summary_company_name = self._json_text(
+                AnalysisModel.summary, "company", "name"
+            )
+            summary_company_ticker = self._json_text(
+                AnalysisModel.summary, "company", "ticker"
+            )
+            summary_company_cik = self._json_text(
+                AnalysisModel.summary, "company", "cik"
+            )
+            summary_filing_type = self._json_text(
+                AnalysisModel.summary, "filing", "type"
+            )
+
             conditions.append(
                 or_(
                     func.lower(CompanyModel.name).like(search_value),
                     func.lower(CompanyModel.cik).like(search_value),
                     func.lower(ticker_expr).like(search_value),
                     func.lower(FilingModel.filing_type).like(search_value),
+                    func.lower(summary_company_name).like(search_value),
+                    func.lower(summary_company_ticker).like(search_value),
+                    func.lower(summary_company_cik).like(search_value),
+                    func.lower(summary_filing_type).like(search_value),
                 )
             )
 
