@@ -361,6 +361,7 @@ class AnalysisRepository(IAnalysisRepository):
         model = self._data_to_model(analysis)
         self.session.add(model)
         await self.session.flush()
+        await self.session.commit()
 
         # Invalidate query cache since new entity affects list queries
         self.cache_manager.invalidate_region(CacheRegionName.QUERY)
@@ -393,6 +394,7 @@ class AnalysisRepository(IAnalysisRepository):
         model.created_by = analysis.created_by or str(analysis.user_id)
 
         await self.session.flush()
+        await self.session.commit()
 
         # Invalidate caches
         cache_key = f"analysis:id:{analysis.id}"
@@ -434,6 +436,7 @@ class AnalysisRepository(IAnalysisRepository):
             model.meta_data.pop("error_message")
 
         await self.session.flush()
+        await self.session.commit()
 
         # Invalidate cache
         cache_key = f"analysis:id:{analysis_id}"
@@ -454,6 +457,7 @@ class AnalysisRepository(IAnalysisRepository):
 
         await self.session.delete(model)
         await self.session.flush()
+        await self.session.commit()
 
         analysis_id_str = str(analysis_id)
         filing_id_str = str(filing_id) if filing_id else None
@@ -495,6 +499,7 @@ class AnalysisRepository(IAnalysisRepository):
             model.meta_data = existing_meta
 
         await self.session.flush()
+        await self.session.commit()
 
         cache_key = f"analysis:id:{analysis_id}"
         self.cache_manager.invalidate_key(self.cache_region, cache_key)

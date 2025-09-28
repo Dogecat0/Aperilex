@@ -4,7 +4,9 @@ Docker worker provider implementation for local development.
 
 import asyncio
 import json
+import logging
 from datetime import UTC, datetime
+from pathlib import Path
 from typing import Any, cast
 
 import aiodocker
@@ -24,6 +26,9 @@ from src.shared.config.providers import DockerWorkerConfig
 from src.shared.enums import TaskStatus
 from src.shared.models import TaskMessage
 from src.shared.types import TaskId
+from src.shared.utils.task_status_store import TaskStatusStore
+
+logger = logging.getLogger(__name__)
 
 
 class DockerWorkerProvider(IWorkerProvider):
@@ -31,6 +36,10 @@ class DockerWorkerProvider(IWorkerProvider):
 
     def __init__(self, config: DockerWorkerConfig):
         self.config = config
+        raw_status_path = Path(self.config.status_store_path).expanduser()
+        self._status_store = TaskStatusStore(raw_status_path)
+        self.status_store_path = self._status_store.base_path
+        self._status_persist_tasks: set[asyncio.Task[None]] = set()
         self.docker_client: aiodocker.Docker | None = None
         self.active_containers: dict[TaskId, str] = {}  # task_id -> container_id
         self.container_logs: dict[TaskId, list[WorkerLogEntry]] = {}
@@ -133,6 +142,30 @@ class DockerWorkerProvider(IWorkerProvider):
             return parsed.astimezone(UTC).replace(tzinfo=None)
         return parsed
 
+    def _schedule_status_persist(self, status: WorkerTaskStatus) -> None:
+        """Persist status asynchronously without blocking the worker loop."""
+
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            return
+
+        task = loop.create_task(self._status_store.write_status(status))
+        self._status_persist_tasks.add(task)
+
+        def _cleanup(completed: asyncio.Task[None]) -> None:
+            self._status_persist_tasks.discard(completed)
+            if completed.cancelled():
+                return
+            exc = completed.exception()
+            if exc:
+                logger.debug(
+                    "Task status persistence failed",
+                    exc_info=exc,
+                )
+
+        task.add_done_callback(_cleanup)
+
     def _update_task_status(
         self,
         *,
@@ -173,6 +206,7 @@ class DockerWorkerProvider(IWorkerProvider):
         )
 
         self.task_statuses[task_id] = status_snapshot
+        self._schedule_status_persist(status_snapshot)
         return status_snapshot
 
     async def execute_task(
@@ -477,6 +511,11 @@ class DockerWorkerProvider(IWorkerProvider):
                 await self.docker_client.close()
                 self.docker_client = None
 
+            if self._status_persist_tasks:
+                pending = tuple(self._status_persist_tasks)
+                self._status_persist_tasks.clear()
+                await asyncio.gather(*pending, return_exceptions=True)
+
             return True
         except Exception:
             return False
@@ -561,6 +600,11 @@ class DockerWorkerProvider(IWorkerProvider):
         """Return the latest known task status, refreshing from Docker if possible."""
 
         status_snapshot = self.task_statuses.get(task_id)
+
+        if status_snapshot is None:
+            status_snapshot = await self._status_store.read_status(task_id)
+            if status_snapshot is not None:
+                self.task_statuses[task_id] = status_snapshot
 
         if task_id in self.active_containers:
             try:

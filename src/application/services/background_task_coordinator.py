@@ -10,7 +10,7 @@ from src.application.handlers.schemas.commands.analyze_filing import (
 from src.application.handlers.schemas.responses.task_response import TaskResponse
 from src.application.interfaces.events import IEventPublisher, TaskQueuedEvent
 from src.application.interfaces.repositories import CompanyData, FilingData
-from src.application.interfaces.worker import IWorkerProvider
+from src.application.interfaces.worker import IWorkerProvider, WorkerTaskStatus
 from src.application.services.priority_queue_service import (
     DuplicationError,
     PriorityQueueService,
@@ -22,6 +22,7 @@ from src.shared.models.queue import TaskMessage
 from src.shared.types import Email, TaskId, UserId
 from src.shared.types.identifiers import QueueMessageId
 from src.shared.utils.logging import get_logger
+from src.shared.utils.task_status_store import TaskStatusStore
 
 logger = get_logger(__name__)
 
@@ -58,6 +59,8 @@ class BackgroundTaskCoordinator:
         self.worker_provider = worker_provider
         self.event_publisher = event_publisher
         self.use_background = use_background
+        store_path = getattr(worker_provider, "status_store_path", None)
+        self.task_status_store = TaskStatusStore(store_path)
 
     async def queue_filing_analysis(
         self,
@@ -104,21 +107,24 @@ class BackgroundTaskCoordinator:
                         },
                     )
 
+                result_payload = {
+                    "message": "Analysis queued for background processing",
+                    "filing_identifier": command.filing_identifier,
+                    "company_cik": str(command.company_cik),
+                    "accession_number": str(command.accession_number),
+                    "analysis_template": command.analysis_template.value,
+                    "queue_message_id": str(message_id),
+                    "filing_id": str(task_data.filing_id),
+                    "company_id": task_data.metadata.get("company_id"),
+                }
+
                 await self._publish_queued_event(task_data)
+                await self._record_initial_status(task_data, result_payload)
 
                 return TaskResponse(
                     task_id=str(task_data.task_id),
                     status=TaskStatus.PENDING.value,
-                    result={
-                        "message": "Analysis queued for background processing",
-                        "filing_identifier": command.filing_identifier,
-                        "company_cik": str(command.company_cik),
-                        "accession_number": str(command.accession_number),
-                        "analysis_template": command.analysis_template.value,
-                        "queue_message_id": str(message_id),
-                        "filing_id": str(task_data.filing_id),
-                        "company_id": task_data.metadata.get("company_id"),
-                    },
+                    result=result_payload,
                     current_step="Task queued for processing",
                 )
 
@@ -153,6 +159,42 @@ class BackgroundTaskCoordinator:
                 },
             )
             return None
+
+    async def _record_initial_status(
+        self,
+        task_data: TaskData,
+        result_payload: Mapping[str, object],
+    ) -> None:
+        """Persist an initial pending status snapshot for newly queued tasks."""
+
+        try:
+            snapshot = WorkerTaskStatus(
+                task_id=task_data.task_id,
+                status=TaskStatus.PENDING,
+                result=dict(result_payload),
+                error=None,
+                started_at=None,
+                completed_at=None,
+                progress_percent=0.0,
+                message="Task queued for processing",
+                analysis_stage=None,
+            )
+        except Exception:
+            logger.debug(
+                "Failed to build initial task status snapshot",
+                extra={"task_id": str(task_data.task_id)},
+                exc_info=True,
+            )
+            return
+
+        try:
+            await self.task_status_store.write_status(snapshot)
+        except Exception:
+            logger.debug(
+                "Failed to persist initial task status",
+                extra={"task_id": str(task_data.task_id)},
+                exc_info=True,
+            )
 
     async def enqueue_task_message(self, task_message: TaskMessage) -> QueueMessageId:
         """Send a pre-built task message through the configured queue provider."""
@@ -278,6 +320,9 @@ class BackgroundTaskCoordinator:
                 )
 
             status = await self.worker_provider.get_task_status(task_identifier)
+
+            if not status:
+                status = await self.task_status_store.read_status(task_identifier)
 
             if not status:
                 return TaskResponse(

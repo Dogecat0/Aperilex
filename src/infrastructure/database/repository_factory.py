@@ -184,21 +184,35 @@ class RepositoryFactory(IRepositoryFactory):
             except Exception:
                 transaction = None
 
+            finalized = False
             if transaction and transaction.is_active:
                 try:
                     if success:
                         await session.commit()
                     else:
                         await session.rollback()
+                    finalized = True
                 except Exception as exc:
                     logger.error(f"Error finalizing session transaction: {exc}")
                     if success:
                         try:
                             await session.rollback()
+                            finalized = True
                         except Exception as rollback_exc:
                             logger.error(
                                 f"Error rolling back session after commit failure: {rollback_exc}"
                             )
+
+            if not finalized:
+                try:
+                    if success:
+                        await session.commit()
+                    else:
+                        await session.rollback()
+                except Exception as exc:
+                    logger.debug(
+                        "No active transaction to finalize for session: %s", exc
+                    )
 
             try:
                 await session.close()
