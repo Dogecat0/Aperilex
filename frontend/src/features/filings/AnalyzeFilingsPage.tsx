@@ -12,6 +12,7 @@ import {
   type FilingSearchFormValues,
 } from './components/FilingSearchForm'
 import { FilingResultsList } from './components/FilingResultsList'
+import { ExistingAnalysesCallout } from './components/ExistingAnalysesCallout'
 
 interface SearchState extends FilingSearchFormValues {
   page: number
@@ -308,16 +309,18 @@ export function AnalyzeFilingsPage() {
           Queue your next filing analysis
         </h1>
         <p className="text-sm text-[var(--colors-foregroundMuted)]">
-          Kick off fresh analyses from imported filings so your dashboard stays populated with
-          the latest insights.
-        </p>
-      </header>
+      Kick off fresh analyses from imported filings so your dashboard stays populated with
+      the latest insights.
+    </p>
+  </header>
 
-      <FilingSearchForm
-        values={searchValues}
-        onChange={handleFormChange}
-        onSubmit={executeSearch}
-        isSubmitting={filingSearch.isFetching}
+      <ExistingAnalysesCallout />
+
+  <FilingSearchForm
+    values={searchValues}
+    onChange={handleFormChange}
+    onSubmit={executeSearch}
+    isSubmitting={filingSearch.isFetching}
       />
 
       <div className="grid gap-4 lg:grid-cols-[2fr_3fr]">

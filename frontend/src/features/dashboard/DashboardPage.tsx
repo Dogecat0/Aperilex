@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { DashboardFilters, type DashboardFiltersState, type SegmentFilter } from './components/DashboardFilters'
+import { DashboardFilters, type DashboardFiltersState } from './components/DashboardFilters'
 import {
   FilingSummaryCard,
   type FilingSummaryCardProps,
@@ -8,7 +8,8 @@ import {
 import { InsightList, type InsightListItem } from './components/InsightList'
 import { LearningPrompt, type LearningPromptProps } from './components/LearningPrompt'
 import { FirstRunLaunchpad } from './components/FirstRunLaunchpad'
-import { useAnalyses, useFilingDetail } from '@/lib/hooks'
+import { AnalysisLibrarySection } from './components/AnalysisLibrarySection'
+import { useAnalyses, useAnalysisLibrary, useFilingDetail } from '@/lib/hooks'
 import { ApiClientError } from '@/lib/apiClient'
 import type { AnalysisResponse, ListAnalysesParams, SectionAnalysis } from '@/lib/types/analysis'
 
@@ -93,6 +94,22 @@ function computeAverageSentiment(sections?: SectionAnalysis[] | null) {
 
   const total = values.reduce((sum, value) => sum + value, 0)
   return total / values.length
+}
+
+function formatApiError(error: unknown): string | null {
+  if (!error) {
+    return null
+  }
+
+  if (error instanceof ApiClientError) {
+    return `${error.status_code}: ${error.message}`
+  }
+
+  if (error instanceof Error) {
+    return error.message
+  }
+
+  return 'Unexpected error while loading analyses.'
 }
 
 function buildSummaryCards(analyses: AnalysisResponse[], latestDetail?: AnalysisResponse | null): FilingSummaryCardProps[] {
@@ -372,6 +389,7 @@ function buildLearningPrompts(
 
 export function DashboardPage() {
   const [filters, setFilters] = useState<DashboardFiltersState>(DEFAULT_FILTERS)
+  const [libraryPage, setLibraryPage] = useState(1)
   const completedAnalysesQuery = useAnalyses(
     {
       segment: 'all',
@@ -395,14 +413,13 @@ export function DashboardPage() {
     }
   )
 
-  const queryParams = useMemo<ListAnalysesParams>(() => {
+  const baseQueryParams = useMemo<ListAnalysesParams>(() => {
     const dateFilters = deriveDateFilters(filters.dateRange)
     const params: ListAnalysesParams = {
       segment: filters.segment,
       status: 'COMPLETED',
       sort: 'created_at',
       direction: 'desc',
-      page_size: 8,
       ...dateFilters,
     }
 
@@ -414,20 +431,43 @@ export function DashboardPage() {
     return params
   }, [filters])
 
-  const analysesQuery = useAnalyses(queryParams)
-  const latestAnalysisId = analysesQuery.data?.items?.[0]?.analysis_id
+  const summaryQueryParams = useMemo<ListAnalysesParams>(
+    () => ({
+      ...baseQueryParams,
+      page: 1,
+      page_size: 8,
+    }),
+    [baseQueryParams]
+  )
+
+  const libraryQueryParams = useMemo<ListAnalysesParams>(
+    () => ({
+      ...baseQueryParams,
+      page: libraryPage,
+      page_size: 12,
+    }),
+    [baseQueryParams, libraryPage]
+  )
+
+  const latestAnalysesQuery = useAnalyses(summaryQueryParams)
+  const libraryQuery = useAnalysisLibrary(libraryQueryParams)
+  const latestAnalysisId = latestAnalysesQuery.data?.items?.[0]?.analysis_id
   const latestDetailQuery = useFilingDetail(latestAnalysisId, {
     enabled: Boolean(latestAnalysisId),
     staleTime: 1000 * 60 * 5,
   })
 
   useEffect(() => {
-    if (!analysesQuery.error) {
+    setLibraryPage(1)
+  }, [filters.filingType, filters.dateRange, filters.segment])
+
+  useEffect(() => {
+    if (!latestAnalysesQuery.error) {
       return
     }
 
-    console.error('Failed to load analyses', analysesQuery.error)
-  }, [analysesQuery.error])
+    console.error('Failed to load analyses', latestAnalysesQuery.error)
+  }, [latestAnalysesQuery.error])
 
   useEffect(() => {
     if (!latestDetailQuery.error) {
@@ -437,45 +477,42 @@ export function DashboardPage() {
     console.error('Failed to load latest analysis detail', latestDetailQuery.error)
   }, [latestDetailQuery.error])
 
-  const errorMessage = useMemo(() => {
-    if (!analysesQuery.error) {
-      return null
+  useEffect(() => {
+    if (!libraryQuery.error) {
+      return
     }
 
-    if (analysesQuery.error instanceof ApiClientError) {
-      return `${analysesQuery.error.status_code}: ${analysesQuery.error.message}`
-    }
+    console.error('Failed to load analysis library', libraryQuery.error)
+  }, [libraryQuery.error])
 
-    if (analysesQuery.error instanceof Error) {
-      return analysesQuery.error.message
-    }
-
-    return 'Unexpected error while loading analyses.'
-  }, [analysesQuery.error])
+  const summaryErrorMessage = useMemo(
+    () => formatApiError(latestAnalysesQuery.error),
+    [latestAnalysesQuery.error]
+  )
 
   const summaryCards = useMemo(
-    () => buildSummaryCards(analysesQuery.data?.items ?? [], latestDetailQuery.data),
-    [analysesQuery.data, latestDetailQuery.data]
+    () => buildSummaryCards(latestAnalysesQuery.data?.items ?? [], latestDetailQuery.data),
+    [latestAnalysesQuery.data, latestDetailQuery.data]
   )
 
   const insightItems = useMemo(
-    () => buildInsights(analysesQuery.data?.items ?? [], latestDetailQuery.data),
-    [analysesQuery.data, latestDetailQuery.data]
+    () => buildInsights(latestAnalysesQuery.data?.items ?? [], latestDetailQuery.data),
+    [latestAnalysesQuery.data, latestDetailQuery.data]
   )
 
   const learningPrompts = useMemo(
-    () => buildLearningPrompts(analysesQuery.data?.items ?? [], latestDetailQuery.data),
-    [analysesQuery.data, latestDetailQuery.data]
+    () => buildLearningPrompts(latestAnalysesQuery.data?.items ?? [], latestDetailQuery.data),
+    [latestAnalysesQuery.data, latestDetailQuery.data]
   )
 
-  const hasAnalyses = (analysesQuery.data?.items?.length ?? 0) > 0
+  const hasAnalyses = (latestAnalysesQuery.data?.items?.length ?? 0) > 0
   const hasCompletedAnalyses =
     hasAnalyses || (completedAnalysesQuery.data?.items?.length ?? 0) > 0
   const hasAnyAnalyses = (anyAnalysesQuery.data?.items?.length ?? 0) > 0
 
   const isLoadingAnyAnalyses =
-    analysesQuery.isLoading ||
-    analysesQuery.isFetching ||
+    latestAnalysesQuery.isLoading ||
+    latestAnalysesQuery.isFetching ||
     completedAnalysesQuery.isLoading ||
     completedAnalysesQuery.isFetching ||
     anyAnalysesQuery.isLoading ||
@@ -484,7 +521,7 @@ export function DashboardPage() {
   const showFirstRunLaunchpad =
     !hasAnyAnalyses &&
     !isLoadingAnyAnalyses &&
-    !analysesQuery.error &&
+    !latestAnalysesQuery.error &&
     !completedAnalysesQuery.error &&
     !anyAnalysesQuery.error
 
@@ -493,7 +530,7 @@ export function DashboardPage() {
     !hasCompletedAnalyses &&
     hasAnyAnalyses &&
     !isLoadingAnyAnalyses &&
-    !analysesQuery.error &&
+    !latestAnalysesQuery.error &&
     !completedAnalysesQuery.error &&
     !anyAnalysesQuery.error
 
@@ -501,11 +538,14 @@ export function DashboardPage() {
     !hasAnalyses &&
     hasCompletedAnalyses &&
     !isLoadingAnyAnalyses &&
-    !analysesQuery.error &&
+    !latestAnalysesQuery.error &&
     !completedAnalysesQuery.error &&
     !anyAnalysesQuery.error
 
   const handleResetFilters = () => setFilters({ ...DEFAULT_FILTERS })
+  const handleLibraryPageChange = (page: number) => {
+    setLibraryPage(page < 1 ? 1 : page)
+  }
 
   return (
     <div className="flex flex-col gap-6">
@@ -522,17 +562,19 @@ export function DashboardPage() {
       <DashboardFilters
         state={filters}
         onChange={setFilters}
-        disabled={analysesQuery.isFetching || latestDetailQuery.isFetching}
+        disabled={latestAnalysesQuery.isFetching || latestDetailQuery.isFetching}
       />
 
-      {analysesQuery.error ? (
+      {latestAnalysesQuery.error ? (
         <div
           className="rounded-2xl border p-4 text-sm text-red-500"
           role="alert"
           style={{ borderColor: 'rgba(239, 68, 68, 0.4)', background: 'rgba(254, 226, 226, 0.2)' }}
         >
           Unable to load analyses for the selected filters. Please try again shortly.
-          {errorMessage ? <p className="mt-2 text-xs text-red-400">{errorMessage}</p> : null}
+          {summaryErrorMessage ? (
+            <p className="mt-2 text-xs text-red-400">{summaryErrorMessage}</p>
+          ) : null}
         </div>
       ) : null}
 
@@ -599,7 +641,7 @@ export function DashboardPage() {
             <InsightList
               title="Insight Stream"
               insights={insightItems}
-              isLoading={analysesQuery.isLoading || latestDetailQuery.isLoading}
+              isLoading={latestAnalysesQuery.isLoading || latestDetailQuery.isLoading}
             />
 
             <div className="flex flex-col gap-4">
@@ -608,6 +650,8 @@ export function DashboardPage() {
               ))}
             </div>
           </div>
+
+          <AnalysisLibrarySection query={libraryQuery} onPageChange={handleLibraryPageChange} />
         </>
       )}
     </div>

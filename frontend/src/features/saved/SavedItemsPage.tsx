@@ -1,4 +1,6 @@
+import { Link } from 'react-router-dom'
 import { useThemeTokens } from '@/components/ThemeProvider'
+import { useSavedAnalyses } from '@/lib/hooks'
 
 const SAVED_ITEMS = [
   {
@@ -23,6 +25,8 @@ const SAVED_ITEMS = [
 
 export function SavedItemsPage() {
   const tokens = useThemeTokens()
+  const { savedAnalyses, remove } = useSavedAnalyses()
+  const hasSavedAnalyses = savedAnalyses.length > 0
 
   return (
     <div className="flex flex-col gap-6">
@@ -35,6 +39,65 @@ export function SavedItemsPage() {
           Bookmarked filings, learning modules, and generated insights will collect here for easy review sessions.
         </p>
       </header>
+
+      <section className="flex flex-col gap-3">
+        <h2 className="text-sm font-semibold uppercase tracking-wide text-[var(--colors-foregroundMuted)]">
+          Saved analyses
+        </h2>
+        {hasSavedAnalyses ? (
+          savedAnalyses.map((analysis) => (
+            <article
+              key={analysis.analysisId}
+              className="flex flex-col gap-2 rounded-2xl border p-4"
+              style={{
+                borderColor: 'var(--colors-border)',
+                background: 'var(--colors-surfaceMuted)',
+                boxShadow: tokens.shadows.soft,
+              }}
+            >
+              <div className="flex flex-col gap-1">
+                <p className="text-base font-semibold" style={{ color: 'var(--colors-foreground)' }}>
+                  {analysis.companyName ?? 'Unknown company'} • {analysis.filingType ?? 'Filing'}
+                </p>
+                <p className="text-xs text-[var(--colors-foregroundMuted)]">
+                  Saved {new Date(analysis.savedAt).toLocaleDateString('en-US')} •{' '}
+                  {analysis.ticker ? `${analysis.ticker} • ` : ''}
+                  {analysis.filingDate ? new Date(analysis.filingDate).toLocaleDateString('en-US') : 'Date pending'}
+                </p>
+              </div>
+
+              <div className="flex gap-2 text-xs font-semibold uppercase tracking-wide">
+                <Link
+                  to={`/filing/${analysis.analysisId}`}
+                  className="rounded-full border px-4 py-2"
+                  style={{ borderColor: 'var(--colors-border)', color: tokens.trend.up }}
+                >
+                  Open
+                </Link>
+                <button
+                  type="button"
+                  onClick={() => remove(analysis.analysisId)}
+                  className="rounded-full border px-4 py-2"
+                  style={{ borderColor: 'var(--colors-border)', color: tokens.sentiment.negative }}
+                >
+                  Remove
+                </button>
+              </div>
+            </article>
+          ))
+        ) : (
+          <div
+            className="rounded-2xl border p-4 text-sm text-[var(--colors-foregroundMuted)]"
+            style={{
+              borderColor: 'var(--colors-border)',
+              background: 'var(--colors-surfaceMuted)',
+              boxShadow: tokens.shadows.soft,
+            }}
+          >
+            Save analyses from the dashboard library to keep them handy here.
+          </div>
+        )}
+      </section>
 
       <section className="flex flex-col gap-3">
         {SAVED_ITEMS.map((item) => (
