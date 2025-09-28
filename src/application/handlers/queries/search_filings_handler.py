@@ -132,7 +132,7 @@ class SearchFilingsHandler(
                 processing_status = ProcessingStatus(filing.processing_status)
                 search_results.append(
                     FilingSearchResult(
-                        filing_id=filing.id,
+                        filing_id=filing.filing_id,
                         accession_number=filing.accession_number,
                         filing_type=filing.filing_type.value,
                         filing_date=filing.filing_date.date(),

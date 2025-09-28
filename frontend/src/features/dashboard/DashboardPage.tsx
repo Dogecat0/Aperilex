@@ -7,6 +7,7 @@ import {
 } from './components/FilingSummaryCard'
 import { InsightList, type InsightListItem } from './components/InsightList'
 import { LearningPrompt, type LearningPromptProps } from './components/LearningPrompt'
+import { FirstRunLaunchpad } from './components/FirstRunLaunchpad'
 import { useAnalyses, useFilingDetail } from '@/lib/hooks'
 import { ApiClientError } from '@/lib/apiClient'
 import type { AnalysisResponse, ListAnalysesParams, SectionAnalysis } from '@/lib/types/analysis'
@@ -445,6 +446,10 @@ export function DashboardPage() {
     [analysesQuery.data, latestDetailQuery.data]
   )
 
+  const hasAnalyses = (analysesQuery.data?.items?.length ?? 0) > 0
+  const showFirstRunLaunchpad =
+    !hasAnalyses && !analysesQuery.isLoading && !analysesQuery.isFetching
+
   return (
     <div className="flex flex-col gap-6">
       <header className="flex flex-col gap-2">
@@ -474,25 +479,31 @@ export function DashboardPage() {
         </div>
       ) : null}
 
-      <section className="grid gap-4 md:grid-cols-3">
-        {summaryCards.map((card) => (
-          <FilingSummaryCard key={card.id} {...card} />
-        ))}
-      </section>
+      {showFirstRunLaunchpad ? (
+        <FirstRunLaunchpad />
+      ) : (
+        <>
+          <section className="grid gap-4 md:grid-cols-3">
+            {summaryCards.map((card) => (
+              <FilingSummaryCard key={card.id} {...card} />
+            ))}
+          </section>
 
-      <div className="grid gap-4 lg:grid-cols-[2fr_1fr]">
-        <InsightList
-          title="Insight Stream"
-          insights={insightItems}
-          isLoading={analysesQuery.isLoading || latestDetailQuery.isLoading}
-        />
+          <div className="grid gap-4 lg:grid-cols-[2fr_1fr]">
+            <InsightList
+              title="Insight Stream"
+              insights={insightItems}
+              isLoading={analysesQuery.isLoading || latestDetailQuery.isLoading}
+            />
 
-        <div className="flex flex-col gap-4">
-          {learningPrompts.map((prompt) => (
-            <LearningPrompt key={prompt.id} {...prompt} />
-          ))}
-        </div>
-      </div>
+            <div className="flex flex-col gap-4">
+              {learningPrompts.map((prompt) => (
+                <LearningPrompt key={prompt.id} {...prompt} />
+              ))}
+            </div>
+          </div>
+        </>
+      )}
     </div>
   )
 }

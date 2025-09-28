@@ -1,6 +1,20 @@
+import { Link } from 'react-router-dom'
 import { useThemeTokens } from '@/components/ThemeProvider'
 
-const GUIDANCE_PROMPTS = [
+interface GuidancePrompt {
+  title: string
+  description: string
+  action: string
+  href?: string
+}
+
+const GUIDANCE_PROMPTS: GuidancePrompt[] = [
+  {
+    title: 'Launch your first analysis',
+    description: 'Head to the analysis workspace to queue a filing and populate this dashboard.',
+    action: 'Open launchpad',
+    href: '/analyze',
+  },
   {
     title: 'Start with MD&A',
     description: 'Review the management narrative to understand shifts in strategy, risks, and outlook.',
@@ -59,13 +73,23 @@ export function GuidanceSidebar() {
             <p className="mt-1 text-xs leading-relaxed text-[var(--colors-foregroundMuted)]">
               {prompt.description}
             </p>
-            <button
-              type="button"
-              className="mt-3 inline-flex items-center text-xs font-semibold tracking-wide text-[var(--colors-foreground)]"
-              style={{ color: tokens.sentiment.neutral }}
-            >
-              {prompt.action}
-            </button>
+            {prompt.href ? (
+              <Link
+                to={prompt.href}
+                className="mt-3 inline-flex items-center text-xs font-semibold tracking-wide"
+                style={{ color: tokens.sentiment.neutral }}
+              >
+                {prompt.action}
+              </Link>
+            ) : (
+              <button
+                type="button"
+                className="mt-3 inline-flex items-center text-xs font-semibold tracking-wide text-[var(--colors-foreground)]"
+                style={{ color: tokens.sentiment.neutral }}
+              >
+                {prompt.action}
+              </button>
+            )}
           </div>
         ))}
       </div>

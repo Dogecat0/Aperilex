@@ -4,6 +4,7 @@ import { DashboardPage } from '@/features/dashboard'
 import { FilingDetailPage } from '@/features/filing-detail'
 import { LearningHubPage } from '@/features/learning'
 import { SavedItemsPage } from '@/features/saved'
+import { AnalyzeFilingsPage } from '@/features/filings'
 
 export const routes: RouteObject[] = [
   {
@@ -17,6 +18,10 @@ export const routes: RouteObject[] = [
       {
         path: 'dashboard',
         element: <DashboardPage />,
+      },
+      {
+        path: 'analyze',
+        element: <AnalyzeFilingsPage />,
       },
       {
         path: 'filing/:id',

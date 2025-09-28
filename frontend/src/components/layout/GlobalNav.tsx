@@ -5,6 +5,7 @@ import { useThemeTokens } from '@/components/ThemeProvider'
 
 const NAV_LINKS = [
   { to: '/dashboard', label: 'Explore Filings' },
+  { to: '/analyze', label: 'Analyze' },
   { to: '/learn', label: 'Learn' },
   { to: '/saved', label: 'Saved' },
 ]
