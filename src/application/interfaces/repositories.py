@@ -22,6 +22,8 @@ from src.shared.types import (
     CIK,
     AccessionNumber,
     AnalysisId,
+    AuthRateLimitId,
+    AuthSessionId,
     CompanyId,
     Email,
     FilingId,
@@ -260,6 +262,104 @@ class QuizAttemptData(BaseModel):
     )
     created_at: datetime | None = None
     updated_at: datetime | None = None
+
+
+class AuthSessionData(BaseModel):
+    """Authentication session persisted for refresh token lifecycle."""
+
+    schema_version: int = Field(
+        default=1,
+        ge=1,
+        description="Schema version for auth session data models",
+    )
+    id: AuthSessionId
+    user_id: UserId
+    refresh_token_hash: str = Field(
+        ..., description="SHA-256 hash of the active refresh token"
+    )
+    previous_refresh_token_hash: str | None = Field(
+        default=None,
+        description="Hash of the previously valid refresh token",
+    )
+    session_key: str | None = Field(
+        default=None,
+        description="Stable identifier for the client session/device",
+    )
+    user_agent: str | None = Field(
+        default=None,
+        description="Captured user agent string for auditing",
+    )
+    ip_address: str | None = Field(
+        default=None,
+        description="Origin IP address for the session",
+    )
+    issued_at: datetime = Field(
+        description="Timestamp when the session was issued",
+    )
+    expires_at: datetime = Field(
+        description="Timestamp when the refresh token expires",
+    )
+    last_refreshed_at: datetime | None = Field(
+        default=None,
+        description="Timestamp of the latest successful refresh",
+    )
+    revoked_at: datetime | None = Field(
+        default=None,
+        description="Timestamp when the session was revoked",
+    )
+    revoked_reason: str | None = Field(
+        default=None,
+        description="Optional reason provided during revocation",
+    )
+    metadata: dict[str, Any] = Field(
+        default_factory=dict,
+        description="Additional metadata captured for the session",
+    )
+
+
+class AuthRateLimitData(BaseModel):
+    """Rate limit tracker for authentication-related operations."""
+
+    schema_version: int = Field(
+        default=1,
+        ge=1,
+        description="Schema version for auth rate limit data models",
+    )
+    id: AuthRateLimitId
+    key: str = Field(
+        ..., description="Unique identifier for the rate-limited subject",
+    )
+    action: str = Field(
+        ..., description="Action being rate limited (e.g., LOGIN, REFRESH)",
+    )
+    user_id: UserId | None = Field(
+        default=None,
+        description="User identifier when rate limit is user-scoped",
+    )
+    window_start: datetime = Field(
+        description="Start timestamp for the active rate limit window",
+    )
+    window_seconds: int = Field(
+        ge=1,
+        description="Window duration in seconds",
+    )
+    count: int = Field(
+        default=0,
+        ge=0,
+        description="Number of events recorded within the window",
+    )
+    limit: int = Field(
+        ge=1,
+        description="Maximum allowed events within the window",
+    )
+    last_updated_at: datetime | None = Field(
+        default=None,
+        description="Timestamp when the entry was last updated",
+    )
+    metadata: dict[str, Any] = Field(
+        default_factory=dict,
+        description="Additional structured metadata for analytics",
+    )
 
 
 # Repository Protocols
@@ -967,6 +1067,111 @@ class IQuizAttemptRepository(Protocol):
 
 
 @runtime_checkable
+class IAuthSessionRepository(Protocol):
+    """Repository protocol for managing authentication sessions."""
+
+    @abstractmethod
+    async def create(self, session: AuthSessionData) -> AuthSessionData:
+        """Persist a new authentication session."""
+
+    @abstractmethod
+    async def get_by_id(self, session_id: AuthSessionId) -> AuthSessionData | None:
+        """Fetch a session by identifier."""
+
+    @abstractmethod
+    async def get_by_refresh_token_hash(
+        self, refresh_token_hash: str
+    ) -> AuthSessionData | None:
+        """Fetch a session by hashed refresh token value."""
+
+    @abstractmethod
+    async def list_active_for_user(
+        self,
+        user_id: UserId,
+        *,
+        limit: int = 20,
+    ) -> list[AuthSessionData]:
+        """List active sessions for a specific user."""
+
+    @abstractmethod
+    async def rotate_refresh_token(
+        self,
+        session_id: AuthSessionId,
+        refresh_token_hash: str,
+        expires_at: datetime,
+        *,
+        previous_hash: str | None,
+        rotation_time: datetime,
+    ) -> AuthSessionData:
+        """Rotate refresh token and return the updated session."""
+
+    @abstractmethod
+    async def mark_revoked(
+        self,
+        session_id: AuthSessionId,
+        revoked_at: datetime,
+        reason: str | None = None,
+    ) -> bool:
+        """Mark a session as revoked."""
+
+    @abstractmethod
+    async def update_last_activity(
+        self,
+        session_id: AuthSessionId,
+        timestamp: datetime,
+    ) -> bool:
+        """Update the last refresh timestamp for a session."""
+
+    @abstractmethod
+    async def delete_expired(
+        self,
+        *,
+        now: datetime,
+        limit: int = 100,
+    ) -> int:
+        """Delete expired sessions; returns number of rows removed."""
+
+
+@runtime_checkable
+class IAuthRateLimitRepository(Protocol):
+    """Repository protocol for authentication rate limiting state."""
+
+    @abstractmethod
+    async def get_current(
+        self,
+        key: str,
+        action: str,
+    ) -> AuthRateLimitData | None:
+        """Fetch the current rate limit entry for the given key/action."""
+
+    @abstractmethod
+    async def increment_and_get(
+        self,
+        key: str,
+        action: str,
+        *,
+        user_id: UserId | None,
+        window_seconds: int,
+        limit: int,
+        now: datetime,
+    ) -> tuple[AuthRateLimitData, bool]:
+        """Increment usage counter and return updated entry along with allowance."""
+
+    @abstractmethod
+    async def reset(self, key: str, action: str) -> bool:
+        """Reset rate limit counters for the specified key/action."""
+
+    @abstractmethod
+    async def cleanup(
+        self,
+        *,
+        older_than: datetime,
+        limit: int = 500,
+    ) -> int:
+        """Remove stale rate limit entries and return number removed."""
+
+
+@runtime_checkable
 class IRepositoryFactory(Protocol):
     """Protocol for creating repository instances with proper session management."""
 
@@ -1028,6 +1233,14 @@ class IRepositoryFactory(Protocol):
     @abstractmethod
     async def get_quiz_attempt_repository(self) -> IQuizAttemptRepository:
         """Get a QuizAttempt repository instance."""
+
+    @abstractmethod
+    async def get_auth_session_repository(self) -> IAuthSessionRepository:
+        """Get an AuthSession repository instance."""
+
+    @abstractmethod
+    async def get_auth_rate_limit_repository(self) -> IAuthRateLimitRepository:
+        """Get an AuthRateLimit repository instance."""
 
     @abstractmethod
     async def begin_transaction(self) -> None:

@@ -1,6 +1,8 @@
 """Repository implementations for domain entities."""
 
 from .analysis_repository import AnalysisRepository
+from .auth_rate_limit_repository import AuthRateLimitRepository
+from .auth_session_repository import AuthSessionRepository
 from .company_repository import CompanyRepository
 from .filing_repository import FilingRepository
 from .learning_progress_repository import LearningProgressRepository
@@ -18,4 +20,6 @@ __all__ = [
     "UserProfileRepository",
     "LearningProgressRepository",
     "QuizAttemptRepository",
+    "AuthSessionRepository",
+    "AuthRateLimitRepository",
 ]

@@ -246,6 +246,7 @@ class CompositionRoot(containers.DeclarativeContainer):
             environment,
             config_provider,
             secret_manager,
+            database_provider,
         )
         app_container.providers_container.authentication_provider.override(
             authentication_provider

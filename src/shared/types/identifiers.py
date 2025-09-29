@@ -15,6 +15,8 @@ UserIdentityId = NewType("UserIdentityId", UUID)
 UserProfileId = NewType("UserProfileId", UUID)
 LearningProgressId = NewType("LearningProgressId", UUID)
 QuizAttemptId = NewType("QuizAttemptId", UUID)
+AuthSessionId = NewType("AuthSessionId", UUID)
+AuthRateLimitId = NewType("AuthRateLimitId", UUID)
 
 # Service Identifiers (String-based)
 StorageKey = NewType("StorageKey", str)

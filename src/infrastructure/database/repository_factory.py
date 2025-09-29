@@ -12,6 +12,8 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from src.application.interfaces.repositories import (
     IAnalysisRepository,
+    IAuthRateLimitRepository,
+    IAuthSessionRepository,
     ICompanyRepository,
     IFilingRepository,
     ILearningProgressRepository,
@@ -176,6 +178,30 @@ class RepositoryFactory(IRepositoryFactory):
         session = self._session_factory()
         self._register_session(session)
         return QuizAttemptRepository(session)
+
+    async def get_auth_session_repository(self) -> IAuthSessionRepository:
+        """Get an AuthSession repository instance."""
+
+        from .repositories.auth_session_repository import AuthSessionRepository
+
+        if self._active_session and self._transaction_active:
+            return AuthSessionRepository(self._active_session)
+        session = self._session_factory()
+        self._register_session(session)
+        return AuthSessionRepository(session)
+
+    async def get_auth_rate_limit_repository(self) -> IAuthRateLimitRepository:
+        """Get an AuthRateLimit repository instance."""
+
+        from .repositories.auth_rate_limit_repository import (
+            AuthRateLimitRepository,
+        )
+
+        if self._active_session and self._transaction_active:
+            return AuthRateLimitRepository(self._active_session)
+        session = self._session_factory()
+        self._register_session(session)
+        return AuthRateLimitRepository(session)
 
     async def begin_transaction(self) -> None:
         """

@@ -50,9 +50,15 @@ class MockAuthenticationProvider:
         Returns:
             Successful authentication result with mock user
         """
-        # Simulate authentication delay
-        logger.debug(f"Mock authentication for token: {credentials.token[:20]}...")
+        logger.debug(
+            f"Mock authentication for token: {credentials.token[:20]}..."
+        )
 
+        issued_at = datetime.now(UTC)
+        access_token = credentials.token or f"mock_access_token_{uuid.uuid4()}"
+        refresh_token = (
+            credentials.refresh_token or f"mock_refresh_token_{uuid.uuid4()}"
+        )
         # Always return successful authentication for testing
         return AuthenticationResult(
             authenticated=True,
@@ -60,6 +66,11 @@ class MockAuthenticationProvider:
             user_email=self.mock_email,
             user_tier=self.mock_tier,
             permissions=self.mock_permissions,
+            access_token=access_token,
+            refresh_token=refresh_token,
+            expires_in=3600,
+            refresh_expires_in=86400,
+            issued_at=issued_at.isoformat(),
             error_message=None,
         )
 
@@ -106,9 +117,15 @@ class MockAuthenticationProvider:
             New mock authentication credentials
         """
         new_token = f"mock_access_token_{uuid.uuid4()}"
+        new_refresh_token = f"mock_refresh_token_{uuid.uuid4()}"
+        issued_at = datetime.now(UTC)
         return AuthenticationCredentials(
             token=new_token,
             token_type=DEFAULT_TOKEN_TYPE,
+            refresh_token=new_refresh_token,
+            expires_in=3600,
+            refresh_expires_in=86400,
+            issued_at=issued_at.isoformat(),
         )
 
     async def revoke_token(self, token: str) -> bool:

@@ -14,22 +14,56 @@ from src.shared.types import UserId
 
 
 class AuthenticationCredentials(BaseModel):
-    """Authentication credentials."""
+    """Authentication credentials exchanged with providers."""
 
     schema_version: int = Field(
-        default=1,
+        default=2,
         ge=1,
         description="Schema version for authentication credential models",
     )
-    token: str = Field(..., description="Authentication token (JWT, API key, etc.)")
-    token_type: str = Field(default="Bearer", description="Type of token")
+    token: str = Field(
+        ...,
+        description="Primary token payload (auth code, JWT access token, etc.)",
+    )
+    token_type: str = Field(
+        default="Bearer",
+        description="Type of token represented by `token`",
+    )
+    refresh_token: str | None = Field(
+        default=None,
+        description="Associated refresh token where applicable",
+    )
+    expires_in: int | None = Field(
+        default=None,
+        description="Lifetime of the access token in seconds",
+    )
+    refresh_expires_in: int | None = Field(
+        default=None,
+        description="Lifetime of the refresh token in seconds",
+    )
+    issued_at: str | None = Field(
+        default=None,
+        description="ISO-8601 timestamp when the credential set was issued",
+    )
+    redirect_uri: str | None = Field(
+        default=None,
+        description="Redirect URI used during authorization code exchange",
+    )
+    code_verifier: str | None = Field(
+        default=None,
+        description="PKCE code verifier supplied by the client",
+    )
+    scope: str | None = Field(
+        default=None,
+        description="OAuth scopes associated with the credential set",
+    )
 
 
 class AuthenticationResult(BaseModel):
     """Result of authentication attempt."""
 
     schema_version: int = Field(
-        default=1,
+        default=2,
         ge=1,
         description="Schema version for authentication result models",
     )
@@ -38,6 +72,26 @@ class AuthenticationResult(BaseModel):
     user_email: str | None = Field(None, description="User email address")
     user_tier: str | None = Field(None, description="User subscription tier")
     permissions: list[str] = Field(default_factory=list, description="User permissions")
+    access_token: str | None = Field(
+        default=None,
+        description="Issued Aperilex access token when applicable",
+    )
+    refresh_token: str | None = Field(
+        default=None,
+        description="Issued Aperilex refresh token when applicable",
+    )
+    expires_in: int | None = Field(
+        default=None,
+        description="Lifetime of the access token in seconds",
+    )
+    refresh_expires_in: int | None = Field(
+        default=None,
+        description="Lifetime of the refresh token in seconds",
+    )
+    issued_at: str | None = Field(
+        default=None,
+        description="ISO-8601 timestamp when the result was issued",
+    )
     error_message: str | None = Field(
         None, description="Error message if authentication failed"
     )

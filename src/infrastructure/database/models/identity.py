@@ -26,6 +26,7 @@ from .base import Base
 
 if TYPE_CHECKING:  # pragma: no cover - type checking only
     from .analysis import Analysis
+    from .auth import AuthRateLimit, AuthSession
     from .task import Task
 
 
@@ -98,6 +99,18 @@ class User(Base):
         "Task",
         back_populates="user",
         lazy="noload",
+    )
+    auth_sessions: Mapped[list[AuthSession]] = relationship(
+        "AuthSession",
+        back_populates="user",
+        cascade="all, delete-orphan",
+        lazy="selectin",
+    )
+    auth_rate_limits: Mapped[list[AuthRateLimit]] = relationship(
+        "AuthRateLimit",
+        back_populates="user",
+        cascade="all, delete-orphan",
+        lazy="selectin",
     )
 
 

@@ -144,6 +144,16 @@ class InfrastructureWiring(containers.DeclarativeContainer):
         factory=repository_factory,
     )
 
+    auth_session_repository = providers.Factory(
+        lambda factory: factory.get_auth_session_repository(),
+        factory=repository_factory,
+    )
+
+    auth_rate_limit_repository = providers.Factory(
+        lambda factory: factory.get_auth_rate_limit_repository(),
+        factory=repository_factory,
+    )
+
     # Rate limiting configuration
     # Using Factory with lambda to defer config_provider access until runtime
     rate_limit_config = providers.Factory(

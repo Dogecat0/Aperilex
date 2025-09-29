@@ -196,15 +196,25 @@ class ProviderFactory:
         environment: str,
         _config_provider: IConfigProvider,
         _secret_manager: ISecretManager,
+        database_provider: IDatabaseProvider,
     ) -> providers.Provider[IAuthenticationProvider]:
         """Create authentication provider based on explicit configuration."""
 
         from src.infrastructure.providers.authentication import (
+            GoogleOAuthAuthenticationProvider,
             MockAuthenticationProvider,
         )
 
         if provider_type is AuthenticationProvider.MOCK:
             return providers.Singleton(MockAuthenticationProvider)
+
+        if provider_type is AuthenticationProvider.GOOGLE_OAUTH:
+            return providers.Singleton(
+                GoogleOAuthAuthenticationProvider,
+                config_provider=_config_provider,
+                secret_manager=_secret_manager,
+                database_provider=database_provider,
+            )
 
         raise RuntimeError(
             "Authentication provider "

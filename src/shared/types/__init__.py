@@ -4,6 +4,8 @@ Types module for identifiers and value objects.
 
 from .identifiers import (
     AnalysisId,
+    AuthRateLimitId,
+    AuthSessionId,
     CompanyId,
     CorrelationId,
     FilingId,
@@ -33,6 +35,8 @@ __all__ = [
     "UserProfileId",
     "LearningProgressId",
     "QuizAttemptId",
+    "AuthSessionId",
+    "AuthRateLimitId",
     "StorageKey",
     "QueueMessageId",
     "ReceiptHandle",
