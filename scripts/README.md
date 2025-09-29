@@ -4,6 +4,32 @@ This directory contains development scripts for generating analysis samples and 
 
 ## Scripts Overview
 
+### 0. `generate_jwt_keys.py`
+Generates a fresh RSA key pair for signing and validating Aperilex JWTs. The
+keys are written directly into the mounted secrets directory used by Docker so
+the backend can serve them through the secret manager without any fallback
+paths.
+
+**Usage:**
+```bash
+# Generate keys into the default secrets directory (.secrets)
+python scripts/generate_jwt_keys.py
+
+# Rotate keys even if files already exist
+python scripts/generate_jwt_keys.py --force
+
+# Execute inside Docker
+docker compose run --rm app python scripts/generate_jwt_keys.py
+```
+
+**Optional Arguments:**
+- `--secrets-dir`: Override the output directory (defaults to `$DOCKER_SECRETS_DIR` or `.secrets`).
+- `--force`: Overwrite existing key files instead of aborting rotation.
+- `--key-size`: RSA key size (default 4096 bits).
+
+The script logs every rotation to `.secrets/JWT_KEY_ROTATION.log` so teams can
+trace when signing keys changed.
+
 ### 1. `generate_analysis_samples.py`
 Generates comprehensive analysis samples using real Edgar and OpenAI API calls. This script replaces the expensive parts of `test_infrastructure.py` for development purposes.
 

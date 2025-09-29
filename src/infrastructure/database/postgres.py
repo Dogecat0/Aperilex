@@ -67,8 +67,11 @@ class PostgresDatabaseProvider(SQLAlchemyDatabaseProvider):
         )
         try:
             password = self._run_coroutine_safely(password_coro)
-        except KeyError:
-            password = "postgres"  # nosec B105: fallback default for local/dev when secret is missing
+        except KeyError as exc:
+            raise RuntimeError(
+                "PostgreSQL password secret is missing. "
+                f"Configure secret '{self.config.password_secret_name}' before starting the service."
+            ) from exc
         if isinstance(password, SecretStr):
             password = password.get_secret_value()
 

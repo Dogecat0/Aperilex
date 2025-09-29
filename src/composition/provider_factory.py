@@ -170,20 +170,24 @@ class ProviderFactory:
         Returns:
             Provider instance for secret management
         """
-        from src.infrastructure.secret import LocalSecretManager
+        from src.infrastructure.secret import AWSSecretsManager, DockerSecretManager
 
-        secrets_path = settings.local_secrets_file
-
-        if environment in ["development", "test"]:
+        if environment.lower() in {"production", "staging"}:
             return providers.Singleton(
-                LocalSecretManager,
-                secrets_file=secrets_path,
+                AWSSecretsManager,
+                region_name=settings.aws_region,
             )
-        # Production environments would use AWS Secrets Manager
-        # For now, fall back to local implementation while honoring overrides
+
+        secrets_dir = settings.docker_secrets_dir
+        if not secrets_dir:
+            raise RuntimeError(
+                "DOCKER_SECRETS_DIR must be set for non-AWS environments. "
+                "Configure DOCKER_SECRETS_DIR to point at the mounted secrets volume."
+            )
+
         return providers.Singleton(
-            LocalSecretManager,
-            secrets_file=secrets_path,
+            DockerSecretManager,
+            secrets_dir=secrets_dir,
         )
 
     @staticmethod
