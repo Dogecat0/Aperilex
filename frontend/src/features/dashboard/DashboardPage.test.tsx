@@ -15,33 +15,31 @@ describe('DashboardPage', () => {
     vi.restoreAllMocks()
   })
 
-  it('renders summary cards and insight stream from analyses data', async () => {
+  it('renders summary highlights and recent analyses from library data', async () => {
     renderWithProviders(<DashboardPage />)
 
-    expect(await screen.findByText('Apple Inc. • 10-Q')).toBeInTheDocument()
-    expect(screen.getByText(/87% confidence/i)).toBeInTheDocument()
-    expect(screen.getByText(/Insights ready/i)).toBeInTheDocument()
+    expect(await screen.findByText(/Analyses in view/i)).toBeInTheDocument()
+    expect(screen.getByText(/1 with confidence scores/i)).toBeInTheDocument()
+    expect(screen.getByText(/Average confidence/i)).toBeInTheDocument()
+    expect(screen.getByText('87%')).toBeInTheDocument()
 
-    expect(
-      screen.getByText('Margin expansion driven by disciplined expense control and services mix.')
-    ).toBeInTheDocument()
-    expect(screen.getByText(/Supply chain remains a watchpoint/i)).toBeInTheDocument()
+    expect(screen.getByText(/Recent analyses/i)).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /View analysis/i })).toBeInTheDocument()
   })
 
-  it('requests new data when changing filter toggles', async () => {
+  it('requests new data when changing library filters', async () => {
     const user = userEvent.setup()
     renderWithProviders(<DashboardPage />)
 
-    await screen.findByText('Apple Inc. • 10-Q')
+    await screen.findByText(/Analyses in view/i)
 
-    const filterButton = screen.getByRole('button', { name: /Risk Signals/i })
+    const filterButton = screen.getByRole('button', { name: /Flagged follow-up/i })
     await user.click(filterButton)
 
     await waitFor(() => {
       expect(apiClient.get).toHaveBeenLastCalledWith('/analyses', expect.objectContaining({
         query: expect.objectContaining({
-          analysis_type: 'RISK',
-          analysis_template: 'financial_focused',
+          segment: 'flagged',
         }),
       }))
     })
