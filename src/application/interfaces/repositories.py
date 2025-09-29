@@ -11,15 +11,26 @@ from typing import Any, Protocol, runtime_checkable
 
 from pydantic import BaseModel, Field
 
-from src.shared.enums import AnalysisStatus, FilingType, TaskStatus
+from src.shared.enums import (
+    AnalysisStatus,
+    FilingType,
+    TaskStatus,
+    UserStatus,
+    UserTier,
+)
 from src.shared.types import (
     CIK,
     AccessionNumber,
     AnalysisId,
     CompanyId,
+    Email,
     FilingId,
+    LearningProgressId,
+    QuizAttemptId,
     Ticker,
     UserId,
+    UserIdentityId,
+    UserProfileId,
 )
 
 # Domain Models (Pydantic representations for interface contracts)
@@ -94,6 +105,161 @@ class AnalysisData(BaseModel):
     created_at: datetime | None = None
     updated_at: datetime | None = None
     completed_at: datetime | None = None
+
+
+class UserData(BaseModel):
+    """User data contract for repository operations."""
+
+    schema_version: int = Field(
+        default=1,
+        ge=1,
+        description="Schema version for user data models",
+    )
+    id: UserId
+    email: Email
+    status: UserStatus = Field(
+        default=UserStatus.ACTIVE,
+        description="Lifecycle state for the user",
+    )
+    tier: UserTier = Field(
+        default=UserTier.BASIC,
+        description="Subscription tier for the user",
+    )
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
+
+
+class UserIdentityData(BaseModel):
+    """External identity mapping data model."""
+
+    schema_version: int = Field(
+        default=1,
+        ge=1,
+        description="Schema version for user identity data models",
+    )
+    id: UserIdentityId
+    user_id: UserId
+    provider: str = Field(description="Identity provider (e.g., GOOGLE)")
+    provider_subject: str = Field(
+        description="Stable subject/ID value issued by the provider",
+    )
+    provider_email: Email | None = Field(
+        default=None,
+        description="Email address returned by the provider",
+    )
+    raw_profile: dict[str, Any] | None = Field(
+        default=None,
+        description="Raw provider profile payload for auditing",
+    )
+    verified_at: datetime | None = Field(
+        default=None,
+        description="Timestamp when the provider verified the identity",
+    )
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
+
+
+class UserProfileData(BaseModel):
+    """User profile and preference data model."""
+
+    schema_version: int = Field(
+        default=1,
+        ge=1,
+        description="Schema version for user profile data models",
+    )
+    id: UserProfileId
+    user_id: UserId
+    display_name: str | None = None
+    avatar_url: str | None = None
+    preferences: dict[str, Any] = Field(
+        default_factory=dict,
+        description="Arbitrary preference map stored as JSON",
+    )
+    time_zone: str | None = Field(
+        default=None,
+        description="Preferred time zone identifier",
+    )
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
+
+
+class LearningProgressData(BaseModel):
+    """Learning progress record for a specific module."""
+
+    schema_version: int = Field(
+        default=1,
+        ge=1,
+        description="Schema version for learning progress data models",
+    )
+    id: LearningProgressId
+    user_id: UserId
+    module_key: str = Field(description="Stable identifier for the learning module")
+    progress_percent: int = Field(
+        default=0,
+        ge=0,
+        le=100,
+        description="Completion percentage for the module",
+    )
+    last_interaction_at: datetime | None = Field(
+        default=None,
+        description="Most recent interaction timestamp",
+    )
+    completed_at: datetime | None = Field(
+        default=None,
+        description="When the module was completed",
+    )
+    metadata: dict[str, Any] = Field(
+        default_factory=dict,
+        description="Supplemental metadata for the progress entry",
+    )
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
+
+
+class QuizAttemptData(BaseModel):
+    """Quiz attempt model for learning analytics."""
+
+    schema_version: int = Field(
+        default=1,
+        ge=1,
+        description="Schema version for quiz attempt data models",
+    )
+    id: QuizAttemptId
+    user_id: UserId
+    quiz_id: str = Field(description="Identifier for the quiz or assessment")
+    question_count: int = Field(
+        default=0,
+        ge=0,
+        description="Total number of questions in the attempt",
+    )
+    correct_count: int = Field(
+        default=0,
+        ge=0,
+        description="Number of correct responses",
+    )
+    score_percent: float = Field(
+        default=0.0,
+        ge=0.0,
+        le=100.0,
+        description="Score represented as a percentage",
+    )
+    passed: bool = Field(
+        default=False,
+        description="Whether the attempt met the passing threshold",
+    )
+    responses: dict[str, Any] | None = Field(
+        default=None,
+        description="Structured response payload for review",
+    )
+    metadata: dict[str, Any] = Field(
+        default_factory=dict,
+        description="Supplemental metadata for analytics",
+    )
+    attempted_at: datetime = Field(
+        description="When the attempt occurred",
+    )
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
 
 
 # Repository Protocols
@@ -622,6 +788,185 @@ class IAnalysisRepository(Protocol):
 
 
 @runtime_checkable
+class IUserRepository(Protocol):
+    """Repository protocol for core user records."""
+
+    @abstractmethod
+    async def get_by_id(self, user_id: UserId) -> UserData | None:
+        """Fetch a user by identifier."""
+
+    @abstractmethod
+    async def get_by_email(self, email: Email) -> UserData | None:
+        """Fetch a user by email address."""
+
+    @abstractmethod
+    async def list_by_tier(
+        self,
+        tier: UserTier,
+        *,
+        limit: int = 100,
+        offset: int = 0,
+    ) -> list[UserData]:
+        """List users filtered by subscription tier."""
+
+    @abstractmethod
+    async def create(self, user: UserData) -> UserData:
+        """Persist a new user record."""
+
+    @abstractmethod
+    async def update(self, user: UserData) -> UserData:
+        """Update an existing user record."""
+
+    @abstractmethod
+    async def delete(self, user_id: UserId) -> bool:
+        """Delete a user by identifier."""
+
+    @abstractmethod
+    async def set_status(
+        self,
+        user_id: UserId,
+        status: UserStatus,
+    ) -> bool:
+        """Update the lifecycle status for a user."""
+
+    @abstractmethod
+    async def exists(self, user_id: UserId) -> bool:
+        """Check whether a user exists."""
+
+
+@runtime_checkable
+class IUserIdentityRepository(Protocol):
+    """Repository for external user identity mappings."""
+
+    @abstractmethod
+    async def get_by_id(
+        self, identity_id: UserIdentityId
+    ) -> UserIdentityData | None:
+        """Fetch an identity mapping by identifier."""
+
+    @abstractmethod
+    async def get_by_provider_subject(
+        self,
+        provider: str,
+        provider_subject: str,
+    ) -> UserIdentityData | None:
+        """Fetch mapping for provider subject pair."""
+
+    @abstractmethod
+    async def list_for_user(self, user_id: UserId) -> list[UserIdentityData]:
+        """List all identity mappings for a user."""
+
+    @abstractmethod
+    async def create(self, identity: UserIdentityData) -> UserIdentityData:
+        """Persist a new identity mapping."""
+
+    @abstractmethod
+    async def update(self, identity: UserIdentityData) -> UserIdentityData:
+        """Update an identity mapping."""
+
+    @abstractmethod
+    async def delete(self, identity_id: UserIdentityId) -> bool:
+        """Delete an identity mapping."""
+
+
+@runtime_checkable
+class IUserProfileRepository(Protocol):
+    """Repository for user profile records."""
+
+    @abstractmethod
+    async def get_by_id(
+        self, profile_id: UserProfileId
+    ) -> UserProfileData | None:
+        """Fetch a profile by identifier."""
+
+    @abstractmethod
+    async def get_by_user_id(self, user_id: UserId) -> UserProfileData | None:
+        """Fetch the profile associated with a user."""
+
+    @abstractmethod
+    async def upsert(self, profile: UserProfileData) -> UserProfileData:
+        """Create or update the user's profile."""
+
+    @abstractmethod
+    async def delete(self, profile_id: UserProfileId) -> bool:
+        """Remove a profile record."""
+
+
+@runtime_checkable
+class ILearningProgressRepository(Protocol):
+    """Repository for learning progress tracking."""
+
+    @abstractmethod
+    async def get_by_id(
+        self, progress_id: LearningProgressId
+    ) -> LearningProgressData | None:
+        """Fetch progress by identifier."""
+
+    @abstractmethod
+    async def get_for_user_module(
+        self,
+        user_id: UserId,
+        module_key: str,
+    ) -> LearningProgressData | None:
+        """Fetch progress for a specific user/module pair."""
+
+    @abstractmethod
+    async def upsert(self, progress: LearningProgressData) -> LearningProgressData:
+        """Create or update the progress entry."""
+
+    @abstractmethod
+    async def list_for_user(
+        self,
+        user_id: UserId,
+        *,
+        limit: int = 100,
+        offset: int = 0,
+    ) -> list[LearningProgressData]:
+        """List progress entries for a user."""
+
+    @abstractmethod
+    async def delete(self, progress_id: LearningProgressId) -> bool:
+        """Delete a progress entry."""
+
+
+@runtime_checkable
+class IQuizAttemptRepository(Protocol):
+    """Repository for quiz attempt persistence."""
+
+    @abstractmethod
+    async def get_by_id(
+        self, attempt_id: QuizAttemptId
+    ) -> QuizAttemptData | None:
+        """Fetch a quiz attempt by identifier."""
+
+    @abstractmethod
+    async def get_latest_for_quiz(
+        self,
+        user_id: UserId,
+        quiz_id: str,
+    ) -> QuizAttemptData | None:
+        """Fetch the most recent attempt for a user/quiz pair."""
+
+    @abstractmethod
+    async def list_for_user(
+        self,
+        user_id: UserId,
+        *,
+        limit: int = 50,
+        offset: int = 0,
+    ) -> list[QuizAttemptData]:
+        """List quiz attempts for a user."""
+
+    @abstractmethod
+    async def record_attempt(self, attempt: QuizAttemptData) -> QuizAttemptData:
+        """Persist a new quiz attempt."""
+
+    @abstractmethod
+    async def delete(self, attempt_id: QuizAttemptId) -> bool:
+        """Delete a quiz attempt record."""
+
+
+@runtime_checkable
 class IRepositoryFactory(Protocol):
     """Protocol for creating repository instances with proper session management."""
 
@@ -663,6 +1008,26 @@ class IRepositoryFactory(Protocol):
             DatabaseError: If repository cannot be created
         """
         ...
+
+    @abstractmethod
+    async def get_user_repository(self) -> IUserRepository:
+        """Get a User repository instance."""
+
+    @abstractmethod
+    async def get_user_identity_repository(self) -> IUserIdentityRepository:
+        """Get a UserIdentity repository instance."""
+
+    @abstractmethod
+    async def get_user_profile_repository(self) -> IUserProfileRepository:
+        """Get a UserProfile repository instance."""
+
+    @abstractmethod
+    async def get_learning_progress_repository(self) -> ILearningProgressRepository:
+        """Get a LearningProgress repository instance."""
+
+    @abstractmethod
+    async def get_quiz_attempt_repository(self) -> IQuizAttemptRepository:
+        """Get a QuizAttempt repository instance."""
 
     @abstractmethod
     async def begin_transaction(self) -> None:

@@ -14,7 +14,12 @@ from src.application.interfaces.repositories import (
     IAnalysisRepository,
     ICompanyRepository,
     IFilingRepository,
+    ILearningProgressRepository,
+    IQuizAttemptRepository,
     IRepositoryFactory,
+    IUserIdentityRepository,
+    IUserProfileRepository,
+    IUserRepository,
 )
 from src.infrastructure.database.cache import CacheManager
 
@@ -104,10 +109,8 @@ class RepositoryFactory(IRepositoryFactory):
     async def get_analysis_repository(self) -> IAnalysisRepository:
         """
         Get an Analysis repository instance.
-
-        Returns:
-            Analysis repository with active session
         """
+
         from .repositories.analysis_repository import AnalysisRepository
 
         if self._active_session and self._transaction_active:
@@ -116,6 +119,63 @@ class RepositoryFactory(IRepositoryFactory):
             session = self._session_factory()
             self._register_session(session)
             return AnalysisRepository(session)
+
+    async def get_user_repository(self) -> IUserRepository:
+        """Get a User repository instance."""
+
+        from .repositories.user_repository import UserRepository
+
+        if self._active_session and self._transaction_active:
+            return UserRepository(self._active_session)
+        session = self._session_factory()
+        self._register_session(session)
+        return UserRepository(session)
+
+    async def get_user_identity_repository(self) -> IUserIdentityRepository:
+        """Get a UserIdentity repository instance."""
+
+        from .repositories.user_identity_repository import UserIdentityRepository
+
+        if self._active_session and self._transaction_active:
+            return UserIdentityRepository(self._active_session)
+        session = self._session_factory()
+        self._register_session(session)
+        return UserIdentityRepository(session)
+
+    async def get_user_profile_repository(self) -> IUserProfileRepository:
+        """Get a UserProfile repository instance."""
+
+        from .repositories.user_profile_repository import UserProfileRepository
+
+        if self._active_session and self._transaction_active:
+            return UserProfileRepository(self._active_session)
+        session = self._session_factory()
+        self._register_session(session)
+        return UserProfileRepository(session)
+
+    async def get_learning_progress_repository(self) -> ILearningProgressRepository:
+        """Get a LearningProgress repository instance."""
+
+        from .repositories.learning_progress_repository import (
+            LearningProgressRepository,
+        )
+
+        if self._active_session and self._transaction_active:
+            return LearningProgressRepository(self._active_session)
+        session = self._session_factory()
+        self._register_session(session)
+        return LearningProgressRepository(session)
+
+    async def get_quiz_attempt_repository(self) -> IQuizAttemptRepository:
+        """Get a QuizAttempt repository instance."""
+
+        from .repositories.quiz_attempt_repository import QuizAttemptRepository
+
+        if self._active_session and self._transaction_active:
+            return QuizAttemptRepository(self._active_session)
+        session = self._session_factory()
+        self._register_session(session)
+        return QuizAttemptRepository(session)
 
     async def begin_transaction(self) -> None:
         """

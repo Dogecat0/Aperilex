@@ -20,6 +20,9 @@ from src.infrastructure.query_services import (
     AnalysisQueryService,
     CompanyQueryService,
     FilingQueryService,
+    LearningProgressQueryService,
+    QuizAttemptQueryService,
+    UserQueryService,
 )
 from src.shared.config.providers import PostgresConfig, RateLimitConfig
 
@@ -116,6 +119,31 @@ class InfrastructureWiring(containers.DeclarativeContainer):
         factory=repository_factory,
     )
 
+    user_repository = providers.Factory(
+        lambda factory: factory.get_user_repository(),
+        factory=repository_factory,
+    )
+
+    user_identity_repository = providers.Factory(
+        lambda factory: factory.get_user_identity_repository(),
+        factory=repository_factory,
+    )
+
+    user_profile_repository = providers.Factory(
+        lambda factory: factory.get_user_profile_repository(),
+        factory=repository_factory,
+    )
+
+    learning_progress_repository = providers.Factory(
+        lambda factory: factory.get_learning_progress_repository(),
+        factory=repository_factory,
+    )
+
+    quiz_attempt_repository = providers.Factory(
+        lambda factory: factory.get_quiz_attempt_repository(),
+        factory=repository_factory,
+    )
+
     # Rate limiting configuration
     # Using Factory with lambda to defer config_provider access until runtime
     rate_limit_config = providers.Factory(
@@ -151,6 +179,21 @@ class InfrastructureWiring(containers.DeclarativeContainer):
 
     company_query_service = providers.Factory(
         CompanyQueryService,
+        session=session_provider,
+    )
+
+    user_query_service = providers.Factory(
+        UserQueryService,
+        session=session_provider,
+    )
+
+    learning_progress_query_service = providers.Factory(
+        LearningProgressQueryService,
+        session=session_provider,
+    )
+
+    quiz_attempt_query_service = providers.Factory(
+        QuizAttemptQueryService,
         session=session_provider,
     )
 

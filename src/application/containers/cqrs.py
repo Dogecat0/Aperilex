@@ -23,6 +23,9 @@ from src.application.interfaces.query_services import (
     IAnalysisQueryService,
     ICompanyQueryService,
     IFilingQueryService,
+    ILearningProgressQueryService,
+    IQuizAttemptQueryService,
+    IUserQueryService,
 )
 from src.application.interfaces.repositories import (
     IAnalysisRepository,
@@ -34,6 +37,7 @@ from src.application.services.application_service import ApplicationService
 from src.application.services.background_task_coordinator import (
     BackgroundTaskCoordinator,
 )
+from src.application.services.learning_service import LearningService
 from src.application.services.priority_queue_service import PriorityQueueService
 from src.application.services.worker_service import WorkerService
 
@@ -59,6 +63,13 @@ class HandlerFactory:
         analysis_query_service_provider: Provider[IAnalysisQueryService] | None = None,
         company_query_service_provider: Provider[ICompanyQueryService] | None = None,
         filing_query_service_provider: Provider[IFilingQueryService] | None = None,
+        user_query_service_provider: Provider[IUserQueryService] | None = None,
+        learning_progress_query_service_provider: Provider[
+            ILearningProgressQueryService
+        ]
+        | None = None,
+        quiz_attempt_query_service_provider: Provider[IQuizAttemptQueryService]
+        | None = None,
     ) -> None:
         """
         Initialize the handler factory with dependencies.
@@ -83,6 +94,13 @@ class HandlerFactory:
         self.analysis_query_service_provider = analysis_query_service_provider
         self.company_query_service_provider = company_query_service_provider
         self.filing_query_service_provider = filing_query_service_provider
+        self.user_query_service_provider = user_query_service_provider
+        self.learning_progress_query_service_provider = (
+            learning_progress_query_service_provider
+        )
+        self.quiz_attempt_query_service_provider = (
+            quiz_attempt_query_service_provider
+        )
 
     async def get_dependencies(self) -> dict[str, Any]:
         """
@@ -94,6 +112,19 @@ class HandlerFactory:
         company_repo = await self.repository_factory.get_company_repository()
         filing_repo = await self.repository_factory.get_filing_repository()
         analysis_repo = await self.repository_factory.get_analysis_repository()
+        user_repo = await self.repository_factory.get_user_repository()
+        user_identity_repo = (
+            await self.repository_factory.get_user_identity_repository()
+        )
+        user_profile_repo = (
+            await self.repository_factory.get_user_profile_repository()
+        )
+        learning_progress_repo = (
+            await self.repository_factory.get_learning_progress_repository()
+        )
+        quiz_attempt_repo = (
+            await self.repository_factory.get_quiz_attempt_repository()
+        )
 
         def _resolve_dependency(candidate: Any | None) -> Any | None:
             if candidate is None:
@@ -121,6 +152,15 @@ class HandlerFactory:
         filing_query_service: IFilingQueryService | None = _resolve_dependency(
             self.filing_query_service_provider
         )
+        user_query_service: IUserQueryService | None = _resolve_dependency(
+            self.user_query_service_provider
+        )
+        learning_progress_query_service: ILearningProgressQueryService | None = (
+            _resolve_dependency(self.learning_progress_query_service_provider)
+        )
+        quiz_attempt_query_service: IQuizAttemptQueryService | None = _resolve_dependency(
+            self.quiz_attempt_query_service_provider
+        )
 
         dependencies: dict[str, Any] = {
             "worker_service": self.worker_service,
@@ -128,6 +168,11 @@ class HandlerFactory:
             "analysis_repository": analysis_repo,
             "filing_repository": filing_repo,
             "company_repository": company_repo,
+            "user_repository": user_repo,
+            "user_identity_repository": user_identity_repo,
+            "user_profile_repository": user_profile_repo,
+            "learning_progress_repository": learning_progress_repo,
+            "quiz_attempt_repository": quiz_attempt_repo,
             "event_publisher": self.event_publisher,
             "priority_queue": self.priority_queue,
             "queue_provider": self.queue_provider,
@@ -141,6 +186,14 @@ class HandlerFactory:
             dependencies["company_query_service"] = company_query_service
         if filing_query_service is not None:
             dependencies["filing_query_service"] = filing_query_service
+        if user_query_service is not None:
+            dependencies["user_query_service"] = user_query_service
+        if learning_progress_query_service is not None:
+            dependencies[
+                "learning_progress_query_service"
+            ] = learning_progress_query_service
+        if quiz_attempt_query_service is not None:
+            dependencies["quiz_attempt_query_service"] = quiz_attempt_query_service
 
         return dependencies
 
@@ -240,6 +293,13 @@ class CQRSContainer(containers.DeclarativeContainer):
     analysis_query_service: Dependency[IAnalysisQueryService] = providers.Dependency()
     company_query_service: Dependency[ICompanyQueryService] = providers.Dependency()
     filing_query_service: Dependency[IFilingQueryService] = providers.Dependency()
+    user_query_service: Dependency[IUserQueryService] = providers.Dependency()
+    learning_progress_query_service: Dependency[ILearningProgressQueryService] = (
+        providers.Dependency()
+    )
+    quiz_attempt_query_service: Dependency[IQuizAttemptQueryService] = (
+        providers.Dependency()
+    )
 
     # Priority queue service for scheduling
     priority_queue = providers.Singleton(
@@ -270,6 +330,11 @@ class CQRSContainer(containers.DeclarativeContainer):
         event_publisher=providers_container.event_publisher,
     )
 
+    learning_service = providers.Factory(
+        LearningService,
+        repository_factory=repository_factory,
+    )
+
     # CQRS Dispatcher
     dispatcher = providers.Singleton(Dispatcher)
 
@@ -287,6 +352,9 @@ class CQRSContainer(containers.DeclarativeContainer):
         analysis_query_service_provider=analysis_query_service,
         company_query_service_provider=company_query_service,
         filing_query_service_provider=filing_query_service,
+        user_query_service_provider=user_query_service,
+        learning_progress_query_service_provider=learning_progress_query_service,
+        quiz_attempt_query_service_provider=quiz_attempt_query_service,
     )
 
     # Handler registration service

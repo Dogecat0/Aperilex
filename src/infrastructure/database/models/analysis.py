@@ -10,6 +10,7 @@ from .base import Base
 
 if TYPE_CHECKING:
     from .filing import Filing
+    from .identity import User
 
 
 class Analysis(Base):
@@ -28,7 +29,7 @@ class Analysis(Base):
         index=True,
     )
     user_id: Mapped[UUID] = mapped_column(
-        PostgresUUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="RESTRICT"),
         nullable=False,
         index=True,
     )
@@ -66,6 +67,11 @@ class Analysis(Base):
     # Relationships
     filing: Mapped["Filing"] = relationship(
         "Filing",
+        back_populates="analyses",
+        lazy="joined",
+    )
+    user: Mapped["User"] = relationship(
+        "User",
         back_populates="analyses",
         lazy="joined",
     )

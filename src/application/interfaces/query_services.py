@@ -12,8 +12,16 @@ from typing import Protocol, runtime_checkable
 
 from pydantic import BaseModel, Field
 
-from src.shared.enums import AnalysisStatus, FilingType
-from src.shared.types import AnalysisId, CompanyId, FilingId, UserId
+from src.shared.enums import AnalysisStatus, FilingType, UserStatus, UserTier
+from src.shared.types import (
+    AnalysisId,
+    CompanyId,
+    Email,
+    FilingId,
+    LearningProgressId,
+    QuizAttemptId,
+    UserId,
+)
 
 # Query Result Models (using Pydantic for validation)
 
@@ -78,6 +86,55 @@ class CompanyQueryResult(BaseModel):
     name: str
     ticker: str | None = None
     metadata: dict[str, str | int | float | bool] = {}
+
+
+class UserQueryResult(BaseModel):
+    """Result model for user queries."""
+
+    schema_version: int = Field(
+        default=1,
+        ge=1,
+        description="Schema version for user query result models",
+    )
+    user_id: UserId
+    email: Email
+    status: UserStatus
+    tier: UserTier
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
+
+
+class LearningProgressQueryResult(BaseModel):
+    """Result model for learning progress queries."""
+
+    schema_version: int = Field(
+        default=1,
+        ge=1,
+        description="Schema version for learning progress query result models",
+    )
+    progress_id: LearningProgressId
+    user_id: UserId
+    module_key: str
+    progress_percent: int
+    completed_at: datetime | None = None
+    last_interaction_at: datetime | None = None
+    updated_at: datetime | None = None
+
+
+class QuizAttemptQueryResult(BaseModel):
+    """Result model for quiz attempt queries."""
+
+    schema_version: int = Field(
+        default=1,
+        ge=1,
+        description="Schema version for quiz attempt query result models",
+    )
+    attempt_id: QuizAttemptId
+    user_id: UserId
+    quiz_id: str
+    score_percent: float
+    passed: bool
+    attempted_at: datetime
 
 
 # Query Service Protocols
@@ -313,6 +370,79 @@ class ICompanyQueryService(Protocol):
             QueryServiceError: If query operation fails
         """
         ...
+
+
+@runtime_checkable
+class IUserQueryService(Protocol):
+    """Query service for user search and listing operations."""
+
+    @abstractmethod
+    async def get_user_overview(self, user_id: UserId) -> UserQueryResult | None:
+        """Fetch a concise overview for a specific user."""
+
+    @abstractmethod
+    async def search_users(
+        self,
+        *,
+        email: str | None = None,
+        statuses: list[UserStatus] | None = None,
+        tiers: list[UserTier] | None = None,
+        limit: int = 100,
+        offset: int = 0,
+    ) -> list[UserQueryResult]:
+        """Search users with optional filters and pagination."""
+
+    @abstractmethod
+    async def list_recent_users(
+        self,
+        *,
+        limit: int = 20,
+    ) -> list[UserQueryResult]:
+        """List recently registered users for dashboards."""
+
+
+@runtime_checkable
+class ILearningProgressQueryService(Protocol):
+    """Query service for learning progress aggregation."""
+
+    @abstractmethod
+    async def get_user_progress(
+        self,
+        user_id: UserId,
+    ) -> list[LearningProgressQueryResult]:
+        """Retrieve all progress entries for a user."""
+
+    @abstractmethod
+    async def get_module_learners(
+        self,
+        module_key: str,
+        *,
+        limit: int = 100,
+        offset: int = 0,
+    ) -> list[LearningProgressQueryResult]:
+        """Retrieve learners engaging with a given module."""
+
+
+@runtime_checkable
+class IQuizAttemptQueryService(Protocol):
+    """Query service for quiz attempt analytics."""
+
+    @abstractmethod
+    async def get_recent_attempts(
+        self,
+        user_id: UserId,
+        *,
+        limit: int = 20,
+    ) -> list[QuizAttemptQueryResult]:
+        """Retrieve recent quiz attempts for a user."""
+
+    @abstractmethod
+    async def get_best_attempt(
+        self,
+        user_id: UserId,
+        quiz_id: str,
+    ) -> QuizAttemptQueryResult | None:
+        """Retrieve the best scoring attempt for the quiz."""
 
 
 class QueryServiceError(Exception):

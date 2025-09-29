@@ -292,6 +292,13 @@ class CompositionRoot(containers.DeclarativeContainer):
         app_container.cqrs.analysis_query_service.override(infra.analysis_query_service)
         app_container.cqrs.filing_query_service.override(infra.filing_query_service)
         app_container.cqrs.company_query_service.override(infra.company_query_service)
+        app_container.cqrs.user_query_service.override(infra.user_query_service)
+        app_container.cqrs.learning_progress_query_service.override(
+            infra.learning_progress_query_service
+        )
+        app_container.cqrs.quiz_attempt_query_service.override(
+            infra.quiz_attempt_query_service
+        )
 
         # Wire rate limiting provider
         app_container.providers_container.rate_limiting_provider.override(

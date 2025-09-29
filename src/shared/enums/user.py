@@ -12,3 +12,11 @@ class UserTier(str, Enum):
     BASIC = "BASIC"
     PROFESSIONAL = "PROFESSIONAL"
     ENTERPRISE = "ENTERPRISE"
+
+
+class UserStatus(str, Enum):
+    """Lifecycle status for a user account."""
+
+    ACTIVE = "ACTIVE"
+    INACTIVE = "INACTIVE"
+    SUSPENDED = "SUSPENDED"

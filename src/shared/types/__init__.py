@@ -7,12 +7,16 @@ from .identifiers import (
     CompanyId,
     CorrelationId,
     FilingId,
+    LearningProgressId,
     QueueMessageId,
+    QuizAttemptId,
     ReceiptHandle,
     RequestId,
     StorageKey,
     TaskId,
     UserId,
+    UserIdentityId,
+    UserProfileId,
 )
 from .queue import DeduplicationId, MessageGroupId, VisibilityTimeout
 from .sec import CIK, AccessionNumber, Ticker
@@ -25,6 +29,10 @@ __all__ = [
     "AnalysisId",
     "UserId",
     "CompanyId",
+    "UserIdentityId",
+    "UserProfileId",
+    "LearningProgressId",
+    "QuizAttemptId",
     "StorageKey",
     "QueueMessageId",
     "ReceiptHandle",

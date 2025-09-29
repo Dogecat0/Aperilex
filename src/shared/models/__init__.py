@@ -10,6 +10,12 @@ from .analysis import (
     TokenUsage,
 )
 from .base import MetadataDict, MetadataValue
+from .learning import (
+    LearningProgress,
+    LearningProgressUpsert,
+    QuizAttempt,
+    QuizAttemptCreate,
+)
 from .llm import LLMModelInfo
 from .queue import QueueMessage, QueueMessageBody, TaskMessage, TaskQueueMessage
 from .records import AnalysisRecord, CompanyRecord, FilingRecord, TaskRecord
@@ -46,4 +52,9 @@ __all__ = [
     "TokenUsage",
     # Task data models
     "TaskData",
+    # Learning models
+    "LearningProgress",
+    "LearningProgressUpsert",
+    "QuizAttempt",
+    "QuizAttemptCreate",
 ]

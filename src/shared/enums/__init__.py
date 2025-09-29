@@ -14,7 +14,7 @@ from .provider import (
 )
 from .status import AnalysisStatus, TaskStatus
 from .task import TaskPriority
-from .user import UserTier
+from .user import UserStatus, UserTier
 
 __all__ = [
     "StorageProvider",
@@ -31,4 +31,5 @@ __all__ = [
     "FilingType",
     "AnalysisType",
     "UserTier",
+    "UserStatus",
 ]

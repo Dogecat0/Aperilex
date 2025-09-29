@@ -24,6 +24,10 @@ class CacheRegionName(str, Enum):
     COMPANY = "company"
     FILING = "filing"
     ANALYSIS = "analysis"
+    USER = "user"
+    IDENTITY = "identity"
+    LEARNING = "learning"
+    QUIZ = "quiz"
     QUERY = "query"
 
 
@@ -47,6 +51,22 @@ REGION_CONFIGS = {
     CacheRegionName.ANALYSIS: CacheConfig(
         expiration_time=604800,  # 7 days - analyses are immutable
         description="Analysis entity cache",
+    ),
+    CacheRegionName.USER: CacheConfig(
+        expiration_time=86400,  # 1 day - user records change infrequently
+        description="User entity cache",
+    ),
+    CacheRegionName.IDENTITY: CacheConfig(
+        expiration_time=86400,  # 1 day - identity links rarely change
+        description="User identity cache",
+    ),
+    CacheRegionName.LEARNING: CacheConfig(
+        expiration_time=3600,  # 1 hour - progress updates frequently
+        description="Learning progress cache",
+    ),
+    CacheRegionName.QUIZ: CacheConfig(
+        expiration_time=3600,  # 1 hour - quiz attempts queried per session
+        description="Quiz attempt cache",
     ),
     CacheRegionName.QUERY: CacheConfig(
         expiration_time=604800,  # 7 days for complex queries
