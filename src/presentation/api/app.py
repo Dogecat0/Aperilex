@@ -19,8 +19,8 @@ logger = logging.getLogger(__name__)
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """Manage application lifespan events.
 
-    Handles startup and shutdown of services like Redis connections,
-    service factory initialization, and resource cleanup.
+    Handles startup and shutdown of external connections (database,
+    messaging), service factory initialization, and resource cleanup.
     """
     logger.info("Starting up Aperilex API")
 

@@ -11,6 +11,7 @@ from dependency_injector import providers
 from src.application.interfaces.worker import IWorkerProvider
 from src.shared.config.settings import settings
 from src.shared.enums import (
+    AuthenticationProvider,
     DatabaseProvider,
     DataSourceProvider,
     LLMProvider,
@@ -187,17 +188,25 @@ class ProviderFactory:
 
     @staticmethod
     def create_authentication_provider(
+        provider_type: AuthenticationProvider,
         environment: str,
+        _config_provider: IConfigProvider,
+        _secret_manager: ISecretManager,
     ) -> providers.Provider[IAuthenticationProvider]:
-        """Create authentication provider based on environment."""
+        """Create authentication provider based on explicit configuration."""
 
         from src.infrastructure.providers.authentication import (
             MockAuthenticationProvider,
         )
 
-        # For development/test environments use mock implementation.
-        # Production provider wiring will be introduced in a later stage.
-        return providers.Singleton(MockAuthenticationProvider)
+        if provider_type is AuthenticationProvider.MOCK:
+            return providers.Singleton(MockAuthenticationProvider)
+
+        raise RuntimeError(
+            "Authentication provider "
+            f"'{provider_type.value}' is not implemented for environment "
+            f"'{environment}'."
+        )
 
     @staticmethod
     def create_sse_provider(environment: str) -> providers.Provider[ISSEProvider]:

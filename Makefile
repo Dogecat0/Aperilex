@@ -37,7 +37,7 @@ pre-commit: ## Run pre-commit hooks
 	poetry run pre-commit run --all-files
 
 dev: ## Start development environment
-	docker-compose up -d postgres redis
+	docker-compose up -d postgres rabbitmq
 	poetry run uvicorn src.presentation.api.app:app --reload --host 0.0.0.0 --port 8000
 
 clean: ## Clean up cache and temp files

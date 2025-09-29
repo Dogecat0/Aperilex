@@ -3,6 +3,7 @@
 from .analysis import AnalysisType
 from .filing import FilingType
 from .provider import (
+    AuthenticationProvider,
     DatabaseProvider,
     DataSourceProvider,
     LLMProvider,
@@ -23,6 +24,7 @@ __all__ = [
     "DataSourceProvider",
     "DatabaseProvider",
     "RateLimitingProvider",
+    "AuthenticationProvider",
     "TaskStatus",
     "AnalysisStatus",
     "TaskPriority",

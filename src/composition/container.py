@@ -5,6 +5,7 @@ This module is responsible for wiring all concrete implementations to their
 abstract interfaces, following clean architecture principles.
 """
 
+import os
 from collections.abc import Sequence
 from dataclasses import dataclass
 from types import ModuleType
@@ -13,6 +14,7 @@ from dependency_injector import containers, providers
 
 from src.application.containers import ApplicationContainer
 from src.shared.enums import (
+    AuthenticationProvider,
     DatabaseProvider,
     DataSourceProvider,
     LLMProvider,
@@ -131,6 +133,40 @@ class CompositionRoot(containers.DeclarativeContainer):
             )
         )
 
+        auth_provider_raw = _get_config_value(
+            container.config,
+            "authentication.provider",
+            None,
+        )
+        if auth_provider_raw is None:
+            auth_provider_raw = os.environ.get("APERILEX_AUTHENTICATION_PROVIDER")
+
+        if isinstance(auth_provider_raw, AuthenticationProvider):
+            auth_provider_type = auth_provider_raw
+        else:
+            normalized_value = (
+                str(auth_provider_raw).strip().upper()
+                if isinstance(auth_provider_raw, str)
+                else ""
+            )
+
+            if not normalized_value:
+                valid_values = ", ".join(p.value for p in AuthenticationProvider)
+                raise RuntimeError(
+                    "Authentication provider not configured. "
+                    "Set APERILEX_AUTHENTICATION_PROVIDER to one of: "
+                    f"{valid_values}"
+                )
+
+            try:
+                auth_provider_type = AuthenticationProvider(normalized_value)
+            except ValueError as exc:
+                valid_values = ", ".join(p.value for p in AuthenticationProvider)
+                raise RuntimeError(
+                    f"Unsupported authentication provider '{auth_provider_raw}'. "
+                    f"Valid options: {valid_values}"
+                ) from exc
+
         # Persist resolved provider types for downstream diagnostics
         app_container.providers_container.storage_provider_type.override(
             providers.Object(storage_type)
@@ -149,6 +185,9 @@ class CompositionRoot(containers.DeclarativeContainer):
         )
         app_container.providers_container.database_provider_type.override(
             providers.Object(database_type)
+        )
+        app_container.providers_container.authentication_provider_type.override(
+            providers.Object(auth_provider_type)
         )
 
         # Wire concrete storage provider to application container's providers
@@ -203,7 +242,10 @@ class CompositionRoot(containers.DeclarativeContainer):
 
         # Authentication and real-time providers
         authentication_provider = ProviderFactory.create_authentication_provider(
-            environment
+            auth_provider_type,
+            environment,
+            config_provider,
+            secret_manager,
         )
         app_container.providers_container.authentication_provider.override(
             authentication_provider

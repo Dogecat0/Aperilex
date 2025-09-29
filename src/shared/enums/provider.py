@@ -66,5 +66,11 @@ class RateLimitingProvider(str, Enum):
     """Available rate limiting provider implementations."""
 
     IN_MEMORY = "IN_MEMORY"
-    REDIS = "REDIS"
     MEMCACHED = "MEMCACHED"
+
+
+class AuthenticationProvider(str, Enum):
+    """Available authentication provider implementations."""
+
+    MOCK = "MOCK"
+    GOOGLE_OAUTH = "GOOGLE_OAUTH"

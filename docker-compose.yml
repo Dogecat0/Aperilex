@@ -54,6 +54,7 @@ services:
       # Application
       SECRET_KEY: ${SECRET_KEY:-dev-secret-key-change-in-production}
       ENCRYPTION_KEY: ${ENCRYPTION_KEY:-dev-encryption-key-32-characters}
+      APERILEX_AUTHENTICATION_PROVIDER: ${APERILEX_AUTHENTICATION_PROVIDER:-MOCK}
       DEBUG: "true"
       EDGAR_IDENTITY: ${EDGAR_IDENTITY:-dev@aperilex.com}
       EDGAR_DATA_DIR: /tmp/edgar_data
@@ -88,6 +89,7 @@ services:
       RABBITMQ_URL: amqp://${RABBITMQ_USER:-aperilex}:${RABBITMQ_PASSWORD:-dev_password}@rabbitmq:5672/
       SECRET_KEY: ${SECRET_KEY:-dev-secret-key-change-in-production}
       ENCRYPTION_KEY: ${ENCRYPTION_KEY:-dev-encryption-key-32-characters}
+      APERILEX_AUTHENTICATION_PROVIDER: ${APERILEX_AUTHENTICATION_PROVIDER:-MOCK}
       DEBUG: "true"
       EDGAR_IDENTITY: ${EDGAR_IDENTITY:-dev@aperilex.com}
       EDGAR_DATA_DIR: /tmp/edgar_data

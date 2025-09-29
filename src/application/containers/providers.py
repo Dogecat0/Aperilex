@@ -15,6 +15,7 @@ from src.application.interfaces.sse import ISSEProvider
 from src.application.interfaces.storage import IStorageProvider
 from src.application.interfaces.worker import IWorkerProvider
 from src.shared.enums import (
+    AuthenticationProvider,
     DatabaseProvider,
     DataSourceProvider,
     LLMProvider,
@@ -55,7 +56,7 @@ class ProvidersContainer(containers.DeclarativeContainer):
     database_provider_type = providers.Object(DatabaseProvider.POSTGRES)
     database_provider = providers.AbstractSingleton(IDatabaseProvider)
 
-    # Rate limiting provider (InMemory, Redis, etc.)
+    # Rate limiting provider (InMemory, etc.)
     rate_limiting_provider_type = providers.Object(RateLimitingProvider.IN_MEMORY)
     rate_limiting_provider = providers.AbstractSingleton(IRateLimitingProvider)
 
@@ -66,6 +67,7 @@ class ProvidersContainer(containers.DeclarativeContainer):
     event_store = providers.AbstractSingleton(IEventStore)
 
     # Authentication provider for API security
+    authentication_provider_type = providers.Object(AuthenticationProvider.MOCK)
     authentication_provider = providers.AbstractSingleton(IAuthenticationProvider)
 
     # SSE provider for real-time updates

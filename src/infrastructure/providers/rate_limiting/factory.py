@@ -44,11 +44,6 @@ class RateLimitingProviderFactory:
         if provider_type == RateLimitingProvider.IN_MEMORY:
             return InMemoryRateLimitingProvider(config=config, **kwargs)
 
-        elif provider_type == RateLimitingProvider.REDIS:
-            raise NotImplementedError(
-                "Redis rate limiting provider not yet implemented"
-            )
-
         elif provider_type == RateLimitingProvider.MEMCACHED:
             raise NotImplementedError(
                 "Memcached rate limiting provider not yet implemented"
