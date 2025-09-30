@@ -40,7 +40,7 @@ load_runtime_secrets() {
     export DATABASE_URL="postgresql+asyncpg://aperilex:${postgres_password}@postgres/aperilex"
     export APERILEX_DATABASE_PASSWORD_SECRET="$postgres_secret_name"
 
-    for secret_var in GOOGLE_CLIENT_ID GOOGLE_CLIENT_SECRET; do
+    for secret_var in GOOGLE_CLIENT_ID GOOGLE_CLIENT_SECRET OPENAI_API_KEY GOOGLE_API_KEY; do
         local secret_name_var="${secret_var}_SECRET_NAME"
         local secret_name="${!secret_name_var:-$secret_var}"
         local secret_path="$secrets_dir/$secret_name"

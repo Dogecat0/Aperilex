@@ -57,6 +57,8 @@ services:
       GOOGLE_CLIENT_SECRET_NAME: GOOGLE_CLIENT_SECRET
       JWT_PRIVATE_KEY_SECRET_NAME: JWT_PRIVATE_KEY
       JWT_PUBLIC_KEY_SECRET_NAME: JWT_PUBLIC_KEY
+      OPENAI_API_KEY_SECRET_NAME: openai_api_key
+      GOOGLE_API_KEY_SECRET_NAME: google_api_key
 
       # Application
       SECRET_KEY: ${SECRET_KEY:-dev-secret-key-change-in-production}
@@ -89,6 +91,8 @@ services:
       - GOOGLE_CLIENT_SECRET
       - JWT_PRIVATE_KEY
       - JWT_PUBLIC_KEY
+      - openai_api_key
+      - google_api_key
 
   worker:
     build: .
@@ -105,6 +109,8 @@ services:
       GOOGLE_CLIENT_SECRET_NAME: GOOGLE_CLIENT_SECRET
       JWT_PRIVATE_KEY_SECRET_NAME: JWT_PRIVATE_KEY
       JWT_PUBLIC_KEY_SECRET_NAME: JWT_PUBLIC_KEY
+      OPENAI_API_KEY_SECRET_NAME: openai_api_key
+      GOOGLE_API_KEY_SECRET_NAME: google_api_key
       SECRET_KEY: ${SECRET_KEY:-dev-secret-key-change-in-production}
       ENCRYPTION_KEY: ${ENCRYPTION_KEY:-dev-encryption-key-32-characters}
       APERILEX_AUTHENTICATION_PROVIDER: ${APERILEX_AUTHENTICATION_PROVIDER:-MOCK}
@@ -145,6 +151,8 @@ services:
       - GOOGLE_CLIENT_SECRET
       - JWT_PRIVATE_KEY
       - JWT_PUBLIC_KEY
+      - openai_api_key
+      - google_api_key
 
 volumes:
   postgres_data:
@@ -161,3 +169,7 @@ secrets:
     file: ./.secrets/JWT_PRIVATE_KEY
   JWT_PUBLIC_KEY:
     file: ./.secrets/JWT_PUBLIC_KEY
+  openai_api_key:
+    file: ./.secrets/openai_api_key
+  google_api_key:
+    file: ./.secrets/google_api_key

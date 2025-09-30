@@ -184,6 +184,7 @@ repomix-output.xml
 .env.dev
 .env.test
 .env.prod
+.secrets/
 
 # Database
 *.db
