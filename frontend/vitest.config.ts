@@ -17,7 +17,7 @@ export default defineConfig({
     },
   },
   test: {
-    pool: 'vmThreads',
+    pool: 'threads',
     globals: true,
     environment: 'jsdom',
     setupFiles: ['./src/test/setup.ts'],
@@ -74,7 +74,7 @@ export default defineConfig({
     // Mock handling
     server: {
       deps: {
-        inline: ['@testing-library/jest-dom', 'react-router', 'react-router-dom'],
+        inline: ['@testing-library/jest-dom', /^react-router/, /^react-router-dom/],
       },
     },
   },

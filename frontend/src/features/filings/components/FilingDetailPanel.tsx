@@ -1,3 +1,4 @@
+import { RequireAuthAction } from '@/components/routing/RequireAuthAction'
 import type { FilingResponse, FilingSearchResult } from '@/lib/types/filing'
 import type { TaskResponse } from '@/lib/types/task'
 
@@ -171,15 +172,25 @@ export function FilingDetailPanel({
       </div>
 
       <footer className="space-y-3">
-        <button
-          type="button"
-          onClick={onAnalyze}
-          className="inline-flex h-11 w-full items-center justify-center rounded-full text-sm font-semibold uppercase tracking-wide text-white transition-opacity"
-          style={{ background: 'var(--sentiment-positive)' }}
-          disabled={!onAnalyze || isAnalyzeDisabled || isAnalyzing}
+        <RequireAuthAction
+          onAuthed={() => {
+            onAnalyze?.()
+          }}
+          disabled={!onAnalyze || isAnalyzeDisabled}
+          busy={Boolean(isAnalyzing)}
         >
-          {isAnalyzing ? 'Analyzing…' : 'Analyze this filing'}
-        </button>
+          {({ onAction, disabled }) => (
+            <button
+              type="button"
+              onClick={onAction}
+              className="inline-flex h-11 w-full items-center justify-center rounded-full text-sm font-semibold uppercase tracking-wide text-white transition-opacity"
+              style={{ background: 'var(--sentiment-positive)' }}
+              disabled={disabled}
+            >
+              {isAnalyzing ? 'Analyzing…' : 'Analyze this filing'}
+            </button>
+          )}
+        </RequireAuthAction>
 
         {mutationError ? (
           <p className="text-xs" style={{ color: 'var(--sentiment-negative)' }}>
