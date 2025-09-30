@@ -1,7 +1,9 @@
-import { NavLink } from 'react-router-dom'
+import { NavLink, useLocation } from 'react-router-dom'
 import { useMemo } from 'react'
 import { useAppStore } from '@/lib/store'
 import { useThemeTokens } from '@/components/ThemeProvider'
+import { useAuth } from '@/hooks/useAuth'
+import { authCopy } from '@/copy/auth'
 
 const NAV_LINKS = [
   { to: '/dashboard', label: 'Explore Filings' },
@@ -11,9 +13,11 @@ const NAV_LINKS = [
 ]
 
 export function GlobalNav() {
+  const location = useLocation()
   const theme = useAppStore((state) => state.theme)
   const setTheme = useAppStore((state) => state.setTheme)
   const tokens = useThemeTokens()
+  const { status: authStatus, isAuthenticated, session, loginWithGoogle, logout } = useAuth()
 
   const nextTheme = useMemo<'light' | 'dark'>(() => (theme === 'dark' ? 'light' : 'dark'), [theme])
 
@@ -22,6 +26,19 @@ export function GlobalNav() {
   const handleThemeToggle = () => {
     setTheme(theme === 'system' ? 'dark' : nextTheme)
   }
+
+  const handleLogin = () => {
+    const redirectTarget = `${location.pathname}${location.search}${location.hash}`.trim() || undefined
+    loginWithGoogle(redirectTarget)
+  }
+
+  const handleLogout = () => {
+    void logout()
+  }
+
+  const isAuthenticating = authStatus === 'authenticating'
+  const isHydrating = authStatus === 'initializing'
+  const userEmail = session?.user.email ?? ''
 
   const translucentSurface = tokens.name === 'dark' ? 'rgba(17, 24, 39, 0.85)' : 'rgba(255, 255, 255, 0.92)'
 
@@ -70,7 +87,41 @@ export function GlobalNav() {
           ))}
         </nav>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
+          {isAuthenticated ? (
+            <div className="hidden text-right sm:flex sm:flex-col">
+              <span className="text-xs text-[var(--colors-foregroundMuted)]">
+                {authCopy.authenticatedAsPrefix}
+              </span>
+              <span className="text-sm font-semibold text-[var(--colors-foreground)]" data-testid="authenticated-user-email">
+                {userEmail}
+              </span>
+            </div>
+          ) : null}
+
+          {isAuthenticated ? (
+            <button
+              type="button"
+              onClick={handleLogout}
+              className="rounded-full border px-4 py-2 text-xs font-semibold uppercase tracking-wide transition-colors"
+              style={{
+                borderColor: 'var(--colors-border)',
+                color: 'var(--colors-foreground)',
+              }}
+            >
+              {authCopy.logoutCta}
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={handleLogin}
+              disabled={isAuthenticating || isHydrating}
+              className="rounded-full bg-[var(--sentiment-neutral)] px-4 py-2 text-xs font-semibold uppercase tracking-wide text-white transition-opacity disabled:opacity-60"
+            >
+              {isAuthenticating || isHydrating ? authCopy.authenticatingLabel : authCopy.loginShortCta}
+            </button>
+          )}
+
           <button
             type="button"
             onClick={handleThemeToggle}
