@@ -32,6 +32,7 @@ from src.application.services.application_service import ApplicationService
 from src.application.services.background_task_coordinator import (
     BackgroundTaskCoordinator,
 )
+from src.application.services.learning_service import LearningService
 from src.application.services.worker_service import WorkerService
 from src.composition import CompositionRoot, CompositionRootInstance
 from src.shared.config.settings import settings
@@ -204,6 +205,15 @@ async def get_background_task_coordinator(
 ) -> BackgroundTaskCoordinator:
     """Get configured BackgroundTaskCoordinator instance."""
     return cast(BackgroundTaskCoordinator, coordinator)
+
+
+@inject
+async def get_learning_service(
+    learning_service: Any = Provide["cqrs.learning_service"],
+) -> LearningService:
+    """Get configured LearningService instance."""
+
+    return cast(LearningService, learning_service)
 
 
 @inject

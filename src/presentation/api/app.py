@@ -15,6 +15,7 @@ from src.presentation.api.routers import (
     companies,
     filings,
     health,
+    learning,
     tasks,
 )
 from src.shared.config.settings import settings
@@ -152,6 +153,7 @@ app.include_router(filings.router, prefix="/api")
 app.include_router(analyses.router, prefix="/api")
 app.include_router(companies.router, prefix="/api")
 app.include_router(tasks.router, prefix="/api")
+app.include_router(learning.router, prefix="/api")
 
 
 @app.get("/health", include_in_schema=False)
