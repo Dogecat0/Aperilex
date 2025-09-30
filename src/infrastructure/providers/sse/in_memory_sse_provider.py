@@ -45,7 +45,10 @@ class InMemorySSEProvider:
         self._lock = asyncio.Lock()
 
     async def create_connection(
-        self, user_id: UserId, event_types: list[str] | None = None
+        self,
+        user_id: UserId,
+        event_types: list[str] | None = None,
+        metadata: dict[str, str | int | float | bool | None] | None = None,
     ) -> SSEConnection:
         """
         Create a new SSE connection for a user.
@@ -67,7 +70,7 @@ class InMemorySSEProvider:
                 created_at=now,
                 last_heartbeat=now,
                 event_types=event_types or [],
-                metadata={},
+                metadata=metadata or {},
             )
 
             # Store connection

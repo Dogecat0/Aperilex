@@ -253,6 +253,8 @@ class WorkerService:
         target_filing_id = filing.id if filing else FilingId(uuid.uuid4())
         task_correlation_id = correlation_id or str(uuid.uuid4())
 
+        task_user_tier = user_tier or UserTier.BASIC
+
         metadata = self._build_task_metadata(
             command=command,
             email=resolved_email,
@@ -260,9 +262,9 @@ class WorkerService:
             filing=filing,
             filing_id=target_filing_id,
         )
+        metadata["user_tier"] = task_user_tier.value
 
         task_priority = priority or TaskPriority.NORMAL
-        task_user_tier = user_tier or UserTier.BASIC
 
         return TaskData(
             task_id=task_id,
@@ -712,10 +714,9 @@ class WorkerService:
         user_id: UserId,
         explicit_email: Email | None,
     ) -> Email:
-        if explicit_email is not None:
-            return explicit_email
-
-        return Email(value=f"user-{user_id}@aperilex.local")
+        if explicit_email is None:
+            raise ValueError("Authenticated user email is required")
+        return explicit_email
 
     def _resolve_ticker(
         self,

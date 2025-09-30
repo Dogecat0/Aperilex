@@ -15,7 +15,7 @@ from src.application.interfaces.repositories import (
 from src.application.services.background_task_coordinator import (
     BackgroundTaskCoordinator,
 )
-from src.shared.types import UserId
+from src.shared.types import Email, UserId
 
 logger = logging.getLogger(__name__)
 
@@ -114,11 +114,26 @@ class AnalyzeFilingCommandHandler(CommandHandler[AnalyzeFilingCommand, TaskRespo
                     extra={"user_id": command.user_id},
                 )
 
+        user_email = None
+        if command.user_email:
+            try:
+                user_email = Email(value=command.user_email)
+            except ValueError:
+                logger.warning(
+                    "Invalid user_email on AnalyzeFilingCommand",
+                    extra={"user_email": command.user_email},
+                )
+
+        if user_email is None:
+            raise ValueError("Authenticated user email is required for analysis queueing")
+
         return await self.background_task_coordinator.queue_filing_analysis(
             command=command,
             company=company,
             filing=filing,
             user_id=explicit_user_id,
+            user_email=user_email,
+            user_tier=command.user_tier,
         )
 
     @classmethod

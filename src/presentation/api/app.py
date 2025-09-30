@@ -9,7 +9,14 @@ from fastapi.responses import JSONResponse
 
 from src.presentation.api.dependencies import service_lifecycle
 from src.presentation.api.middleware import RateLimitMiddleware
-from src.presentation.api.routers import analyses, companies, filings, health, tasks
+from src.presentation.api.routers import (
+    analyses,
+    auth,
+    companies,
+    filings,
+    health,
+    tasks,
+)
 from src.shared.config.settings import settings
 
 logger = logging.getLogger(__name__)
@@ -52,15 +59,29 @@ async def http_exception_handler(request: Request, exc: HTTPException) -> JSONRe
     Returns:
         JSON response with error details
     """
+    detail = exc.detail
+    if isinstance(detail, dict):
+        message = detail.get("message", "Request failed")
+        code = detail.get("code")
+        extras = {k: v for k, v in detail.items() if k not in {"message", "code"}}
+    else:
+        message = str(detail) if detail is not None else "Request failed"
+        code = None
+        extras: dict[str, object] = {}
+
+    payload: dict[str, object] = {
+        "message": message,
+        "status_code": exc.status_code,
+        "path": str(request.url.path),
+    }
+    if code:
+        payload["code"] = code
+    if extras:
+        payload["details"] = extras
+
     return JSONResponse(
         status_code=exc.status_code,
-        content={
-            "error": {
-                "message": exc.detail,
-                "status_code": exc.status_code,
-                "path": str(request.url.path),
-            }
-        },
+        content={"error": payload},
     )
 
 
@@ -125,6 +146,7 @@ app.add_middleware(RateLimitMiddleware)
 
 # Include routers
 # API v1 routers with /api prefix
+app.include_router(auth.router, prefix="/api")
 app.include_router(health.router, prefix="/api")
 app.include_router(filings.router, prefix="/api")
 app.include_router(analyses.router, prefix="/api")

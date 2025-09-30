@@ -16,7 +16,7 @@ from src.application.services.priority_queue_service import (
     PriorityQueueService,
 )
 from src.application.services.worker_service import WorkerService
-from src.shared.enums import TaskStatus
+from src.shared.enums import TaskStatus, UserTier
 from src.shared.models import TaskData
 from src.shared.models.queue import TaskMessage
 from src.shared.types import Email, TaskId, UserId
@@ -70,8 +70,12 @@ class BackgroundTaskCoordinator:
         *,
         user_email: Email | None = None,
         user_id: UserId | None = None,
+        user_tier: UserTier | None = None,
     ) -> TaskResponse:
         """Queue a filing analysis for background processing."""
+        if user_email is None:
+            raise ValueError("Authenticated user email is required to queue analysis tasks")
+
         try:
             logger.info(
                 "Queuing analysis",
@@ -88,6 +92,7 @@ class BackgroundTaskCoordinator:
                 filing=filing,
                 user_email=user_email,
                 user_id=user_id,
+                user_tier=user_tier,
                 source="API",
             )
 
@@ -463,8 +468,34 @@ class BackgroundTaskCoordinator:
                     force_reprocess=bool(metadata.get("force_reprocess", False)),
                 )
 
-                # Queue the retry as a new task
-                retry_task = await self.queue_filing_analysis(command)
+                requested_by = metadata.get("requested_by")
+                retry_email = None
+                if isinstance(requested_by, str) and requested_by.strip():
+                    try:
+                        retry_email = Email(value=requested_by.strip())
+                    except ValueError:
+                        logger.warning(
+                            "Stored task metadata contains invalid requester email",
+                            extra={"requested_by": requested_by, "task_id": task_id},
+                        )
+
+                tier_hint = metadata.get("user_tier")
+                retry_tier = None
+                if isinstance(tier_hint, str) and tier_hint.strip():
+                    try:
+                        retry_tier = UserTier(tier_hint.strip())
+                    except ValueError:
+                        logger.warning(
+                            "Stored task metadata contains invalid user tier",
+                            extra={"user_tier": tier_hint, "task_id": task_id},
+                        )
+
+                if retry_email is None:
+                    raise ValueError("Stored task metadata missing requester email")
+
+                retry_task = await self.queue_filing_analysis(
+                    command, user_email=retry_email, user_tier=retry_tier
+                )
 
                 logger.info(
                     f"Created retry task {retry_task.task_id} for original task {task_id}"

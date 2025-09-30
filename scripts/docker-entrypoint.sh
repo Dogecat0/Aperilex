@@ -7,6 +7,14 @@ set -e
 
 echo "🚀 Starting Aperilex..."
 
+ensure_pythonpath() {
+    local app_path="/app"
+    case ":${PYTHONPATH:-}:" in
+        *":${app_path}:"*) ;;
+        *) export PYTHONPATH="${PYTHONPATH:+${PYTHONPATH}:}${app_path}" ;;
+    esac
+}
+
 load_runtime_secrets() {
     local secrets_dir="${DOCKER_SECRETS_DIR:-/run/secrets}"
     if [ ! -d "$secrets_dir" ]; then
@@ -109,6 +117,7 @@ is_truthy() {
 }
 
 # Main logic
+ensure_pythonpath
 load_runtime_secrets
 if [ "$1" = "app" ]; then
     echo "🌐 Starting web application..."

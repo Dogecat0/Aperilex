@@ -39,7 +39,7 @@ from src.application.interfaces.authentication import AuthenticationResult
 from src.application.services.application_service import ApplicationService
 from src.presentation.api.dependencies import get_application_service
 from src.presentation.api.security import get_current_user, user_id_str
-from src.shared.enums import FilingType
+from src.shared.enums import FilingType, UserTier
 from src.shared.types import CIK, AccessionNumber
 
 logger = logging.getLogger(__name__)
@@ -282,9 +282,7 @@ async def analyze_filing_by_id(
     current_user: AuthenticatedUserDep,
 ) -> TaskResponse:
     """Analyze a specific SEC filing identified by UUID."""
-    logger.info(
-        "Starting filing analysis by ID", extra={"filing_id": str(filing_id)}
-    )
+    logger.info("Starting filing analysis by ID", extra={"filing_id": str(filing_id)})
 
     try:
         query = GetFilingQuery(
@@ -338,10 +336,31 @@ async def analyze_filing_by_id(
                 ),
             )
 
+        if current_user.user_email is None:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail={
+                    "code": "auth.user.missing_email",
+                    "message": "Authenticated user is missing an email address",
+                },
+            )
+
+        tier_value = None
+        if current_user.user_tier:
+            try:
+                tier_value = UserTier(current_user.user_tier)
+            except ValueError:
+                logger.warning(
+                    "Received unknown user tier from authentication result",
+                    extra={"user_tier": current_user.user_tier},
+                )
+
         command = AnalyzeFilingCommand(
             accession_number=accession_number,
             company_cik=company_cik,
             user_id=user_id_str(current_user),
+            user_email=current_user.user_email,
+            user_tier=tier_value,
         )
 
         result = cast(

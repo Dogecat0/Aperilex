@@ -37,7 +37,7 @@ async def test_get_current_user_requires_authorization_header() -> None:
         await get_current_user(request, provider)
 
     assert exc.value.status_code == 401
-    assert exc.value.detail == "Missing Authorization header"
+    assert exc.value.detail == {"code": "auth.header.missing", "message": "Missing Authorization header"}
 
 
 @pytest.mark.asyncio

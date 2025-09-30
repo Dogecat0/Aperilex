@@ -11,6 +11,7 @@ from typing import TYPE_CHECKING, Annotated, Any
 from fastapi import Depends, Header, HTTPException, Request, status
 
 from src.application.interfaces.authentication import (
+    AuthenticationError,
     AuthenticationResult,
     IAuthenticationProvider,
 )
@@ -23,6 +24,13 @@ if TYPE_CHECKING:
     AuthProviderDep = IAuthenticationProvider
 else:
     AuthProviderDep = Annotated[Any, Depends(get_authentication_provider)]
+
+
+def _auth_exception(code: str, message: str, *, status_code: int = status.HTTP_401_UNAUTHORIZED) -> HTTPException:
+    """Build an HTTPException with structured authentication error detail."""
+
+    headers = {"WWW-Authenticate": "Bearer", "X-Error-Code": code}
+    return HTTPException(status_code=status_code, detail={"code": code, "message": message}, headers=headers)
 
 
 async def get_current_user(
@@ -40,36 +48,23 @@ async def get_current_user(
         return cached
 
     if not authorization:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Missing Authorization header",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
+        raise _auth_exception("auth.header.missing", "Missing Authorization header")
 
     try:
         scheme, token = authorization.split(" ", 1)
     except ValueError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid Authorization header format",
-            headers={"WWW-Authenticate": "Bearer"},
-        ) from exc
+        raise _auth_exception("auth.header.invalid_format", "Invalid Authorization header format") from exc
 
     if scheme.lower() != "bearer":
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Unsupported authorization scheme",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
+        raise _auth_exception("auth.scheme.unsupported", "Unsupported authorization scheme")
 
-    auth_result = await auth_provider.validate_token(token)
+    try:
+        auth_result = await auth_provider.validate_token(token)
+    except AuthenticationError as exc:
+        raise _auth_exception(exc.code or "auth.token.invalid", str(exc)) from exc
 
     if not auth_result.authenticated or auth_result.user_id is None:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid or unauthorized credentials",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
+        raise _auth_exception("auth.token.unauthorized", "Invalid or unauthorized credentials")
 
     request.state.auth_result = auth_result
     return auth_result

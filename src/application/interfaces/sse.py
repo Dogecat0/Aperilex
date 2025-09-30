@@ -53,7 +53,10 @@ class ISSEProvider(Protocol):
 
     @abstractmethod
     async def create_connection(
-        self, user_id: UserId, event_types: list[str] | None = None
+        self,
+        user_id: UserId,
+        event_types: list[str] | None = None,
+        metadata: dict[str, str | int | float | bool | None] | None = None,
     ) -> SSEConnection:
         """
         Create a new SSE connection for a user.
@@ -61,6 +64,7 @@ class ISSEProvider(Protocol):
         Args:
             user_id: User creating the connection
             event_types: Optional list of event types to subscribe to
+            metadata: Optional metadata describing the connection
 
         Returns:
             Created SSE connection

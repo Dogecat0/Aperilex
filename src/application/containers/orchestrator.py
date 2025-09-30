@@ -38,10 +38,16 @@ class SSEConnectionManager:
         self.event_publisher = event_publisher
 
     async def open_connection(
-        self, user_id: UserId, event_types: list[str] | None = None
+        self,
+        user_id: UserId,
+        *,
+        event_types: list[str] | None = None,
+        metadata: dict[str, str | int | float | bool | None] | None = None,
     ) -> SSEConnection:
         """Create and register a new SSE connection."""
-        connection = await self.sse_provider.create_connection(user_id, event_types)
+        connection = await self.sse_provider.create_connection(
+            user_id, event_types, metadata=metadata
+        )
         await self._publish_connection_event(
             connection_id=connection.connection_id,
             user_id=user_id,

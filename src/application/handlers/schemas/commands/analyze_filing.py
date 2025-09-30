@@ -5,6 +5,7 @@ from enum import Enum
 from pydantic import Field
 
 from src.application.base.command import BaseCommand
+from src.shared.enums import UserTier
 from src.shared.types import CIK, AccessionNumber
 
 
@@ -50,6 +51,15 @@ class AnalyzeFilingCommand(BaseCommand):
     )
     force_reprocess: bool = Field(
         default=False, description="Reprocess even if analysis already exists"
+    )
+
+    user_email: str | None = Field(
+        default=None,
+        description="Email address of the user initiating the analysis",
+    )
+    user_tier: UserTier | None = Field(
+        default=None,
+        description="Subscription tier of the user initiating the analysis",
     )
 
     def _validate(self) -> None:
