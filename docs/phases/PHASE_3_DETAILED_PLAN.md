@@ -1,5 +1,13 @@
 # Phase 3: Infrastructure Layer - Detailed Plan
 
+> **Architecture Update**
+>
+> Phase 3 originally assumed Redis/Celery for caching and background tasks.
+> Those components were superseded by RabbitMQ-backed workers and
+> Postgres-powered persistence (with optional in-memory adapters for
+> development). The notes below have been updated to reflect the current
+> architecture.
+
 ## Overview
 **Goal**: Implement infrastructure layer with direct edgartools integration and analysis capabilities
 **Status**: ✅ COMPLETED - Full infrastructure foundation with background processing and caching
@@ -12,8 +20,8 @@
 - **Analysis Schemas**: Complete schemas for all major filing sections (Business, Risk Factors, MDA, Financial Statements)
 - **Repository Layer**: All repositories implemented with async support and comprehensive testing
 - **Database Infrastructure**: SQLAlchemy models with Alembic migrations created and tested
-- **Background Processing**: Celery configuration with async tasks for filing processing and analysis
-- **Caching Layer**: Redis service and cache manager with domain-specific caching strategies
+- **Background Processing**: RabbitMQ-driven WorkerService pipeline for filing processing and analysis
+- **Rate Limiting & Caching**: Postgres-backed persistence with in-memory fallbacks for domain-specific limits
 - **Integration Testing**: Comprehensive tests covering Edgar → LLM → Analysis workflow and all infrastructure components
 
 ### Deferred Components 📋
@@ -22,7 +30,7 @@
 ## Dependencies
 - ✅ Phase 2 Complete: Domain layer with 97.89% test coverage
 - ✅ EdgarTools reference available: Context7 Library ID `/dgunning/edgartools`
-- ✅ Development environment operational: PostgreSQL, Redis, FastAPI
+- ✅ Development environment operational: PostgreSQL, RabbitMQ, FastAPI
 
 ## Architecture Decision
 **Skip Repository Interfaces**: Implement repositories directly with concrete implementations to avoid over-abstraction and accelerate development.
@@ -104,7 +112,7 @@
 
 #### Celery Configuration
 - [x] Create Celery app configuration with async support
-- [x] Configure Redis as broker and backend
+- [x] Configure RabbitMQ as broker and messaging backend
 - [x] Set up task serialization and timezone
 - [x] Configure retry and error handling
 - [x] Add Docker services for celery-worker and celery-beat
@@ -116,8 +124,8 @@
 - [x] Add error handling and retry logic
 - [x] Implement task progress tracking
 
-#### Redis Caching
-- [x] Create Redis cache service with async support
+#### Rate Limiting & Caching
+- [x] Implement Postgres-backed rate limiting with async in-memory fallback
 - [x] Add filing data caching with smart TTL
 - [x] Add analysis result caching
 - [x] Implement cache expiration policies
@@ -190,7 +198,7 @@
 ### Background Processing
 - [x] Celery configured and running
 - [x] Analysis tasks implemented
-- [x] Redis caching functional
+- [x] Postgres-backed rate limiting/caching functional
 - [x] Task retry logic working
 - [x] Background job monitoring setup
 
@@ -213,7 +221,7 @@
 - [x] **LLM Providers**: OpenAI analysis generation working
 - [x] **Repositories**: Data persistence operational with migrations
 - [x] **Background Jobs**: Async processing setup with Celery
-- [x] **Caching**: Performance optimization active with Redis
+- [x] **Rate Limiting**: Performance optimization active with Postgres + in-memory strategy
 - [x] **Tests**: All 242 integration tests passing (67.5% coverage)
 - [x] **Infrastructure**: File structure reorganized and optimized
 - [x] **Code Quality**: All quality checks passing

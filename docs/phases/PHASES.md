@@ -1,5 +1,11 @@
 # Aperilex Development Phases
 
+> **Architecture Update**
+>
+> The phase notes below reference earlier Redis/Celery experiments. The
+> current platform uses RabbitMQ for messaging and relies on Postgres-backed
+> persistence (with in-memory fallbacks for local dev) instead of Redis.
+
 ## Completed Phases
 
 ### Phase 1: Foundation & Security - ✅ COMPLETED
@@ -8,7 +14,7 @@
 #### Achievements:
 - ✅ Project structure established with clean architecture
 - ✅ Dependencies installed via Poetry
-- ✅ Docker services (PostgreSQL, Redis) configured and running
+- ✅ Docker services (PostgreSQL, RabbitMQ) configured and running
 - ✅ Database initialized with Alembic migrations
 - ✅ Basic FastAPI application running
 - ✅ Development environment fully operational
@@ -16,14 +22,14 @@
 
 #### Key Components Delivered:
 - **Project Structure**: Clean architecture with domain, application, infrastructure, and presentation layers
-- **Development Environment**: Docker Compose with PostgreSQL and Redis
+- **Development Environment**: Docker Compose with PostgreSQL and RabbitMQ
 - **Database Setup**: Alembic migrations configured
 - **Code Quality**: MyPy, Ruff, Black, and isort configured
 - **Security**: Basic security scanning with Bandit and Safety
 
 #### Technical Decisions:
 - **Database**: PostgreSQL for structured data storage
-- **Cache**: Redis for caching layer
+- **Rate Limiting & Caching**: Postgres-backed persistence with in-memory helpers
 - **ORM**: SQLAlchemy with async support
 - **API Framework**: FastAPI with Pydantic v2
 - **Type Checking**: Strict mypy configuration with targeted overrides
@@ -104,10 +110,10 @@
    - Filing processing tasks (fetch, process, batch operations)
    - Analysis tasks (individual, comprehensive, batch analysis)
    - Docker services for celery-worker and celery-beat
-   - Redis broker integration
+   - RabbitMQ broker integration
 
 6. **Caching Layer** ✅:
-   - Redis service with async JSON serialization
+   - Postgres-backed rate limiting with in-memory fallback
    - High-level cache manager for domain entities
    - Smart TTL management (24h companies, 12h filings, 6h analyses)
    - Pattern-based cache invalidation
@@ -123,9 +129,9 @@
 #### Key Technical Achievements:
 - **Async-First Architecture**: All infrastructure components use async/await for maximum performance
 - **Background Processing**: Celery with dedicated queues for filing vs analysis workloads
-- **Multi-Level Caching**: Redis caching for entities, search results, and filing content
+- **Multi-Level Caching**: Postgres + in-memory strategy for entities, search results, and filing content
 - **Domain-Driven Infrastructure**: Cache keys and task organization follow domain boundaries
-- **Production-Ready Monitoring**: Task tracking, Redis health checks, and comprehensive logging
+- **Production-Ready Monitoring**: Task tracking, RabbitMQ health checks, and comprehensive logging
 - **Type Safety**: Full MyPy compliance across all infrastructure components
 - **Docker Integration**: Complete development environment with worker and scheduler services
 - **Test Coverage**: All 242 tests passing with comprehensive integration testing
@@ -134,7 +140,7 @@
 ```
 src/infrastructure/
 ├── cache/                    # Caching infrastructure
-│   ├── redis_service.py     # Low-level Redis operations
+│   ├── queue/rabbitmq.py    # RabbitMQ queue operations
 │   └── cache_manager.py     # High-level domain caching
 ├── database/                 # Database infrastructure
 ├── edgar/                    # SEC/Edgar integration
@@ -154,7 +160,7 @@ src/infrastructure/
 - ✅ **Base CQRS Infrastructure** - COMPLETED & RIGHT-SIZED (38% code reduction)
 - ✅ **Request/Response DTOs** - COMPLETED & RIGHT-SIZED
 - ✅ **Application Services** - COMPLETED & RIGHT-SIZED
-- ✅ **Integration Patterns** - COMPLETED (Redis/Celery integration)
+- ✅ **Integration Patterns** - COMPLETED (RabbitMQ/Worker integration)
 - ✅ **API Endpoints** - COMPLETED (8/8 core endpoints implemented)
 - ✅ **Command/Query Handlers** - COMPLETED (8/8 handlers implemented)
 - ✅ **Latest Improvements (July 2024)** - Type safety, schema standardization, LLM enhancements
@@ -182,11 +188,11 @@ src/infrastructure/
    - `AnalysisOrchestrator` with simplified workflow
    - `AnalysisTemplateService` completely rewritten (254→79 lines, 69% reduction)
    - `ApplicationService` as central CQRS coordinator
-   - `ServiceFactory` with Redis/Celery switching and health monitoring
+   - `ServiceFactory` with RabbitMQ/Worker switching and health monitoring
 
 5. **Integration Infrastructure**:
    - Background task coordination with Celery
-   - Redis caching with graceful degradation
+   - Postgres/in-memory rate limiting with graceful degradation
    - FastAPI lifecycle management
    - Comprehensive error handling and logging
 
@@ -201,7 +207,7 @@ src/infrastructure/
 - **Clean Architecture**: Maintained throughout right-sizing process
 - **CQRS Pattern**: Simplified but fully functional with 8 handlers
 - **Background Processing**: Celery integration for long-running LLM analysis
-- **Caching Strategy**: Redis caching for read endpoints with fallback
+- **Caching Strategy**: Postgres + in-memory caching for read endpoints with fallback
 - **Type Safety**: Full MyPy compliance maintained during code reduction
 
 ---
@@ -314,7 +320,7 @@ Aperilex has successfully achieved its mission to "democratize financial analysi
 - **85%+ Test Coverage**: Both backend and frontend with comprehensive test suites
 
 ### Technical Highlights:
-- **Backend**: FastAPI, SQLAlchemy, Celery, Redis, PostgreSQL
+- **Backend**: FastAPI, SQLAlchemy, WorkerService, RabbitMQ, PostgreSQL
 - **Frontend**: React 19, TypeScript, Tailwind CSS 4, Recharts
 - **Integrations**: EdgarTools for SEC data, OpenAI for analysis
 - **Infrastructure**: Docker, fully containerized development environment

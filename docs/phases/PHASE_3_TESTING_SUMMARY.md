@@ -1,5 +1,11 @@
 # Phase 3 Testing Summary
 
+> **Architecture Update**
+>
+> Earlier drafts referenced Redis/Celery for caching and task queues. The
+> current implementation relies on RabbitMQ for messaging and Postgres for
+> persistent state, with optional in-memory components for local-only flows.
+
 ## Overview
 Phase 3 infrastructure layer implementation has been successfully completed and validated. All core infrastructure components are working correctly.
 
@@ -37,7 +43,7 @@ poetry run pytest tests/e2e/ -v
 
 ### Running Services ✅
 1. **PostgreSQL 16** (Port 5432) - Database ✅
-2. **Redis 7** (Port 6379) - Cache/Message Broker ✅
+2. **RabbitMQ 3** (Port 5672/15672) - Message Broker ✅
 3. **FastAPI** (Port 8000) - REST API ✅
 4. **Celery Worker** - Background Task Processing ✅
 5. **Celery Beat** - Scheduled Task Management ✅
@@ -65,7 +71,7 @@ A comprehensive validation script has been created at `scripts/validate_phase3.p
 1. ✅ Database Connection and Operations
 2. ✅ Repository Pattern (Create, Read, Update operations)
 3. ✅ Edgar Service Integration (requires API key for full test)
-4. ✅ Cache Manager (requires Redis)
+4. ✅ Rate limiting/caching adapters (Postgres primary, in-memory fallback)
 5. ✅ LLM Provider Schemas
 6. ✅ Filing Entity State Management
 
@@ -78,12 +84,12 @@ A comprehensive validation script has been created at `scripts/validate_phase3.p
 - **Alembic** migrations ready
 
 ### 2. Caching Layer
-- **Redis** integration
+- **RabbitMQ** integration
 - **Cache Manager** with TTL strategies
 - **Multi-level caching** for companies, filings, and analyses
 
 ### 3. Background Processing ✅
-- **Celery** with Redis broker
+- **Celery/Redis** dependency replaced by RabbitMQ-driven workers
 - **Task definitions** for filing processing and analysis
 - **Queue routing** (filing_queue, analysis_queue)
 - **Celery Beat** for scheduled tasks
@@ -134,7 +140,7 @@ docker-compose logs celery-beat
 
 Phase 3 infrastructure implementation is complete with:
 - ✅ All tests passing (242/242)
-- ✅ Core services running (PostgreSQL, Redis, FastAPI)
+- ✅ Core services running (PostgreSQL, RabbitMQ, FastAPI)
 - ✅ Background processing fully functional (Celery Worker, Celery Beat)
 - ✅ Repository pattern implemented
 - ✅ External integrations working

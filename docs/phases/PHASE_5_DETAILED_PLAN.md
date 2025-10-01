@@ -396,7 +396,7 @@ Based on comprehensive code review and testing:
 **Backend (100% Core Features)**:
 - All 13+ REST API endpoints operational
 - Edgar → LLM → Database pipeline fully functional
-- Background task processing with Celery/Redis
+- Background task processing with RabbitMQ + WorkerService
 - Clean architecture with CQRS implementation
 - 85.61% test coverage with comprehensive test suite
 

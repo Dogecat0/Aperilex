@@ -1,5 +1,12 @@
 # Phase 4: Application Services - RIGHT-SIZED Implementation Plan
 
+> **Architecture Update**
+>
+> Phase 4 deliverables were re-aligned onto the RabbitMQ + Postgres stack.
+> Any prior references to Redis/Celery now map to the WorkerService/RabbitMQ
+> pipeline with Postgres-backed persistence (and optional in-memory helpers
+> for local environments).
+
 ## Overview
 
 Phase 4 focuses on implementing a well-architected application layer that delivers core user value for democratizing financial analysis. This phase builds upon the solid infrastructure foundation from Phase 3 while **maintaining clean architecture principles with startup-appropriate complexity**.
@@ -173,7 +180,7 @@ TEMPLATE_SCHEMAS = {
 - ✅ `GET /api/companies/{ticker}/analyses`: Get all analyses for company
 
 #### Health Monitoring Endpoints ✅ **ADDITIONAL VALUE**
-- ✅ Comprehensive health check endpoints with Redis/Celery status monitoring
+- ✅ Comprehensive health check endpoints with RabbitMQ/WorkerService status monitoring
 
 **Endpoint Count**: **8 focused endpoints** delivering core user value - ✅ **ALL IMPLEMENTED**
 
@@ -225,10 +232,10 @@ TEMPLATE_SCHEMAS = {
 - ✅ Celery task creation for LLM analysis (long-running operations) with graceful degradation
 - ✅ Simple task status tracking with new simplified TaskResponse
 - ✅ Basic failure handling with retry logic and health monitoring
-- ✅ Task result retrieval and persistence with Redis backend support
+- ✅ Task result retrieval and persistence with Postgres-backed storage and queue acknowledgements
 
 #### Cache Integration ✅ **PERFORMANCE**
-- ✅ Response caching for read endpoints (analyses, company data) with Redis backend
+- ✅ Response caching/rate limiting for read endpoints using Postgres + in-memory TTL strategy
 - ✅ Simple cache key strategies (by analysis_id, ticker, accession_number)
 - ✅ Basic cache invalidation on analysis updates
 - ✅ Reasonable TTL configuration with fallback to in-memory caching
@@ -240,11 +247,11 @@ TEMPLATE_SCHEMAS = {
 - ✅ Simple error handling and logging
 
 #### Service Factory & Health Monitoring ✅ **NEW INFRASTRUCTURE**
-- ✅ ServiceFactory class with Redis/Celery configuration switching
+- ✅ ServiceFactory class with RabbitMQ/Worker configuration switching
 - ✅ FastAPI lifecycle integration with proper startup/shutdown handling
 - ✅ Comprehensive health check endpoints for monitoring integration status
-- ✅ Type-safe union guards for optional Redis integration
-- ✅ Graceful degradation when Redis/Celery unavailable
+- ✅ Type-safe union guards for messaging provider integration
+- ✅ Graceful degradation when RabbitMQ/worker services are unavailable
 
 **Implementation Status**:
 - **Files Created/Updated**:
@@ -309,7 +316,7 @@ TEMPLATE_SCHEMAS = {
 - **Base CQRS Infrastructure** - ✅ **COMPLETED & RIGHT-SIZED**
 - **Request/Response DTOs** - ✅ **COMPLETED & RIGHT-SIZED**
 - **Application Services** - ✅ **COMPLETED & RIGHT-SIZED**
-- **Integration Patterns** - ✅ **COMPLETED & RIGHT-SIZED** (Celery Redis Integration)
+- **Integration Patterns** - ✅ **COMPLETED & RIGHT-SIZED** (RabbitMQ messaging integration)
 - **Code Right-Sizing** - ✅ **COMPLETED** (38% reduction achieved)
 - **API Endpoints & Core Use Cases** - ✅ **COMPLETED** (All 8 endpoints + handlers implemented)
 
@@ -374,7 +381,7 @@ Phase 4 has been successfully completed with all major components fully implemen
 - EdgarTools library for SEC data
 - OpenAI API for analysis
 - PostgreSQL for persistence
-- Redis for caching
+- RabbitMQ for messaging; Postgres/in-memory for caching and rate limiting
 - Celery for background tasks
 - FastAPI for REST endpoints
 
