@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import os
 import tempfile
 from pathlib import Path
 from typing import Any
@@ -20,7 +21,18 @@ class TaskStatusStore:
     """Persist and retrieve task status snapshots on the local filesystem."""
 
     def __init__(self, base_path: str | Path | None = None) -> None:
-        target = Path(base_path) if base_path is not None else Path("storage/task-status")
+        raw_path = base_path or os.environ.get("TASK_STATUS_STORE_PATH") or "task-status"
+
+        target = Path(raw_path)
+        if not target.is_absolute():
+            storage_root = os.environ.get("LOCAL_STORAGE_PATH")
+            storage_root_path = (
+                Path(storage_root).expanduser()
+                if storage_root
+                else Path(tempfile.gettempdir()) / "aperilex"
+            )
+            target = storage_root_path / target
+
         candidate = target.expanduser()
 
         try:

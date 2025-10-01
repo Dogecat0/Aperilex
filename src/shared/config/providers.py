@@ -153,4 +153,4 @@ class DockerWorkerConfig(BaseModel):
     log_driver: str = "json-file"
     log_max_size: str = "10m"
     log_max_files: str = "3"
-    status_store_path: str = "storage/task-status"
+    status_store_path: str = "task-status"

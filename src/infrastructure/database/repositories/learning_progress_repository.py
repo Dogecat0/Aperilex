@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from typing import Any, cast
 
-from sqlalchemy import Select, and_, select
+from sqlalchemy import Select, and_, func, select
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.application.interfaces.repositories import (
@@ -38,6 +40,20 @@ class LearningProgressRepository(ILearningProgressRepository):
             schema_version=model.schema_version,
             created_at=getattr(model, "created_at", None),
             updated_at=getattr(model, "updated_at", None),
+        )
+
+    def _row_to_data(self, row: Mapping[str, Any]) -> LearningProgressData:
+        return LearningProgressData(
+            id=LearningProgressId(row["id"]),
+            user_id=UserId(row["user_id"]),
+            module_key=row["module_key"],
+            progress_percent=row["progress_percent"],
+            last_interaction_at=row.get("last_interaction_at"),
+            completed_at=row.get("completed_at"),
+            metadata=row.get("metadata") or {},
+            schema_version=row["schema_version"],
+            created_at=row.get("created_at"),
+            updated_at=row.get("updated_at"),
         )
 
     def _invalidate_cache(
@@ -97,38 +113,42 @@ class LearningProgressRepository(ILearningProgressRepository):
         return await self._get_cached(cache_key, stmt)
 
     async def upsert(self, progress: LearningProgressData) -> LearningProgressData:
-        stmt = select(LearningProgressModel).where(
-            and_(
-                LearningProgressModel.user_id == progress.user_id,
-                LearningProgressModel.module_key == progress.module_key,
-            )
+        insert_stmt = pg_insert(LearningProgressModel).values(
+            id=progress.id,
+            schema_version=progress.schema_version,
+            user_id=progress.user_id,
+            module_key=progress.module_key,
+            progress_percent=progress.progress_percent,
+            last_interaction_at=progress.last_interaction_at,
+            completed_at=progress.completed_at,
+            metadata_payload=progress.metadata or {},
         )
-        result = await self.session.execute(stmt)
-        model = result.scalar_one_or_none()
 
-        if model is None:
-            model = LearningProgressModel(
-                id=progress.id,
-                schema_version=progress.schema_version,
-                user_id=progress.user_id,
-                module_key=progress.module_key,
-                progress_percent=progress.progress_percent,
-                last_interaction_at=progress.last_interaction_at,
-                completed_at=progress.completed_at,
-                metadata_payload=progress.metadata or {},
+        update_values: dict[str, Any] = {
+            "schema_version": progress.schema_version,
+            "progress_percent": progress.progress_percent,
+            "last_interaction_at": progress.last_interaction_at,
+            "completed_at": progress.completed_at,
+            "updated_at": func.now(),
+        }
+
+        if progress.metadata:
+            update_values["metadata"] = progress.metadata
+
+        stmt = (
+            insert_stmt.on_conflict_do_update(
+                index_elements=[
+                    LearningProgressModel.user_id,
+                    LearningProgressModel.module_key,
+                ],
+                set_=update_values,
             )
-            self.session.add(model)
-        else:
-            model.schema_version = progress.schema_version
-            model.progress_percent = progress.progress_percent
-            model.last_interaction_at = progress.last_interaction_at
-            model.completed_at = progress.completed_at
-            if progress.metadata:
-                model.metadata_payload = progress.metadata
+            .returning(*LearningProgressModel.__table__.c)
+        )
 
-        await self.session.flush()
-
-        data = self._model_to_data(model)
+        result = await self.session.execute(stmt)
+        row = result.mappings().one()
+        data = self._row_to_data(row)
         self._invalidate_cache(
             progress_id=data.id,
             user_id=data.user_id,

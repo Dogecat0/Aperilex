@@ -31,6 +31,15 @@ class LearningService:
     ) -> None:
         self._repository_factory = repository_factory
 
+    async def close(self, *, success: bool = True) -> None:
+        """Flush and close repository resources attached to this service."""
+
+        close_callable = getattr(self._repository_factory, "close", None)
+        if close_callable is None:
+            return
+
+        await close_callable(success=success)
+
     @staticmethod
     def _to_progress_model(data: LearningProgressData) -> LearningProgress:
         return LearningProgress(

@@ -6,6 +6,7 @@ for proper dependency injection and service management.
 
 import logging
 import sys
+from collections.abc import AsyncIterator
 from functools import lru_cache
 from types import ModuleType
 from typing import Any, cast
@@ -211,10 +212,19 @@ async def get_background_task_coordinator(
 @inject
 async def get_learning_service(
     learning_service: Any = Provide["cqrs.learning_service"],
-) -> LearningService:
-    """Get configured LearningService instance."""
+) -> AsyncIterator[LearningService]:
+    """Yield a LearningService instance scoped to the request lifecycle."""
 
-    return cast(LearningService, learning_service)
+    service = cast(LearningService, learning_service)
+    succeeded = False
+    try:
+        yield service
+        succeeded = True
+    finally:
+        try:
+            await service.close(success=succeeded)
+        except Exception:
+            logger.exception("Failed to finalize learning service resources", exc_info=True)
 
 
 def _resolve_provider(instance: Any) -> Any:

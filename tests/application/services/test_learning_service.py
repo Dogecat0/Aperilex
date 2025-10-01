@@ -25,6 +25,7 @@ def repository_factory() -> AsyncMock:
     factory = AsyncMock()
     factory.get_learning_progress_repository = AsyncMock()
     factory.get_quiz_attempt_repository = AsyncMock()
+    factory.close = AsyncMock()
     return factory
 
 
@@ -150,3 +151,12 @@ async def test_get_best_quiz_attempt(repository_factory: AsyncMock) -> None:
     assert result is not None
     assert result.score_percent == 90.0
     quiz_repo.get_best_attempt.assert_awaited()
+
+
+@pytest.mark.asyncio
+async def test_close_flushes_repository_factory(repository_factory: AsyncMock) -> None:
+    service = LearningService(repository_factory)
+
+    await service.close(success=True)
+
+    repository_factory.close.assert_awaited_once_with(success=True)
