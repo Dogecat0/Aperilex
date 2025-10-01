@@ -73,6 +73,56 @@ describe('LearningHubPage', () => {
     expect(detailLink).toHaveAttribute('href', `/filing/${latestAnalysisId}`)
   })
 
+  it('disables module resume actions when no filing context exists', async () => {
+    const emptyPaginatedAnalyses = {
+      schema_version: 2,
+      items: [],
+      pagination: {
+        schema_version: 1,
+        page: 1,
+        page_size: 8,
+        total_items: 0,
+        total_pages: 0,
+        has_next: false,
+        has_previous: false,
+        next_page: null,
+        previous_page: null,
+      },
+    }
+
+    getSpy.mockImplementation(async (path: string) => {
+      if (path === '/learning/progress') {
+        return []
+      }
+      if (path === '/learning/quiz-attempts') {
+        return []
+      }
+      if (path === '/analyses') {
+        return emptyPaginatedAnalyses
+      }
+      throw new Error(`Unexpected GET path: ${path}`)
+    })
+
+    renderWithProviders(
+      <MemoryRouter>
+        <LearningHubPage />
+      </MemoryRouter>
+    )
+
+    const resumeButtons = await screen.findAllByRole('button', {
+      name: /Resume module/i,
+    })
+
+    expect(resumeButtons.length).toBeGreaterThan(0)
+    for (const button of resumeButtons) {
+      expect(button).toBeDisabled()
+      expect(button).toHaveAttribute(
+        'title',
+        expect.stringContaining('analysis')
+      )
+    }
+  })
+
   it('marks a module complete via the optimistic update flow', async () => {
     renderWithProviders(
       <MemoryRouter>

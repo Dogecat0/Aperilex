@@ -324,6 +324,7 @@ export function LearningHubPage() {
               ? tokens.sentiment.positive
               : tokens.sentiment.neutral
           const context = module.context
+          const hasContext = Boolean(context)
           const filingDateLabel = formatFilingDate(context?.filingDate)
           const sentimentBadge = context
             ? describeSentiment(
@@ -331,6 +332,11 @@ export function LearningHubPage() {
                 tokens
               )
             : null
+          const resumeDisabled = busy || !hasContext
+          const resumeLabel = progressPercent >= 100 ? 'Review module' : 'Resume module'
+          const resumeTitle = !hasContext
+            ? 'Launch a filing analysis to unlock contextual practice.'
+            : undefined
 
           return (
             <article
@@ -428,15 +434,16 @@ export function LearningHubPage() {
                 <button
                   type="button"
                   onClick={() => handleResumeModule(module.key)}
-                  disabled={busy}
+                  disabled={resumeDisabled}
                   className="inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-wide"
                   style={{
                     color: '#0f172a',
                     background: tokens.sentiment.neutral,
-                    opacity: busy ? 0.6 : 1,
+                    opacity: resumeDisabled ? 0.45 : 1,
                   }}
+                  title={resumeTitle}
                 >
-                  {progressPercent >= 100 ? 'Review module' : 'Resume module'}
+                  {resumeLabel}
                 </button>
                 <button
                   type="button"
