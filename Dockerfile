@@ -10,9 +10,9 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Poetry
+# Install Poetry and ensure attrs stays new enough for pip/rich
 RUN --mount=type=cache,target=/root/.cache/pip \
-    pip install poetry
+    python -m pip install --upgrade pip "attrs>=24.2" poetry
 
 # Configure Poetry to not create virtual environment
 ENV POETRY_NO_INTERACTION=1 \
