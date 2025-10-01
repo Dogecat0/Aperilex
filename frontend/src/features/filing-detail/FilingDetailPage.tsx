@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react'
-import { useParams } from 'react-router-dom'
+import { useEffect, useMemo, useState } from 'react'
+import { useLocation, useParams } from 'react-router-dom'
 import { GlossarySidebar } from './components/GlossarySidebar'
 import { InsightTimeline, type InsightTimelineEvent } from './components/InsightTimeline'
 import { MetricsGrid, type MetricDatum } from './components/MetricsGrid'
@@ -8,7 +8,13 @@ import { useThemeTokens } from '@/components/ThemeProvider'
 import { useFilingDetail, useSentimentBreakdown } from '@/lib/hooks'
 import type { AnalysisResponse, SectionAnalysis, StructuredAnalysisData, SubsectionAnalysis } from '@/lib/types/analysis'
 
-type TabKey = 'overview' | 'sections' | 'numbers' | 'sentiment' | 'raw'
+const TAB_KEYS = ['overview', 'sections', 'numbers', 'sentiment', 'raw'] as const
+type TabKey = (typeof TAB_KEYS)[number]
+
+interface FilingDetailLocationState {
+  focusTab?: TabKey
+  focusSection?: string | null
+}
 
 const numberFormatter = new Intl.NumberFormat('en-US', {
   maximumFractionDigits: 2,
@@ -258,9 +264,30 @@ function combineConfidence(analysis?: AnalysisResponse | null, structured?: Stru
 
 export function FilingDetailPage() {
   const { id } = useParams<{ id: string }>()
+  const location = useLocation()
+  const locationState = (location.state ?? {}) as FilingDetailLocationState
+  const focusTabFromLocation = locationState.focusTab
+  const hasFocusSection = Object.prototype.hasOwnProperty.call(locationState, 'focusSection')
+  const focusSectionFromLocation = locationState.focusSection
+
   const tokens = useThemeTokens()
-  const [activeTab, setActiveTab] = useState<TabKey>('overview')
-  const [focusedSection, setFocusedSection] = useState<string | null>(null)
+  const [activeTab, setActiveTab] = useState<TabKey>(() =>
+    focusTabFromLocation && TAB_KEYS.includes(focusTabFromLocation)
+      ? focusTabFromLocation
+      : 'overview'
+  )
+  const [focusedSection, setFocusedSection] = useState<string | null>(() =>
+    hasFocusSection ? focusSectionFromLocation ?? null : null
+  )
+
+  useEffect(() => {
+    if (focusTabFromLocation && TAB_KEYS.includes(focusTabFromLocation)) {
+      setActiveTab(focusTabFromLocation)
+    }
+    if (hasFocusSection) {
+      setFocusedSection(focusSectionFromLocation ?? null)
+    }
+  }, [focusTabFromLocation, focusSectionFromLocation, hasFocusSection, id])
 
   const detailQuery = useFilingDetail(id)
   const analysis = detailQuery.data

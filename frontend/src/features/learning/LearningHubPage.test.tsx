@@ -6,11 +6,14 @@ import {
   learningProgressResponses,
   quizAttemptResponses,
 } from '@/../tests/fixtures/learning'
+import { mockPaginatedAnalysesResponse, mockAnalysisDetail } from '@/test/fixtures/analyses'
+import { MemoryRouter } from 'react-router-dom'
 import { LearningHubPage } from './LearningHubPage'
 
 const getSpy = vi.spyOn(apiClient, 'get')
 const putSpy = vi.spyOn(apiClient, 'put')
 const postSpy = vi.spyOn(apiClient, 'post')
+const latestAnalysisId = mockPaginatedAnalysesResponse.items[0].analysis_id
 
 beforeEach(() => {
   vi.clearAllMocks()
@@ -20,6 +23,16 @@ beforeEach(() => {
     }
     if (path === '/learning/quiz-attempts') {
       return quizAttemptResponses
+    }
+    if (path === '/analyses') {
+      return mockPaginatedAnalysesResponse
+    }
+    if (path === `/analyses/${latestAnalysisId}`) {
+      return {
+        ...mockAnalysisDetail,
+        analysis_id: latestAnalysisId,
+        filing_id: mockPaginatedAnalysesResponse.items[0].filing_id,
+      }
     }
     throw new Error(`Unexpected GET path: ${path}`)
   })
@@ -42,18 +55,30 @@ afterEach(() => {
 
 describe('LearningHubPage', () => {
   it('renders persisted progress and recent quiz attempts', async () => {
-    renderWithProviders(<LearningHubPage />)
-
-    await waitFor(() => expect(getSpy).toHaveBeenCalledTimes(2))
+    renderWithProviders(
+      <MemoryRouter>
+        <LearningHubPage />
+      </MemoryRouter>
+    )
 
     expect(await screen.findByText('60% complete')).toBeInTheDocument()
     expect(
       screen.getByText((content) => content.includes('Score 67%'))
     ).toBeInTheDocument()
+    const summarySnippets = await screen.findAllByText(/Margin expansion stems/)
+    expect(summarySnippets.length).toBeGreaterThan(0)
+    const detailLink = screen.getByRole('link', {
+      name: /View Management Discussion & Analysis/i,
+    })
+    expect(detailLink).toHaveAttribute('href', `/filing/${latestAnalysisId}`)
   })
 
   it('marks a module complete via the optimistic update flow', async () => {
-    renderWithProviders(<LearningHubPage />)
+    renderWithProviders(
+      <MemoryRouter>
+        <LearningHubPage />
+      </MemoryRouter>
+    )
     await screen.findByText('60% complete')
 
     const actionButtons = screen.getAllByText('Mark complete')
@@ -75,7 +100,11 @@ describe('LearningHubPage', () => {
       new ApiClientError('unauthorized', 401, { error: { message: 'Session expired' } })
     )
 
-    renderWithProviders(<LearningHubPage />)
+    renderWithProviders(
+      <MemoryRouter>
+        <LearningHubPage />
+      </MemoryRouter>
+    )
     await screen.findByText('60% complete')
 
     const actionButtons = screen.getAllByText('Mark complete')
@@ -90,7 +119,11 @@ describe('LearningHubPage', () => {
   })
 
   it('records a practice attempt through the CTA', async () => {
-    renderWithProviders(<LearningHubPage />)
+    renderWithProviders(
+      <MemoryRouter>
+        <LearningHubPage />
+      </MemoryRouter>
+    )
     await screen.findByText('Log practice attempt')
 
     fireEvent.click(screen.getByText('Log practice attempt'))

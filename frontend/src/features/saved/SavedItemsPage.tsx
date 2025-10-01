@@ -1,6 +1,10 @@
-import { Link } from 'react-router-dom'
+import { useCallback, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useThemeTokens } from '@/components/ThemeProvider'
 import { useSavedAnalyses } from '@/lib/hooks'
+import { ApiClientError, apiClient } from '@/lib/apiClient'
+import { analysisResponseSchema } from '@/lib/types/analysis'
+import type { SavedAnalysisSummary } from '@/lib/savedAnalysesStore'
 
 const SAVED_ITEMS = [
   {
@@ -23,10 +27,40 @@ const SAVED_ITEMS = [
   },
 ]
 
+const analysisExistenceSchema = analysisResponseSchema.pick({ analysis_id: true })
+
 export function SavedItemsPage() {
   const tokens = useThemeTokens()
   const { savedAnalyses, remove } = useSavedAnalyses()
   const hasSavedAnalyses = savedAnalyses.length > 0
+  const [checkingId, setCheckingId] = useState<string | null>(null)
+  const [notice, setNotice] = useState<string | null>(null)
+  const navigate = useNavigate()
+
+  const handleOpen = useCallback(
+    async (analysis: SavedAnalysisSummary) => {
+      setNotice(null)
+      setCheckingId(analysis.analysisId)
+
+      try {
+        await apiClient.get(`/analyses/${analysis.analysisId}`, {
+          query: { include_full_results: false },
+          schema: analysisExistenceSchema,
+        })
+        navigate(`/filing/${analysis.analysisId}`)
+      } catch (error) {
+        if (error instanceof ApiClientError && error.status_code === 404) {
+          remove(analysis.analysisId)
+          setNotice('That saved analysis is no longer available and has been removed from your list.')
+        } else {
+          setNotice('Unable to open the saved analysis right now. Please try again in a moment.')
+        }
+      } finally {
+        setCheckingId(null)
+      }
+    },
+    [navigate, remove]
+  )
 
   return (
     <div className="flex flex-col gap-6">
@@ -39,6 +73,20 @@ export function SavedItemsPage() {
           Bookmarked filings, learning modules, and generated insights will collect here for easy review sessions.
         </p>
       </header>
+
+      {notice ? (
+        <div
+          className="rounded-2xl border p-4 text-sm"
+          style={{
+            borderColor: 'var(--colors-border)',
+            background: 'var(--colors-surfaceMuted)',
+            color: 'var(--colors-foreground)',
+            boxShadow: tokens.shadows.soft,
+          }}
+        >
+          {notice}
+        </div>
+      ) : null}
 
       <section className="flex flex-col gap-3">
         <h2 className="text-sm font-semibold uppercase tracking-wide text-[var(--colors-foregroundMuted)]">
@@ -67,13 +115,15 @@ export function SavedItemsPage() {
               </div>
 
               <div className="flex gap-2 text-xs font-semibold uppercase tracking-wide">
-                <Link
-                  to={`/filing/${analysis.analysisId}`}
+                <button
+                  type="button"
+                  onClick={() => handleOpen(analysis)}
                   className="rounded-full border px-4 py-2"
                   style={{ borderColor: 'var(--colors-border)', color: tokens.trend.up }}
+                  disabled={checkingId === analysis.analysisId}
                 >
-                  Open
-                </Link>
+                  {checkingId === analysis.analysisId ? 'Opening...' : 'Open'}
+                </button>
                 <button
                   type="button"
                   onClick={() => remove(analysis.analysisId)}

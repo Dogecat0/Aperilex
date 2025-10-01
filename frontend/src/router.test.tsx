@@ -81,7 +81,7 @@ describe('App routing', () => {
       cleanup()
       const { router } = renderWithRouter([path])
 
-      await screen.findByRole('heading', { name: 'Sign in to continue' })
+      await screen.findByRole('heading', { name: 'Sign in to sync your insights' })
       expect(router.state.location.pathname).toBe('/login')
     }
   })

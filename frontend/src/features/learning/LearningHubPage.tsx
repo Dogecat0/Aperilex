@@ -1,30 +1,9 @@
 import { useCallback, useMemo } from 'react'
+import { Link } from 'react-router-dom'
 import { useThemeTokens } from '@/components/ThemeProvider'
-import { useLearningProgress, useQuizAttempts } from '@/lib/hooks'
+import { useLearningModules, useLearningProgress, useQuizAttempts } from '@/lib/hooks'
 
-const LEARNING_MODULES = [
-  {
-    key: 'mda-101',
-    title: 'Decode MD&A narratives',
-    duration: '5 min read',
-    summary:
-      'Practice spotting management tone shifts and disclosure gaps inside MD&A sections using guided prompts.',
-  },
-  {
-    key: 'risk-signal',
-    title: 'Spot meaningful risk updates',
-    duration: '3 interactive questions',
-    summary:
-      'Compare historical Risk Factors and highlight new or elevated disclosures that could change exposure.',
-  },
-  {
-    key: 'cashflow-insights',
-    title: 'Interpret cash flow swings',
-    duration: '4 chart annotations',
-    summary:
-      'Walk through common cash flow patterns so variance analysis becomes second nature during reviews.',
-  },
-] as const
+const MODULE_SKELETON_COUNT = 3
 
 function formatTimestamp(value: string): string {
   const parsed = new Date(value)
@@ -40,8 +19,61 @@ function formatTimestamp(value: string): string {
   })
 }
 
+function formatFilingDate(value?: string | null): string | null {
+  if (!value) {
+    return null
+  }
+
+  const parsed = new Date(value)
+  if (Number.isNaN(parsed.getTime())) {
+    return null
+  }
+
+  return parsed.toLocaleDateString(undefined, {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  })
+}
+
+function describeSentiment(
+  score: number | null,
+  tokens: ReturnType<typeof useThemeTokens>
+): { label: string; color: string } {
+  if (typeof score !== 'number') {
+    return { label: 'Sentiment pending', color: tokens.sentiment.neutral }
+  }
+
+  const percent = Math.round(score * 100)
+  if (score >= 0.15) {
+    return { label: `Positive ${percent}%`, color: tokens.sentiment.positive }
+  }
+
+  if (score <= -0.15) {
+    return { label: `Negative ${Math.abs(percent)}%`, color: tokens.sentiment.negative }
+  }
+
+  return { label: `Neutral ${percent}%`, color: tokens.sentiment.neutral }
+}
+
+function sentimentBadgeBackground(color: string): string {
+  if (color.startsWith('#') && (color.length === 7 || color.length === 4)) {
+    return `${color}1a`
+  }
+
+  return color
+}
+
 export function LearningHubPage() {
   const tokens = useThemeTokens()
+
+  const {
+    data: learningModules = [],
+    isLoading: modulesLoading,
+    isError: modulesError,
+    error: modulesErrorValue,
+    refetch: refetchModules,
+  } = useLearningModules()
 
   const {
     progress,
@@ -62,6 +94,12 @@ export function LearningHubPage() {
     error: quizError,
     clearError: clearQuizError,
   } = useQuizAttempts({ limit: 5 })
+
+  const moduleErrorMessage = modulesError
+    ? modulesErrorValue instanceof Error
+      ? modulesErrorValue.message
+      : 'Failed to load learning modules.'
+    : null
 
   const streakDays = useMemo(() => {
     const metadataValues = progress
@@ -203,16 +241,76 @@ export function LearningHubPage() {
           Build your filing fluency
         </h1>
         <p className="text-sm leading-relaxed text-[var(--colors-foregroundMuted)]">
-          Curated lessons, practice prompts, and contextual glossaries now persist across devices.
-          Pick up where you left off and track progress tied to your authenticated session.
+          Stage 5 identity keeps curated lessons, practice prompts, and contextual glossaries in sync.
+          Jump back in from any device and keep your authenticated progress intact.
         </p>
       </header>
 
       <section
         className="grid gap-4 md:grid-cols-3"
-        aria-busy={progressLoading && progress.length === 0}
+        aria-busy={
+          (progressLoading && progress.length === 0) ||
+          (modulesLoading && learningModules.length === 0)
+        }
       >
-        {LEARNING_MODULES.map((module) => {
+        {moduleErrorMessage && (
+          <div
+            className="col-span-full flex flex-col gap-2 rounded-2xl border p-4 text-sm"
+            style={{
+              borderColor: tokens.sentiment.negative,
+              background: 'rgba(244, 63, 94, 0.08)',
+              color: tokens.sentiment.negative,
+            }}
+          >
+            <span>{moduleErrorMessage}</span>
+            <button
+              type="button"
+              onClick={() => void refetchModules()}
+              className="self-start text-xs font-semibold uppercase tracking-wide"
+              style={{ color: tokens.sentiment.negative }}
+            >
+              Retry loading modules
+            </button>
+          </div>
+        )}
+
+        {modulesLoading && learningModules.length === 0
+          ? Array.from({ length: MODULE_SKELETON_COUNT }).map((_, index) => (
+              <article
+                // eslint-disable-next-line react/no-array-index-key
+                key={`learning-module-skeleton-${index}`}
+                className="flex flex-col gap-3 rounded-2xl border p-4 animate-pulse"
+                style={{
+                  borderColor: 'var(--colors-border)',
+                  background: 'var(--colors-surfaceMuted)',
+                  boxShadow: tokens.shadows.soft,
+                }}
+              >
+                <div className="flex items-center justify-between text-xs font-semibold uppercase tracking-wide">
+                  <span className="h-3 w-16 rounded-full bg-slate-300/30" />
+                  <span className="h-3 w-12 rounded-full bg-slate-300/30" />
+                </div>
+                <div className="h-4 w-3/4 rounded-full bg-slate-300/30" />
+                <div className="h-3 w-full rounded-full bg-slate-300/20" />
+                <div className="mt-auto flex flex-col gap-2">
+                  <div className="h-2 w-full rounded-full bg-slate-300/20" />
+                  <div className="h-2 w-1/2 rounded-full bg-slate-300/20" />
+                </div>
+              </article>
+            ))
+          : null}
+
+        {!modulesLoading && learningModules.length === 0 && !moduleErrorMessage ? (
+          <div
+            className="col-span-full rounded-2xl border p-4 text-sm text-[var(--colors-foregroundMuted)]"
+            style={{ borderColor: 'var(--colors-border)', background: 'var(--colors-surfaceMuted)' }}
+          >
+            Launch a filing analysis from the dashboard to unlock Stage 5 personalized practice modules
+            anchored to real insights.
+          </div>
+        ) : null}
+
+        {learningModules.map((module) => {
           const record = progressByModule[module.key]
           const progressPercent = record?.progressPercent ?? 0
           const statusLabel =
@@ -225,6 +323,14 @@ export function LearningHubPage() {
             progressPercent >= 100
               ? tokens.sentiment.positive
               : tokens.sentiment.neutral
+          const context = module.context
+          const filingDateLabel = formatFilingDate(context?.filingDate)
+          const sentimentBadge = context
+            ? describeSentiment(
+                typeof context.sentimentScore === 'number' ? context.sentimentScore : null,
+                tokens
+              )
+            : null
 
           return (
             <article
@@ -244,6 +350,55 @@ export function LearningHubPage() {
                 {module.title}
               </p>
               <p className="text-sm text-[var(--colors-foregroundMuted)]">{module.summary}</p>
+
+              {context ? (
+                <div
+                  className="flex flex-col gap-2 rounded-xl border px-3 py-3 text-sm"
+                  style={{
+                    borderColor: 'var(--colors-border)',
+                    background: 'var(--colors-surface)',
+                  }}
+                >
+                  {context.highlight && (
+                    <p className="text-sm text-[var(--colors-foreground)]">{context.highlight}</p>
+                  )}
+                  <div className="flex flex-wrap items-center gap-2 text-xs text-[var(--colors-foregroundMuted)]">
+                    <span>
+                      {context.companyName}
+                      {context.filingType ? ` · ${context.filingType}` : ''}
+                      {filingDateLabel ? ` · ${filingDateLabel}` : ''}
+                    </span>
+                    {sentimentBadge && (
+                      <span
+                        className="rounded-full px-2 py-0.5 font-semibold uppercase tracking-wide"
+                        style={{
+                          background: sentimentBadgeBackground(sentimentBadge.color),
+                          color: sentimentBadge.color,
+                        }}
+                      >
+                        {sentimentBadge.label}
+                      </span>
+                    )}
+                  </div>
+                  <Link
+                    to={{
+                      pathname: `/filing/${context.analysisId}`,
+                      state: {
+                        focusTab: module.focusTab,
+                        focusSection: context.sectionName ?? module.focusSection ?? null,
+                      },
+                    }}
+                    className="self-start text-xs font-semibold uppercase tracking-wide"
+                    style={{ color: tokens.sentiment.neutral }}
+                  >
+                    View {context.sectionName ?? 'filing'}
+                  </Link>
+                </div>
+              ) : (
+                <p className="text-xs text-[var(--colors-foregroundMuted)]">
+                  Run a completed filing analysis to unlock contextual practice material.
+                </p>
+              )}
 
               <div className="mt-auto flex flex-col gap-2">
                 <div
@@ -314,9 +469,7 @@ export function LearningHubPage() {
             const isActive = index < streakHighlight
             return (
               <div
-                // fixed width skeleton; using index as key is acceptable here
-                // eslint-disable-next-line react/no-array-index-key
-                key={index}
+                key={`streak-${index}`}
                 className="flex h-12 flex-col items-center justify-center rounded-xl border text-xs font-semibold"
                 style={{
                   borderColor: 'var(--colors-border)',

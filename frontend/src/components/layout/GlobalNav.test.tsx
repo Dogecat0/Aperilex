@@ -129,7 +129,7 @@ describe('GlobalNav authentication controls', () => {
 
     expect(await screen.findByText('investor@example.com')).toBeInTheDocument()
 
-    const logoutButton = await screen.findByRole('button', { name: /log out/i })
+    const logoutButton = await screen.findByRole('button', { name: /sign out/i })
     await user.click(logoutButton)
 
     expect(logoutMock).toHaveBeenCalled()

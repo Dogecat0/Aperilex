@@ -32,12 +32,10 @@ export function LoginPage() {
     >
       <div className="space-y-3 max-w-md">
         <p className="text-sm font-semibold uppercase tracking-wide text-[var(--colors-foregroundMuted)]">
-          Stage 5 Authentication
+          {authCopy.loginEyebrow}
         </p>
-        <h1 className="text-3xl font-semibold">Sign in to continue</h1>
-        <p className="text-sm text-[var(--colors-foregroundMuted)]">
-          Access the dashboard, Learning Hub, and saved analyses by connecting your Google account.
-        </p>
+        <h1 className="text-3xl font-semibold">{authCopy.loginHeadline}</h1>
+        <p className="text-sm text-[var(--colors-foregroundMuted)]">{authCopy.loginSubhead}</p>
       </div>
 
       <button

@@ -1,8 +1,11 @@
 export const authCopy = {
-  // TODO(auth-stage5): Refresh wording after backend Stage 5 endpoints finalize; track in docs/frontend/frontend-ux-refactor.md.
-  loginCta: 'Sign in with Google',
+  loginEyebrow: 'Aperilex Identity',
+  loginHeadline: 'Sign in to sync your insights',
+  loginSubhead:
+    'Stage 5 identity keeps your analyses, learning progress, and saved journeys tied to your account. Continue with Google to unlock the full workspace.',
+  loginCta: 'Continue with Google',
   loginShortCta: 'Sign in',
-  logoutCta: 'Log out',
-  authenticatingLabel: 'Signing in…',
+  logoutCta: 'Sign out',
+  authenticatingLabel: 'Connecting…',
   authenticatedAsPrefix: 'Signed in as',
-}
+} as const
