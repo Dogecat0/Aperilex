@@ -81,7 +81,7 @@ class DockerSecretManager(ISecretManager):
         if not paths.secret_file.exists():
             raise KeyError(f"Secret '{secret_name}' not found at {paths.secret_file}")
 
-        value = paths.secret_file.read_text(encoding="utf-8")
+        value = paths.secret_file.read_text(encoding="utf-8").rstrip("\r\n")
         if not value:
             raise ValueError(f"Secret '{secret_name}' is empty")
         return value
@@ -132,7 +132,11 @@ class DockerSecretManager(ISecretManager):
         if not paths.secret_file.exists():
             raise KeyError(f"Secret '{secret_name}' not found")
 
-        versions = list(paths.versions_dir.glob("version-*")) if paths.versions_dir.exists() else []
+        versions = (
+            list(paths.versions_dir.glob("version-*"))
+            if paths.versions_dir.exists()
+            else []
+        )
         next_version = len(versions) + 1
         self._write_secret(paths.secret_file, secret_value)
         metadata = SecretMetadata(
@@ -167,7 +171,9 @@ class DockerSecretManager(ISecretManager):
         secret_name: str,
         rotation_config: SecretRotationConfig | None = None,
     ) -> bool:
-        raise NotImplementedError("Automatic rotation is not supported for mounted secrets")
+        raise NotImplementedError(
+            "Automatic rotation is not supported for mounted secrets"
+        )
 
     async def list_secrets(
         self,
@@ -243,7 +249,7 @@ class DockerSecretManager(ISecretManager):
         for candidate in self._root.iterdir():
             if not candidate.is_file():
                 continue
-            if candidate.name.startswith('.'):
+            if candidate.name.startswith("."):
                 continue
             if prefix and not candidate.name.startswith(prefix):
                 continue

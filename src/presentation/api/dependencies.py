@@ -10,6 +10,7 @@ from functools import lru_cache
 from types import ModuleType
 from typing import Any, cast
 
+from dependency_injector import providers
 from dependency_injector.wiring import Provide, inject
 
 from src.application.base.dispatcher import Dispatcher
@@ -216,12 +217,18 @@ async def get_learning_service(
     return cast(LearningService, learning_service)
 
 
+def _resolve_provider(instance: Any) -> Any:
+    if isinstance(instance, providers.Provider):
+        return instance()
+    return instance
+
+
 @inject
 async def get_config_provider(
     config_provider: Any = Provide["config_provider"],
 ) -> IConfigProvider:
     """Get configured configuration provider instance."""
-    return cast(IConfigProvider, config_provider)
+    return cast(IConfigProvider, _resolve_provider(config_provider))
 
 
 @inject
@@ -229,7 +236,7 @@ async def get_secret_manager(
     secret_manager: Any = Provide["secret_manager"],
 ) -> ISecretManager:
     """Get configured secret manager instance."""
-    return cast(ISecretManager, secret_manager)
+    return cast(ISecretManager, _resolve_provider(secret_manager))
 
 
 class ServiceLifecycle:

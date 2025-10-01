@@ -6,7 +6,7 @@ import { FilingDetailPage } from '@/features/filing-detail'
 import { LearningHubPage } from '@/features/learning'
 import { SavedItemsPage } from '@/features/saved'
 import { AnalyzeFilingsPage } from '@/features/filings'
-import { LoginPage } from '@/features/auth'
+import { LoginPage, GoogleCallbackPage } from '@/features/auth'
 
 export const routes: RouteObject[] = [
   {
@@ -51,6 +51,10 @@ export const routes: RouteObject[] = [
   {
     path: '/login',
     element: <LoginPage />,
+  },
+  {
+    path: '/auth/google/callback',
+    element: <GoogleCallbackPage />,
   },
 ]
 

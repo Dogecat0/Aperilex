@@ -27,6 +27,7 @@ from src.presentation.api.dependencies import (
     get_secret_manager,
 )
 from src.shared.config.settings import settings
+from src.shared.utils.logging import get_logger
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -38,6 +39,8 @@ REDIRECT_COOKIE = "aperilex_post_auth_redirect"
 REFRESH_COOKIE = "aperilex_refresh_token"
 STATE_TTL_SECONDS = 600
 REDIRECT_TTL_SECONDS = 900
+
+logger = get_logger(__name__)
 
 
 class OAuthTokenType(str, Enum):
@@ -403,6 +406,11 @@ async def google_oauth_callback(
     try:
         result = await auth_provider.authenticate(credentials)
     except AuthenticationError as exc:
+        logger.warning(
+            "Google OAuth callback failed: code=%s message=%s",
+            exc.code or "unknown",
+            str(exc),
+        )
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail=_auth_error_detail(

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
+import json
 import secrets
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
@@ -208,13 +209,16 @@ class GoogleOAuthAuthenticationProvider(IAuthenticationProvider):
         )
 
         id_token = token_response.get("id_token")
+        google_access_token = token_response.get("access_token")
         if not id_token:
             raise AuthenticationError(
                 "Google token response missing id_token",
                 code="google.idtoken.missing",
             )
 
-        id_payload = await self._validate_google_id_token(id_token)
+        id_payload = await self._validate_google_id_token(
+            id_token, access_token=google_access_token
+        )
         email = id_payload.get("email")
         email_verified = id_payload.get("email_verified", False)
         subject = id_payload.get("sub")
@@ -305,6 +309,14 @@ class GoogleOAuthAuthenticationProvider(IAuthenticationProvider):
         user = await self._get_user(user_id)
         permissions = self._permissions_for_tier(user.tier)
 
+        issued_at_raw = payload.get("iat")
+        if isinstance(issued_at_raw, (int | float)):
+            issued_at_value = datetime.fromtimestamp(issued_at_raw, tz=UTC).isoformat()
+        elif isinstance(issued_at_raw, str):
+            issued_at_value = issued_at_raw
+        else:
+            issued_at_value = None
+
         return AuthenticationResult(
             authenticated=True,
             user_id=user.id,
@@ -315,13 +327,11 @@ class GoogleOAuthAuthenticationProvider(IAuthenticationProvider):
             refresh_token=None,
             expires_in=None,
             refresh_expires_in=None,
-            issued_at=payload.get("iat"),
+            issued_at=issued_at_value,
             error_message=None,
         )
 
-    async def refresh_token(
-        self, refresh_token: str
-    ) -> AuthenticationCredentials:
+    async def refresh_token(self, refresh_token: str) -> AuthenticationCredentials:
         if not refresh_token:
             raise AuthenticationError(
                 "Refresh token is required",
@@ -408,7 +418,9 @@ class GoogleOAuthAuthenticationProvider(IAuthenticationProvider):
             return False
 
         now = datetime.now(UTC)
-        result = await session_repo.mark_revoked(session.id, revoked_at=now, reason=None)
+        result = await session_repo.mark_revoked(
+            session.id, revoked_at=now, reason=None
+        )
         await factory.close(success=True)
         return result
 
@@ -437,9 +449,7 @@ class GoogleOAuthAuthenticationProvider(IAuthenticationProvider):
             window_seconds=entry.window_seconds,
         )
 
-    async def check_rate_limit(
-        self, user_id: UserId, increment: bool = True
-    ) -> bool:
+    async def check_rate_limit(self, user_id: UserId, increment: bool = True) -> bool:
         if increment:
             _, allowed = await self._update_rate_limit(
                 user_id, self._request_rate_limit, increment=True
@@ -484,6 +494,29 @@ class GoogleOAuthAuthenticationProvider(IAuthenticationProvider):
                     },
                 )
                 response.raise_for_status()
+        except httpx.HTTPStatusError as exc:
+            error_detail: str | None = None
+            try:
+                body = exc.response.json()
+                error_reason = body.get("error_description") or body.get("error")
+                if error_reason:
+                    error_detail = str(error_reason)
+                else:
+                    error_detail = json.dumps(body)
+            except Exception:  # noqa: BLE001 - best effort logging only
+                error_detail = exc.response.text
+
+            logger.error(
+                "Google token exchange failed (status %s): %s",
+                exc.response.status_code,
+                error_detail,
+            )
+
+            message = "Failed to exchange authorization code with Google"
+            if error_detail:
+                message = f"{message}: {error_detail}"
+
+            raise AuthenticationError(message, code="google.exchange.failed") from exc
         except httpx.HTTPError as exc:
             logger.error("Google token exchange failed: %s", exc)
             raise AuthenticationError(
@@ -493,7 +526,9 @@ class GoogleOAuthAuthenticationProvider(IAuthenticationProvider):
 
         return response.json()
 
-    async def _validate_google_id_token(self, token: str) -> dict[str, Any]:
+    async def _validate_google_id_token(
+        self, token: str, *, access_token: str | None = None
+    ) -> dict[str, Any]:
         try:
             header = jwt.get_unverified_header(token)
         except JWTError as exc:
@@ -512,15 +547,22 @@ class GoogleOAuthAuthenticationProvider(IAuthenticationProvider):
         key = await self._jwks_cache.get_key(kid)
         audience = await self._ensure_google_client()
 
+        decode_kwargs: dict[str, Any] = {
+            "audience": audience,
+            "issuer": self.GOOGLE_ISSUERS,
+            "algorithms": ["RS256"],
+        }
+        if access_token:
+            decode_kwargs["access_token"] = access_token
+
         try:
             payload: dict[str, Any] = jwt.decode(
                 token,
                 key,
-                audience=audience,
-                issuer=self.GOOGLE_ISSUERS,
-                algorithms=["RS256"],
+                **decode_kwargs,
             )
         except JWTError as exc:
+            logger.warning("Google ID token validation failed: %s", exc)
             raise AuthenticationError(
                 "Google ID token validation failed",
                 code="google.idtoken.invalid",
@@ -656,7 +698,9 @@ class GoogleOAuthAuthenticationProvider(IAuthenticationProvider):
             "permissions": permissions,
             "iat": int(issued_at.timestamp()),
             "exp": int(
-                (issued_at + timedelta(seconds=self._access_token_ttl_seconds)).timestamp()
+                (
+                    issued_at + timedelta(seconds=self._access_token_ttl_seconds)
+                ).timestamp()
             ),
             "token_type": "access",
             "jti": str(uuid4()),
@@ -775,9 +819,7 @@ class GoogleOAuthAuthenticationProvider(IAuthenticationProvider):
     async def _enforce_rate_limit(
         self, user_id: UserId, setting: RateLimitSetting
     ) -> None:
-        _, allowed = await self._update_rate_limit(
-            user_id, setting, increment=True
-        )
+        _, allowed = await self._update_rate_limit(user_id, setting, increment=True)
         if not allowed:
             raise AuthenticationError(
                 "Rate limit exceeded",

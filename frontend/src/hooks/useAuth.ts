@@ -69,6 +69,7 @@ function createAuthChannel(): AuthBroadcastChannel | null {
 }
 
 let hydrationRequested = false
+let tabClientId: string | null = null
 
 function createClientId(): string {
   if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
@@ -80,6 +81,18 @@ function createClientId(): string {
   }
 
   return `auth-${Math.random().toString(36).slice(2)}`
+}
+
+function getTabClientId(): string {
+  if (tabClientId === null) {
+    tabClientId = createClientId()
+  }
+
+  return tabClientId
+}
+
+interface RefreshOptions {
+  broadcast?: boolean
 }
 
 export function useAuth() {
@@ -98,9 +111,10 @@ export function useAuth() {
   const refreshInFlight = useRef<Promise<void> | null>(null)
   const channelRef = useRef<AuthBroadcastChannel | null>(null)
   const clientIdRef = useRef<string | null>(null)
+  const callbackTasksRef = useRef<Map<string, Promise<CompleteCallbackResult>>>(new Map())
 
   if (clientIdRef.current === null) {
-    clientIdRef.current = createClientId()
+    clientIdRef.current = getTabClientId()
   }
 
   const clientId = clientIdRef.current
@@ -140,10 +154,12 @@ export function useAuth() {
     []
   )
 
-  const refreshSession = useCallback(async () => {
+  const refreshSession = useCallback(async (options: RefreshOptions = {}) => {
     if (refreshInFlight.current) {
       return refreshInFlight.current
     }
+
+    const shouldBroadcast = options.broadcast ?? true
 
     const task = (async () => {
       try {
@@ -151,9 +167,11 @@ export function useAuth() {
         const { accessTokenExpiresAt: expiresAt } = applyAuthSession(payload)
         setError(null)
         scheduleRefresh(expiresAt, () => {
-          void refreshSession()
+          void refreshSession().catch(() => undefined)
         })
-        channelRef.current?.postMessage({ type: 'session-updated', source: clientId })
+        if (shouldBroadcast) {
+          channelRef.current?.postMessage({ type: 'session-updated', source: clientId })
+        }
       } catch (error) {
         const authError = error as AuthApiError
         if (authError.status === 401) {
@@ -162,7 +180,9 @@ export function useAuth() {
           setError(authError.message)
         }
         clearSession()
-        channelRef.current?.postMessage({ type: 'logout', source: clientId })
+        if (shouldBroadcast) {
+          channelRef.current?.postMessage({ type: 'logout', source: clientId })
+        }
         throw error
       }
     })()
@@ -176,31 +196,64 @@ export function useAuth() {
   }, [clientId, clearSession, scheduleRefresh, setError])
 
   const completeCallback = useCallback(
-    async (payload: GoogleCallbackPayload): Promise<CompleteCallbackResult> => {
+    (payload: GoogleCallbackPayload): Promise<CompleteCallbackResult> => {
+      const key = `${payload.state}:${payload.code}`
+      const existing = callbackTasksRef.current.get(key)
+      if (existing) {
+        return existing
+      }
+
       setAuthenticating()
       setError(null)
 
-      const response = await fetch('/api/auth/google/callback', {
-        method: 'POST',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          code: payload.code,
-          state: payload.state,
-          redirectUri: payload.redirectUri,
-        }),
-      })
+      const task = (async () => {
+        try {
+          const response = await fetch('/api/auth/google/callback', {
+            method: 'POST',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              code: payload.code,
+              state: payload.state,
+              redirectUri: payload.redirectUri,
+            }),
+          })
 
-      const authPayload = await parseAuthResponse(response)
-      const { accessTokenExpiresAt: expiresAt } = applyAuthSession(authPayload)
-      scheduleRefresh(expiresAt, () => {
-        void refreshSession()
-      })
-      channelRef.current?.postMessage({ type: 'session-updated', source: clientId })
+          const authPayload = await parseAuthResponse(response)
+          const { accessTokenExpiresAt: expiresAt } = applyAuthSession(authPayload)
+          scheduleRefresh(expiresAt, () => {
+            void refreshSession().catch(() => undefined)
+          })
+          channelRef.current?.postMessage({ type: 'session-updated', source: clientId })
 
-      return { redirectTo: authPayload.redirectTo }
+          return { redirectTo: authPayload.redirectTo }
+        } catch (error) {
+          if (error instanceof Error) {
+            const authError = error as AuthApiError
+            const message = authError.message || 'Failed to complete authentication flow'
+            setError(message)
+
+            if (authError.name !== 'AbortError') {
+              const currentState = useAuthStore.getState()
+              if (!currentState.session) {
+                clearSession()
+              }
+            }
+          } else {
+            setError('Failed to complete authentication flow')
+            clearSession()
+          }
+
+          throw error
+        } finally {
+          callbackTasksRef.current.delete(key)
+        }
+      })()
+
+      callbackTasksRef.current.set(key, task)
+      return task
     },
-    [clientId, refreshSession, scheduleRefresh, setAuthenticating, setError]
+    [clientId, clearSession, refreshSession, scheduleRefresh, setAuthenticating, setError]
   )
 
   const loginWithGoogle = useCallback(
@@ -270,7 +323,7 @@ export function useAuth() {
         if (event.data.source === clientId) {
           return
         }
-        void refreshSession()
+        void refreshSession({ broadcast: false }).catch(() => undefined)
       }
     }
 
@@ -295,7 +348,7 @@ export function useAuth() {
     }
 
     scheduleRefresh(accessTokenExpiresAt, () => {
-      void refreshSession()
+      void refreshSession().catch(() => undefined)
     })
 
     return () => {
@@ -322,7 +375,7 @@ export function useAuth() {
 
       const timeUntilExpiry = accessTokenExpiresAt - Date.now()
       if (timeUntilExpiry <= REFRESH_LEEWAY_MS) {
-        void refreshSession()
+        void refreshSession().catch(() => undefined)
       }
     }
 
@@ -374,4 +427,5 @@ export function getAccessTokenSnapshot() {
 
 export function __resetAuthHydrationForTests() {
   hydrationRequested = false
+  tabClientId = null
 }

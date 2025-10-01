@@ -50,8 +50,14 @@ class ApplicationContainer(containers.DeclarativeContainer):
     )
 
     # Re-export configuration services for direct injection
-    config_provider = providers.Delegate(configuration.provided.config_provider)
-    secret_manager = providers.Delegate(configuration.provided.secret_manager)
+    config_provider = providers.Singleton(
+        lambda provider: provider(),
+        configuration.provided.config_provider,
+    )
+    secret_manager = providers.Singleton(
+        lambda provider: provider(),
+        configuration.provided.secret_manager,
+    )
 
     # Application-level services (to be implemented)
     # These will be wired using the @inject decorator

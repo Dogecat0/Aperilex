@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import os
+import shutil
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -13,6 +14,24 @@ from cryptography.hazmat.primitives.asymmetric import rsa
 DEFAULT_PRIVATE_NAME = "JWT_PRIVATE_KEY"
 DEFAULT_PUBLIC_NAME = "JWT_PUBLIC_KEY"
 LOG_FILE_NAME = "JWT_KEY_ROTATION.log"
+
+
+def _prepare_target(path: Path, *, force: bool) -> None:
+    """Ensure target path is ready for writing a secret file."""
+
+    if path.exists():
+        if path.is_dir():
+            if not force:
+                raise SystemExit(
+                    f"Cannot write key: '{path}' is a directory. Remove it or rerun with --force."
+                )
+            shutil.rmtree(path)
+        elif not force:
+            raise SystemExit(
+                f"Refusing to overwrite existing file '{path}'. Pass --force to rotate keys."
+            )
+        else:
+            path.unlink()
 
 
 def _write_file(path: Path, data: bytes) -> None:
@@ -85,14 +104,8 @@ def main() -> None:
     private_path = secrets_path / args.private_name
     public_path = secrets_path / args.public_name
 
-    if not args.force:
-        existing = [str(path) for path in (private_path, public_path) if path.exists()]
-        if existing:
-            joined = ", ".join(existing)
-            raise SystemExit(
-                f"Refusing to overwrite existing keys ({joined}). "
-                "Pass --force to rotate regardless."
-            )
+    for target in (private_path, public_path):
+        _prepare_target(target, force=args.force)
 
     private_bytes, public_bytes = generate_keys(args.key_size, public_exponent=65537)
 

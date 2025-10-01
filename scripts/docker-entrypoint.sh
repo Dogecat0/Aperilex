@@ -31,7 +31,7 @@ load_runtime_secrets() {
     fi
 
     local postgres_password
-    postgres_password="$(cat "$postgres_secret_path")"
+    postgres_password="$(tr -d '\r\n' < "$postgres_secret_path")"
     if [ -z "$postgres_password" ]; then
         echo "❌ Postgres password secret '$postgres_secret_name' is empty"
         exit 1
@@ -45,7 +45,7 @@ load_runtime_secrets() {
         local secret_name="${!secret_name_var:-$secret_var}"
         local secret_path="$secrets_dir/$secret_name"
         if [ -f "$secret_path" ]; then
-            export "$secret_var"="$(cat "$secret_path")"
+            export "$secret_var"="$(tr -d '\r\n' < "$secret_path")"
         fi
     done
 
