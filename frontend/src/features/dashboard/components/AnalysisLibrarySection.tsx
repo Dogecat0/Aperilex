@@ -176,6 +176,10 @@ export function AnalysisLibrarySection({
   const pagination = data?.pagination
   const [copiedId, setCopiedId] = useState<string | null>(null)
   const { toggle, isSaved } = useSavedAnalyses()
+  const filterButtonClass =
+    'rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-wide transition-colors duration-150 hover:bg-[var(--surfaces-muted)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2'
+  const controlBaseClass =
+    'rounded-full border px-4 py-2 text-xs font-semibold uppercase tracking-wide transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2'
 
   const loadingState = Boolean(isLoadingOverride) || isLoading
   const filterDisabled = loadingState || isFetching
@@ -204,13 +208,13 @@ export function AnalysisLibrarySection({
         key={`${String(key)}-${String(option.value)}`}
         type="button"
         onClick={() => handleFilterSelect(key, option.value)}
-        className={[
-          'rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-wide transition-colors duration-150',
-          isActive
-            ? 'bg-[var(--text-primary)] text-[var(--surfaces-base)]'
-            : 'text-[var(--text-secondary)]',
-        ].join(' ')}
-        style={{ borderColor: 'var(--lines-subtle)' }}
+        className={filterButtonClass}
+        style={{
+          borderColor: isActive ? 'var(--lines-strong)' : 'var(--lines-subtle)',
+          background: isActive ? 'var(--surfaces-muted)' : 'transparent',
+          color: isActive ? 'var(--text-primary)' : 'var(--text-secondary)',
+          outlineColor: 'var(--focus-ring)',
+        }}
         aria-pressed={isActive}
         disabled={filterDisabled}
       >
@@ -288,10 +292,10 @@ export function AnalysisLibrarySection({
       <header className="flex flex-col gap-4">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <p className="text-sm font-semibold uppercase tracking-wide text-[var(--text-secondary)]">
+            {/* <p className="text-sm font-semibold uppercase tracking-wide text-[var(--text-secondary)]">
               Analysis Library
-            </p>
-            <h2 className="text-xl font-semibold text-[var(--text-primary)]">
+            </p> */}
+            <h2 className="text-lg font-semibold text-[var(--text-primary)]">
               Browse every completed filing analysis
             </h2>
           </div>
@@ -301,7 +305,7 @@ export function AnalysisLibrarySection({
             </span>
           ) : null}
         </div>
-        <p className="text-sm leading-relaxed text-[var(--text-secondary)]">
+        <p className="text-sm leading-relaxed text-[var(--text-muted)]">
           Jump into prior runs, compare templates, and keep your favourites pinned for future study
           sessions.
         </p>
@@ -333,8 +337,12 @@ export function AnalysisLibrarySection({
             <button
               type="button"
               onClick={onResetFilters}
-              className="rounded-full border px-4 py-2 text-xs font-semibold uppercase tracking-wide"
-              style={{ borderColor: 'var(--lines-subtle)', color: 'var(--text-primary)' }}
+              className={`${controlBaseClass} hover:bg-[var(--surfaces-muted)]`}
+              style={{
+                borderColor: 'var(--lines-subtle)',
+                color: 'var(--text-secondary)',
+                outlineColor: 'var(--focus-ring)',
+              }}
               disabled={filterDisabled}
             >
               Reset filters
@@ -394,7 +402,12 @@ export function AnalysisLibrarySection({
                 </div>
                 <Link
                   to={getLinkTarget(group.analyses[0]?.analysisId)}
-                  className="inline-flex items-center justify-center rounded-full bg-[var(--status-positive)] px-4 py-2 text-xs font-semibold uppercase tracking-wide text-white"
+                  className={`${controlBaseClass} hover:bg-[var(--surfaces-muted)]`}
+                  style={{
+                    borderColor: 'var(--lines-subtle)',
+                    color: 'var(--text-primary)',
+                    outlineColor: 'var(--focus-ring)',
+                  }}
                 >
                   View latest
                 </Link>
@@ -404,6 +417,9 @@ export function AnalysisLibrarySection({
                 {group.analyses.map((run, index) => {
                   const saved = isSaved(run.analysisId)
                   const label = formatTemplateLabel(run.analysisTemplate)
+                  const saveButtonClass = `${controlBaseClass} ${
+                    saved ? 'hover:bg-[rgba(69,195,136,0.16)]' : 'hover:bg-[var(--surfaces-muted)]'
+                  }`
                   return (
                     <li
                       key={run.analysisId}
@@ -440,10 +456,11 @@ export function AnalysisLibrarySection({
                       <div className="flex flex-wrap items-center gap-3 text-xs font-semibold uppercase tracking-wide">
                         <Link
                           to={getLinkTarget(run.analysisId)}
-                          className="rounded-full border px-4 py-2"
+                          className={`${controlBaseClass} hover:bg-[var(--surfaces-muted)]`}
                           style={{
                             borderColor: 'var(--lines-subtle)',
                             color: 'var(--text-primary)',
+                            outlineColor: 'var(--focus-ring)',
                           }}
                         >
                           Open
@@ -451,10 +468,12 @@ export function AnalysisLibrarySection({
                         <button
                           type="button"
                           onClick={() => handleToggleSaved(group, run.analysisId)}
-                          className="rounded-full border px-4 py-2"
+                          className={saveButtonClass}
                           style={{
                             borderColor: saved ? 'var(--status-positive)' : 'var(--lines-subtle)',
                             color: saved ? 'var(--status-positive)' : 'var(--text-primary)',
+                            background: saved ? 'rgba(69, 195, 136, 0.12)' : 'transparent',
+                            outlineColor: 'var(--focus-ring)',
                           }}
                         >
                           {saved ? 'Saved' : 'Save'}
@@ -462,7 +481,7 @@ export function AnalysisLibrarySection({
                         <button
                           type="button"
                           onClick={() => handleCopy(run.analysisId)}
-                          className="rounded-full border px-4 py-2"
+                          className={`${controlBaseClass} hover:bg-[var(--surfaces-muted)]`}
                           style={{
                             borderColor:
                               copiedId === run.analysisId
@@ -472,6 +491,11 @@ export function AnalysisLibrarySection({
                               copiedId === run.analysisId
                                 ? 'var(--status-positive)'
                                 : 'var(--text-primary)',
+                            background:
+                              copiedId === run.analysisId
+                                ? 'rgba(69, 195, 136, 0.12)'
+                                : 'transparent',
+                            outlineColor: 'var(--focus-ring)',
                           }}
                         >
                           {copiedId === run.analysisId ? 'Copied' : 'Copy link'}

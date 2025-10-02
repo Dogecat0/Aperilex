@@ -35,7 +35,7 @@ export function LoginPage() {
           {authCopy.loginEyebrow}
         </p>
         <h1 className="text-3xl font-semibold">{authCopy.loginHeadline}</h1>
-        <p className="text-sm text-[var(--text-secondary)]">{authCopy.loginSubhead}</p>
+        <p className="text-sm text-[var(--text-muted)]">{authCopy.loginSubhead}</p>
       </div>
 
       <button

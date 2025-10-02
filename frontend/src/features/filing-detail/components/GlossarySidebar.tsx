@@ -19,7 +19,7 @@ export function GlossarySidebar({ entries = glossaryEntries }: GlossarySidebarPr
           Filing fluency helpers
         </h2>
       </header>
-      <ul className="flex flex-col gap-3 text-sm text-[var(--text-secondary)]">
+      <ul className="flex flex-col gap-3 text-sm text-[var(--text-muted)]">
         {entries.map((entry) => (
           <li key={entry.term} className="flex flex-col gap-1">
             <p className="font-semibold text-[var(--text-primary)]">{entry.term}</p>

@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
+import { FeatureHero } from '@/components/layout/FeatureHero'
+import { FeatureHeroStat } from '@/components/layout/FeatureHeroStat'
+import { Button } from '@/components/ui/Button'
 import { FirstRunLaunchpad } from './components/FirstRunLaunchpad'
 import { AnalysisLibrarySection } from './components/AnalysisLibrarySection'
-import { SummaryHighlights } from './components/SummaryHighlights'
 import { RecentAnalysesList } from './components/RecentAnalysesList'
 import { useAnalyses, useAnalysisLibrary } from '@/lib/hooks'
 import { ApiClientError } from '@/lib/apiClient'
@@ -378,6 +380,42 @@ export function DashboardPage() {
     !completedAnalysesQuery.error &&
     !anyAnalysesQuery.error
 
+  const heroMetrics = useMemo(() => {
+    if (metrics.length > 0) {
+      return metrics.slice(0, 3).map((metric) => ({
+        ...metric,
+        helperText: metric.helperText ?? 'Additional detail coming soon.',
+      }))
+    }
+
+    const segmentLabel = filters.segment.replace(/_/g, ' ')
+    const segmentTitle = segmentLabel.charAt(0).toUpperCase() + segmentLabel.slice(1)
+
+    return [
+      {
+        id: 'analyses-total-fallback',
+        label: 'Analyses in view',
+        value: hasAnalyses ? totalItems.toString() : '0',
+        helperText: hasAnalyses ? 'Ready for review' : 'Run an analysis to populate insights.',
+      },
+      {
+        id: 'recent-companies-fallback',
+        label: 'Recent companies',
+        value: recentCompanies.length > 0 ? `${recentCompanies.length}` : '—',
+        helperText:
+          recentCompanies.length > 0
+            ? 'Tracked in the latest runs'
+            : 'Launch an analysis to meet your first cohort.',
+      },
+      {
+        id: 'segment-fallback',
+        label: 'Active segment',
+        value: segmentTitle,
+        helperText: filters.segment === 'all' ? 'Viewing every filing' : 'Segment filter applied',
+      },
+    ]
+  }, [filters.segment, hasAnalyses, metrics, recentCompanies, totalItems])
+
   const handleResetFilters = () => setFilters({ ...DEFAULT_FILTERS })
   const handleLibraryPageChange = (page: number) => {
     setLibraryPage(page < 1 ? 1 : page)
@@ -385,15 +423,22 @@ export function DashboardPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <header className="flex flex-col gap-2">
-        <p className="text-sm font-medium text-[var(--text-secondary)]">Dashboard</p>
-        <h1 className="text-2xl font-semibold" style={{ color: 'var(--text-primary)' }}>
-          Filing intelligence at a glance
-        </h1>
-        <p className="text-sm leading-relaxed text-[var(--text-secondary)]">
-          Track filings, sentiment, and practice prompts tailored to your investing journey.
-        </p>
-      </header>
+      <FeatureHero
+        overline="Dashboard"
+        title="Filing intelligence at a glance"
+        description="Track filings, sentiment, and practice prompts tailored to your investing journey."
+      >
+        <div className="grid gap-3 sm:grid-cols-3">
+          {heroMetrics.map((metric) => (
+            <FeatureHeroStat
+              key={metric.id}
+              label={metric.label}
+              value={metric.value}
+              helper={metric.helperText ?? '—'}
+            />
+          ))}
+        </div>
+      </FeatureHero>
 
       {libraryQuery.error ? (
         <div
@@ -423,7 +468,7 @@ export function DashboardPage() {
             <h2 className="text-xl font-semibold text-[var(--text-primary)]">
               Analyses are still processing
             </h2>
-            <p className="text-sm text-[var(--text-secondary)]">
+            <p className="text-sm text-[var(--text-muted)]">
               Check back in a moment—fresh filings are moving through the workflow and will populate
               this dashboard once completed.
             </p>
@@ -442,33 +487,20 @@ export function DashboardPage() {
             <h2 className="text-xl font-semibold text-[var(--text-primary)]">
               No analyses match these filters
             </h2>
-            <p className="text-sm text-[var(--text-secondary)]">
+            <p className="text-sm text-[var(--text-muted)]">
               Adjust the filing type, date range, or segment focus to surface your saved analyses.
             </p>
           </div>
 
-          <button
-            type="button"
-            onClick={handleResetFilters}
-            className="inline-flex items-center justify-center rounded-full border px-6 py-3 text-sm font-semibold uppercase tracking-wide"
-            style={{
-              borderColor: 'var(--lines-subtle)',
-              color: 'var(--text-primary)',
-            }}
-          >
+          <Button type="button" variant="secondary" onClick={handleResetFilters} className="px-6">
             Reset filters
-          </button>
+          </Button>
         </section>
       ) : (
         <>
-          <SummaryHighlights
-            metrics={metrics}
-            recentCompanies={recentCompanies}
-            isLoading={libraryQuery.isLoading && !hasAnalyses}
-          />
-
           <RecentAnalysesList
             items={recentAnalyses}
+            recentCompanies={recentCompanies}
             isLoading={libraryQuery.isLoading && !hasAnalyses}
           />
 

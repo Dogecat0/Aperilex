@@ -320,7 +320,7 @@ export function FilingDetailPage() {
   if (!id) {
     return (
       <div
-        className="rounded-3xl border p-6 text-sm text-[var(--text-secondary)]"
+        className="rounded-3xl border p-6 text-sm text-[var(--text-muted)]"
         style={{ borderColor: 'var(--lines-subtle)', background: 'var(--surfaces-muted)' }}
       >
         No analysis identifier supplied. Navigate from the dashboard to view filing details.
@@ -331,7 +331,7 @@ export function FilingDetailPage() {
   if (detailQuery.isLoading) {
     return (
       <div
-        className="rounded-3xl border p-6 text-sm text-[var(--text-secondary)]"
+        className="rounded-3xl border p-6 text-sm text-[var(--text-muted)]"
         style={{ borderColor: 'var(--lines-subtle)', background: 'var(--surfaces-muted)' }}
       >
         Loading filing insights...
@@ -344,7 +344,7 @@ export function FilingDetailPage() {
 
     return (
       <div
-        className="rounded-3xl border p-6 text-sm text-[var(--text-secondary)]"
+        className="rounded-3xl border p-6 text-sm text-[var(--text-muted)]"
         style={{ borderColor: 'var(--lines-subtle)', background: 'var(--surfaces-muted)' }}
       >
         Failed to load filing detail: {message}
@@ -355,7 +355,7 @@ export function FilingDetailPage() {
   if (!analysis) {
     return (
       <div
-        className="rounded-3xl border p-6 text-sm text-[var(--text-secondary)]"
+        className="rounded-3xl border p-6 text-sm text-[var(--text-muted)]"
         style={{ borderColor: 'var(--lines-subtle)', background: 'var(--surfaces-muted)' }}
       >
         Filing analysis not found. It may have been archived or is still processing.
@@ -436,7 +436,7 @@ export function FilingDetailPage() {
         <h1 className="text-3xl font-semibold" style={{ color: 'var(--text-primary)' }}>
           {companyName}
         </h1>
-        <p className="text-sm text-[var(--text-secondary)]">
+        <p className="text-sm text-[var(--text-muted)]">
           Generated {headlineDate}. Explore summaries, section sentiment, quantitative deltas, and
           the raw narrative in one workspace.
         </p>
@@ -527,7 +527,7 @@ export function FilingDetailPage() {
                       Key insights
                     </h3>
                     {keyInsights.length > 0 ? (
-                      <ul className="flex list-disc flex-col gap-2 pl-5 text-sm text-[var(--text-secondary)]">
+                      <ul className="flex list-disc flex-col gap-2 pl-5 text-sm text-[var(--text-muted)]">
                         {keyInsights.map((insight) => (
                           <li key={insight}>{insight}</li>
                         ))}
@@ -551,7 +551,7 @@ export function FilingDetailPage() {
                       Learning prompts
                     </h3>
                     {opportunities.length > 0 ? (
-                      <ul className="flex list-disc flex-col gap-2 pl-5 text-sm text-[var(--text-secondary)]">
+                      <ul className="flex list-disc flex-col gap-2 pl-5 text-sm text-[var(--text-muted)]">
                         {opportunities.map((item) => (
                           <li key={item}>{item}</li>
                         ))}
@@ -577,7 +577,7 @@ export function FilingDetailPage() {
               <div className="grid gap-4">
                 {sections.length === 0 ? (
                   <div
-                    className="rounded-3xl border p-6 text-sm text-[var(--text-secondary)]"
+                    className="rounded-3xl border p-6 text-sm text-[var(--text-muted)]"
                     style={{
                       borderColor: 'var(--lines-subtle)',
                       background: 'var(--surfaces-muted)',
@@ -690,7 +690,7 @@ export function FilingDetailPage() {
                 <div className="flex flex-col gap-3">
                   {sentiment.items.length === 0 ? (
                     <div
-                      className="rounded-3xl border p-6 text-sm text-[var(--text-secondary)]"
+                      className="rounded-3xl border p-6 text-sm text-[var(--text-muted)]"
                       style={{
                         borderColor: 'var(--lines-subtle)',
                         background: 'var(--surfaces-muted)',

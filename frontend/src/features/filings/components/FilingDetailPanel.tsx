@@ -166,7 +166,7 @@ export function FilingDetailPanel({
             ) : null}
           </div>
         ) : (
-          <p className="text-sm text-[var(--text-secondary)]">
+          <p className="text-sm text-[var(--text-muted)]">
             Search for a filing to inspect its metadata and queue analysis.
           </p>
         )}

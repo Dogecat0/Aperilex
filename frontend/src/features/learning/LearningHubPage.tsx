@@ -1,5 +1,8 @@
 import { useCallback, useMemo } from 'react'
 import { Link } from 'react-router-dom'
+import { FeatureHero } from '@/components/layout/FeatureHero'
+import { FeatureHeroStat } from '@/components/layout/FeatureHeroStat'
+import { Button } from '@/components/ui/Button'
 import { useThemeTokens } from '@/components/ThemeProvider'
 import { useLearningModules, useLearningProgress, useQuizAttempts } from '@/lib/hooks'
 
@@ -218,11 +221,6 @@ export function LearningHubPage() {
     return { total, completed, inProgress, queued }
   }, [learningModules, progress])
 
-  const heroGradient = useMemo(
-    () => `radial-gradient(120% 120% at 85% 0%, ${tokens.learning.halo}, transparent 68%)`,
-    [tokens.learning.halo]
-  )
-
   return (
     <div className="flex flex-col gap-6">
       {toastMessages.map((toast) => (
@@ -248,69 +246,29 @@ export function LearningHubPage() {
         </div>
       ))}
 
-      <section
-        className="relative overflow-hidden rounded-2xl border px-6 py-6"
-        style={{
-          borderColor: 'var(--lines-subtle)',
-          background: tokens.learning.surface,
-          color: 'var(--text-on-learning)',
-          boxShadow: tokens.shadows.soft,
-        }}
+      <FeatureHero
+        overline="Learning hub"
+        title="Build your filing fluency"
+        description="Stage 5 identity keeps curated lessons, practice prompts, and contextual glossaries in sync. Jump back in from any device and keep your authenticated progress intact."
       >
-        <span
-          aria-hidden
-          className="pointer-events-none absolute inset-0"
-          style={{ background: heroGradient, opacity: 0.9 }}
-        />
-        <div className="relative flex flex-col gap-3">
-          <p
-            className="text-xs font-semibold uppercase tracking-[0.24em]"
-            style={{ color: 'var(--text-on-learning)', opacity: 0.85 }}
-          >
-            Learning hub
-          </p>
-          <h1
-            className="text-3xl font-semibold"
-            style={{
-              fontFamily: 'var(--typography-serif)',
-              lineHeight: 'var(--typography-line-heights-relaxed)',
-              letterSpacing: '-0.015em',
-            }}
-          >
-            Build your filing fluency
-          </h1>
-          <p
-            className="max-w-2xl text-sm"
-            style={{
-              color: 'var(--text-on-learning)',
-              lineHeight: 'var(--typography-line-heights-relaxed)',
-            }}
-          >
-            Stage 5 identity keeps curated lessons, practice prompts, and contextual glossaries in
-            sync. Jump back in from any device and keep your authenticated progress intact.
-          </p>
-        </div>
-        <div className="relative mt-5 grid gap-3 sm:grid-cols-3">
-          <HeroStat
+        <div className="grid gap-3 sm:grid-cols-3">
+          <FeatureHeroStat
             label="Weekly streak"
             value={`${streakHighlight}d`}
             helper="Logged in the last 7 days"
-            tone="learning"
           />
-          <HeroStat
+          <FeatureHeroStat
             label="In progress"
             value={`${moduleSummary.inProgress}`}
             helper={`${moduleSummary.total} total modules`}
-            tone="action"
           />
-          <HeroStat
+          <FeatureHeroStat
             label="Completed"
             value={`${moduleSummary.completed}`}
             helper={`${moduleSummary.queued} queued next`}
-            tone="brand"
           />
         </div>
-      </section>
+      </FeatureHero>
 
       <section
         className="grid gap-4 md:grid-cols-3"
@@ -329,14 +287,16 @@ export function LearningHubPage() {
             }}
           >
             <span>{moduleErrorMessage}</span>
-            <button
+            <Button
               type="button"
+              variant="ghost"
+              size="sm"
               onClick={() => void refetchModules()}
-              className="self-start text-xs font-semibold uppercase tracking-[0.2em]"
+              className="self-start px-0"
               style={{ color: tokens.status.negative }}
             >
               Retry loading modules
-            </button>
+            </Button>
           </div>
         )}
 
@@ -420,11 +380,6 @@ export function LearningHubPage() {
                 boxShadow: tokens.shadows.soft,
               }}
             >
-              <span
-                aria-hidden
-                className="absolute inset-x-0 top-0 h-1.5"
-                style={{ background: accentColor, opacity: 0.9 }}
-              />
               <div className="flex items-start justify-between gap-3">
                 <div className="flex flex-col gap-1">
                   <span
@@ -539,26 +494,24 @@ export function LearningHubPage() {
               </div>
 
               <div className="flex items-center gap-3 pt-1">
-                <button
+                <Button
                   type="button"
+                  size="sm"
+                  variant="primary"
                   onClick={() => handleResumeModule(module.key)}
                   disabled={resumeDisabled}
-                  className="inline-flex items-center rounded-full px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
-                  style={{
-                    color: tokens.action.primaryContrast,
-                    background: tokens.action.primary,
-                    opacity: resumeDisabled ? 0.45 : 1,
-                    boxShadow: resumeDisabled ? 'none' : tokens.shadows.soft,
-                  }}
                   title={resumeTitle}
+                  style={resumeDisabled ? { boxShadow: 'none' } : undefined}
                 >
                   {resumeLabel}
-                </button>
-                <button
+                </Button>
+                <Button
                   type="button"
+                  size="sm"
+                  variant="ghost"
                   onClick={() => handleMarkComplete(module.key)}
                   disabled={busy || progressPercent >= 100}
-                  className="text-xs font-semibold uppercase tracking-[0.18em] transition"
+                  className="px-0 py-0 tracking-[0.18em]"
                   style={{
                     color:
                       busy || progressPercent >= 100
@@ -567,7 +520,7 @@ export function LearningHubPage() {
                   }}
                 >
                   Mark complete
-                </button>
+                </Button>
               </div>
             </article>
           )
@@ -719,97 +672,18 @@ export function LearningHubPage() {
           </ul>
         )}
 
-        <button
+        <Button
           type="button"
+          size="sm"
+          variant="primary"
           onClick={handleRecordPracticeAttempt}
           disabled={busy}
-          className="mt-4 inline-flex items-center rounded-full px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
-          style={{
-            color: tokens.action.primaryContrast,
-            background: tokens.action.primary,
-            opacity: busy ? 0.6 : 1,
-            boxShadow: busy ? 'none' : tokens.shadows.soft,
-          }}
+          className="mt-4 self-start"
+          style={busy ? { boxShadow: 'none' } : undefined}
         >
           Log practice attempt
-        </button>
+        </Button>
       </section>
-    </div>
-  )
-}
-
-function HeroStat({
-  label,
-  value,
-  helper,
-  tone,
-}: {
-  label: string
-  value: string
-  helper: string
-  tone: 'learning' | 'action' | 'brand'
-}) {
-  const tokens = useThemeTokens()
-
-  const palette = useMemo(() => {
-    switch (tone) {
-      case 'action':
-        return {
-          accent: tokens.action.primary,
-          labelColor: 'var(--text-on-learning)',
-        }
-      case 'brand':
-        return {
-          accent: tokens.brand.accent,
-          labelColor: 'var(--text-on-learning)',
-        }
-      case 'learning':
-      default:
-        return {
-          accent: tokens.learning.accent,
-          labelColor: 'var(--text-on-learning)',
-        }
-    }
-  }, [tone, tokens])
-
-  return (
-    <div
-      className="relative overflow-hidden rounded-xl border px-4 py-3"
-      style={{
-        borderColor: 'rgba(255, 255, 255, 0.25)',
-        background: 'rgba(255, 255, 255, 0.08)',
-        color: 'var(--text-on-learning)',
-      }}
-    >
-      <span
-        aria-hidden
-        className="absolute inset-x-0 top-0 h-1.5"
-        style={{ background: palette.accent, opacity: 0.95 }}
-      />
-      <p
-        className="text-[11px] font-semibold uppercase tracking-[0.24em]"
-        style={{ color: palette.labelColor, opacity: 0.9 }}
-      >
-        {label}
-      </p>
-      <p
-        className="mt-1 text-2xl font-semibold"
-        style={{
-          letterSpacing: tokens.typography.letterSpacing.tight,
-          lineHeight: 'var(--typography-line-heights-dense)',
-        }}
-      >
-        {value}
-      </p>
-      <p
-        className="mt-1 text-xs"
-        style={{
-          color: 'rgba(255, 255, 255, 0.8)',
-          lineHeight: 'var(--typography-line-heights-standard)',
-        }}
-      >
-        {helper}
-      </p>
     </div>
   )
 }

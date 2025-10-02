@@ -17,7 +17,7 @@ export function FirstRunLaunchpad() {
         <h2 className="text-xl font-semibold text-[var(--text-primary)]">
           You’re one analysis away from populating this dashboard
         </h2>
-        <p className="text-sm text-[var(--text-secondary)]">
+        <p className="text-sm text-[var(--text-muted)]">
           Use the analysis workspace to search your filings, queue an AI run, and return here to see
           summaries, sentiment, and guided learning prompts.
         </p>

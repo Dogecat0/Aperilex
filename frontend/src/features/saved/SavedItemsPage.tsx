@@ -1,31 +1,13 @@
-import { useCallback, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { FeatureHero } from '@/components/layout/FeatureHero'
+import { FeatureHeroStat } from '@/components/layout/FeatureHeroStat'
+import { Button } from '@/components/ui/Button'
 import { useThemeTokens } from '@/components/ThemeProvider'
 import { useSavedAnalyses } from '@/lib/hooks'
 import { ApiClientError, apiClient } from '@/lib/apiClient'
 import { analysisResponseSchema } from '@/lib/types/analysis'
 import type { SavedAnalysisSummary } from '@/lib/savedAnalysesStore'
-
-const SAVED_ITEMS = [
-  {
-    id: 'saved-apple-10q',
-    title: 'Apple / 10-Q / Q2 2025',
-    note: 'Focus: product margin resilience and supplier disclosures.',
-    type: 'filing',
-  },
-  {
-    id: 'saved-risk-glossary',
-    title: 'Risk factor glossary',
-    note: 'Quick refresher before comparing peer filings.',
-    type: 'lesson',
-  },
-  {
-    id: 'saved-learning-path',
-    title: 'Learning journey / Getting started',
-    note: 'Continue onboarding prompts to unlock Ask the Filing workspace.',
-    type: 'journey',
-  },
-]
 
 const analysisExistenceSchema = analysisResponseSchema.pick({ analysis_id: true })
 
@@ -64,18 +46,62 @@ export function SavedItemsPage() {
     [navigate, remove]
   )
 
+  const savedSummaryStats = useMemo(() => {
+    const latestSaved = savedAnalyses.reduce<SavedAnalysisSummary | null>((latest, entry) => {
+      if (!latest) {
+        return entry
+      }
+      return new Date(entry.savedAt).getTime() > new Date(latest.savedAt).getTime() ? entry : latest
+    }, null)
+    const latestSavedDate = latestSaved
+      ? new Date(latestSaved.savedAt).toLocaleDateString('en-US')
+      : 'None yet'
+    const latestSavedHelper = latestSaved
+      ? `${latestSaved.companyName ?? 'Unknown company'} • ${latestSaved.filingType ?? 'Filing'}`
+      : 'Save an analysis to see details here.'
+
+    return [
+      {
+        id: 'saved-analyses-count',
+        label: 'Saved analyses',
+        value: `${savedAnalyses.length}`,
+        helper: savedAnalyses.length
+          ? 'Ready to revisit anytime.'
+          : 'Save an analysis from the dashboard to get started.',
+      },
+      {
+        id: 'latest-saved',
+        label: 'Most recent save',
+        value: latestSavedDate,
+        helper: latestSavedHelper,
+      },
+      {
+        id: 'sync-status',
+        label: 'Sync status',
+        value: checkingId ? 'Validating' : 'Idle',
+        helper: checkingId ? 'Checking availability…' : 'Tap an item to open it instantly.',
+      },
+    ]
+  }, [checkingId, savedAnalyses])
+
   return (
     <div className="flex flex-col gap-6">
-      <header className="flex flex-col gap-2">
-        <p className="text-sm font-medium text-[var(--text-secondary)]">Saved Items</p>
-        <h1 className="text-2xl font-semibold" style={{ color: 'var(--text-primary)' }}>
-          Keep your research within reach
-        </h1>
-        <p className="text-sm leading-relaxed text-[var(--text-secondary)]">
-          Bookmarked filings, learning modules, and generated insights will collect here for easy
-          review sessions.
-        </p>
-      </header>
+      <FeatureHero
+        overline="Saved items"
+        title="Keep your research within reach"
+        description="Bookmarked filings, learning modules, and generated insights will collect here for easy review sessions."
+      >
+        <div className="grid gap-3 sm:grid-cols-3">
+          {savedSummaryStats.map((stat) => (
+            <FeatureHeroStat
+              key={stat.id}
+              label={stat.label}
+              value={stat.value}
+              helper={stat.helper}
+            />
+          ))}
+        </div>
+      </FeatureHero>
 
       {notice ? (
         <div
@@ -120,29 +146,32 @@ export function SavedItemsPage() {
               </div>
 
               <div className="flex gap-2 text-xs font-semibold uppercase tracking-wide">
-                <button
+                <Button
                   type="button"
+                  size="sm"
+                  variant="primary"
                   onClick={() => handleOpen(analysis)}
-                  className="rounded-full border px-4 py-2"
-                  style={{ borderColor: 'var(--lines-subtle)', color: tokens.metrics.up }}
                   disabled={checkingId === analysis.analysisId}
+                  className="tracking-[0.18em]"
+                  style={checkingId === analysis.analysisId ? { boxShadow: 'none' } : undefined}
                 >
-                  {checkingId === analysis.analysisId ? 'Opening...' : 'Open'}
-                </button>
-                <button
+                  {checkingId === analysis.analysisId ? 'Opening…' : 'Open'}
+                </Button>
+                <Button
                   type="button"
+                  size="sm"
+                  variant="destructive"
                   onClick={() => remove(analysis.analysisId)}
-                  className="rounded-full border px-4 py-2"
-                  style={{ borderColor: 'var(--lines-subtle)', color: tokens.status.negative }}
+                  className="tracking-[0.18em]"
                 >
                   Remove
-                </button>
+                </Button>
               </div>
             </article>
           ))
         ) : (
           <div
-            className="rounded-2xl border p-4 text-sm text-[var(--text-secondary)]"
+            className="rounded-2xl border p-4 text-sm text-[var(--text-muted)]"
             style={{
               borderColor: 'var(--lines-subtle)',
               background: 'var(--surfaces-muted)',
@@ -152,41 +181,6 @@ export function SavedItemsPage() {
             Save analyses from the dashboard library to keep them handy here.
           </div>
         )}
-      </section>
-
-      <section className="flex flex-col gap-3">
-        {SAVED_ITEMS.map((item) => (
-          <article
-            key={item.id}
-            className="flex flex-col gap-2 rounded-2xl border p-4"
-            style={{
-              borderColor: 'var(--lines-subtle)',
-              background: 'var(--surfaces-muted)',
-              boxShadow: tokens.shadows.soft,
-            }}
-          >
-            <div className="flex items-center gap-2">
-              <span
-                className="inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-wide"
-                style={{ background: tokens.status.neutral, color: '#0f172a' }}
-              >
-                {item.type}
-              </span>
-              <p className="text-base font-semibold" style={{ color: 'var(--text-primary)' }}>
-                {item.title}
-              </p>
-            </div>
-            <p className="text-sm text-[var(--text-secondary)]">{item.note}</p>
-            <div className="flex gap-2 text-xs font-semibold uppercase tracking-wide">
-              <button type="button" style={{ color: tokens.metrics.up }}>
-                Open
-              </button>
-              <button type="button" style={{ color: tokens.status.negative }}>
-                Remove
-              </button>
-            </div>
-          </article>
-        ))}
       </section>
     </div>
   )

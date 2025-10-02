@@ -79,7 +79,7 @@ export function SectionSummaryPanel({
           <h3 className="text-xs font-semibold uppercase tracking-wide text-[var(--text-secondary)]">
             Key insights
           </h3>
-          <ul className="flex list-disc flex-col gap-2 pl-5 text-sm text-[var(--text-secondary)]">
+          <ul className="flex list-disc flex-col gap-2 pl-5 text-sm text-[var(--text-muted)]">
             {insights.map((item) => (
               <li key={item}>{item}</li>
             ))}
@@ -92,7 +92,7 @@ export function SectionSummaryPanel({
           <h3 className="text-xs font-semibold uppercase tracking-wide text-[var(--text-secondary)]">
             Critical findings
           </h3>
-          <ul className="flex list-disc flex-col gap-2 pl-5 text-sm text-[var(--text-secondary)]">
+          <ul className="flex list-disc flex-col gap-2 pl-5 text-sm text-[var(--text-muted)]">
             {criticalFindings.map((item) => (
               <li key={item}>{item}</li>
             ))}

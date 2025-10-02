@@ -68,7 +68,7 @@ export function ExistingAnalysesCallout() {
           <h2 className="text-base font-semibold text-[var(--text-primary)]">
             Review existing insights before queuing a fresh run
           </h2>
-          <p className="text-sm text-[var(--text-secondary)]">
+          <p className="text-sm text-[var(--text-muted)]">
             Your latest analyses are ready on the dashboard. Check them first unless you need a
             brand new run.
           </p>

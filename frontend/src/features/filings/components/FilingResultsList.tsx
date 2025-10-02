@@ -131,7 +131,7 @@ export function FilingResultsList({
           </ul>
         ) : (
           <div
-            className="rounded-xl border p-4 text-sm text-[var(--text-secondary)]"
+            className="rounded-xl border p-4 text-sm text-[var(--text-muted)]"
             style={{ borderColor: 'var(--lines-subtle)' }}
           >
             Try a different ticker or filing type to find a document worth analyzing.

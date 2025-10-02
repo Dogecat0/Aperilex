@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { FeatureHero } from '@/components/layout/FeatureHero'
+import { FeatureHeroStat } from '@/components/layout/FeatureHeroStat'
 import { useNavigate } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
 import {
@@ -159,7 +161,7 @@ export function AnalyzeFilingsPage() {
     setPollingTaskId(null)
     abortControllerRef.current?.abort()
     abortControllerRef.current = null
-  }, [selectedResult?.filing_id])
+  }, [selectedResult])
 
   const handleFormChange = (updates: Partial<FilingSearchFormValues>) => {
     setFormState((prev) => ({
@@ -300,18 +302,63 @@ export function AnalyzeFilingsPage() {
     [formState.dateFrom, formState.dateTo, formState.formType, formState.ticker]
   )
 
+  const totalMatches = filingSearch.data?.pagination?.total_items ?? results.length
+
+  const searchSummaryStats = useMemo(
+    () => [
+      {
+        id: 'results-visible',
+        label: 'Results on page',
+        value: results.length ? `${results.length}` : '0',
+        helper: `Page ${formState.page}`,
+      },
+      {
+        id: 'total-matches',
+        label: 'Total matches',
+        value: totalMatches ? `${totalMatches}` : '—',
+        helper: searchParams?.ticker
+          ? `${searchParams.ticker} filings`
+          : 'Start with a ticker search.',
+      },
+      {
+        id: 'analysis-status',
+        label: 'Analysis status',
+        value: isAnalyzing ? 'Processing' : 'Idle',
+        helper: isAnalyzing
+          ? 'We will redirect once complete.'
+          : selectedResult?.filing_id
+            ? 'Ready to analyze'
+            : 'Select a filing to analyze.',
+      },
+    ],
+    [
+      formState.page,
+      isAnalyzing,
+      results.length,
+      searchParams?.ticker,
+      selectedResult?.filing_id,
+      totalMatches,
+    ]
+  )
+
   return (
     <div className="flex h-full flex-col gap-6">
-      <header className="space-y-2">
-        <p className="text-sm font-medium text-[var(--text-secondary)]">Analysis Launchpad</p>
-        <h1 className="text-2xl font-semibold text-[var(--text-primary)]">
-          Queue your next filing analysis
-        </h1>
-        <p className="text-sm text-[var(--text-secondary)]">
-          Kick off fresh analyses from imported filings so your dashboard stays populated with the
-          latest insights.
-        </p>
-      </header>
+      <FeatureHero
+        overline="Analysis launchpad"
+        title="Queue your next filing analysis"
+        description="Kick off fresh analyses from imported filings so your dashboard stays populated with the latest insights."
+      >
+        <div className="grid gap-3 sm:grid-cols-3">
+          {searchSummaryStats.map((stat) => (
+            <FeatureHeroStat
+              key={stat.id}
+              label={stat.label}
+              value={stat.value}
+              helper={stat.helper}
+            />
+          ))}
+        </div>
+      </FeatureHero>
 
       <ExistingAnalysesCallout />
 

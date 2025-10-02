@@ -20,7 +20,7 @@ export function MetricsGrid({ metrics }: MetricsGridProps) {
   if (metrics.length === 0) {
     return (
       <div
-        className="rounded-3xl border p-6 text-sm text-[var(--text-secondary)]"
+        className="rounded-3xl border p-6 text-sm text-[var(--text-muted)]"
         style={{ borderColor: 'var(--lines-subtle)', background: 'var(--surfaces-muted)' }}
       >
         Metrics will populate once analyses include quantitative deltas or comparisons.

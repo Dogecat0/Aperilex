@@ -57,7 +57,11 @@ const LEARNING_SUMMARY = {
   nextMilestone: 'Finish 2 micro-lessons to extend your streak',
 } as const
 
-export function GuidanceSidebar() {
+interface GuidanceSidebarProps {
+  onRequestClose?: () => void
+}
+
+export function GuidanceSidebar({ onRequestClose }: GuidanceSidebarProps) {
   const tokens = useThemeTokens()
 
   return (
@@ -70,12 +74,28 @@ export function GuidanceSidebar() {
         color: 'var(--text-onLearning)',
       }}
     >
-      <div className="flex flex-col gap-1">
-        <h2 className="text-sm font-semibold uppercase tracking-wide opacity-80">Guidance</h2>
-        <p className="text-base font-semibold">Make every filing a lesson</p>
-        <p className="text-sm opacity-80">
-          Short prompts to steer onboarding and help investors build repeatable habits.
-        </p>
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex flex-col gap-1">
+          <h2 className="text-sm font-semibold uppercase tracking-wide opacity-80">Guidance</h2>
+          <p className="text-base font-semibold">Make every filing a lesson</p>
+          <p className="text-sm opacity-80">
+            Short prompts to steer onboarding and help investors build repeatable habits.
+          </p>
+        </div>
+        {onRequestClose ? (
+          <button
+            type="button"
+            onClick={onRequestClose}
+            className="rounded-full border px-3 py-1 text-[10px] font-semibold uppercase tracking-wide transition-colors hover:bg-[rgba(0,0,0,0.1)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
+            style={{
+              borderColor: withAlpha(tokens.learning.accent, 0.35),
+              color: tokens.text.onLearning,
+              outlineColor: tokens.focus.ring,
+            }}
+          >
+            Hide
+          </button>
+        ) : null}
       </div>
 
       <div

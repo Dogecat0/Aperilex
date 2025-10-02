@@ -9,7 +9,6 @@
   --brand-accent: #8F86E4;
   --learning-surface: #FFF4DE;
   --learning-accent: #B86307;
-  --learning-halo: rgba(255, 227, 176, 0.55);
   --action-primary: #45C388;
   --action-primary-contrast: #04121F;
   --action-secondary: #9BE5C2;
@@ -43,9 +42,9 @@
   --spacing-xl: 1.5rem;
   --spacing-xxl: 2rem;
   --spacing-xxxl: 3rem;
-  --shadow-soft: 0 12px 30px rgba(9, 24, 49, 0.12);
-  --shadow-medium: 0 20px 45px rgba(9, 24, 49, 0.18);
-  --shadow-strong: 0 28px 60px rgba(9, 24, 49, 0.25);
+  --shadow-soft: 0 3px 8px rgba(9, 24, 49, 0.12);
+  --shadow-medium: 0 8px 20px rgba(9, 24, 49, 0.14);
+  --shadow-strong: 0 12px 28px rgba(9, 24, 49, 0.18);
   --data-neutral: #ABB2C3;
   --data-emphasis: #8F86E4;
   --data-chart-series-0: #091831;
@@ -75,7 +74,6 @@
   --brand-accent: #8F86E4;
   --learning-surface: #FFF4DE;
   --learning-accent: #B86307;
-  --learning-halo: rgba(255, 227, 176, 0.55);
   --action-primary: #45C388;
   --action-primary-contrast: #04121F;
   --action-secondary: #9BE5C2;
@@ -130,9 +128,9 @@
   --typography-line-heights-relaxed: 1.6;
   --typography-letter-spacing-tight: -0.01em;
   --typography-letter-spacing-normal: 0em;
-  --shadows-soft: 0 12px 30px rgba(9, 24, 49, 0.12);
-  --shadows-medium: 0 20px 45px rgba(9, 24, 49, 0.18);
-  --shadows-strong: 0 28px 60px rgba(9, 24, 49, 0.25);
+  --shadows-soft: 0 3px 8px rgba(9, 24, 49, 0.12);
+  --shadows-medium: 0 8px 20px rgba(9, 24, 49, 0.14);
+  --shadows-strong: 0 12px 28px rgba(9, 24, 49, 0.18);
 }
 
 :root[data-theme="dark"] {
@@ -141,7 +139,6 @@
   --brand-accent: #AAB7DD;
   --learning-surface: #2C1F12;
   --learning-accent: #FFC87A;
-  --learning-halo: rgba(255, 200, 122, 0.45);
   --action-primary: #3ED79E;
   --action-primary-contrast: #04161F;
   --action-secondary: #1F8E65;
@@ -196,7 +193,7 @@
   --typography-line-heights-relaxed: 1.6;
   --typography-letter-spacing-tight: -0.01em;
   --typography-letter-spacing-normal: 0em;
-  --shadows-soft: 0 16px 45px rgba(3, 9, 24, 0.45);
-  --shadows-medium: 0 24px 60px rgba(0, 0, 0, 0.6);
-  --shadows-strong: 0 32px 70px rgba(0, 0, 0, 0.72);
+  --shadows-soft: 0 4px 14px rgba(3, 9, 24, 0.35);
+  --shadows-medium: 0 8px 22px rgba(0, 0, 0, 0.45);
+  --shadows-strong: 0 12px 30px rgba(0, 0, 0, 0.55);
 }

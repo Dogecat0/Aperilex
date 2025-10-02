@@ -35,7 +35,7 @@ export function InsightTimeline({ events }: InsightTimelineProps) {
   if (events.length === 0) {
     return (
       <div
-        className="rounded-3xl border p-6 text-sm text-[var(--text-secondary)]"
+        className="rounded-3xl border p-6 text-sm text-[var(--text-muted)]"
         style={{ borderColor: 'var(--lines-subtle)', background: 'var(--surfaces-muted)' }}
       >
         Timeline events will populate once insights include dated deltas or critical findings.

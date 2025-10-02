@@ -72,7 +72,7 @@ export function InsightList({ title, insights, isLoading }: InsightListProps) {
 
       {insights.length === 0 ? (
         <div
-          className="rounded-xl border px-4 py-5 text-sm text-[var(--text-secondary)]"
+          className="rounded-xl border px-4 py-5 text-sm text-[var(--text-muted)]"
           style={{ borderColor: 'var(--lines-subtle)', background: 'var(--surfaces-muted)' }}
         >
           Insights from recent analyses will surface here as filings are processed.

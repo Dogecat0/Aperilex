@@ -8,7 +8,6 @@ export interface ThemeTokens {
   learning: {
     surface: string
     accent: string
-    halo: string
   }
   action: {
     primary: string
@@ -102,7 +101,6 @@ export const lightTokens: ThemeTokens = {
   learning: {
     surface: '#FFF4DE',
     accent: '#B86307',
-    halo: 'rgba(255, 227, 176, 0.55)',
   },
   action: {
     primary: '#45C388',
@@ -180,9 +178,9 @@ export const lightTokens: ThemeTokens = {
     },
   },
   shadows: {
-    soft: '0 12px 30px rgba(9, 24, 49, 0.12)',
-    medium: '0 20px 45px rgba(9, 24, 49, 0.18)',
-    strong: '0 28px 60px rgba(9, 24, 49, 0.25)',
+    soft: '0 3px 8px rgba(9, 24, 49, 0.12)',
+    medium: '0 8px 20px rgba(9, 24, 49, 0.14)',
+    strong: '0 12px 28px rgba(9, 24, 49, 0.18)',
   },
 }
 
@@ -196,7 +194,6 @@ export const darkTokens: ThemeTokens = {
   learning: {
     surface: '#2C1F12',
     accent: '#FFC87A',
-    halo: 'rgba(255, 200, 122, 0.45)',
   },
   action: {
     primary: '#3ED79E',
@@ -274,8 +271,8 @@ export const darkTokens: ThemeTokens = {
     },
   },
   shadows: {
-    soft: '0 16px 45px rgba(3, 9, 24, 0.45)',
-    medium: '0 24px 60px rgba(0, 0, 0, 0.6)',
-    strong: '0 32px 70px rgba(0, 0, 0, 0.72)',
+    soft: '0 4px 14px rgba(3, 9, 24, 0.35)',
+    medium: '0 8px 22px rgba(0, 0, 0, 0.45)',
+    strong: '0 12px 30px rgba(0, 0, 0, 0.55)',
   },
 }
