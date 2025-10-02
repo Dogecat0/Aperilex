@@ -1,118 +1,281 @@
-export type ColorScale = Record<string, string>
-
 export interface ThemeTokens {
   name: 'light' | 'dark'
-  colors: {
+  brand: {
     background: string
     surface: string
-    surfaceMuted: string
-    foreground: string
-    foregroundMuted: string
-    border: string
+    accent: string
   }
-  sentiment: {
+  learning: {
+    surface: string
+    accent: string
+    halo: string
+  }
+  action: {
+    primary: string
+    primaryContrast: string
+    secondary: string
+  }
+  surfaces: {
+    base: string
+    raised: string
+    muted: string
+    overlay: string
+  }
+  text: {
+    primary: string
+    secondary: string
+    muted: string
+    onBrand: string
+    onLearning: string
+    onMuted: string
+  }
+  lines: {
+    subtle: string
+    strong: string
+    focus: string
+  }
+  status: {
     positive: string
     neutral: string
     negative: string
+    warning: string
   }
-  trend: {
+  metrics: {
     up: string
     down: string
     stable: string
   }
+  data: {
+    neutral: string
+    emphasis: string
+    chartSeries: string[]
+  }
+  focus: {
+    ring: string
+    shadow: string
+  }
   spacing: {
+    xxs: string
     xs: string
     sm: string
     md: string
     lg: string
     xl: string
+    xxl: string
+    xxxl: string
   }
   typography: {
-    fontFamily: string
-    headingWeight: number
-    bodyWeight: number
-    monoFontFamily: string
+    sans: string
+    serif: string
+    mono: string
+    weights: {
+      heading: number
+      subheading: number
+      body: number
+      caption: number
+      numeric: number
+    }
+    lineHeights: {
+      dense: number
+      standard: number
+      relaxed: number
+    }
+    letterSpacing: {
+      tight: string
+      normal: string
+    }
   }
   shadows: {
     soft: string
     medium: string
+    strong: string
   }
 }
 
 export const lightTokens: ThemeTokens = {
   name: 'light',
-  colors: {
-    background: '#f8fafc',
-    surface: '#ffffff',
-    surfaceMuted: '#f1f5f9',
-    foreground: '#0f172a',
-    foregroundMuted: '#475569',
-    border: '#cbd5f5',
+  brand: {
+    background: '#091831',
+    surface: '#132540',
+    accent: '#8F86E4',
   },
-  sentiment: {
-    positive: '#16a34a',
-    neutral: '#6366f1',
-    negative: '#dc2626',
+  learning: {
+    surface: '#FFF4DE',
+    accent: '#B86307',
+    halo: 'rgba(255, 227, 176, 0.55)',
   },
-  trend: {
-    up: '#10b981',
-    down: '#f97316',
-    stable: '#64748b',
+  action: {
+    primary: '#45C388',
+    primaryContrast: '#04121F',
+    secondary: '#9BE5C2',
+  },
+  surfaces: {
+    base: '#F5F7FF',
+    raised: '#FFFFFF',
+    muted: '#E7EAF6',
+    overlay: 'rgba(231, 234, 246, 0.92)',
+  },
+  text: {
+    primary: '#0B1628',
+    secondary: '#2F374A',
+    muted: '#737C91',
+    onBrand: '#F5F7FF',
+    onLearning: '#1A0E00',
+    onMuted: '#091831',
+  },
+  lines: {
+    subtle: '#D8DCE5',
+    strong: '#9DA8C8',
+    focus: '#45C388',
+  },
+  status: {
+    positive: '#45C388',
+    neutral: '#B9B2F2',
+    negative: '#E75C4A',
+    warning: '#E78C1F',
+  },
+  metrics: {
+    up: '#138352',
+    down: '#E75C4A',
+    stable: '#737C91',
+  },
+  data: {
+    neutral: '#ABB2C3',
+    emphasis: '#8F86E4',
+    chartSeries: ['#091831', '#45C388', '#F5B15C', '#8F86E4', '#E75C4A', '#13A38C'],
+  },
+  focus: {
+    ring: '#45C388',
+    shadow: '0 0 0 4px rgba(69, 195, 136, 0.18)',
   },
   spacing: {
+    xxs: '0.125rem',
     xs: '0.25rem',
     sm: '0.5rem',
-    md: '1rem',
-    lg: '1.5rem',
-    xl: '2rem',
+    md: '0.75rem',
+    lg: '1rem',
+    xl: '1.5rem',
+    xxl: '2rem',
+    xxxl: '3rem',
   },
   typography: {
-    fontFamily: '"Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
-    headingWeight: 600,
-    bodyWeight: 400,
-    monoFontFamily: '"Roboto Mono", "Fira Code", monospace',
+    sans: '"Inter Variable", "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+    serif: '"Newsreader", "Georgia", serif',
+    mono: '"Roboto Mono", "Fira Code", monospace',
+    weights: {
+      heading: 700,
+      subheading: 550,
+      body: 425,
+      caption: 375,
+      numeric: 600,
+    },
+    lineHeights: {
+      dense: 1.2,
+      standard: 1.45,
+      relaxed: 1.6,
+    },
+    letterSpacing: {
+      tight: '-0.01em',
+      normal: '0em',
+    },
   },
   shadows: {
-    soft: '0 10px 30px rgba(15, 23, 42, 0.08)',
-    medium: '0 20px 45px rgba(15, 23, 42, 0.15)',
+    soft: '0 12px 30px rgba(9, 24, 49, 0.12)',
+    medium: '0 20px 45px rgba(9, 24, 49, 0.18)',
+    strong: '0 28px 60px rgba(9, 24, 49, 0.25)',
   },
 }
 
 export const darkTokens: ThemeTokens = {
   name: 'dark',
-  colors: {
-    background: '#0b1120',
-    surface: '#111827',
-    surfaceMuted: '#1f2937',
-    foreground: '#f8fafc',
-    foregroundMuted: '#94a3b8',
-    border: 'rgba(148, 163, 184, 0.35)',
+  brand: {
+    background: '#061125',
+    surface: '#0B1628',
+    accent: '#AAB7DD',
   },
-  sentiment: {
-    positive: '#22c55e',
-    neutral: '#8b5cf6',
-    negative: '#f43f5e',
+  learning: {
+    surface: '#2C1F12',
+    accent: '#FFC87A',
+    halo: 'rgba(255, 200, 122, 0.45)',
   },
-  trend: {
-    up: '#34d399',
-    down: '#fb7185',
-    stable: '#cbd5f5',
+  action: {
+    primary: '#3ED79E',
+    primaryContrast: '#04161F',
+    secondary: '#1F8E65',
+  },
+  surfaces: {
+    base: '#030918',
+    raised: '#091831',
+    muted: '#102136',
+    overlay: 'rgba(3, 9, 24, 0.88)',
+  },
+  text: {
+    primary: '#F5F7FF',
+    secondary: '#AAB7DD',
+    muted: '#7A87A8',
+    onBrand: '#E0F7EC',
+    onLearning: '#FFE8C2',
+    onMuted: '#E7EAF6',
+  },
+  lines: {
+    subtle: 'rgba(154, 168, 200, 0.35)',
+    strong: 'rgba(231, 234, 246, 0.55)',
+    focus: '#3ED79E',
+  },
+  status: {
+    positive: '#3ED79E',
+    neutral: '#AFA5FF',
+    negative: '#FB7185',
+    warning: '#FFA04D',
+  },
+  metrics: {
+    up: '#3ED79E',
+    down: '#FB7185',
+    stable: '#AAB7DD',
+  },
+  data: {
+    neutral: '#3A4459',
+    emphasis: '#AFA5FF',
+    chartSeries: ['#7AA2FF', '#3ED79E', '#FFA04D', '#AFA5FF', '#FB7185', '#13A38C'],
+  },
+  focus: {
+    ring: '#3ED79E',
+    shadow: '0 0 0 4px rgba(62, 215, 158, 0.24)',
   },
   spacing: {
+    xxs: '0.125rem',
     xs: '0.25rem',
     sm: '0.5rem',
-    md: '1rem',
-    lg: '1.5rem',
-    xl: '2rem',
+    md: '0.75rem',
+    lg: '1rem',
+    xl: '1.5rem',
+    xxl: '2rem',
+    xxxl: '3rem',
   },
   typography: {
-    fontFamily: '"Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
-    headingWeight: 600,
-    bodyWeight: 400,
-    monoFontFamily: '"Roboto Mono", "Fira Code", monospace',
+    sans: '"Inter Variable", "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+    serif: '"Newsreader", "Georgia", serif',
+    mono: '"Roboto Mono", "Fira Code", monospace',
+    weights: {
+      heading: 700,
+      subheading: 550,
+      body: 425,
+      caption: 375,
+      numeric: 600,
+    },
+    lineHeights: {
+      dense: 1.2,
+      standard: 1.45,
+      relaxed: 1.6,
+    },
+    letterSpacing: {
+      tight: '-0.01em',
+      normal: '0em',
+    },
   },
   shadows: {
-    soft: '0 16px 35px rgba(15, 23, 42, 0.4)',
-    medium: '0 24px 45px rgba(148, 163, 184, 0.25)',
+    soft: '0 16px 45px rgba(3, 9, 24, 0.45)',
+    medium: '0 24px 60px rgba(0, 0, 0, 0.6)',
+    strong: '0 32px 70px rgba(0, 0, 0, 0.72)',
   },
 }
