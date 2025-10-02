@@ -5,19 +5,6 @@ import { useThemeTokens } from '@/components/ThemeProvider'
 import { useAuth } from '@/hooks/useAuth'
 import { authCopy } from '@/copy/auth'
 
-function withAlpha(hex: string, alpha: number) {
-  const normalized = hex.startsWith('#') ? hex.slice(1) : hex
-  if (normalized.length !== 6) {
-    return hex
-  }
-
-  const value = Number.parseInt(normalized, 16)
-  const r = (value >> 16) & 255
-  const g = (value >> 8) & 255
-  const b = value & 255
-  return `rgba(${r}, ${g}, ${b}, ${Math.min(Math.max(alpha, 0), 1)})`
-}
-
 const NAV_LINKS = [
   { to: '/dashboard', label: 'Filing Dashboard' },
   { to: '/analyze', label: 'Analysis Launchpad' },
@@ -54,59 +41,74 @@ export function GlobalNav() {
   const isHydrating = authStatus === 'initializing'
   const userEmail = session?.user.email ?? ''
 
-  const navBackground =
-    tokens.name === 'dark'
-      ? withAlpha(tokens.brand.background, 0.88)
-      : withAlpha(tokens.brand.background, 0.12)
-  const navBorder = tokens.data.neutral
-  const badgeTextColor = tokens.text.onBrand
-  const badgeBackground = tokens.brand.accent
-  const actionPrimary = tokens.action.primary
-  const actionPrimaryContrast = tokens.action.primaryContrast
-  const secondaryBorder = tokens.data.neutral
+  const navBackground = 'var(--brand-surface)'
+  const navBorder = tokens.lines.strong
+  const badgeTextColor = tokens.text.onLearning
+  const badgeBackground = 'var(--learning-surface)'
+  const badgeRing = tokens.learning.accent
+  const actionPrimary = 'var(--action-primary)'
+  const actionPrimaryContrast = 'var(--action-primary-contrast)'
+  const secondaryBorder = tokens.lines.subtle
+  const outlineColor = 'var(--focus-ring)'
+  const navLinkClasses =
+    'rounded-full px-4 py-2 text-sm font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2'
+  const controlClasses =
+    'rounded-full px-4 py-2 text-xs font-semibold uppercase tracking-wide focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 transition-colors'
 
   return (
     <header
-      className="sticky top-0 z-20 border-b backdrop-blur"
+      className="relative sticky top-0 z-30 overflow-hidden border-b backdrop-blur-sm"
       style={{
         background: navBackground,
         borderColor: navBorder,
-        boxShadow: tokens.focus.shadow,
+        boxShadow: tokens.shadows.soft,
+        color: 'var(--text-onBrand)',
       }}
     >
-      <div className="mx-auto flex w-full max-w-7xl items-center justify-between px-4 py-3">
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-x-0 bottom-[-32px] top-0"
+        style={{
+          background:
+            'radial-gradient(120% 140% at 85% -40%, var(--learning-halo) 0%, rgba(0, 0, 0, 0) 68%)',
+          opacity: tokens.name === 'dark' ? 0.7 : 0.5,
+        }}
+      />
+
+      <div className="relative mx-auto flex w-full max-w-7xl items-center justify-between px-5 py-3">
         <div className="flex items-center gap-3">
           <span
             className="inline-flex h-9 w-9 items-center justify-center rounded-full text-sm font-semibold tracking-tight"
             style={{
               background: badgeBackground,
               color: badgeTextColor,
-              boxShadow: tokens.shadows.soft,
+              boxShadow: `0 0 0 1px ${badgeRing}, 0 6px 18px rgba(0, 0, 0, 0.18)`,
             }}
           >
             AX
           </span>
           <div className="leading-tight">
-            <p className="text-sm font-medium text-[var(--text-secondary)]">Aperilex Copilot</p>
-            <p className="text-base font-semibold text-[var(--text-primary)]">
+            <p className="text-sm font-medium text-[var(--text-onBrand)] opacity-70">
+              Aperilex Copilot
+            </p>
+            <p className="text-base font-semibold text-[var(--text-onBrand)]">
               Investing Intelligence
             </p>
           </div>
         </div>
 
-        <nav className="hidden items-center gap-6 text-sm font-medium sm:flex">
+        <nav className="hidden items-center gap-4 text-sm font-medium sm:flex">
           {NAV_LINKS.map(({ to, label }) => (
             <NavLink
               key={to}
               to={to}
-              className={({ isActive }) =>
-                [
-                  'rounded-full px-4 py-2 transition-colors duration-150',
-                  isActive
-                    ? 'bg-[var(--surfaces-muted)] text-[var(--text-primary)]'
-                    : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]',
-                ].join(' ')
-              }
+              className={navLinkClasses}
+              style={({ isActive }) => ({
+                outlineColor,
+                background: isActive ? 'var(--learning-surface)' : 'transparent',
+                color: isActive ? 'var(--text-onLearning)' : 'var(--text-onBrand)',
+                boxShadow: isActive ? `0 0 0 1px ${tokens.learning.accent}` : undefined,
+              })}
             >
               {label}
             </NavLink>
@@ -116,11 +118,11 @@ export function GlobalNav() {
         <div className="flex items-center gap-3">
           {isAuthenticated ? (
             <div className="hidden text-right sm:flex sm:flex-col">
-              <span className="text-xs text-[var(--text-secondary)]">
+              <span className="text-xs text-[var(--text-onBrand)] opacity-70">
                 {authCopy.authenticatedAsPrefix}
               </span>
               <span
-                className="text-sm font-semibold text-[var(--text-primary)]"
+                className="text-sm font-semibold text-[var(--text-onBrand)]"
                 data-testid="authenticated-user-email"
               >
                 {userEmail}
@@ -132,10 +134,12 @@ export function GlobalNav() {
             <button
               type="button"
               onClick={handleLogout}
-              className="rounded-full border px-4 py-2 text-xs font-semibold uppercase tracking-wide transition-colors"
+              className={controlClasses}
               style={{
                 borderColor: secondaryBorder,
-                color: tokens.text.primary,
+                color: 'var(--text-onBrand)',
+                background: 'transparent',
+                outlineColor,
               }}
             >
               {authCopy.logoutCta}
@@ -145,11 +149,12 @@ export function GlobalNav() {
               type="button"
               onClick={handleLogin}
               disabled={isAuthenticating || isHydrating}
-              className="rounded-full px-4 py-2 text-xs font-semibold uppercase tracking-wide transition-opacity disabled:opacity-60"
+              className={`${controlClasses} disabled:opacity-60`}
               style={{
                 background: actionPrimary,
                 color: actionPrimaryContrast,
                 boxShadow: tokens.focus.shadow,
+                outlineColor,
               }}
             >
               {isAuthenticating || isHydrating
@@ -161,10 +166,12 @@ export function GlobalNav() {
           <button
             type="button"
             onClick={handleThemeToggle}
-            className="rounded-full border px-4 py-2 text-xs font-semibold uppercase tracking-wide"
+            className={controlClasses}
             style={{
               borderColor: secondaryBorder,
-              color: tokens.text.primary,
+              color: 'var(--text-onBrand)',
+              background: 'transparent',
+              outlineColor,
             }}
           >
             {nextThemeLabel}

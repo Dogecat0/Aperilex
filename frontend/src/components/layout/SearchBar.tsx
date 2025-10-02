@@ -3,6 +3,7 @@ import type { FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { MIN_SEARCH_LENGTH, useAnalysisSearch } from '@/lib/hooks'
 import type { AnalysisResponse } from '@/lib/types/analysis'
+import { useThemeTokens } from '@/components/ThemeProvider'
 
 const SEARCH_SKELETON_KEYS = ['result-a', 'result-b', 'result-c'] as const
 
@@ -40,6 +41,7 @@ export function SearchBar({
   const [isOpen, setIsOpen] = useState(false)
   const navigate = useNavigate()
   const blurTimeoutRef = useRef<number | null>(null)
+  const tokens = useThemeTokens()
 
   const searchQuery = useAnalysisSearch(value, { enabled: isOpen })
 
@@ -95,8 +97,13 @@ export function SearchBar({
       <form
         role="search"
         onSubmit={handleSubmit}
-        className="flex w-full items-center gap-2 rounded-full border px-4 py-2 text-sm shadow-sm"
-        style={{ borderColor: 'var(--lines-subtle)', background: 'var(--surfaces-raised)' }}
+        className="flex w-full items-center gap-2 rounded-full border px-4 py-2 text-sm focus-within:outline focus-within:outline-2 focus-within:outline-offset-2"
+        style={{
+          borderColor: tokens.lines.subtle,
+          background: 'var(--surfaces-raised)',
+          outlineColor: tokens.focus.ring,
+          boxShadow: tokens.shadows.soft,
+        }}
         onFocus={() => {
           if (blurTimeoutRef.current !== null) {
             window.clearTimeout(blurTimeoutRef.current)
@@ -116,7 +123,13 @@ export function SearchBar({
         />
         <button
           type="submit"
-          className="rounded-full bg-[var(--status-positive)] px-4 py-1 text-xs font-semibold uppercase tracking-wide text-white"
+          className="rounded-full px-4 py-1 text-xs font-semibold uppercase tracking-wide focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 disabled:opacity-60"
+          style={{
+            background: 'var(--action-primary)',
+            color: 'var(--action-primary-contrast)',
+            outlineColor: tokens.focus.ring,
+            boxShadow: tokens.focus.shadow,
+          }}
           disabled={value.trim().length === 0}
         >
           Search
@@ -125,8 +138,12 @@ export function SearchBar({
 
       {showResults ? (
         <div
-          className="absolute left-0 right-0 z-10 mt-2 rounded-2xl border bg-[var(--surfaces-raised)] p-3 shadow-lg"
-          style={{ borderColor: 'var(--lines-subtle)' }}
+          className="absolute left-0 right-0 z-10 mt-2 rounded-2xl border p-3"
+          style={{
+            borderColor: tokens.lines.subtle,
+            background: 'var(--surfaces-overlay)',
+            boxShadow: tokens.shadows.medium,
+          }}
           onMouseDown={(event) => event.preventDefault()}
         >
           {searchQuery.isFetching ? (
@@ -136,15 +153,21 @@ export function SearchBar({
                 <div
                   key={placeholderKey}
                   className="animate-pulse rounded-xl border p-3"
-                  style={{ borderColor: 'var(--lines-subtle)' }}
+                  style={{
+                    borderColor: tokens.lines.subtle,
+                    background: 'var(--surfaces-muted)',
+                  }}
                 >
-                  <div className="h-4 w-1/2 rounded bg-[var(--lines-subtle)]" />
-                  <div className="mt-2 h-3 w-1/3 rounded bg-[var(--lines-subtle)]" />
+                  <div className="h-4 w-1/2 rounded" style={{ background: tokens.lines.subtle }} />
+                  <div
+                    className="mt-2 h-3 w-1/3 rounded"
+                    style={{ background: tokens.lines.subtle }}
+                  />
                 </div>
               ))}
             </div>
           ) : hasResults ? (
-            <ul className="flex flex-col divide-y" style={{ borderColor: 'var(--lines-subtle)' }}>
+            <ul className="flex flex-col divide-y" style={{ borderColor: tokens.lines.subtle }}>
               {results.map((analysis) => {
                 const summary = formatSearchResult(analysis)
                 return (
@@ -152,7 +175,8 @@ export function SearchBar({
                     <button
                       type="button"
                       onClick={() => handleSelect(analysis)}
-                      className="flex w-full flex-col gap-1 rounded-xl px-3 py-2 text-left hover:bg-[var(--surfaces-muted)]"
+                      className="flex w-full flex-col gap-1 rounded-xl px-3 py-2 text-left transition-colors hover:bg-[var(--surfaces-muted)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
+                      style={{ outlineColor: tokens.focus.ring }}
                     >
                       <span className="text-sm font-semibold text-[var(--text-primary)]">
                         {summary.companyName}
