@@ -1,5 +1,7 @@
 import type { FilingSearchResult, PaginatedFilingSearchResponse } from '@/lib/types/filing'
 
+const FILING_RESULTS_SKELETON_KEYS = ['filing-a', 'filing-b', 'filing-c', 'filing-d'] as const
+
 interface FilingResultsListProps {
   results: FilingSearchResult[]
   isLoading: boolean
@@ -28,27 +30,27 @@ export function FilingResultsList({
   return (
     <section
       className="flex h-full flex-col gap-4 rounded-2xl border p-4"
-      style={{ borderColor: 'var(--colors-border)', background: 'var(--colors-surface)' }}
+      style={{ borderColor: 'var(--lines-subtle)', background: 'var(--surfaces-raised)' }}
     >
       <header className="flex items-center justify-between">
         <div>
-          <h2 className="text-sm font-semibold text-[var(--colors-foreground)]">Search results</h2>
-          <p className="text-xs text-[var(--colors-foregroundMuted)]">
+          <h2 className="text-sm font-semibold text-[var(--text-primary)]">Search results</h2>
+          <p className="text-xs text-[var(--text-secondary)]">
             {isLoading
               ? 'Fetching filings from your organization cache…'
               : hasResults
-              ? `Showing ${results.length} filing${results.length === 1 ? '' : 's'} on page ${currentPage}`
-              : 'No filings yet for this query.'}
+                ? `Showing ${results.length} filing${results.length === 1 ? '' : 's'} on page ${currentPage}`
+                : 'No filings yet for this query.'}
           </p>
         </div>
-        <div className="flex items-center gap-2 text-xs text-[var(--colors-foregroundMuted)]">
+        <div className="flex items-center gap-2 text-xs text-[var(--text-secondary)]">
           <span>
             Page {currentPage} / {totalPages}
           </span>
           <button
             type="button"
             className="rounded-full border px-3 py-1 font-semibold uppercase tracking-wide"
-            style={{ borderColor: 'var(--colors-border)' }}
+            style={{ borderColor: 'var(--lines-subtle)' }}
             onClick={() => onPageChange?.(currentPage - 1)}
             disabled={!onPageChange || !canGoPrevious || isLoading}
           >
@@ -57,7 +59,7 @@ export function FilingResultsList({
           <button
             type="button"
             className="rounded-full border px-3 py-1 font-semibold uppercase tracking-wide"
-            style={{ borderColor: 'var(--colors-border)' }}
+            style={{ borderColor: 'var(--lines-subtle)' }}
             onClick={() => onPageChange?.(currentPage + 1)}
             disabled={!onPageChange || !canGoNext || isLoading}
           >
@@ -68,18 +70,22 @@ export function FilingResultsList({
 
       <div className="flex-1 overflow-y-auto">
         {error ? (
-          <div className="rounded-xl border p-4 text-xs" style={{ borderColor: 'rgba(248, 113, 113, 0.35)', color: 'var(--sentiment-negative)' }}>
+          <div
+            className="rounded-xl border p-4 text-xs"
+            style={{ borderColor: 'rgba(248, 113, 113, 0.35)', color: 'var(--status-negative)' }}
+          >
             {error}
           </div>
         ) : isLoading ? (
           <ul className="space-y-3">
-            {Array.from({ length: 4 }).map((_, index) => (
-              // eslint-disable-next-line react/no-array-index-key
-              <li key={index} className="animate-pulse rounded-xl border p-3"
-                style={{ borderColor: 'var(--colors-border)' }}
+            {FILING_RESULTS_SKELETON_KEYS.map((placeholderKey) => (
+              <li
+                key={placeholderKey}
+                className="animate-pulse rounded-xl border p-3"
+                style={{ borderColor: 'var(--lines-subtle)' }}
               >
-                <div className="h-4 w-2/3 rounded bg-[var(--colors-border)]" />
-                <div className="mt-2 h-3 w-1/3 rounded bg-[var(--colors-border)]" />
+                <div className="h-4 w-2/3 rounded bg-[var(--lines-subtle)]" />
+                <div className="mt-2 h-3 w-1/3 rounded bg-[var(--lines-subtle)]" />
               </li>
             ))}
           </ul>
@@ -94,27 +100,27 @@ export function FilingResultsList({
                     onClick={() => onSelect(result)}
                     className="w-full rounded-xl border p-4 text-left transition-colors"
                     style={{
-                      borderColor: isActive ? 'var(--sentiment-positive)' : 'var(--colors-border)',
-                      background: isActive
-                        ? 'rgba(34, 197, 94, 0.1)'
-                        : 'var(--colors-surfaceMuted)',
+                      borderColor: isActive ? 'var(--status-positive)' : 'var(--lines-subtle)',
+                      background: isActive ? 'rgba(34, 197, 94, 0.1)' : 'var(--surfaces-muted)',
                     }}
                   >
                     <div className="flex items-center justify-between gap-4">
                       <div>
-                        <p className="text-sm font-semibold text-[var(--colors-foreground)]">
+                        <p className="text-sm font-semibold text-[var(--text-primary)]">
                           {result.company_name}
                         </p>
-                        <p className="text-xs text-[var(--colors-foregroundMuted)]">
+                        <p className="text-xs text-[var(--text-secondary)]">
                           {result.ticker ?? '—'} • {result.cik}
                         </p>
                       </div>
-                      <div className="text-right text-xs text-[var(--colors-foregroundMuted)]">
-                        <p className="font-semibold uppercase tracking-wide">{result.filing_type}</p>
+                      <div className="text-right text-xs text-[var(--text-secondary)]">
+                        <p className="font-semibold uppercase tracking-wide">
+                          {result.filing_type}
+                        </p>
                         <p>{new Date(result.filing_date).toLocaleDateString('en-US')}</p>
                       </div>
                     </div>
-                    <div className="mt-3 flex items-center justify-between text-xs text-[var(--colors-foregroundMuted)]">
+                    <div className="mt-3 flex items-center justify-between text-xs text-[var(--text-secondary)]">
                       <span>Accession: {result.accession_number}</span>
                       <span>Sections: {result.sections_count}</span>
                     </div>
@@ -124,8 +130,9 @@ export function FilingResultsList({
             })}
           </ul>
         ) : (
-          <div className="rounded-xl border p-4 text-sm text-[var(--colors-foregroundMuted)]"
-            style={{ borderColor: 'var(--colors-border)' }}
+          <div
+            className="rounded-xl border p-4 text-sm text-[var(--text-secondary)]"
+            style={{ borderColor: 'var(--lines-subtle)' }}
           >
             Try a different ticker or filing type to find a document worth analyzing.
           </div>

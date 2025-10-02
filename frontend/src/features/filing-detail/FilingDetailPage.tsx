@@ -6,7 +6,12 @@ import { MetricsGrid, type MetricDatum } from './components/MetricsGrid'
 import { SectionSummaryPanel } from './components/SectionSummaryPanel'
 import { useThemeTokens } from '@/components/ThemeProvider'
 import { useFilingDetail, useSentimentBreakdown } from '@/lib/hooks'
-import type { AnalysisResponse, SectionAnalysis, StructuredAnalysisData, SubsectionAnalysis } from '@/lib/types/analysis'
+import type {
+  AnalysisResponse,
+  SectionAnalysis,
+  StructuredAnalysisData,
+  SubsectionAnalysis,
+} from '@/lib/types/analysis'
 
 const TAB_KEYS = ['overview', 'sections', 'numbers', 'sentiment', 'raw'] as const
 type TabKey = (typeof TAB_KEYS)[number]
@@ -102,7 +107,9 @@ function formatMetricValue(value: unknown, unit?: unknown) {
     const formatted = numberFormatter.format(value)
     if (typeof unit === 'string' && unit.length > 0) {
       const trimmedUnit = unit.trim()
-      return trimmedUnit.startsWith('%') ? `${formatted}${trimmedUnit}` : `${formatted} ${trimmedUnit}`
+      return trimmedUnit.startsWith('%')
+        ? `${formatted}${trimmedUnit}`
+        : `${formatted} ${trimmedUnit}`
     }
     return formatted
   }
@@ -254,7 +261,10 @@ function safeStructuredJson(structured?: StructuredAnalysisData) {
   }
 }
 
-function combineConfidence(analysis?: AnalysisResponse | null, structured?: StructuredAnalysisData) {
+function combineConfidence(
+  analysis?: AnalysisResponse | null,
+  structured?: StructuredAnalysisData
+) {
   if (typeof structured?.confidence_score === 'number') {
     return structured.confidence_score
   }
@@ -277,7 +287,7 @@ export function FilingDetailPage() {
       : 'overview'
   )
   const [focusedSection, setFocusedSection] = useState<string | null>(() =>
-    hasFocusSection ? focusSectionFromLocation ?? null : null
+    hasFocusSection ? (focusSectionFromLocation ?? null) : null
   )
 
   useEffect(() => {
@@ -294,7 +304,10 @@ export function FilingDetailPage() {
   const structured = analysis?.full_results?.structured_data
   const sections = structured?.section_analyses ?? []
   const analysisTimestamp =
-    structured?.analysis_timestamp ?? analysis?.summary.processing?.completed_at ?? analysis?.created_at ?? null
+    structured?.analysis_timestamp ??
+    analysis?.summary.processing?.completed_at ??
+    analysis?.created_at ??
+    null
 
   const sentiment = useSentimentBreakdown(sections)
   const metrics = useMemo(() => buildMetricData(sections), [sections])
@@ -306,8 +319,9 @@ export function FilingDetailPage() {
 
   if (!id) {
     return (
-      <div className="rounded-3xl border p-6 text-sm text-[var(--colors-foregroundMuted)]"
-        style={{ borderColor: 'var(--colors-border)', background: 'var(--colors-surfaceMuted)' }}
+      <div
+        className="rounded-3xl border p-6 text-sm text-[var(--text-secondary)]"
+        style={{ borderColor: 'var(--lines-subtle)', background: 'var(--surfaces-muted)' }}
       >
         No analysis identifier supplied. Navigate from the dashboard to view filing details.
       </div>
@@ -316,8 +330,9 @@ export function FilingDetailPage() {
 
   if (detailQuery.isLoading) {
     return (
-      <div className="rounded-3xl border p-6 text-sm text-[var(--colors-foregroundMuted)]"
-        style={{ borderColor: 'var(--colors-border)', background: 'var(--colors-surfaceMuted)' }}
+      <div
+        className="rounded-3xl border p-6 text-sm text-[var(--text-secondary)]"
+        style={{ borderColor: 'var(--lines-subtle)', background: 'var(--surfaces-muted)' }}
       >
         Loading filing insights...
       </div>
@@ -328,8 +343,9 @@ export function FilingDetailPage() {
     const message = detailQuery.error instanceof Error ? detailQuery.error.message : 'Unknown error'
 
     return (
-      <div className="rounded-3xl border p-6 text-sm text-[var(--colors-foregroundMuted)]"
-        style={{ borderColor: 'var(--colors-border)', background: 'var(--colors-surfaceMuted)' }}
+      <div
+        className="rounded-3xl border p-6 text-sm text-[var(--text-secondary)]"
+        style={{ borderColor: 'var(--lines-subtle)', background: 'var(--surfaces-muted)' }}
       >
         Failed to load filing detail: {message}
       </div>
@@ -338,8 +354,9 @@ export function FilingDetailPage() {
 
   if (!analysis) {
     return (
-      <div className="rounded-3xl border p-6 text-sm text-[var(--colors-foregroundMuted)]"
-        style={{ borderColor: 'var(--colors-border)', background: 'var(--colors-surfaceMuted)' }}
+      <div
+        className="rounded-3xl border p-6 text-sm text-[var(--text-secondary)]"
+        style={{ borderColor: 'var(--lines-subtle)', background: 'var(--surfaces-muted)' }}
       >
         Filing analysis not found. It may have been archived or is still processing.
       </div>
@@ -348,13 +365,14 @@ export function FilingDetailPage() {
 
   const metadata = (analysis.full_results?.metadata ?? {}) as Record<string, unknown>
   const summarySnapshot = analysis.summary
-  const fallbackCompany =
-    (structured?.company_name ?? metadata.company_name ?? metadata.company ?? metadata.ticker) as
-      | string
-      | undefined
+  const fallbackCompany = (structured?.company_name ??
+    metadata.company_name ??
+    metadata.company ??
+    metadata.ticker) as string | undefined
   const companyName = summarySnapshot.company.name ?? fallbackCompany ?? 'Unknown company'
-  const fallbackFilingType =
-    (structured?.filing_type ?? metadata.filing_type ?? analysis.analysis_type) as string | undefined
+  const fallbackFilingType = (structured?.filing_type ??
+    metadata.filing_type ??
+    analysis.analysis_type) as string | undefined
   const filingType = summarySnapshot.filing.type ?? fallbackFilingType ?? 'Filing overview'
   const filingDate =
     summarySnapshot.filing.date ??
@@ -372,7 +390,9 @@ export function FilingDetailPage() {
       : analysis.full_results?.processing_time_ms
   )
   const sectionsAnalyzed =
-    summarySnapshot.insight_counts?.sections_analyzed ?? structured?.total_sections_analyzed ?? sections.length
+    summarySnapshot.insight_counts?.sections_analyzed ??
+    structured?.total_sections_analyzed ??
+    sections.length
 
   const filingSummary =
     structured?.filing_summary ??
@@ -410,15 +430,15 @@ export function FilingDetailPage() {
   return (
     <div className="flex flex-col gap-6">
       <header className="flex flex-col gap-3">
-        <p className="text-xs font-semibold uppercase tracking-wide text-[var(--colors-foregroundMuted)]">
+        <p className="text-xs font-semibold uppercase tracking-wide text-[var(--text-secondary)]">
           Filing Detail • {filingType}
         </p>
-        <h1 className="text-3xl font-semibold" style={{ color: 'var(--colors-foreground)' }}>
+        <h1 className="text-3xl font-semibold" style={{ color: 'var(--text-primary)' }}>
           {companyName}
         </h1>
-        <p className="text-sm text-[var(--colors-foregroundMuted)]">
-          Generated {headlineDate}. Explore summaries, section sentiment, quantitative deltas, and the raw
-          narrative in one workspace.
+        <p className="text-sm text-[var(--text-secondary)]">
+          Generated {headlineDate}. Explore summaries, section sentiment, quantitative deltas, and
+          the raw narrative in one workspace.
         </p>
       </header>
 
@@ -435,9 +455,9 @@ export function FilingDetailPage() {
                   aria-selected={isActive}
                   className="rounded-full border px-4 py-2 text-sm font-semibold transition-colors"
                   style={{
-                    borderColor: isActive ? 'transparent' : 'var(--colors-border)',
-                    background: isActive ? tokens.sentiment.neutral : 'var(--colors-surfaceMuted)',
-                    color: isActive ? '#0f172a' : 'var(--colors-foreground)',
+                    borderColor: isActive ? 'transparent' : 'var(--lines-subtle)',
+                    background: isActive ? tokens.status.neutral : 'var(--surfaces-muted)',
+                    color: isActive ? '#0f172a' : 'var(--text-primary)',
                   }}
                   onClick={() => setActiveTab(tab.key)}
                 >
@@ -451,22 +471,27 @@ export function FilingDetailPage() {
             {activeTab === 'overview' ? (
               <div className="flex flex-col gap-6">
                 <div className="grid gap-4 md:grid-cols-3">
-                  {[{ label: 'Confidence', value: confidence },
-                    { label: 'Sections analyzed', value: totalSections ? `${totalSections}` : 'TBD' },
-                    { label: 'Processing time', value: processingTime }].map((stat) => (
+                  {[
+                    { label: 'Confidence', value: confidence },
+                    {
+                      label: 'Sections analyzed',
+                      value: totalSections ? `${totalSections}` : 'TBD',
+                    },
+                    { label: 'Processing time', value: processingTime },
+                  ].map((stat) => (
                     <article
                       key={stat.label}
                       className="rounded-3xl border p-5"
                       style={{
-                        borderColor: 'var(--colors-border)',
-                        background: 'var(--colors-surfaceMuted)',
+                        borderColor: 'var(--lines-subtle)',
+                        background: 'var(--surfaces-muted)',
                         boxShadow: tokens.shadows.soft,
                       }}
                     >
-                      <p className="text-xs font-semibold uppercase tracking-wide text-[var(--colors-foregroundMuted)]">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-[var(--text-secondary)]">
                         {stat.label}
                       </p>
-                      <p className="mt-2 text-lg font-semibold text-[var(--colors-foreground)]">
+                      <p className="mt-2 text-lg font-semibold text-[var(--text-primary)]">
                         {stat.value}
                       </p>
                     </article>
@@ -476,35 +501,39 @@ export function FilingDetailPage() {
                 <article
                   className="flex flex-col gap-3 rounded-3xl border p-5"
                   style={{
-                    borderColor: 'var(--colors-border)',
-                    background: 'var(--colors-surfaceMuted)',
+                    borderColor: 'var(--lines-subtle)',
+                    background: 'var(--surfaces-muted)',
                     boxShadow: tokens.shadows.soft,
                   }}
                 >
-                  <h2 className="text-base font-semibold text-[var(--colors-foreground)]">
+                  <h2 className="text-base font-semibold text-[var(--text-primary)]">
                     Filing summary
                   </h2>
-          <p className="text-sm leading-relaxed text-[var(--colors-foregroundMuted)]">{filingSummary}</p>
+                  <p className="text-sm leading-relaxed text-[var(--text-secondary)]">
+                    {filingSummary}
+                  </p>
                 </article>
 
                 <div className="grid gap-4 lg:grid-cols-2">
                   <article
                     className="flex flex-col gap-3 rounded-3xl border p-5"
                     style={{
-                      borderColor: 'var(--colors-border)',
-                      background: 'var(--colors-surfaceMuted)',
+                      borderColor: 'var(--lines-subtle)',
+                      background: 'var(--surfaces-muted)',
                       boxShadow: tokens.shadows.soft,
                     }}
                   >
-                    <h3 className="text-sm font-semibold text-[var(--colors-foreground)]">Key insights</h3>
+                    <h3 className="text-sm font-semibold text-[var(--text-primary)]">
+                      Key insights
+                    </h3>
                     {keyInsights.length > 0 ? (
-                      <ul className="flex list-disc flex-col gap-2 pl-5 text-sm text-[var(--colors-foregroundMuted)]">
+                      <ul className="flex list-disc flex-col gap-2 pl-5 text-sm text-[var(--text-secondary)]">
                         {keyInsights.map((insight) => (
                           <li key={insight}>{insight}</li>
                         ))}
                       </ul>
                     ) : (
-                      <p className="text-sm italic text-[var(--colors-foregroundMuted)]">
+                      <p className="text-sm italic text-[var(--text-secondary)]">
                         Insights will appear as soon as the backend provides structured highlights.
                       </p>
                     )}
@@ -513,20 +542,22 @@ export function FilingDetailPage() {
                   <article
                     className="flex flex-col gap-3 rounded-3xl border p-5"
                     style={{
-                      borderColor: 'var(--colors-border)',
-                      background: 'var(--colors-surfaceMuted)',
+                      borderColor: 'var(--lines-subtle)',
+                      background: 'var(--surfaces-muted)',
                       boxShadow: tokens.shadows.soft,
                     }}
                   >
-                    <h3 className="text-sm font-semibold text-[var(--colors-foreground)]">Learning prompts</h3>
+                    <h3 className="text-sm font-semibold text-[var(--text-primary)]">
+                      Learning prompts
+                    </h3>
                     {opportunities.length > 0 ? (
-                      <ul className="flex list-disc flex-col gap-2 pl-5 text-sm text-[var(--colors-foregroundMuted)]">
+                      <ul className="flex list-disc flex-col gap-2 pl-5 text-sm text-[var(--text-secondary)]">
                         {opportunities.map((item) => (
                           <li key={item}>{item}</li>
                         ))}
                       </ul>
                     ) : (
-                      <p className="text-sm italic text-[var(--colors-foregroundMuted)]">
+                      <p className="text-sm italic text-[var(--text-secondary)]">
                         Surface practice prompts once learning preferences are captured.
                       </p>
                     )}
@@ -534,7 +565,9 @@ export function FilingDetailPage() {
                 </div>
 
                 <section className="flex flex-col gap-3">
-                  <h3 className="text-sm font-semibold text-[var(--colors-foreground)]">Insight timeline</h3>
+                  <h3 className="text-sm font-semibold text-[var(--text-primary)]">
+                    Insight timeline
+                  </h3>
                   <InsightTimeline events={timelineEvents} />
                 </section>
               </div>
@@ -544,10 +577,14 @@ export function FilingDetailPage() {
               <div className="grid gap-4">
                 {sections.length === 0 ? (
                   <div
-                    className="rounded-3xl border p-6 text-sm text-[var(--colors-foregroundMuted)]"
-                    style={{ borderColor: 'var(--colors-border)', background: 'var(--colors-surfaceMuted)' }}
+                    className="rounded-3xl border p-6 text-sm text-[var(--text-secondary)]"
+                    style={{
+                      borderColor: 'var(--lines-subtle)',
+                      background: 'var(--surfaces-muted)',
+                    }}
                   >
-                    Section analyses will populate here once the backend delivers section-level summaries.
+                    Section analyses will populate here once the backend delivers section-level
+                    summaries.
                   </div>
                 ) : (
                   sections.map((section) => (
@@ -569,7 +606,7 @@ export function FilingDetailPage() {
 
             {activeTab === 'numbers' ? (
               <section className="flex flex-col gap-3">
-                <h3 className="text-sm font-semibold text-[var(--colors-foreground)]">
+                <h3 className="text-sm font-semibold text-[var(--text-primary)]">
                   Quantitative signals
                 </h3>
                 <MetricsGrid metrics={metrics} />
@@ -582,17 +619,13 @@ export function FilingDetailPage() {
                   <div
                     className="rounded-3xl border p-4 text-xs font-semibold uppercase tracking-wide"
                     style={{
-                      borderColor: tokens.sentiment.neutral,
-                      background: 'var(--colors-surfaceMuted)',
-                      color: 'var(--colors-foreground)',
+                      borderColor: tokens.status.neutral,
+                      background: 'var(--surfaces-muted)',
+                      color: 'var(--text-primary)',
                     }}
                   >
                     Focused on {focusedSection}
-                    <button
-                      type="button"
-                      className="ml-3 underline"
-                      onClick={clearFocus}
-                    >
+                    <button type="button" className="ml-3 underline" onClick={clearFocus}>
                       Clear focus
                     </button>
                   </div>
@@ -600,11 +633,14 @@ export function FilingDetailPage() {
 
                 <div
                   className="rounded-3xl border p-5"
-                  style={{ borderColor: 'var(--colors-border)', background: 'var(--colors-surfaceMuted)' }}
+                  style={{
+                    borderColor: 'var(--lines-subtle)',
+                    background: 'var(--surfaces-muted)',
+                  }}
                 >
-                  <p className="text-sm font-semibold text-[var(--colors-foreground)]">
-                    Average sentiment: {formatSentiment(sentiment.averageSentiment)} ({totalSentimentSections}{' '}
-                    sections)
+                  <p className="text-sm font-semibold text-[var(--text-primary)]">
+                    Average sentiment: {formatSentiment(sentiment.averageSentiment)} (
+                    {totalSentimentSections} sections)
                   </p>
                   <div className="mt-3 grid gap-3 sm:grid-cols-3">
                     {(['positive', 'neutral', 'negative'] as const).map((tone) => {
@@ -613,22 +649,28 @@ export function FilingDetailPage() {
                       const percentage = Math.round((count / total) * 100)
                       const toneColor =
                         tone === 'positive'
-                          ? tokens.sentiment.positive
+                          ? tokens.status.positive
                           : tone === 'negative'
-                          ? tokens.sentiment.negative
-                          : tokens.sentiment.neutral
+                            ? tokens.status.negative
+                            : tokens.status.neutral
 
                       return (
                         <article
                           key={tone}
                           className="rounded-3xl border p-4"
-                          style={{ borderColor: 'var(--colors-border)', background: 'var(--colors-surface)' }}
+                          style={{
+                            borderColor: 'var(--lines-subtle)',
+                            background: 'var(--surfaces-raised)',
+                          }}
                         >
-                          <p className="text-xs font-semibold uppercase tracking-wide text-[var(--colors-foregroundMuted)]">
+                          <p className="text-xs font-semibold uppercase tracking-wide text-[var(--text-secondary)]">
                             {tone}
                           </p>
-                          <p className="mt-2 text-lg font-semibold text-[var(--colors-foreground)]">{count}</p>
-                          <div className="mt-3 h-2 w-full overflow-hidden rounded-full"
+                          <p className="mt-2 text-lg font-semibold text-[var(--text-primary)]">
+                            {count}
+                          </p>
+                          <div
+                            className="mt-3 h-2 w-full overflow-hidden rounded-full"
                             style={{ background: 'rgba(148, 163, 184, 0.3)' }}
                           >
                             <div
@@ -636,7 +678,9 @@ export function FilingDetailPage() {
                               style={{ width: `${percentage}%`, background: toneColor }}
                             />
                           </div>
-                          <p className="mt-2 text-xs text-[var(--colors-foregroundMuted)]">{percentage}% of sections</p>
+                          <p className="mt-2 text-xs text-[var(--text-secondary)]">
+                            {percentage}% of sections
+                          </p>
                         </article>
                       )
                     })}
@@ -646,8 +690,11 @@ export function FilingDetailPage() {
                 <div className="flex flex-col gap-3">
                   {sentiment.items.length === 0 ? (
                     <div
-                      className="rounded-3xl border p-6 text-sm text-[var(--colors-foregroundMuted)]"
-                      style={{ borderColor: 'var(--colors-border)', background: 'var(--colors-surfaceMuted)' }}
+                      className="rounded-3xl border p-6 text-sm text-[var(--text-secondary)]"
+                      style={{
+                        borderColor: 'var(--lines-subtle)',
+                        background: 'var(--surfaces-muted)',
+                      }}
                     >
                       Sentiment breakdowns will render once section analyses include tone scores.
                     </div>
@@ -656,10 +703,10 @@ export function FilingDetailPage() {
                       const normalized = ((item.sentiment ?? 0) + 1) / 2
                       const toneColor =
                         item.tone === 'positive'
-                          ? tokens.sentiment.positive
+                          ? tokens.status.positive
                           : item.tone === 'negative'
-                          ? tokens.sentiment.negative
-                          : tokens.sentiment.neutral
+                            ? tokens.status.negative
+                            : tokens.status.neutral
                       const isFocused = focusedSection === item.sectionName
 
                       return (
@@ -667,13 +714,13 @@ export function FilingDetailPage() {
                           key={item.sectionName}
                           className="rounded-3xl border p-4"
                           style={{
-                            borderColor: isFocused ? toneColor : 'var(--colors-border)',
-                            background: 'var(--colors-surface)',
+                            borderColor: isFocused ? toneColor : 'var(--lines-subtle)',
+                            background: 'var(--surfaces-raised)',
                             boxShadow: tokens.shadows.soft,
                           }}
                         >
                           <div className="flex flex-wrap items-center justify-between gap-3">
-                            <p className="text-sm font-semibold text-[var(--colors-foreground)]">
+                            <p className="text-sm font-semibold text-[var(--text-primary)]">
                               {item.sectionName}
                             </p>
                             <span
@@ -683,16 +730,21 @@ export function FilingDetailPage() {
                               {item.tone}
                             </span>
                           </div>
-                          <div className="mt-3 h-2 w-full overflow-hidden rounded-full"
+                          <div
+                            className="mt-3 h-2 w-full overflow-hidden rounded-full"
                             style={{ background: 'rgba(148, 163, 184, 0.3)' }}
                           >
                             <div
                               className="h-full"
-                              style={{ width: `${Math.round(normalized * 100)}%`, background: toneColor }}
+                              style={{
+                                width: `${Math.round(normalized * 100)}%`,
+                                background: toneColor,
+                              }}
                             />
                           </div>
-                          <p className="mt-2 text-xs text-[var(--colors-foregroundMuted)]">
-                            Sentiment {item.sentiment !== null && item.sentiment !== undefined
+                          <p className="mt-2 text-xs text-[var(--text-secondary)]">
+                            Sentiment{' '}
+                            {item.sentiment !== null && item.sentiment !== undefined
                               ? (item.sentiment * 100).toFixed(0)
                               : 'n/a'}
                           </p>
@@ -710,9 +762,9 @@ export function FilingDetailPage() {
                   <div
                     className="rounded-3xl border p-4 text-xs font-semibold uppercase tracking-wide"
                     style={{
-                      borderColor: tokens.sentiment.neutral,
-                      background: 'var(--colors-surfaceMuted)',
-                      color: 'var(--colors-foreground)',
+                      borderColor: tokens.status.neutral,
+                      background: 'var(--surfaces-muted)',
+                      color: 'var(--text-primary)',
                     }}
                   >
                     Highlighted section: {focusedSection}
@@ -725,18 +777,20 @@ export function FilingDetailPage() {
                 <article
                   className="flex flex-col gap-3 rounded-3xl border p-5"
                   style={{
-                    borderColor: 'var(--colors-border)',
-                    background: 'var(--colors-surfaceMuted)',
+                    borderColor: 'var(--lines-subtle)',
+                    background: 'var(--surfaces-muted)',
                     boxShadow: tokens.shadows.soft,
                   }}
                 >
-                  <h3 className="text-sm font-semibold text-[var(--colors-foreground)]">Narrative output</h3>
+                  <h3 className="text-sm font-semibold text-[var(--text-primary)]">
+                    Narrative output
+                  </h3>
                   {rawNarrative ? (
-                    <pre className="max-h-96 overflow-auto rounded-2xl bg-[var(--colors-surface)] p-4 text-xs leading-relaxed text-[var(--colors-foregroundMuted)]">
+                    <pre className="max-h-96 overflow-auto rounded-2xl bg-[var(--surfaces-raised)] p-4 text-xs leading-relaxed text-[var(--text-secondary)]">
                       {rawNarrative}
                     </pre>
                   ) : (
-                    <p className="text-sm italic text-[var(--colors-foregroundMuted)]">
+                    <p className="text-sm italic text-[var(--text-secondary)]">
                       Narrative content not provided in the analysis payload.
                     </p>
                   )}
@@ -744,12 +798,15 @@ export function FilingDetailPage() {
 
                 <details
                   className="rounded-3xl border"
-                  style={{ borderColor: 'var(--colors-border)', background: 'var(--colors-surfaceMuted)' }}
+                  style={{
+                    borderColor: 'var(--lines-subtle)',
+                    background: 'var(--surfaces-muted)',
+                  }}
                 >
-                  <summary className="cursor-pointer px-5 py-4 text-sm font-semibold text-[var(--colors-foreground)]">
+                  <summary className="cursor-pointer px-5 py-4 text-sm font-semibold text-[var(--text-primary)]">
                     Structured payload
                   </summary>
-                  <pre className="max-h-[32rem] overflow-auto bg-[var(--colors-surface)] p-4 text-xs leading-relaxed text-[var(--colors-foregroundMuted)]">
+                  <pre className="max-h-[32rem] overflow-auto bg-[var(--surfaces-raised)] p-4 text-xs leading-relaxed text-[var(--text-secondary)]">
                     {structuredJson}
                   </pre>
                 </details>

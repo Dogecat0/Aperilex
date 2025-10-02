@@ -28,25 +28,23 @@ function applyCssVariables(tokens: ThemeTokens) {
     }
   }
 
-  apply(['colors', 'background'], tokens.colors.background)
-  apply(['colors', 'surface'], tokens.colors.surface)
-  apply(['colors', 'surfaceMuted'], tokens.colors.surfaceMuted)
-  apply(['colors', 'foreground'], tokens.colors.foreground)
-  apply(['colors', 'foregroundMuted'], tokens.colors.foregroundMuted)
-  apply(['colors', 'border'], tokens.colors.border)
-
-  apply(['sentiment'], tokens.sentiment)
-  apply(['trend'], tokens.trend)
+  apply(['brand'], tokens.brand)
+  apply(['learning'], tokens.learning)
+  apply(['action'], tokens.action)
+  apply(['surfaces'], tokens.surfaces)
+  apply(['text'], tokens.text)
+  apply(['lines'], tokens.lines)
+  apply(['status'], tokens.status)
+  apply(['metrics'], tokens.metrics)
+  apply(['data'], tokens.data)
+  apply(['focus'], tokens.focus)
   apply(['spacing'], tokens.spacing)
-  apply(['typography', 'fontFamily'], tokens.typography.fontFamily)
-  apply(['typography', 'headingWeight'], tokens.typography.headingWeight)
-  apply(['typography', 'bodyWeight'], tokens.typography.bodyWeight)
-  apply(['typography', 'monoFontFamily'], tokens.typography.monoFontFamily)
+  apply(['typography'], tokens.typography)
   apply(['shadows'], tokens.shadows)
 
-  document.body.style.backgroundColor = tokens.colors.background
-  document.body.style.color = tokens.colors.foreground
-  document.body.style.fontFamily = tokens.typography.fontFamily
+  document.body.style.backgroundColor = tokens.surfaces.base
+  document.body.style.color = tokens.text.primary
+  document.body.style.fontFamily = tokens.typography.sans
   document.body.style.transition = 'background-color 150ms ease, color 150ms ease'
 }
 

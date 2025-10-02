@@ -1,6 +1,8 @@
 import { useThemeTokens } from '@/components/ThemeProvider'
 import type { SentimentTone } from './FilingSummaryCard'
 
+const INSIGHT_SKELETON_KEYS = ['insight-a', 'insight-b', 'insight-c'] as const
+
 export interface InsightListItem {
   id: string
   title: string
@@ -22,22 +24,22 @@ export function InsightList({ title, insights, isLoading }: InsightListProps) {
     return (
       <section className="flex flex-col gap-3">
         <header className="flex items-center justify-between">
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-[var(--colors-foregroundMuted)]">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-[var(--text-secondary)]">
             {title}
           </h2>
         </header>
         <div className="flex flex-col gap-3">
-          {Array.from({ length: 3 }).map((_, index) => (
-            // static skeleton list; index as key acceptable here
-            // eslint-disable-next-line react/no-array-index-key
-            <div key={index} className="animate-pulse rounded-2xl border p-4"
+          {INSIGHT_SKELETON_KEYS.map((placeholderKey) => (
+            <div
+              key={placeholderKey}
+              className="animate-pulse rounded-2xl border p-4"
               style={{
-                background: 'var(--colors-surfaceMuted)',
-                borderColor: 'var(--colors-border)',
+                background: 'var(--surfaces-muted)',
+                borderColor: 'var(--lines-subtle)',
               }}
             >
-              <div className="h-4 w-32 rounded-full bg-[var(--colors-border)]" />
-              <div className="mt-3 h-4 w-52 rounded-full bg-[var(--colors-border)]" />
+              <div className="h-4 w-32 rounded-full bg-[var(--lines-subtle)]" />
+              <div className="mt-3 h-4 w-52 rounded-full bg-[var(--lines-subtle)]" />
             </div>
           ))}
         </div>
@@ -48,13 +50,13 @@ export function InsightList({ title, insights, isLoading }: InsightListProps) {
   return (
     <section className="flex flex-col gap-3">
       <header className="flex items-center justify-between">
-        <h2 className="text-sm font-semibold uppercase tracking-wide text-[var(--colors-foregroundMuted)]">
+        <h2 className="text-sm font-semibold uppercase tracking-wide text-[var(--text-secondary)]">
           {title}
         </h2>
         <button
           type="button"
           className="text-xs font-semibold uppercase tracking-wide"
-          style={{ color: tokens.sentiment.neutral }}
+          style={{ color: tokens.status.neutral }}
         >
           View all insights
         </button>
@@ -62,8 +64,8 @@ export function InsightList({ title, insights, isLoading }: InsightListProps) {
 
       {insights.length === 0 ? (
         <div
-          className="rounded-2xl border p-6 text-sm text-[var(--colors-foregroundMuted)]"
-          style={{ borderColor: 'var(--colors-border)', background: 'var(--colors-surfaceMuted)' }}
+          className="rounded-2xl border p-6 text-sm text-[var(--text-secondary)]"
+          style={{ borderColor: 'var(--lines-subtle)', background: 'var(--surfaces-muted)' }}
         >
           Insights from recent analyses will surface here as filings are processed.
         </div>
@@ -73,7 +75,7 @@ export function InsightList({ title, insights, isLoading }: InsightListProps) {
             <article
               key={insight.id}
               className="flex flex-col gap-1 rounded-2xl border p-4"
-              style={{ borderColor: 'var(--colors-border)', background: 'var(--colors-surfaceMuted)' }}
+              style={{ borderColor: 'var(--lines-subtle)', background: 'var(--surfaces-muted)' }}
             >
               <div className="flex items-center justify-between gap-3">
                 <span
@@ -81,24 +83,26 @@ export function InsightList({ title, insights, isLoading }: InsightListProps) {
                   style={{
                     background:
                       insight.tone === 'positive'
-                        ? tokens.sentiment.positive
+                        ? tokens.status.positive
                         : insight.tone === 'negative'
-                        ? tokens.sentiment.negative
-                        : tokens.sentiment.neutral,
+                          ? tokens.status.negative
+                          : tokens.status.neutral,
                     color: '#0f172a',
                   }}
                 >
                   {insight.tone}
                 </span>
                 {insight.contextLabel ? (
-                  <span className="text-xs text-[var(--colors-foregroundMuted)]">{insight.contextLabel}</span>
+                  <span className="text-xs text-[var(--text-secondary)]">
+                    {insight.contextLabel}
+                  </span>
                 ) : null}
               </div>
-              <p className="text-base font-semibold" style={{ color: 'var(--colors-foreground)' }}>
+              <p className="text-base font-semibold" style={{ color: 'var(--text-primary)' }}>
                 {insight.title}
               </p>
               {insight.description ? (
-                <p className="text-sm text-[var(--colors-foregroundMuted)]">{insight.description}</p>
+                <p className="text-sm text-[var(--text-secondary)]">{insight.description}</p>
               ) : null}
             </article>
           ))}

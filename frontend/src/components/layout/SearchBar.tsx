@@ -4,6 +4,8 @@ import { useNavigate } from 'react-router-dom'
 import { MIN_SEARCH_LENGTH, useAnalysisSearch } from '@/lib/hooks'
 import type { AnalysisResponse } from '@/lib/types/analysis'
 
+const SEARCH_SKELETON_KEYS = ['result-a', 'result-b', 'result-c'] as const
+
 interface SearchBarProps {
   placeholder?: string
   onSubmit?: (value: string) => void
@@ -30,7 +32,10 @@ function formatSearchResult(analysis: AnalysisResponse) {
   }
 }
 
-export function SearchBar({ placeholder = 'Search filings, companies, or lessons', onSubmit }: SearchBarProps) {
+export function SearchBar({
+  placeholder = 'Search filings, companies, or lessons',
+  onSubmit,
+}: SearchBarProps) {
   const [value, setValue] = useState('')
   const [isOpen, setIsOpen] = useState(false)
   const navigate = useNavigate()
@@ -40,7 +45,8 @@ export function SearchBar({ placeholder = 'Search filings, companies, or lessons
 
   const results = searchQuery.data?.items ?? []
   const hasResults = results.length > 0
-  const showResults = isOpen && (searchQuery.isFetching || hasResults || value.trim().length >= MIN_SEARCH_LENGTH)
+  const showResults =
+    isOpen && (searchQuery.isFetching || hasResults || value.trim().length >= MIN_SEARCH_LENGTH)
 
   useEffect(() => {
     return () => {
@@ -90,7 +96,7 @@ export function SearchBar({ placeholder = 'Search filings, companies, or lessons
         role="search"
         onSubmit={handleSubmit}
         className="flex w-full items-center gap-2 rounded-full border px-4 py-2 text-sm shadow-sm"
-        style={{ borderColor: 'var(--colors-border)', background: 'var(--colors-surface)' }}
+        style={{ borderColor: 'var(--lines-subtle)', background: 'var(--surfaces-raised)' }}
         onFocus={() => {
           if (blurTimeoutRef.current !== null) {
             window.clearTimeout(blurTimeoutRef.current)
@@ -106,11 +112,11 @@ export function SearchBar({ placeholder = 'Search filings, companies, or lessons
           onChange={(event) => setValue(event.target.value)}
           type="search"
           placeholder={placeholder}
-          className="flex-1 bg-transparent text-[var(--colors-foreground)] outline-none placeholder:text-[var(--colors-foregroundMuted)]"
+          className="flex-1 bg-transparent text-[var(--text-primary)] outline-none placeholder:text-[var(--text-secondary)]"
         />
         <button
           type="submit"
-          className="rounded-full bg-[var(--sentiment-positive)] px-4 py-1 text-xs font-semibold uppercase tracking-wide text-white"
+          className="rounded-full bg-[var(--status-positive)] px-4 py-1 text-xs font-semibold uppercase tracking-wide text-white"
           disabled={value.trim().length === 0}
         >
           Search
@@ -119,25 +125,26 @@ export function SearchBar({ placeholder = 'Search filings, companies, or lessons
 
       {showResults ? (
         <div
-          className="absolute left-0 right-0 z-10 mt-2 rounded-2xl border bg-[var(--colors-surface)] p-3 shadow-lg"
-          style={{ borderColor: 'var(--colors-border)' }}
+          className="absolute left-0 right-0 z-10 mt-2 rounded-2xl border bg-[var(--surfaces-raised)] p-3 shadow-lg"
+          style={{ borderColor: 'var(--lines-subtle)' }}
           onMouseDown={(event) => event.preventDefault()}
         >
           {searchQuery.isFetching ? (
             <div className="space-y-2">
-              {Array.from({ length: 3 }).map((_, index) => (
+              {SEARCH_SKELETON_KEYS.map((placeholderKey) => (
                 // skeleton placeholders for search results
-                // eslint-disable-next-line react/no-array-index-key
-                <div key={index} className="animate-pulse rounded-xl border p-3"
-                  style={{ borderColor: 'var(--colors-border)' }}
+                <div
+                  key={placeholderKey}
+                  className="animate-pulse rounded-xl border p-3"
+                  style={{ borderColor: 'var(--lines-subtle)' }}
                 >
-                  <div className="h-4 w-1/2 rounded bg-[var(--colors-border)]" />
-                  <div className="mt-2 h-3 w-1/3 rounded bg-[var(--colors-border)]" />
+                  <div className="h-4 w-1/2 rounded bg-[var(--lines-subtle)]" />
+                  <div className="mt-2 h-3 w-1/3 rounded bg-[var(--lines-subtle)]" />
                 </div>
               ))}
             </div>
           ) : hasResults ? (
-            <ul className="flex flex-col divide-y" style={{ borderColor: 'var(--colors-border)' }}>
+            <ul className="flex flex-col divide-y" style={{ borderColor: 'var(--lines-subtle)' }}>
               {results.map((analysis) => {
                 const summary = formatSearchResult(analysis)
                 return (
@@ -145,12 +152,12 @@ export function SearchBar({ placeholder = 'Search filings, companies, or lessons
                     <button
                       type="button"
                       onClick={() => handleSelect(analysis)}
-                      className="flex w-full flex-col gap-1 rounded-xl px-3 py-2 text-left hover:bg-[var(--colors-surfaceMuted)]"
+                      className="flex w-full flex-col gap-1 rounded-xl px-3 py-2 text-left hover:bg-[var(--surfaces-muted)]"
                     >
-                      <span className="text-sm font-semibold text-[var(--colors-foreground)]">
+                      <span className="text-sm font-semibold text-[var(--text-primary)]">
                         {summary.companyName}
                       </span>
-                      <span className="text-xs text-[var(--colors-foregroundMuted)]">
+                      <span className="text-xs text-[var(--text-secondary)]">
                         {summary.filingType} • {summary.formattedDate}
                       </span>
                     </button>
@@ -159,7 +166,7 @@ export function SearchBar({ placeholder = 'Search filings, companies, or lessons
               })}
             </ul>
           ) : (
-            <p className="text-xs text-[var(--colors-foregroundMuted)]">{emptyState}</p>
+            <p className="text-xs text-[var(--text-secondary)]">{emptyState}</p>
           )}
         </div>
       ) : null}

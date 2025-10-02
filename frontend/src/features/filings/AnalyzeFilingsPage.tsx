@@ -1,16 +1,18 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
-import { useFilingSearch, useFilingById, useAnalyzeFiling, DEFAULT_FILING_SEARCH_PAGE_SIZE } from '@/lib/hooks'
+import {
+  useFilingSearch,
+  useFilingById,
+  useAnalyzeFiling,
+  DEFAULT_FILING_SEARCH_PAGE_SIZE,
+} from '@/lib/hooks'
 import type { FilingSearchResult, FilingSearchParams } from '@/lib/types/filing'
 import { isTaskSuccessful, type TaskResponse } from '@/lib/types/task'
 import { pollTaskStatus } from '@/lib/tasks'
 import { ApiClientError } from '@/lib/apiClient'
 import { FilingDetailPanel } from './components/FilingDetailPanel'
-import {
-  FilingSearchForm,
-  type FilingSearchFormValues,
-} from './components/FilingSearchForm'
+import { FilingSearchForm, type FilingSearchFormValues } from './components/FilingSearchForm'
 import { FilingResultsList } from './components/FilingResultsList'
 import { ExistingAnalysesCallout } from './components/ExistingAnalysesCallout'
 
@@ -103,8 +105,10 @@ export function AnalyzeFilingsPage() {
     staleTime: 1000 * 30,
   })
 
-  const filingDetailQuery = useFilingById(selectedResult?.filing_id, {
-    enabled: Boolean(selectedResult?.filing_id),
+  const selectedFilingId = selectedResult?.filing_id ?? undefined
+
+  const filingDetailQuery = useFilingById(selectedFilingId, {
+    enabled: Boolean(selectedFilingId),
     staleTime: 1000 * 60,
   })
 
@@ -128,9 +132,7 @@ export function AnalyzeFilingsPage() {
         return results[0]
       }
 
-      const stillExists = results.some(
-        (item) => item.accession_number === prev.accession_number
-      )
+      const stillExists = results.some((item) => item.accession_number === prev.accession_number)
 
       return stillExists ? prev : results[0]
     })
@@ -274,8 +276,7 @@ export function AnalyzeFilingsPage() {
         return
       }
 
-      const lastKnownStatus =
-        (error as Error & { lastKnownStatus?: TaskResponse }).lastKnownStatus
+      const lastKnownStatus = (error as Error & { lastKnownStatus?: TaskResponse }).lastKnownStatus
       if (lastKnownStatus) {
         setTaskStatus(lastKnownStatus)
       }
@@ -302,25 +303,23 @@ export function AnalyzeFilingsPage() {
   return (
     <div className="flex h-full flex-col gap-6">
       <header className="space-y-2">
-        <p className="text-sm font-medium text-[var(--colors-foregroundMuted)]">
-          Analysis Launchpad
-        </p>
-        <h1 className="text-2xl font-semibold text-[var(--colors-foreground)]">
+        <p className="text-sm font-medium text-[var(--text-secondary)]">Analysis Launchpad</p>
+        <h1 className="text-2xl font-semibold text-[var(--text-primary)]">
           Queue your next filing analysis
         </h1>
-        <p className="text-sm text-[var(--colors-foregroundMuted)]">
-      Kick off fresh analyses from imported filings so your dashboard stays populated with
-      the latest insights.
-    </p>
-  </header>
+        <p className="text-sm text-[var(--text-secondary)]">
+          Kick off fresh analyses from imported filings so your dashboard stays populated with the
+          latest insights.
+        </p>
+      </header>
 
       <ExistingAnalysesCallout />
 
-  <FilingSearchForm
-    values={searchValues}
-    onChange={handleFormChange}
-    onSubmit={executeSearch}
-    isSubmitting={filingSearch.isFetching}
+      <FilingSearchForm
+        values={searchValues}
+        onChange={handleFormChange}
+        onSubmit={executeSearch}
+        isSubmitting={filingSearch.isFetching}
       />
 
       <div className="grid gap-4 lg:grid-cols-[2fr_3fr]">

@@ -36,9 +36,12 @@ describe('FilingDetailPage', () => {
     expect(screen.getByText(/Watch for regional FX headwinds/i)).toBeInTheDocument()
 
     await waitFor(() => {
-      expect(apiClient.get).toHaveBeenCalledWith(`/analyses/${DETAIL_ID}`, expect.objectContaining({
-        query: expect.objectContaining({ include_full_results: true }),
-      }))
+      expect(apiClient.get).toHaveBeenCalledWith(
+        `/analyses/${DETAIL_ID}`,
+        expect.objectContaining({
+          query: expect.objectContaining({ include_full_results: true }),
+        })
+      )
     })
   })
 

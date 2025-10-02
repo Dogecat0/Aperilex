@@ -1,6 +1,7 @@
 import { act, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import type * as ReactRouterDomModule from 'react-router-dom'
 import { renderWithProviders } from '@/test/utils'
 import { SearchBar } from './SearchBar'
 import { apiClient } from '@/lib/apiClient'
@@ -9,7 +10,7 @@ import { mockPaginatedAnalysesResponse } from '@/test/fixtures/analyses'
 const mockNavigate = vi.fn()
 
 vi.mock('react-router-dom', async () => {
-  const actual = await vi.importActual<typeof import('react-router-dom')>('react-router-dom')
+  const actual = await vi.importActual<ReactRouterDomModule>('react-router-dom')
   return {
     ...actual,
     useNavigate: () => mockNavigate,

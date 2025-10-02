@@ -38,6 +38,8 @@ const segmentOptions: { label: string; value: SegmentFilter }[] = [
   { label: 'Flagged follow-up', value: 'flagged' },
 ]
 
+const ANALYSIS_SKELETON_KEYS = ['group-a', 'group-b', 'group-c'] as const
+
 function formatTemplateLabel(input?: string | null) {
   if (!input) {
     return 'Comprehensive analysis'
@@ -131,17 +133,18 @@ function PaginationControls({
   const { page, total_pages: totalPages, has_previous: hasPrevious, has_next: hasNext } = pagination
 
   return (
-    <div className="flex items-center justify-between rounded-2xl border px-4 py-3 text-xs"
-      style={{ borderColor: 'var(--colors-border)', background: 'var(--colors-surfaceMuted)' }}
+    <div
+      className="flex items-center justify-between rounded-2xl border px-4 py-3 text-xs"
+      style={{ borderColor: 'var(--lines-subtle)', background: 'var(--surfaces-muted)' }}
     >
-      <span className="font-semibold uppercase tracking-wide text-[var(--colors-foregroundMuted)]">
+      <span className="font-semibold uppercase tracking-wide text-[var(--text-secondary)]">
         Page {page} of {totalPages}
       </span>
       <div className="flex items-center gap-2">
         <button
           type="button"
           className="rounded-full border px-4 py-2 font-semibold uppercase tracking-wide"
-          style={{ borderColor: 'var(--colors-border)' }}
+          style={{ borderColor: 'var(--lines-subtle)' }}
           onClick={() => onPageChange?.(page - 1)}
           disabled={disabled || !hasPrevious}
         >
@@ -150,7 +153,7 @@ function PaginationControls({
         <button
           type="button"
           className="rounded-full border px-4 py-2 font-semibold uppercase tracking-wide"
-          style={{ borderColor: 'var(--colors-border)' }}
+          style={{ borderColor: 'var(--lines-subtle)' }}
           onClick={() => onPageChange?.(page + 1)}
           disabled={disabled || !hasNext}
         >
@@ -204,10 +207,10 @@ export function AnalysisLibrarySection({
         className={[
           'rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-wide transition-colors duration-150',
           isActive
-            ? 'bg-[var(--colors-foreground)] text-[var(--colors-background)]'
-            : 'text-[var(--colors-foregroundMuted)]',
+            ? 'bg-[var(--text-primary)] text-[var(--surfaces-base)]'
+            : 'text-[var(--text-secondary)]',
         ].join(' ')}
-        style={{ borderColor: 'var(--colors-border)' }}
+        style={{ borderColor: 'var(--lines-subtle)' }}
         aria-pressed={isActive}
         disabled={filterDisabled}
       >
@@ -258,14 +261,15 @@ export function AnalysisLibrarySection({
 
   const renderSkeleton = () => (
     <ul className="space-y-4">
-      {Array.from({ length: 3 }).map((_, index) => (
-        // eslint-disable-next-line react/no-array-index-key
-        <li key={index} className="animate-pulse space-y-3 rounded-2xl border p-5"
-          style={{ borderColor: 'var(--colors-border)', background: 'var(--colors-surfaceMuted)' }}
+      {ANALYSIS_SKELETON_KEYS.map((placeholderKey) => (
+        <li
+          key={placeholderKey}
+          className="animate-pulse space-y-3 rounded-2xl border p-5"
+          style={{ borderColor: 'var(--lines-subtle)', background: 'var(--surfaces-muted)' }}
         >
-          <div className="h-4 w-3/4 rounded bg-[var(--colors-border)]" />
-          <div className="h-3 w-1/2 rounded bg-[var(--colors-border)]" />
-          <div className="h-3 w-2/3 rounded bg-[var(--colors-border)]" />
+          <div className="h-4 w-3/4 rounded bg-[var(--lines-subtle)]" />
+          <div className="h-3 w-1/2 rounded bg-[var(--lines-subtle)]" />
+          <div className="h-3 w-2/3 rounded bg-[var(--lines-subtle)]" />
         </li>
       ))}
     </ul>
@@ -276,48 +280,50 @@ export function AnalysisLibrarySection({
       id="analysis-library"
       className="flex flex-col gap-6 rounded-3xl border p-6"
       style={{
-        borderColor: 'var(--colors-border)',
-        background: 'var(--colors-surfaceMuted)',
+        borderColor: 'var(--lines-subtle)',
+        background: 'var(--surfaces-muted)',
         boxShadow: 'var(--shadows-soft)',
       }}
     >
       <header className="flex flex-col gap-4">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <p className="text-sm font-semibold uppercase tracking-wide text-[var(--colors-foregroundMuted)]">
+            <p className="text-sm font-semibold uppercase tracking-wide text-[var(--text-secondary)]">
               Analysis Library
             </p>
-            <h2 className="text-xl font-semibold text-[var(--colors-foreground)]">
+            <h2 className="text-xl font-semibold text-[var(--text-primary)]">
               Browse every completed filing analysis
             </h2>
           </div>
           {isFetching && !loadingState ? (
-            <span className="text-xs font-semibold uppercase tracking-wide text-[var(--colors-foregroundMuted)]">
+            <span className="text-xs font-semibold uppercase tracking-wide text-[var(--text-secondary)]">
               Updating…
             </span>
           ) : null}
         </div>
-        <p className="text-sm leading-relaxed text-[var(--colors-foregroundMuted)]">
-          Jump into prior runs, compare templates, and keep your favourites pinned for future study sessions.
+        <p className="text-sm leading-relaxed text-[var(--text-secondary)]">
+          Jump into prior runs, compare templates, and keep your favourites pinned for future study
+          sessions.
         </p>
 
-        <div className="flex flex-col gap-3 rounded-2xl border p-4"
-          style={{ borderColor: 'var(--colors-border)', background: 'var(--colors-surface)' }}
+        <div
+          className="flex flex-col gap-3 rounded-2xl border p-4"
+          style={{ borderColor: 'var(--lines-subtle)', background: 'var(--surfaces-raised)' }}
         >
           <div className="flex flex-wrap items-center gap-2">
-            <span className="text-xs font-semibold uppercase tracking-wide text-[var(--colors-foregroundMuted)]">
+            <span className="text-xs font-semibold uppercase tracking-wide text-[var(--text-secondary)]">
               Filing type
             </span>
             {filingTypeOptions.map((option) => renderOptionButton('filingType', option))}
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <span className="text-xs font-semibold uppercase tracking-wide text-[var(--colors-foregroundMuted)]">
+            <span className="text-xs font-semibold uppercase tracking-wide text-[var(--text-secondary)]">
               Date range
             </span>
             {dateRangeOptions.map((option) => renderOptionButton('dateRange', option))}
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <span className="text-xs font-semibold uppercase tracking-wide text-[var(--colors-foregroundMuted)]">
+            <span className="text-xs font-semibold uppercase tracking-wide text-[var(--text-secondary)]">
               Segment focus
             </span>
             {segmentOptions.map((option) => renderOptionButton('segment', option))}
@@ -328,7 +334,7 @@ export function AnalysisLibrarySection({
               type="button"
               onClick={onResetFilters}
               className="rounded-full border px-4 py-2 text-xs font-semibold uppercase tracking-wide"
-              style={{ borderColor: 'var(--colors-border)', color: 'var(--colors-foreground)' }}
+              style={{ borderColor: 'var(--lines-subtle)', color: 'var(--text-primary)' }}
               disabled={filterDisabled}
             >
               Reset filters
@@ -344,7 +350,7 @@ export function AnalysisLibrarySection({
           style={{
             borderColor: 'rgba(248, 113, 113, 0.35)',
             background: 'rgba(248, 113, 113, 0.15)',
-            color: 'var(--sentiment-negative)',
+            color: 'var(--status-negative)',
           }}
         >
           {errorMessage}
@@ -356,11 +362,12 @@ export function AnalysisLibrarySection({
       ) : displayGroups.length === 0 ? (
         <div
           className="flex flex-col gap-3 rounded-2xl border p-5 text-sm"
-          style={{ borderColor: 'var(--colors-border)', background: 'var(--colors-surface)' }}
+          style={{ borderColor: 'var(--lines-subtle)', background: 'var(--surfaces-raised)' }}
         >
-          <p className="font-semibold text-[var(--colors-foreground)]">No analyses available yet</p>
-          <p className="text-[var(--colors-foregroundMuted)]">
-            Once your organization completes analyses, they’ll collect here. You can queue a new run from the
+          <p className="font-semibold text-[var(--text-primary)]">No analyses available yet</p>
+          <p className="text-[var(--text-secondary)]">
+            Once your organization completes analyses, they’ll collect here. You can queue a new run
+            from the
             <Link to="/analyze" className="ml-1 underline">
               analysis launchpad
             </Link>
@@ -373,21 +380,21 @@ export function AnalysisLibrarySection({
             <li
               key={`${group.filingId}-${group.accessionNumber ?? 'unknown'}`}
               className="rounded-2xl border p-5"
-              style={{ borderColor: 'var(--colors-border)', background: 'var(--colors-surface)' }}
+              style={{ borderColor: 'var(--lines-subtle)', background: 'var(--surfaces-raised)' }}
             >
               <header className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
                 <div>
-                  <h3 className="text-base font-semibold text-[var(--colors-foreground)]">
+                  <h3 className="text-base font-semibold text-[var(--text-primary)]">
                     {groupSummaryTitle(group)}
                   </h3>
-                  <p className="text-xs text-[var(--colors-foregroundMuted)]">
+                  <p className="text-xs text-[var(--text-secondary)]">
                     {group.accessionNumber ? `Accession ${group.accessionNumber} • ` : ''}
                     Analyzed {formatDay(group.filingDate)}
                   </p>
                 </div>
                 <Link
                   to={getLinkTarget(group.analyses[0]?.analysisId)}
-                  className="inline-flex items-center justify-center rounded-full bg-[var(--sentiment-positive)] px-4 py-2 text-xs font-semibold uppercase tracking-wide text-white"
+                  className="inline-flex items-center justify-center rounded-full bg-[var(--status-positive)] px-4 py-2 text-xs font-semibold uppercase tracking-wide text-white"
                 >
                   View latest
                 </Link>
@@ -402,32 +409,30 @@ export function AnalysisLibrarySection({
                       key={run.analysisId}
                       className="flex flex-col gap-3 rounded-2xl border p-4 md:flex-row md:items-center md:justify-between"
                       style={{
-                        borderColor: index === 0 ? 'var(--sentiment-positive)' : 'var(--colors-border)',
+                        borderColor: index === 0 ? 'var(--status-positive)' : 'var(--lines-subtle)',
                         background:
-                          index === 0
-                            ? 'rgba(34, 197, 94, 0.07)'
-                            : 'var(--colors-surfaceMuted)',
+                          index === 0 ? 'rgba(34, 197, 94, 0.07)' : 'var(--surfaces-muted)',
                       }}
                     >
                       <div className="space-y-1">
                         <div className="flex flex-wrap items-center gap-2">
                           {index === 0 ? (
-                            <span className="inline-flex items-center rounded-full bg-[var(--sentiment-positive)] px-3 py-1 text-[10px] font-semibold uppercase tracking-wide text-white">
+                            <span className="inline-flex items-center rounded-full bg-[var(--status-positive)] px-3 py-1 text-[10px] font-semibold uppercase tracking-wide text-white">
                               Latest
                             </span>
                           ) : null}
-                          <span className="text-sm font-semibold text-[var(--colors-foreground)]">
+                          <span className="text-sm font-semibold text-[var(--text-primary)]">
                             {label}
                           </span>
-                          <span className="text-[10px] uppercase tracking-wide text-[var(--colors-foregroundMuted)]">
+                          <span className="text-[10px] uppercase tracking-wide text-[var(--text-secondary)]">
                             {run.analysisType.toLowerCase()}
                           </span>
                         </div>
-                        <p className="text-xs text-[var(--colors-foregroundMuted)]">
+                        <p className="text-xs text-[var(--text-secondary)]">
                           {formatTimestamp(run.createdAt)}
                           {run.createdBy ? ` • Requested by ${run.createdBy}` : ''}
                         </p>
-                        <p className="text-xs font-semibold text-[var(--colors-foregroundMuted)]">
+                        <p className="text-xs font-semibold text-[var(--text-secondary)]">
                           {formatConfidence(run.confidenceScore, run.confidenceBucket)}
                         </p>
                       </div>
@@ -436,7 +441,10 @@ export function AnalysisLibrarySection({
                         <Link
                           to={getLinkTarget(run.analysisId)}
                           className="rounded-full border px-4 py-2"
-                          style={{ borderColor: 'var(--colors-border)', color: 'var(--colors-foreground)' }}
+                          style={{
+                            borderColor: 'var(--lines-subtle)',
+                            color: 'var(--text-primary)',
+                          }}
                         >
                           Open
                         </Link>
@@ -445,19 +453,25 @@ export function AnalysisLibrarySection({
                           onClick={() => handleToggleSaved(group, run.analysisId)}
                           className="rounded-full border px-4 py-2"
                           style={{
-                            borderColor: saved ? 'var(--sentiment-positive)' : 'var(--colors-border)',
-                            color: saved ? 'var(--sentiment-positive)' : 'var(--colors-foreground)',
+                            borderColor: saved ? 'var(--status-positive)' : 'var(--lines-subtle)',
+                            color: saved ? 'var(--status-positive)' : 'var(--text-primary)',
                           }}
                         >
-                          {saved ? 'Saved' : 'Save' }
+                          {saved ? 'Saved' : 'Save'}
                         </button>
                         <button
                           type="button"
                           onClick={() => handleCopy(run.analysisId)}
                           className="rounded-full border px-4 py-2"
                           style={{
-                            borderColor: copiedId === run.analysisId ? 'var(--sentiment-positive)' : 'var(--colors-border)',
-                            color: copiedId === run.analysisId ? 'var(--sentiment-positive)' : 'var(--colors-foreground)',
+                            borderColor:
+                              copiedId === run.analysisId
+                                ? 'var(--status-positive)'
+                                : 'var(--lines-subtle)',
+                            color:
+                              copiedId === run.analysisId
+                                ? 'var(--status-positive)'
+                                : 'var(--text-primary)',
                           }}
                         >
                           {copiedId === run.analysisId ? 'Copied' : 'Copy link'}
@@ -472,7 +486,11 @@ export function AnalysisLibrarySection({
         </ul>
       )}
 
-      <PaginationControls pagination={pagination} onPageChange={onPageChange} disabled={loadingState || isFetching} />
+      <PaginationControls
+        pagination={pagination}
+        onPageChange={onPageChange}
+        disabled={loadingState || isFetching}
+      />
     </section>
   )
 }

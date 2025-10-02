@@ -165,7 +165,8 @@ function buildSummarySnapshot(
     return sum + (typeof value === 'number' ? value : 0)
   }, 0)
 
-  const averageConfidence = confidenceCount > 0 ? Math.round((totalConfidence / confidenceCount) * 100) : null
+  const averageConfidence =
+    confidenceCount > 0 ? Math.round((totalConfidence / confidenceCount) * 100) : null
 
   const metrics: SummaryMetricItem[] = [
     {
@@ -180,7 +181,10 @@ function buildSummarySnapshot(
     id: 'confidence-average',
     label: 'Average confidence',
     value: averageConfidence !== null ? `${averageConfidence}%` : 'Pending',
-    helperText: averageConfidence !== null ? 'Across completed analyses' : 'Confidence scores pending next run.',
+    helperText:
+      averageConfidence !== null
+        ? 'Across completed analyses'
+        : 'Confidence scores pending next run.',
   })
 
   metrics.push({
@@ -206,7 +210,9 @@ function buildSummarySnapshot(
       ticker: analysis.summary.company.ticker,
       filingType: analysis.summary.filing.type,
       analyzedAt: formatDate(
-        analysis.summary.processing?.completed_at ?? analysis.summary.filing.date ?? analysis.created_at
+        analysis.summary.processing?.completed_at ??
+          analysis.summary.filing.date ??
+          analysis.created_at
       ),
       analysisId: analysis.analysis_id,
     })
@@ -228,12 +234,16 @@ function buildRecentAnalysesItems(
 
   return analyses.slice(0, limit).map((analysis) => {
     const analyzedAt = formatDate(
-      analysis.summary.processing?.completed_at ?? analysis.summary.filing.date ?? analysis.created_at
+      analysis.summary.processing?.completed_at ??
+        analysis.summary.filing.date ??
+        analysis.created_at
     )
 
     const confidence = getConfidenceScore(analysis)
     const confidenceLabel =
-      typeof confidence === 'number' ? `${Math.round(confidence * 100)}% confidence` : 'Confidence pending'
+      typeof confidence === 'number'
+        ? `${Math.round(confidence * 100)}% confidence`
+        : 'Confidence pending'
 
     return {
       analysisId: analysis.analysis_id,
@@ -317,7 +327,10 @@ export function DashboardPage() {
     console.error('Failed to load analysis library', libraryQuery.error)
   }, [libraryQuery.error])
 
-  const summaryErrorMessage = useMemo(() => formatApiError(libraryQuery.error), [libraryQuery.error])
+  const summaryErrorMessage = useMemo(
+    () => formatApiError(libraryQuery.error),
+    [libraryQuery.error]
+  )
 
   const libraryAnalyses = libraryQuery.data?.items ?? []
   const totalItems = libraryQuery.data?.pagination?.total_items ?? libraryAnalyses.length
@@ -327,14 +340,10 @@ export function DashboardPage() {
     [libraryAnalyses, totalItems]
   )
 
-  const recentAnalyses = useMemo(
-    () => buildRecentAnalysesItems(libraryAnalyses),
-    [libraryAnalyses]
-  )
+  const recentAnalyses = useMemo(() => buildRecentAnalysesItems(libraryAnalyses), [libraryAnalyses])
 
   const hasAnalyses = libraryAnalyses.length > 0
-  const hasCompletedAnalyses =
-    hasAnalyses || (completedAnalysesQuery.data?.items?.length ?? 0) > 0
+  const hasCompletedAnalyses = hasAnalyses || (completedAnalysesQuery.data?.items?.length ?? 0) > 0
   const hasAnyAnalyses = (anyAnalysesQuery.data?.items?.length ?? 0) > 0
 
   const isLoadingAnyAnalyses =
@@ -377,11 +386,11 @@ export function DashboardPage() {
   return (
     <div className="flex flex-col gap-6">
       <header className="flex flex-col gap-2">
-        <p className="text-sm font-medium text-[var(--colors-foregroundMuted)]">Dashboard</p>
-        <h1 className="text-2xl font-semibold" style={{ color: 'var(--colors-foreground)' }}>
+        <p className="text-sm font-medium text-[var(--text-secondary)]">Dashboard</p>
+        <h1 className="text-2xl font-semibold" style={{ color: 'var(--text-primary)' }}>
           Filing intelligence at a glance
         </h1>
-        <p className="text-sm leading-relaxed text-[var(--colors-foregroundMuted)]">
+        <p className="text-sm leading-relaxed text-[var(--text-secondary)]">
           Track filings, sentiment, and practice prompts tailored to your investing journey.
         </p>
       </header>
@@ -405,18 +414,18 @@ export function DashboardPage() {
         <section
           className="flex flex-col gap-4 rounded-3xl border p-6"
           style={{
-            borderColor: 'var(--colors-border)',
-            background: 'var(--colors-surfaceMuted)',
+            borderColor: 'var(--lines-subtle)',
+            background: 'var(--surfaces-muted)',
             boxShadow: 'var(--shadows-soft)',
           }}
         >
           <div className="space-y-2">
-            <h2 className="text-xl font-semibold text-[var(--colors-foreground)]">
+            <h2 className="text-xl font-semibold text-[var(--text-primary)]">
               Analyses are still processing
             </h2>
-            <p className="text-sm text-[var(--colors-foregroundMuted)]">
-              Check back in a moment—fresh filings are moving through the workflow and will populate this
-              dashboard once completed.
+            <p className="text-sm text-[var(--text-secondary)]">
+              Check back in a moment—fresh filings are moving through the workflow and will populate
+              this dashboard once completed.
             </p>
           </div>
         </section>
@@ -424,16 +433,16 @@ export function DashboardPage() {
         <section
           className="flex flex-col items-start gap-4 rounded-3xl border p-6"
           style={{
-            borderColor: 'var(--colors-border)',
-            background: 'var(--colors-surface)',
+            borderColor: 'var(--lines-subtle)',
+            background: 'var(--surfaces-raised)',
             boxShadow: 'var(--shadows-soft)',
           }}
         >
           <div className="space-y-2">
-            <h2 className="text-xl font-semibold text-[var(--colors-foreground)]">
+            <h2 className="text-xl font-semibold text-[var(--text-primary)]">
               No analyses match these filters
             </h2>
-            <p className="text-sm text-[var(--colors-foregroundMuted)]">
+            <p className="text-sm text-[var(--text-secondary)]">
               Adjust the filing type, date range, or segment focus to surface your saved analyses.
             </p>
           </div>
@@ -443,8 +452,8 @@ export function DashboardPage() {
             onClick={handleResetFilters}
             className="inline-flex items-center justify-center rounded-full border px-6 py-3 text-sm font-semibold uppercase tracking-wide"
             style={{
-              borderColor: 'var(--colors-border)',
-              color: 'var(--colors-foreground)',
+              borderColor: 'var(--lines-subtle)',
+              color: 'var(--text-primary)',
             }}
           >
             Reset filters

@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import { useThemeTokens } from '@/components/ThemeProvider'
 import { useLearningModules, useLearningProgress, useQuizAttempts } from '@/lib/hooks'
 
-const MODULE_SKELETON_COUNT = 3
+const MODULE_SKELETON_KEYS = ['module-a', 'module-b', 'module-c'] as const
 
 function formatTimestamp(value: string): string {
   const parsed = new Date(value)
@@ -41,19 +41,19 @@ function describeSentiment(
   tokens: ReturnType<typeof useThemeTokens>
 ): { label: string; color: string } {
   if (typeof score !== 'number') {
-    return { label: 'Sentiment pending', color: tokens.sentiment.neutral }
+    return { label: 'Sentiment pending', color: tokens.status.neutral }
   }
 
   const percent = Math.round(score * 100)
   if (score >= 0.15) {
-    return { label: `Positive ${percent}%`, color: tokens.sentiment.positive }
+    return { label: `Positive ${percent}%`, color: tokens.status.positive }
   }
 
   if (score <= -0.15) {
-    return { label: `Negative ${Math.abs(percent)}%`, color: tokens.sentiment.negative }
+    return { label: `Negative ${Math.abs(percent)}%`, color: tokens.status.negative }
   }
 
-  return { label: `Neutral ${percent}%`, color: tokens.sentiment.neutral }
+  return { label: `Neutral ${percent}%`, color: tokens.status.neutral }
 }
 
 function sentimentBadgeBackground(color: string): string {
@@ -215,9 +215,9 @@ export function LearningHubPage() {
           role="status"
           className="flex items-start justify-between rounded-xl border px-4 py-3 text-sm"
           style={{
-            borderColor: tokens.sentiment.negative,
+            borderColor: tokens.status.negative,
             background: 'rgba(244, 63, 94, 0.08)',
-            color: tokens.sentiment.negative,
+            color: tokens.status.negative,
           }}
         >
           <span>{toast.message}</span>
@@ -225,7 +225,7 @@ export function LearningHubPage() {
             type="button"
             onClick={toast.dismiss}
             className="text-xs font-semibold uppercase tracking-wide"
-            style={{ color: tokens.sentiment.negative }}
+            style={{ color: tokens.status.negative }}
           >
             Dismiss
           </button>
@@ -233,16 +233,13 @@ export function LearningHubPage() {
       ))}
 
       <header className="flex flex-col gap-2">
-        <p className="text-sm font-medium text-[var(--colors-foregroundMuted)]">Learning Hub</p>
-        <h1
-          className="text-2xl font-semibold"
-          style={{ color: 'var(--colors-foreground)' }}
-        >
+        <p className="text-sm font-medium text-[var(--text-secondary)]">Learning Hub</p>
+        <h1 className="text-2xl font-semibold" style={{ color: 'var(--text-primary)' }}>
           Build your filing fluency
         </h1>
-        <p className="text-sm leading-relaxed text-[var(--colors-foregroundMuted)]">
-          Stage 5 identity keeps curated lessons, practice prompts, and contextual glossaries in sync.
-          Jump back in from any device and keep your authenticated progress intact.
+        <p className="text-sm leading-relaxed text-[var(--text-secondary)]">
+          Stage 5 identity keeps curated lessons, practice prompts, and contextual glossaries in
+          sync. Jump back in from any device and keep your authenticated progress intact.
         </p>
       </header>
 
@@ -257,9 +254,9 @@ export function LearningHubPage() {
           <div
             className="col-span-full flex flex-col gap-2 rounded-2xl border p-4 text-sm"
             style={{
-              borderColor: tokens.sentiment.negative,
+              borderColor: tokens.status.negative,
               background: 'rgba(244, 63, 94, 0.08)',
-              color: tokens.sentiment.negative,
+              color: tokens.status.negative,
             }}
           >
             <span>{moduleErrorMessage}</span>
@@ -267,7 +264,7 @@ export function LearningHubPage() {
               type="button"
               onClick={() => void refetchModules()}
               className="self-start text-xs font-semibold uppercase tracking-wide"
-              style={{ color: tokens.sentiment.negative }}
+              style={{ color: tokens.status.negative }}
             >
               Retry loading modules
             </button>
@@ -275,14 +272,13 @@ export function LearningHubPage() {
         )}
 
         {modulesLoading && learningModules.length === 0
-          ? Array.from({ length: MODULE_SKELETON_COUNT }).map((_, index) => (
+          ? MODULE_SKELETON_KEYS.map((placeholderKey) => (
               <article
-                // eslint-disable-next-line react/no-array-index-key
-                key={`learning-module-skeleton-${index}`}
+                key={placeholderKey}
                 className="flex flex-col gap-3 rounded-2xl border p-4 animate-pulse"
                 style={{
-                  borderColor: 'var(--colors-border)',
-                  background: 'var(--colors-surfaceMuted)',
+                  borderColor: 'var(--lines-subtle)',
+                  background: 'var(--surfaces-muted)',
                   boxShadow: tokens.shadows.soft,
                 }}
               >
@@ -302,11 +298,11 @@ export function LearningHubPage() {
 
         {!modulesLoading && learningModules.length === 0 && !moduleErrorMessage ? (
           <div
-            className="col-span-full rounded-2xl border p-4 text-sm text-[var(--colors-foregroundMuted)]"
-            style={{ borderColor: 'var(--colors-border)', background: 'var(--colors-surfaceMuted)' }}
+            className="col-span-full rounded-2xl border p-4 text-sm text-[var(--text-secondary)]"
+            style={{ borderColor: 'var(--lines-subtle)', background: 'var(--surfaces-muted)' }}
           >
-            Launch a filing analysis from the dashboard to unlock Stage 5 personalized practice modules
-            anchored to real insights.
+            Launch a filing analysis from the dashboard to unlock Stage 5 personalized practice
+            modules anchored to real insights.
           </div>
         ) : null}
 
@@ -314,15 +310,9 @@ export function LearningHubPage() {
           const record = progressByModule[module.key]
           const progressPercent = record?.progressPercent ?? 0
           const statusLabel =
-            progressPercent >= 100
-              ? 'Completed'
-              : progressPercent > 0
-              ? 'In progress'
-              : 'Queued'
+            progressPercent >= 100 ? 'Completed' : progressPercent > 0 ? 'In progress' : 'Queued'
           const statusColor =
-            progressPercent >= 100
-              ? tokens.sentiment.positive
-              : tokens.sentiment.neutral
+            progressPercent >= 100 ? tokens.status.positive : tokens.status.neutral
           const context = module.context
           const hasContext = Boolean(context)
           const filingDateLabel = formatFilingDate(context?.filingDate)
@@ -343,32 +333,32 @@ export function LearningHubPage() {
               key={module.key}
               className="flex flex-col gap-3 rounded-2xl border p-4"
               style={{
-                borderColor: 'var(--colors-border)',
-                background: 'var(--colors-surfaceMuted)',
+                borderColor: 'var(--lines-subtle)',
+                background: 'var(--surfaces-muted)',
                 boxShadow: tokens.shadows.soft,
               }}
             >
               <div className="flex items-center justify-between text-xs font-semibold uppercase tracking-wide">
                 <span style={{ color: statusColor }}>{statusLabel}</span>
-                <span className="text-[var(--colors-foregroundMuted)]">{module.duration}</span>
+                <span className="text-[var(--text-secondary)]">{module.duration}</span>
               </div>
-              <p className="text-base font-semibold" style={{ color: 'var(--colors-foreground)' }}>
+              <p className="text-base font-semibold" style={{ color: 'var(--text-primary)' }}>
                 {module.title}
               </p>
-              <p className="text-sm text-[var(--colors-foregroundMuted)]">{module.summary}</p>
+              <p className="text-sm text-[var(--text-secondary)]">{module.summary}</p>
 
               {context ? (
                 <div
                   className="flex flex-col gap-2 rounded-xl border px-3 py-3 text-sm"
                   style={{
-                    borderColor: 'var(--colors-border)',
-                    background: 'var(--colors-surface)',
+                    borderColor: 'var(--lines-subtle)',
+                    background: 'var(--surfaces-raised)',
                   }}
                 >
                   {context.highlight && (
-                    <p className="text-sm text-[var(--colors-foreground)]">{context.highlight}</p>
+                    <p className="text-sm text-[var(--text-primary)]">{context.highlight}</p>
                   )}
-                  <div className="flex flex-wrap items-center gap-2 text-xs text-[var(--colors-foregroundMuted)]">
+                  <div className="flex flex-wrap items-center gap-2 text-xs text-[var(--text-secondary)]">
                     <span>
                       {context.companyName}
                       {context.filingType ? ` · ${context.filingType}` : ''}
@@ -389,19 +379,19 @@ export function LearningHubPage() {
                   <Link
                     to={{
                       pathname: `/filing/${context.analysisId}`,
-                      state: {
-                        focusTab: module.focusTab,
-                        focusSection: context.sectionName ?? module.focusSection ?? null,
-                      },
+                    }}
+                    state={{
+                      focusTab: module.focusTab,
+                      focusSection: context.sectionName ?? module.focusSection ?? null,
                     }}
                     className="self-start text-xs font-semibold uppercase tracking-wide"
-                    style={{ color: tokens.sentiment.neutral }}
+                    style={{ color: tokens.status.neutral }}
                   >
                     View {context.sectionName ?? 'filing'}
                   </Link>
                 </div>
               ) : (
-                <p className="text-xs text-[var(--colors-foregroundMuted)]">
+                <p className="text-xs text-[var(--text-secondary)]">
                   Run a completed filing analysis to unlock contextual practice material.
                 </p>
               )}
@@ -416,11 +406,11 @@ export function LearningHubPage() {
                     className="h-full rounded-full transition-all duration-300"
                     style={{
                       width: `${progressPercent}%`,
-                      background: tokens.sentiment.neutral,
+                      background: tokens.status.neutral,
                     }}
                   />
                 </div>
-                <div className="flex items-center justify-between text-xs text-[var(--colors-foregroundMuted)]">
+                <div className="flex items-center justify-between text-xs text-[var(--text-secondary)]">
                   <span>{progressPercent}% complete</span>
                   {record?.lastInteractionAt ? (
                     <span>Last active {formatTimestamp(record.lastInteractionAt)}</span>
@@ -438,7 +428,7 @@ export function LearningHubPage() {
                   className="inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-wide"
                   style={{
                     color: '#0f172a',
-                    background: tokens.sentiment.neutral,
+                    background: tokens.status.neutral,
                     opacity: resumeDisabled ? 0.45 : 1,
                   }}
                   title={resumeTitle}
@@ -449,7 +439,7 @@ export function LearningHubPage() {
                   type="button"
                   onClick={() => handleMarkComplete(module.key)}
                   disabled={busy || progressPercent >= 100}
-                  className="text-xs font-semibold text-[var(--colors-foregroundMuted)] hover:text-[var(--colors-foreground)]"
+                  className="text-xs font-semibold text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
                 >
                   Mark complete
                 </button>
@@ -462,12 +452,12 @@ export function LearningHubPage() {
       <section
         className="rounded-3xl border p-6"
         style={{
-          borderColor: 'var(--colors-border)',
-          background: 'var(--colors-surfaceMuted)',
+          borderColor: 'var(--lines-subtle)',
+          background: 'var(--surfaces-muted)',
         }}
       >
-        <h2 className="text-base font-semibold text-[var(--colors-foreground)]">Learning streak</h2>
-        <p className="mt-1 text-sm text-[var(--colors-foregroundMuted)]">
+        <h2 className="text-base font-semibold text-[var(--text-primary)]">Learning streak</h2>
+        <p className="mt-1 text-sm text-[var(--text-secondary)]">
           Track your recent practice cadence across modules. Highlighted days reflect logged
           interactions from your authenticated session.
         </p>
@@ -479,9 +469,9 @@ export function LearningHubPage() {
                 key={`streak-${index}`}
                 className="flex h-12 flex-col items-center justify-center rounded-xl border text-xs font-semibold"
                 style={{
-                  borderColor: 'var(--colors-border)',
-                  background: isActive ? tokens.sentiment.positive : 'transparent',
-                  color: isActive ? '#0f172a' : 'var(--colors-foregroundMuted)',
+                  borderColor: 'var(--lines-subtle)',
+                  background: isActive ? tokens.status.positive : 'transparent',
+                  color: isActive ? '#0f172a' : 'var(--text-secondary)',
                 }}
               >
                 Day {index + 1}
@@ -494,31 +484,31 @@ export function LearningHubPage() {
       <section
         className="rounded-3xl border p-6"
         style={{
-          borderColor: 'var(--colors-border)',
-          background: 'var(--colors-surfaceMuted)',
+          borderColor: 'var(--lines-subtle)',
+          background: 'var(--surfaces-muted)',
         }}
       >
         <div className="flex flex-col gap-1 md:flex-row md:items-center md:justify-between">
           <div>
-            <h2 className="text-base font-semibold text-[var(--colors-foreground)]">
+            <h2 className="text-base font-semibold text-[var(--text-primary)]">
               Recent quiz attempts
             </h2>
-            <p className="text-sm text-[var(--colors-foregroundMuted)]">
+            <p className="text-sm text-[var(--text-secondary)]">
               Drill quick knowledge checks and keep a rolling log of accuracy without relying on
               local storage.
             </p>
           </div>
           {stats.averageScore !== null && (
-            <div className="text-sm text-[var(--colors-foreground)]">
+            <div className="text-sm text-[var(--text-primary)]">
               Average score: {stats.averageScore.toFixed(1)}% · Passed {stats.passedCount} attempts
             </div>
           )}
         </div>
 
         {attemptsLoading && attempts.length === 0 ? (
-          <p className="mt-4 text-sm text-[var(--colors-foregroundMuted)]">Loading attempts…</p>
+          <p className="mt-4 text-sm text-[var(--text-secondary)]">Loading attempts…</p>
         ) : attempts.length === 0 ? (
-          <p className="mt-4 text-sm text-[var(--colors-foregroundMuted)]">
+          <p className="mt-4 text-sm text-[var(--text-secondary)]">
             No quiz attempts recorded yet. Log your first practice check to populate this timeline.
           </p>
         ) : (
@@ -527,13 +517,13 @@ export function LearningHubPage() {
               <li
                 key={attempt.attemptId}
                 className="flex items-center justify-between rounded-2xl border px-4 py-3"
-                style={{ borderColor: 'var(--colors-border)', background: 'var(--colors-surface)' }}
+                style={{ borderColor: 'var(--lines-subtle)', background: 'var(--surfaces-raised)' }}
               >
                 <div className="flex flex-col">
-                  <span className="text-sm font-semibold text-[var(--colors-foreground)]">
+                  <span className="text-sm font-semibold text-[var(--text-primary)]">
                     {attempt.quizId}
                   </span>
-                  <span className="text-xs text-[var(--colors-foregroundMuted)]">
+                  <span className="text-xs text-[var(--text-secondary)]">
                     Score {attempt.scorePercent.toFixed(0)}% · {attempt.correctCount} /{' '}
                     {attempt.questionCount} correct · {formatTimestamp(attempt.attemptedAt)}
                   </span>
@@ -541,7 +531,7 @@ export function LearningHubPage() {
                 <span
                   className="text-xs font-semibold uppercase tracking-wide"
                   style={{
-                    color: attempt.passed ? tokens.sentiment.positive : tokens.sentiment.negative,
+                    color: attempt.passed ? tokens.status.positive : tokens.status.negative,
                   }}
                 >
                   {attempt.passed ? 'Passed' : 'Retake'}
@@ -558,7 +548,7 @@ export function LearningHubPage() {
           className="mt-4 inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-wide"
           style={{
             color: '#0f172a',
-            background: tokens.sentiment.neutral,
+            background: tokens.status.neutral,
             opacity: busy ? 0.6 : 1,
           }}
         >

@@ -1,4 +1,9 @@
-import { createBrowserRouter, createMemoryRouter, Navigate, type RouteObject } from 'react-router-dom'
+import {
+  createBrowserRouter,
+  createMemoryRouter,
+  Navigate,
+  type RouteObject,
+} from 'react-router-dom'
 import { AppShell } from '@/components/layout/AppShell'
 import { ProtectedRoute } from '@/components/routing/ProtectedRoute'
 import { DashboardPage } from '@/features/dashboard'

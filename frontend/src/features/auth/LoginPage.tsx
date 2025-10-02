@@ -28,27 +28,27 @@ export function LoginPage() {
   return (
     <div
       className="flex min-h-screen flex-col items-center justify-center gap-6 px-6 text-center"
-      style={{ background: 'var(--colors-background)', color: 'var(--colors-foreground)' }}
+      style={{ background: 'var(--surfaces-base)', color: 'var(--text-primary)' }}
     >
       <div className="space-y-3 max-w-md">
-        <p className="text-sm font-semibold uppercase tracking-wide text-[var(--colors-foregroundMuted)]">
+        <p className="text-sm font-semibold uppercase tracking-wide text-[var(--text-secondary)]">
           {authCopy.loginEyebrow}
         </p>
         <h1 className="text-3xl font-semibold">{authCopy.loginHeadline}</h1>
-        <p className="text-sm text-[var(--colors-foregroundMuted)]">{authCopy.loginSubhead}</p>
+        <p className="text-sm text-[var(--text-secondary)]">{authCopy.loginSubhead}</p>
       </div>
 
       <button
         type="button"
         onClick={() => loginWithGoogle(redirectPath)}
         disabled={isAuthenticating}
-        className="rounded-full bg-[var(--sentiment-neutral)] px-6 py-3 text-sm font-semibold uppercase tracking-wide text-white transition-opacity disabled:opacity-60"
+        className="rounded-full bg-[var(--status-neutral)] px-6 py-3 text-sm font-semibold uppercase tracking-wide text-white transition-opacity disabled:opacity-60"
       >
         {isAuthenticating ? authCopy.authenticatingLabel : authCopy.loginCta}
       </button>
 
       {lastError ? (
-        <p className="text-xs" style={{ color: 'var(--sentiment-negative)' }}>
+        <p className="text-xs" style={{ color: 'var(--status-negative)' }}>
           {lastError}
         </p>
       ) : null}

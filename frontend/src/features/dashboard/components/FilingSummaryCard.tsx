@@ -22,22 +22,22 @@ export function FilingSummaryCard({
 
   const sentimentColor =
     sentiment === 'positive'
-      ? tokens.sentiment.positive
+      ? tokens.status.positive
       : sentiment === 'negative'
-      ? tokens.sentiment.negative
-      : tokens.sentiment.neutral
+        ? tokens.status.negative
+        : tokens.status.neutral
 
   return (
     <article
       className="flex h-full flex-col gap-3 rounded-2xl border p-4"
       style={{
-        background: 'var(--colors-surfaceMuted)',
-        borderColor: 'var(--colors-border)',
+        background: 'var(--surfaces-muted)',
+        borderColor: 'var(--lines-subtle)',
         boxShadow: tokens.shadows.soft,
       }}
     >
       <header className="flex items-center justify-between gap-2">
-        <p className="text-xs font-semibold uppercase tracking-wide text-[var(--colors-foregroundMuted)]">
+        <p className="text-xs font-semibold uppercase tracking-wide text-[var(--text-secondary)]">
           {title}
         </p>
         {sentiment ? (
@@ -49,14 +49,14 @@ export function FilingSummaryCard({
           </span>
         ) : null}
       </header>
-      <p className="text-lg font-semibold leading-tight" style={{ color: 'var(--colors-foreground)' }}>
+      <p className="text-lg font-semibold leading-tight" style={{ color: 'var(--text-primary)' }}>
         {headline}
       </p>
       {supportingText ? (
-        <p className="text-sm leading-relaxed text-[var(--colors-foregroundMuted)]">{supportingText}</p>
+        <p className="text-sm leading-relaxed text-[var(--text-secondary)]">{supportingText}</p>
       ) : null}
       {footer ? (
-        <footer className="mt-auto text-xs text-[var(--colors-foregroundMuted)]">{footer}</footer>
+        <footer className="mt-auto text-xs text-[var(--text-secondary)]">{footer}</footer>
       ) : null}
     </article>
   )

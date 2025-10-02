@@ -34,7 +34,9 @@ class MockBroadcastChannel {
 
   close() {
     this.listeners.clear()
-    MockBroadcastChannel.channels = MockBroadcastChannel.channels.filter((channel) => channel !== this)
+    MockBroadcastChannel.channels = MockBroadcastChannel.channels.filter(
+      (channel) => channel !== this
+    )
   }
 
   static reset() {

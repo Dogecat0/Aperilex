@@ -2,10 +2,7 @@ import { fireEvent, screen, waitFor } from '@testing-library/react'
 import { describe, expect, it, beforeEach, afterEach, vi } from 'vitest'
 import { ApiClientError, apiClient } from '@/lib/apiClient'
 import { renderWithProviders } from '@/test/utils'
-import {
-  learningProgressResponses,
-  quizAttemptResponses,
-} from '@/../tests/fixtures/learning'
+import { learningProgressResponses, quizAttemptResponses } from '@/../tests/fixtures/learning'
 import { mockPaginatedAnalysesResponse, mockAnalysisDetail } from '@/test/fixtures/analyses'
 import { MemoryRouter } from 'react-router-dom'
 import { LearningHubPage } from './LearningHubPage'
@@ -62,9 +59,7 @@ describe('LearningHubPage', () => {
     )
 
     expect(await screen.findByText('60% complete')).toBeInTheDocument()
-    expect(
-      screen.getByText((content) => content.includes('Score 67%'))
-    ).toBeInTheDocument()
+    expect(screen.getByText((content) => content.includes('Score 67%'))).toBeInTheDocument()
     const summarySnippets = await screen.findAllByText(/Margin expansion stems/)
     expect(summarySnippets.length).toBeGreaterThan(0)
     const detailLink = screen.getByRole('link', {
@@ -116,10 +111,7 @@ describe('LearningHubPage', () => {
     expect(resumeButtons.length).toBeGreaterThan(0)
     for (const button of resumeButtons) {
       expect(button).toBeDisabled()
-      expect(button).toHaveAttribute(
-        'title',
-        expect.stringContaining('analysis')
-      )
+      expect(button).toHaveAttribute('title', expect.stringContaining('analysis'))
     }
   })
 

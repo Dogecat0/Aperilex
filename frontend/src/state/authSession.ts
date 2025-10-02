@@ -61,8 +61,10 @@ export async function parseAuthResponse(response: Response): Promise<AuthSession
   let payload: unknown
 
   try {
-    payload = contentType.includes('application/json') ? await response.json() : await response.text()
-  } catch (error) {
+    payload = contentType.includes('application/json')
+      ? await response.json()
+      : await response.text()
+  } catch {
     payload = null
   }
 

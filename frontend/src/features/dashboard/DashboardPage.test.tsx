@@ -37,11 +37,14 @@ describe('DashboardPage', () => {
     await user.click(filterButton)
 
     await waitFor(() => {
-      expect(apiClient.get).toHaveBeenLastCalledWith('/analyses', expect.objectContaining({
-        query: expect.objectContaining({
-          segment: 'flagged',
-        }),
-      }))
+      expect(apiClient.get).toHaveBeenLastCalledWith(
+        '/analyses',
+        expect.objectContaining({
+          query: expect.objectContaining({
+            segment: 'flagged',
+          }),
+        })
+      )
     })
   })
 })

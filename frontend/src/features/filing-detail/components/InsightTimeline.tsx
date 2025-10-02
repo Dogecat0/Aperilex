@@ -35,8 +35,8 @@ export function InsightTimeline({ events }: InsightTimelineProps) {
   if (events.length === 0) {
     return (
       <div
-        className="rounded-3xl border p-6 text-sm text-[var(--colors-foregroundMuted)]"
-        style={{ borderColor: 'var(--colors-border)', background: 'var(--colors-surfaceMuted)' }}
+        className="rounded-3xl border p-6 text-sm text-[var(--text-secondary)]"
+        style={{ borderColor: 'var(--lines-subtle)', background: 'var(--surfaces-muted)' }}
       >
         Timeline events will populate once insights include dated deltas or critical findings.
       </div>
@@ -47,30 +47,32 @@ export function InsightTimeline({ events }: InsightTimelineProps) {
     <ol className="relative flex flex-col gap-6 pl-6">
       <span
         className="absolute left-3 top-0 h-full w-px"
-        style={{ background: 'var(--colors-border)' }}
+        style={{ background: 'var(--lines-subtle)' }}
         aria-hidden
       />
       {events.map((event, index) => {
         const toneColor =
           event.tone === 'positive'
-            ? tokens.sentiment.positive
+            ? tokens.status.positive
             : event.tone === 'negative'
-            ? tokens.sentiment.negative
-            : tokens.sentiment.neutral
+              ? tokens.status.negative
+              : tokens.status.neutral
 
         return (
           <li key={event.id} className="relative flex flex-col gap-2">
             <span
               className="absolute -left-[14px] top-2 h-3 w-3 rounded-full border"
-              style={{ borderColor: toneColor, background: 'var(--colors-surface)' }}
+              style={{ borderColor: toneColor, background: 'var(--surfaces-raised)' }}
               aria-hidden
             />
-            <p className="text-xs font-semibold uppercase tracking-wide text-[var(--colors-foregroundMuted)]">
+            <p className="text-xs font-semibold uppercase tracking-wide text-[var(--text-secondary)]">
               {formatTimestamp(event.timestamp)} • {event.sectionName}
             </p>
-            <h3 className="text-sm font-semibold text-[var(--colors-foreground)]">{event.title}</h3>
-            <p className="text-sm leading-relaxed text-[var(--colors-foregroundMuted)]">{event.description}</p>
-            <p className="text-[10px] font-semibold uppercase tracking-wide text-[var(--colors-foregroundMuted)]">
+            <h3 className="text-sm font-semibold text-[var(--text-primary)]">{event.title}</h3>
+            <p className="text-sm leading-relaxed text-[var(--text-secondary)]">
+              {event.description}
+            </p>
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-[var(--text-secondary)]">
               Event {index + 1} of {events.length}
             </p>
           </li>

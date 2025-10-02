@@ -34,17 +34,17 @@ export function SectionSummaryPanel({
 
   const toneColor =
     tone === 'positive'
-      ? tokens.sentiment.positive
+      ? tokens.status.positive
       : tone === 'negative'
-      ? tokens.sentiment.negative
-      : tokens.sentiment.neutral
+        ? tokens.status.negative
+        : tokens.status.neutral
 
   return (
     <article
       className="flex flex-col gap-4 rounded-3xl border p-5"
       style={{
-        borderColor: 'var(--colors-border)',
-        background: 'var(--colors-surfaceMuted)',
+        borderColor: 'var(--lines-subtle)',
+        background: 'var(--surfaces-muted)',
         boxShadow: tokens.shadows.soft,
       }}
     >
@@ -57,18 +57,18 @@ export function SectionSummaryPanel({
             >
               {tone}
             </span>
-            <p className="text-sm font-semibold uppercase tracking-wide text-[var(--colors-foregroundMuted)]">
+            <p className="text-sm font-semibold uppercase tracking-wide text-[var(--text-secondary)]">
               {sectionName}
             </p>
           </div>
-          <p className="text-xs font-medium text-[var(--colors-foregroundMuted)]">
+          <p className="text-xs font-medium text-[var(--text-secondary)]">
             Sentiment: {formatSentiment(sentiment)}
           </p>
         </div>
         {summary ? (
-          <p className="text-sm leading-relaxed text-[var(--colors-foregroundMuted)]">{summary}</p>
+          <p className="text-sm leading-relaxed text-[var(--text-secondary)]">{summary}</p>
         ) : (
-          <p className="text-sm italic text-[var(--colors-foregroundMuted)]">
+          <p className="text-sm italic text-[var(--text-secondary)]">
             Summary not provided for this section.
           </p>
         )}
@@ -76,10 +76,10 @@ export function SectionSummaryPanel({
 
       {insights && insights.length > 0 ? (
         <section className="flex flex-col gap-2">
-          <h3 className="text-xs font-semibold uppercase tracking-wide text-[var(--colors-foregroundMuted)]">
+          <h3 className="text-xs font-semibold uppercase tracking-wide text-[var(--text-secondary)]">
             Key insights
           </h3>
-          <ul className="flex list-disc flex-col gap-2 pl-5 text-sm text-[var(--colors-foregroundMuted)]">
+          <ul className="flex list-disc flex-col gap-2 pl-5 text-sm text-[var(--text-secondary)]">
             {insights.map((item) => (
               <li key={item}>{item}</li>
             ))}
@@ -89,10 +89,10 @@ export function SectionSummaryPanel({
 
       {criticalFindings && criticalFindings.length > 0 ? (
         <section className="flex flex-col gap-2">
-          <h3 className="text-xs font-semibold uppercase tracking-wide text-[var(--colors-foregroundMuted)]">
+          <h3 className="text-xs font-semibold uppercase tracking-wide text-[var(--text-secondary)]">
             Critical findings
           </h3>
-          <ul className="flex list-disc flex-col gap-2 pl-5 text-sm text-[var(--colors-foregroundMuted)]">
+          <ul className="flex list-disc flex-col gap-2 pl-5 text-sm text-[var(--text-secondary)]">
             {criticalFindings.map((item) => (
               <li key={item}>{item}</li>
             ))}
@@ -104,7 +104,7 @@ export function SectionSummaryPanel({
         <button
           type="button"
           className="text-xs font-semibold uppercase tracking-wide"
-          style={{ color: tokens.trend.up }}
+          style={{ color: tokens.metrics.up }}
           onClick={() => onExplain?.(sectionName)}
         >
           Explain more
@@ -112,7 +112,7 @@ export function SectionSummaryPanel({
         <button
           type="button"
           className="text-xs font-semibold uppercase tracking-wide"
-          style={{ color: tokens.trend.stable }}
+          style={{ color: tokens.metrics.stable }}
           onClick={() => onJumpToRaw?.(sectionName)}
         >
           Jump to raw text

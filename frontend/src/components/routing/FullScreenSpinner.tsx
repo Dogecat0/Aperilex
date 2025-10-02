@@ -6,7 +6,7 @@ const containerStyles: CSSProperties = {
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
-  background: 'var(--colors-background)',
+  background: 'var(--surfaces-base)',
   padding: '1.5rem',
 }
 
@@ -17,13 +17,13 @@ export function FullScreenSpinner() {
         role="status"
         aria-live="polite"
         className="flex flex-col items-center gap-4"
-        style={{ color: 'var(--colors-foregroundMuted)' }}
+        style={{ color: 'var(--text-secondary)' }}
       >
         <span
           className="inline-flex h-12 w-12 animate-spin rounded-full border-4"
           style={{
             borderColor: 'rgba(148, 163, 184, 0.35)',
-            borderTopColor: 'var(--sentiment-neutral)',
+            borderTopColor: 'var(--status-neutral)',
           }}
         />
         <p className="text-sm font-medium">Checking your session…</p>

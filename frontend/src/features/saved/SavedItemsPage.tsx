@@ -51,7 +51,9 @@ export function SavedItemsPage() {
       } catch (error) {
         if (error instanceof ApiClientError && error.status_code === 404) {
           remove(analysis.analysisId)
-          setNotice('That saved analysis is no longer available and has been removed from your list.')
+          setNotice(
+            'That saved analysis is no longer available and has been removed from your list.'
+          )
         } else {
           setNotice('Unable to open the saved analysis right now. Please try again in a moment.')
         }
@@ -65,12 +67,13 @@ export function SavedItemsPage() {
   return (
     <div className="flex flex-col gap-6">
       <header className="flex flex-col gap-2">
-        <p className="text-sm font-medium text-[var(--colors-foregroundMuted)]">Saved Items</p>
-        <h1 className="text-2xl font-semibold" style={{ color: 'var(--colors-foreground)' }}>
+        <p className="text-sm font-medium text-[var(--text-secondary)]">Saved Items</p>
+        <h1 className="text-2xl font-semibold" style={{ color: 'var(--text-primary)' }}>
           Keep your research within reach
         </h1>
-        <p className="text-sm leading-relaxed text-[var(--colors-foregroundMuted)]">
-          Bookmarked filings, learning modules, and generated insights will collect here for easy review sessions.
+        <p className="text-sm leading-relaxed text-[var(--text-secondary)]">
+          Bookmarked filings, learning modules, and generated insights will collect here for easy
+          review sessions.
         </p>
       </header>
 
@@ -78,9 +81,9 @@ export function SavedItemsPage() {
         <div
           className="rounded-2xl border p-4 text-sm"
           style={{
-            borderColor: 'var(--colors-border)',
-            background: 'var(--colors-surfaceMuted)',
-            color: 'var(--colors-foreground)',
+            borderColor: 'var(--lines-subtle)',
+            background: 'var(--surfaces-muted)',
+            color: 'var(--text-primary)',
             boxShadow: tokens.shadows.soft,
           }}
         >
@@ -89,7 +92,7 @@ export function SavedItemsPage() {
       ) : null}
 
       <section className="flex flex-col gap-3">
-        <h2 className="text-sm font-semibold uppercase tracking-wide text-[var(--colors-foregroundMuted)]">
+        <h2 className="text-sm font-semibold uppercase tracking-wide text-[var(--text-secondary)]">
           Saved analyses
         </h2>
         {hasSavedAnalyses ? (
@@ -98,19 +101,21 @@ export function SavedItemsPage() {
               key={analysis.analysisId}
               className="flex flex-col gap-2 rounded-2xl border p-4"
               style={{
-                borderColor: 'var(--colors-border)',
-                background: 'var(--colors-surfaceMuted)',
+                borderColor: 'var(--lines-subtle)',
+                background: 'var(--surfaces-muted)',
                 boxShadow: tokens.shadows.soft,
               }}
             >
               <div className="flex flex-col gap-1">
-                <p className="text-base font-semibold" style={{ color: 'var(--colors-foreground)' }}>
+                <p className="text-base font-semibold" style={{ color: 'var(--text-primary)' }}>
                   {analysis.companyName ?? 'Unknown company'} • {analysis.filingType ?? 'Filing'}
                 </p>
-                <p className="text-xs text-[var(--colors-foregroundMuted)]">
+                <p className="text-xs text-[var(--text-secondary)]">
                   Saved {new Date(analysis.savedAt).toLocaleDateString('en-US')} •{' '}
                   {analysis.ticker ? `${analysis.ticker} • ` : ''}
-                  {analysis.filingDate ? new Date(analysis.filingDate).toLocaleDateString('en-US') : 'Date pending'}
+                  {analysis.filingDate
+                    ? new Date(analysis.filingDate).toLocaleDateString('en-US')
+                    : 'Date pending'}
                 </p>
               </div>
 
@@ -119,7 +124,7 @@ export function SavedItemsPage() {
                   type="button"
                   onClick={() => handleOpen(analysis)}
                   className="rounded-full border px-4 py-2"
-                  style={{ borderColor: 'var(--colors-border)', color: tokens.trend.up }}
+                  style={{ borderColor: 'var(--lines-subtle)', color: tokens.metrics.up }}
                   disabled={checkingId === analysis.analysisId}
                 >
                   {checkingId === analysis.analysisId ? 'Opening...' : 'Open'}
@@ -128,7 +133,7 @@ export function SavedItemsPage() {
                   type="button"
                   onClick={() => remove(analysis.analysisId)}
                   className="rounded-full border px-4 py-2"
-                  style={{ borderColor: 'var(--colors-border)', color: tokens.sentiment.negative }}
+                  style={{ borderColor: 'var(--lines-subtle)', color: tokens.status.negative }}
                 >
                   Remove
                 </button>
@@ -137,10 +142,10 @@ export function SavedItemsPage() {
           ))
         ) : (
           <div
-            className="rounded-2xl border p-4 text-sm text-[var(--colors-foregroundMuted)]"
+            className="rounded-2xl border p-4 text-sm text-[var(--text-secondary)]"
             style={{
-              borderColor: 'var(--colors-border)',
-              background: 'var(--colors-surfaceMuted)',
+              borderColor: 'var(--lines-subtle)',
+              background: 'var(--surfaces-muted)',
               boxShadow: tokens.shadows.soft,
             }}
           >
@@ -155,28 +160,28 @@ export function SavedItemsPage() {
             key={item.id}
             className="flex flex-col gap-2 rounded-2xl border p-4"
             style={{
-              borderColor: 'var(--colors-border)',
-              background: 'var(--colors-surfaceMuted)',
+              borderColor: 'var(--lines-subtle)',
+              background: 'var(--surfaces-muted)',
               boxShadow: tokens.shadows.soft,
             }}
           >
             <div className="flex items-center gap-2">
               <span
                 className="inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-wide"
-                style={{ background: tokens.sentiment.neutral, color: '#0f172a' }}
+                style={{ background: tokens.status.neutral, color: '#0f172a' }}
               >
                 {item.type}
               </span>
-              <p className="text-base font-semibold" style={{ color: 'var(--colors-foreground)' }}>
+              <p className="text-base font-semibold" style={{ color: 'var(--text-primary)' }}>
                 {item.title}
               </p>
             </div>
-            <p className="text-sm text-[var(--colors-foregroundMuted)]">{item.note}</p>
+            <p className="text-sm text-[var(--text-secondary)]">{item.note}</p>
             <div className="flex gap-2 text-xs font-semibold uppercase tracking-wide">
-              <button type="button" style={{ color: tokens.trend.up }}>
+              <button type="button" style={{ color: tokens.metrics.up }}>
                 Open
               </button>
-              <button type="button" style={{ color: tokens.sentiment.negative }}>
+              <button type="button" style={{ color: tokens.status.negative }}>
                 Remove
               </button>
             </div>

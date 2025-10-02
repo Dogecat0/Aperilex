@@ -75,7 +75,7 @@ function createClientId(): string {
   if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
     try {
       return crypto.randomUUID()
-    } catch (error) {
+    } catch {
       // Safari private mode can throw; fall back to Math.random variant.
     }
   }
@@ -119,81 +119,81 @@ export function useAuth() {
 
   const clientId = clientIdRef.current
 
-  const scheduleRefresh = useCallback(
-    (expiresAt: number | null, onRefresh: () => void) => {
-      if (typeof window === 'undefined') {
-        return
-      }
+  const scheduleRefresh = useCallback((expiresAt: number | null, onRefresh: () => void) => {
+    if (typeof window === 'undefined') {
+      return
+    }
 
-      if (refreshTimeoutRef.current !== null) {
-        window.clearTimeout(refreshTimeoutRef.current)
-        refreshTimeoutRef.current = null
-      }
+    if (refreshTimeoutRef.current !== null) {
+      window.clearTimeout(refreshTimeoutRef.current)
+      refreshTimeoutRef.current = null
+    }
 
-      if (!expiresAt) {
-        return
-      }
+    if (!expiresAt) {
+      return
+    }
 
-      const now = Date.now()
-      const refreshIn = Math.max(expiresAt - now - REFRESH_LEEWAY_MS, MIN_REFRESH_DELAY_MS)
+    const now = Date.now()
+    const refreshIn = Math.max(expiresAt - now - REFRESH_LEEWAY_MS, MIN_REFRESH_DELAY_MS)
 
-      if (refreshIn <= 0) {
-        if (typeof queueMicrotask === 'function') {
-          queueMicrotask(onRefresh)
-        } else {
-          onRefresh()
-        }
-        return
-      }
-
-      refreshTimeoutRef.current = window.setTimeout(() => {
-        refreshTimeoutRef.current = null
+    if (refreshIn <= 0) {
+      if (typeof queueMicrotask === 'function') {
+        queueMicrotask(onRefresh)
+      } else {
         onRefresh()
-      }, refreshIn)
-    },
-    []
-  )
-
-  const refreshSession = useCallback(async (options: RefreshOptions = {}) => {
-    if (refreshInFlight.current) {
-      return refreshInFlight.current
-    }
-
-    const shouldBroadcast = options.broadcast ?? true
-
-    const task = (async () => {
-      try {
-        const payload = await requestAuthRefresh()
-        const { accessTokenExpiresAt: expiresAt } = applyAuthSession(payload)
-        setError(null)
-        scheduleRefresh(expiresAt, () => {
-          void refreshSession().catch(() => undefined)
-        })
-        if (shouldBroadcast) {
-          channelRef.current?.postMessage({ type: 'session-updated', source: clientId })
-        }
-      } catch (error) {
-        const authError = error as AuthApiError
-        if (authError.status === 401) {
-          setError(null)
-        } else {
-          setError(authError.message)
-        }
-        clearSession()
-        if (shouldBroadcast) {
-          channelRef.current?.postMessage({ type: 'logout', source: clientId })
-        }
-        throw error
       }
-    })()
-
-    refreshInFlight.current = task
-    try {
-      await task
-    } finally {
-      refreshInFlight.current = null
+      return
     }
-  }, [clientId, clearSession, scheduleRefresh, setError])
+
+    refreshTimeoutRef.current = window.setTimeout(() => {
+      refreshTimeoutRef.current = null
+      onRefresh()
+    }, refreshIn)
+  }, [])
+
+  const refreshSession = useCallback(
+    async (options: RefreshOptions = {}) => {
+      if (refreshInFlight.current) {
+        return refreshInFlight.current
+      }
+
+      const shouldBroadcast = options.broadcast ?? true
+
+      const task = (async () => {
+        try {
+          const payload = await requestAuthRefresh()
+          const { accessTokenExpiresAt: expiresAt } = applyAuthSession(payload)
+          setError(null)
+          scheduleRefresh(expiresAt, () => {
+            void refreshSession().catch(() => undefined)
+          })
+          if (shouldBroadcast) {
+            channelRef.current?.postMessage({ type: 'session-updated', source: clientId })
+          }
+        } catch (error) {
+          const authError = error as AuthApiError
+          if (authError.status === 401) {
+            setError(null)
+          } else {
+            setError(authError.message)
+          }
+          clearSession()
+          if (shouldBroadcast) {
+            channelRef.current?.postMessage({ type: 'logout', source: clientId })
+          }
+          throw error
+        }
+      })()
+
+      refreshInFlight.current = task
+      try {
+        await task
+      } finally {
+        refreshInFlight.current = null
+      }
+    },
+    [clientId, clearSession, scheduleRefresh, setError]
+  )
 
   const completeCallback = useCallback(
     (payload: GoogleCallbackPayload): Promise<CompleteCallbackResult> => {
@@ -256,17 +256,14 @@ export function useAuth() {
     [clientId, clearSession, refreshSession, scheduleRefresh, setAuthenticating, setError]
   )
 
-  const loginWithGoogle = useCallback(
-    (redirectTo?: string) => {
-      if (typeof window === 'undefined') {
-        return
-      }
+  const loginWithGoogle = useCallback((redirectTo?: string) => {
+    if (typeof window === 'undefined') {
+      return
+    }
 
-      const search = redirectTo ? `?redirectTo=${encodeURIComponent(redirectTo)}` : ''
-      window.location.assign(`/api/auth/google/login${search}`)
-    },
-    []
-  )
+    const search = redirectTo ? `?redirectTo=${encodeURIComponent(redirectTo)}` : ''
+    window.location.assign(`/api/auth/google/login${search}`)
+  }, [])
 
   const logout = useCallback(async () => {
     setError(null)

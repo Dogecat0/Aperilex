@@ -7,6 +7,8 @@ interface RecentAnalysesListProps {
   isLoading?: boolean
 }
 
+const RECENT_ANALYSIS_SKELETON_KEYS = ['recent-a', 'recent-b', 'recent-c', 'recent-d'] as const
+
 export function RecentAnalysesList({ items, isLoading }: RecentAnalysesListProps) {
   const { isSaved, toggle } = useSavedAnalyses()
 
@@ -16,32 +18,33 @@ export function RecentAnalysesList({ items, isLoading }: RecentAnalysesListProps
     <section
       className="flex flex-col gap-4 rounded-3xl border p-6"
       style={{
-        borderColor: 'var(--colors-border)',
-        background: 'var(--colors-surface)',
+        borderColor: 'var(--lines-subtle)',
+        background: 'var(--surfaces-raised)',
         boxShadow: 'var(--shadows-soft)',
       }}
     >
       <header className="flex flex-col gap-2">
-        <h2 className="text-lg font-semibold text-[var(--colors-foreground)]">Recent analyses</h2>
-        <p className="text-sm text-[var(--colors-foregroundMuted)]">
+        <h2 className="text-lg font-semibold text-[var(--text-primary)]">Recent analyses</h2>
+        <p className="text-sm text-[var(--text-secondary)]">
           A quick list of the latest runs so you can dive deeper or save for later.
         </p>
       </header>
 
       {showSkeleton ? (
         <ul className="space-y-3">
-          {Array.from({ length: 4 }).map((_, index) => (
-            // eslint-disable-next-line react/no-array-index-key
-            <li key={index} className="animate-pulse rounded-2xl border p-4"
-              style={{ borderColor: 'var(--colors-border)', background: 'var(--colors-surfaceMuted)' }}
+          {RECENT_ANALYSIS_SKELETON_KEYS.map((placeholderKey) => (
+            <li
+              key={placeholderKey}
+              className="animate-pulse rounded-2xl border p-4"
+              style={{ borderColor: 'var(--lines-subtle)', background: 'var(--surfaces-muted)' }}
             >
-              <div className="h-4 w-1/2 rounded bg-[var(--colors-border)]" />
-              <div className="mt-2 h-3 w-1/3 rounded bg-[var(--colors-border)]" />
+              <div className="h-4 w-1/2 rounded bg-[var(--lines-subtle)]" />
+              <div className="mt-2 h-3 w-1/3 rounded bg-[var(--lines-subtle)]" />
             </li>
           ))}
         </ul>
       ) : items.length === 0 ? (
-        <p className="text-sm text-[var(--colors-foregroundMuted)]">
+        <p className="text-sm text-[var(--text-secondary)]">
           Run an analysis or adjust your filters to populate this list.
         </p>
       ) : (
@@ -52,17 +55,17 @@ export function RecentAnalysesList({ items, isLoading }: RecentAnalysesListProps
               <li
                 key={item.analysisId}
                 className="flex flex-col gap-3 rounded-2xl border p-4 md:flex-row md:items-center md:justify-between"
-                style={{ borderColor: 'var(--colors-border)', background: 'var(--colors-surfaceMuted)' }}
+                style={{ borderColor: 'var(--lines-subtle)', background: 'var(--surfaces-muted)' }}
               >
                 <div className="space-y-1">
-                  <p className="text-sm font-semibold text-[var(--colors-foreground)]">
+                  <p className="text-sm font-semibold text-[var(--text-primary)]">
                     {item.companyName}
                     {item.ticker ? ` • ${item.ticker}` : ''}
                   </p>
-                  <p className="text-xs text-[var(--colors-foregroundMuted)]">
+                  <p className="text-xs text-[var(--text-secondary)]">
                     {item.filingType ?? 'Filing'} • {item.analyzedAt}
                   </p>
-                  <p className="text-xs font-semibold text-[var(--colors-foregroundMuted)]">
+                  <p className="text-xs font-semibold text-[var(--text-secondary)]">
                     {item.confidenceLabel}
                     {typeof item.criticalFindings === 'number'
                       ? ` • ${item.criticalFindings} critical findings`
@@ -77,7 +80,7 @@ export function RecentAnalysesList({ items, isLoading }: RecentAnalysesListProps
                   <Link
                     to={`/filing/${item.analysisId}`}
                     className="rounded-full border px-4 py-2"
-                    style={{ borderColor: 'var(--colors-border)', color: 'var(--colors-foreground)' }}
+                    style={{ borderColor: 'var(--lines-subtle)', color: 'var(--text-primary)' }}
                   >
                     View analysis
                   </Link>
@@ -95,8 +98,8 @@ export function RecentAnalysesList({ items, isLoading }: RecentAnalysesListProps
                     }
                     className="rounded-full border px-4 py-2"
                     style={{
-                      borderColor: saved ? 'var(--sentiment-positive)' : 'var(--colors-border)',
-                      color: saved ? 'var(--sentiment-positive)' : 'var(--colors-foreground)',
+                      borderColor: saved ? 'var(--status-positive)' : 'var(--lines-subtle)',
+                      color: saved ? 'var(--status-positive)' : 'var(--text-primary)',
                     }}
                   >
                     {saved ? 'Saved' : 'Save'}

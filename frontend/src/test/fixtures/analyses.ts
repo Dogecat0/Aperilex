@@ -184,7 +184,8 @@ export const mockAnalysisDetail: AnalysisResponse = {
                 current_value: 4,
                 previous_value: 3,
                 delta: 1,
-                interpretation: 'Regulatory inquiries increased as global policy scrutiny persists.',
+                interpretation:
+                  'Regulatory inquiries increased as global policy scrutiny persists.',
               },
             },
           ],
@@ -206,7 +207,8 @@ export const mockAnalysisDetail: AnalysisResponse = {
                 previous_value: 29.4,
                 delta_percentage: -4.4,
                 unit: 'B',
-                interpretation: 'Free cash flow softened as capex increased ahead of product refresh.',
+                interpretation:
+                  'Free cash flow softened as capex increased ahead of product refresh.',
               },
             },
             {

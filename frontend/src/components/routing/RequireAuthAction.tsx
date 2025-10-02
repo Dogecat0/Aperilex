@@ -17,10 +17,7 @@ interface RequireAuthActionProps {
   }) => ReactNode
 }
 
-function buildRedirectPath(
-  explicit: string | undefined,
-  locationPath: string
-): string | undefined {
+function buildRedirectPath(explicit: string | undefined, locationPath: string): string | undefined {
   const target = explicit ?? locationPath
   const trimmed = target?.trim()
   return trimmed && trimmed.length > 0 ? trimmed : undefined
@@ -81,14 +78,14 @@ export function RequireAuthAction({
   )
 
   return (
-    <>{
-      children({
+    <>
+      {children({
         onAction: handleAction,
         disabled: computedDisabled || isAuthenticating,
         isAuthenticated,
         isAuthenticating,
-      })
-    }</>
+      })}
+    </>
   )
 }
 

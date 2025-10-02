@@ -115,5 +115,4 @@ describe('App routing', () => {
     await user.click(await screen.findByRole('link', { name: 'Saved' }))
     await screen.findByText('Keep your research within reach')
   })
-
 })

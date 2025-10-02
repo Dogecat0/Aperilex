@@ -2,34 +2,14 @@ import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import type * as ThemeTokensModule from '@/styles/tokens'
 import { GlobalNav } from './GlobalNav'
 import { useAppStore } from '@/lib/store'
 
-vi.mock('@/components/ThemeProvider', () => {
-  const tokens = {
-    name: 'light' as const,
-    sentiment: { positive: '#22c55e', neutral: '#6366f1', negative: '#ef4444' },
-    colors: {
-      background: '#fff',
-      surface: '#fff',
-      surfaceMuted: '#f4f4f4',
-      foreground: '#111827',
-      foregroundMuted: '#6b7280',
-      border: '#d1d5db',
-    },
-    trend: { up: '', down: '', stable: '' },
-    spacing: { xs: '', sm: '', md: '', lg: '', xl: '' },
-    typography: {
-      fontFamily: 'Inter',
-      headingWeight: 600,
-      bodyWeight: 400,
-      monoFontFamily: 'Inter',
-    },
-    shadows: { soft: 'none', medium: 'none' },
-  }
-
+vi.mock('@/components/ThemeProvider', async () => {
+  const tokensModule = await vi.importActual<ThemeTokensModule>('@/styles/tokens')
   return {
-    useThemeTokens: () => tokens,
+    useThemeTokens: () => tokensModule.lightTokens,
   }
 })
 
