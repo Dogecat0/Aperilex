@@ -19,11 +19,56 @@ from dataclasses import dataclass
 from datetime import date, datetime
 from pathlib import Path
 from typing import Any
+from urllib.parse import quote_plus
 from uuid import NAMESPACE_DNS, uuid4, uuid5
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
+
+
+def ensure_database_url() -> None:
+    """Ensure DATABASE_URL is available for settings configuration."""
+
+    if os.environ.get("DATABASE_URL"):
+        return
+
+    host = os.environ.get("APERILEX_DATABASE__POSTGRES__HOST", "postgres")
+    port = os.environ.get("APERILEX_DATABASE__POSTGRES__PORT", "5432")
+    database = os.environ.get("APERILEX_DATABASE__POSTGRES__DATABASE", "aperilex")
+    username = os.environ.get("APERILEX_DATABASE__POSTGRES__USERNAME", "aperilex")
+
+    password = os.environ.get("POSTGRES_PASSWORD")
+    if not password:
+        password_file = os.environ.get("POSTGRES_PASSWORD_FILE")
+        if password_file and Path(password_file).exists():
+            password = Path(password_file).read_text(encoding="utf-8").strip()
+
+    if not password:
+        secrets_dir = os.environ.get("DOCKER_SECRETS_DIR")
+        secret_name = os.environ.get(
+            "POSTGRES_PASSWORD_SECRET_NAME", "postgres_password"
+        )
+        if secrets_dir:
+            secret_path = Path(secrets_dir) / secret_name
+            if secret_path.exists():
+                password = secret_path.read_text(encoding="utf-8").strip()
+
+    if not password:
+        raise RuntimeError(
+            "DATABASE_URL is not set and the Postgres password could not be resolved. "
+            "Set DATABASE_URL explicitly or ensure Postgres credentials are available."
+        )
+
+    scheme = os.environ.get("DATABASE_SCHEME", "postgresql+asyncpg")
+    os.environ["DATABASE_URL"] = (
+        f"{scheme}://{quote_plus(username)}:{quote_plus(password)}"
+        f"@{host}:{port}/{database}"
+    )
+    logging.debug("DATABASE_URL synthesized from Aperilex configuration values.")
+
+
+ensure_database_url()
 
 from src.application.interfaces.repositories import (  # noqa: E402
     CompanyData,
