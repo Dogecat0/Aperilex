@@ -42,7 +42,7 @@ export function FeatureHero({ overline, title, description, actions, children }:
             {overline}
           </p>
           <h1
-            className="text-3xl font-semibold"
+            className="text-4xl font-semibold"
             style={{
               fontFamily: 'var(--typography-serif)',
               lineHeight: 'var(--typography-line-heights-relaxed)',

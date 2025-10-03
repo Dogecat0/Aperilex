@@ -48,7 +48,7 @@ export function SectionIntro({
           </p>
         ) : null}
         <HeadingTag
-          className={['text-lg font-semibold text-[var(--text-primary)]', titleClassName]
+          className={['text-2xl font-semibold text-[var(--text-primary)]', titleClassName]
             .filter(Boolean)
             .join(' ')}
           style={titleStyle}
