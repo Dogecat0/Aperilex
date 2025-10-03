@@ -1,4 +1,5 @@
 import { RequireAuthAction } from '@/components/routing/RequireAuthAction'
+import { Button } from '@/components/ui/Button'
 import type { FilingResponse, FilingSearchResult } from '@/lib/types/filing'
 import type { TaskResponse } from '@/lib/types/task'
 
@@ -181,15 +182,17 @@ export function FilingDetailPanel({
           busy={Boolean(isAnalyzing)}
         >
           {({ onAction, disabled }) => (
-            <button
+            <Button
               type="button"
+              size="sm"
+              variant="primary"
               onClick={onAction}
-              className="inline-flex h-11 w-full items-center justify-center rounded-full text-sm font-semibold uppercase tracking-wide text-white transition-opacity"
-              style={{ background: 'var(--status-positive)' }}
               disabled={disabled}
+              className="w-full"
+              style={disabled ? { boxShadow: 'none' } : undefined}
             >
               {isAnalyzing ? 'Analyzing…' : 'Analyze this filing'}
-            </button>
+            </Button>
           )}
         </RequireAuthAction>
 

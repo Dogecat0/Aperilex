@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { SectionIntro } from '@/components/ui/SectionIntro'
 import type { PaginationMetadata } from '@/lib/types/analysis'
 import type { AnalysisLibraryGroup, UseAnalysisLibraryReturn } from '@/lib/hooks'
 import type {
@@ -285,71 +286,61 @@ export function AnalysisLibrarySection({
       className="flex flex-col gap-6 rounded-3xl border p-6"
       style={{
         borderColor: 'var(--lines-subtle)',
-        background: 'var(--surfaces-muted)',
+        background: 'var(--surfaces-raised)',
         boxShadow: 'var(--shadows-soft)',
       }}
     >
-      <header className="flex flex-col gap-4">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            {/* <p className="text-sm font-semibold uppercase tracking-wide text-[var(--text-secondary)]">
-              Analysis Library
-            </p> */}
-            <h2 className="text-lg font-semibold text-[var(--text-primary)]">
-              Browse every completed filing analysis
-            </h2>
-          </div>
-          {isFetching && !loadingState ? (
+      <SectionIntro
+        title="Browse every completed filing analysis"
+        description="Jump into prior runs, compare templates, and keep your favourites pinned for future study sessions."
+        actions={
+          isFetching && !loadingState ? (
             <span className="text-xs font-semibold uppercase tracking-wide text-[var(--text-secondary)]">
               Updating…
             </span>
-          ) : null}
-        </div>
-        <p className="text-sm leading-relaxed text-[var(--text-muted)]">
-          Jump into prior runs, compare templates, and keep your favourites pinned for future study
-          sessions.
-        </p>
+          ) : null
+        }
+      />
 
-        <div
-          className="flex flex-col gap-3 rounded-2xl border p-4"
-          style={{ borderColor: 'var(--lines-subtle)', background: 'var(--surfaces-raised)' }}
-        >
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="text-xs font-semibold uppercase tracking-wide text-[var(--text-secondary)]">
-              Filing type
-            </span>
-            {filingTypeOptions.map((option) => renderOptionButton('filingType', option))}
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="text-xs font-semibold uppercase tracking-wide text-[var(--text-secondary)]">
-              Date range
-            </span>
-            {dateRangeOptions.map((option) => renderOptionButton('dateRange', option))}
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="text-xs font-semibold uppercase tracking-wide text-[var(--text-secondary)]">
-              Segment focus
-            </span>
-            {segmentOptions.map((option) => renderOptionButton('segment', option))}
-          </div>
-
-          <div className="flex justify-end">
-            <button
-              type="button"
-              onClick={onResetFilters}
-              className={`${controlBaseClass} hover:bg-[var(--surfaces-muted)]`}
-              style={{
-                borderColor: 'var(--lines-subtle)',
-                color: 'var(--text-secondary)',
-                outlineColor: 'var(--focus-ring)',
-              }}
-              disabled={filterDisabled}
-            >
-              Reset filters
-            </button>
-          </div>
+      <div
+        className="flex flex-col gap-3 rounded-2xl border p-4"
+        style={{ borderColor: 'var(--lines-subtle)', background: 'var(--surfaces-raised)' }}
+      >
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-xs font-semibold uppercase tracking-wide text-[var(--text-secondary)]">
+            Filing type
+          </span>
+          {filingTypeOptions.map((option) => renderOptionButton('filingType', option))}
         </div>
-      </header>
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-xs font-semibold uppercase tracking-wide text-[var(--text-secondary)]">
+            Date range
+          </span>
+          {dateRangeOptions.map((option) => renderOptionButton('dateRange', option))}
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-xs font-semibold uppercase tracking-wide text-[var(--text-secondary)]">
+            Segment focus
+          </span>
+          {segmentOptions.map((option) => renderOptionButton('segment', option))}
+        </div>
+
+        <div className="flex justify-end">
+          <button
+            type="button"
+            onClick={onResetFilters}
+            className={`${controlBaseClass} hover:bg-[var(--surfaces-muted)]`}
+            style={{
+              borderColor: 'var(--lines-subtle)',
+              color: 'var(--text-secondary)',
+              outlineColor: 'var(--focus-ring)',
+            }}
+            disabled={filterDisabled}
+          >
+            Reset filters
+          </button>
+        </div>
+      </div>
 
       {errorMessage ? (
         <div

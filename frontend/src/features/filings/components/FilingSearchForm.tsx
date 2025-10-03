@@ -1,4 +1,5 @@
 import type { FormEvent } from 'react'
+import { Button } from '@/components/ui/Button'
 
 export interface FilingSearchFormValues {
   ticker: string
@@ -29,7 +30,7 @@ export function FilingSearchForm({
     <form
       onSubmit={handleSubmit}
       className="grid gap-4 rounded-2xl border p-4 md:grid-cols-[2fr_repeat(3,_1fr)_auto]"
-      style={{ borderColor: 'var(--lines-subtle)', background: 'var(--surfaces-muted)' }}
+      style={{ borderColor: 'var(--lines-subtle)', background: 'var(--surfaces-raised)' }}
     >
       <label className="flex flex-col gap-2 text-xs font-medium uppercase tracking-wide text-[var(--text-secondary)]">
         Ticker
@@ -78,14 +79,16 @@ export function FilingSearchForm({
       </label>
 
       <div className="flex items-end justify-end">
-        <button
+        <Button
           type="submit"
-          className="inline-flex h-10 items-center justify-center rounded-full px-4 text-xs font-semibold uppercase tracking-wide text-white"
-          style={{ background: 'var(--status-positive)' }}
+          size="sm"
+          variant="primary"
           disabled={isSubmitting}
+          className="w-full md:w-auto"
+          style={isSubmitting ? { boxShadow: 'none' } : undefined}
         >
           {isSubmitting ? 'Searching…' : 'Search filings'}
-        </button>
+        </Button>
       </div>
     </form>
   )

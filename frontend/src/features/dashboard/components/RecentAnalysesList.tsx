@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom'
+import { SectionIntro } from '@/components/ui/SectionIntro'
 import type { RecentAnalysisListItem, RecentCompanyItem } from '../DashboardPage'
 import { useSavedAnalyses } from '@/lib/hooks'
 
@@ -28,12 +29,10 @@ export function RecentAnalysesList({ items, recentCompanies, isLoading }: Recent
         boxShadow: 'var(--shadows-soft)',
       }}
     >
-      <header className="flex flex-col gap-2">
-        <h2 className="text-lg font-semibold text-[var(--text-primary)]">Recent analyses</h2>
-        <p className="text-sm text-[var(--text-muted)]">
-          A quick list of the latest runs so you can dive deeper or save for later.
-        </p>
-      </header>
+      <SectionIntro
+        title="Recent analyses"
+        description="A quick list of the latest runs so you can dive deeper or save for later."
+      />
 
       <div className="flex flex-col gap-2">
         <p

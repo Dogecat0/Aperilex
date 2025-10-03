@@ -108,7 +108,7 @@ export function SavedItemsPage() {
           className="rounded-2xl border p-4 text-sm"
           style={{
             borderColor: 'var(--lines-subtle)',
-            background: 'var(--surfaces-muted)',
+            background: 'var(--surfaces-raised)',
             color: 'var(--text-primary)',
             boxShadow: tokens.shadows.soft,
           }}
@@ -128,7 +128,7 @@ export function SavedItemsPage() {
               className="flex flex-col gap-2 rounded-2xl border p-4"
               style={{
                 borderColor: 'var(--lines-subtle)',
-                background: 'var(--surfaces-muted)',
+                background: 'var(--surfaces-raised)',
                 boxShadow: tokens.shadows.soft,
               }}
             >
@@ -149,7 +149,7 @@ export function SavedItemsPage() {
                 <Button
                   type="button"
                   size="sm"
-                  variant="primary"
+                  variant="secondary"
                   onClick={() => handleOpen(analysis)}
                   disabled={checkingId === analysis.analysisId}
                   className="tracking-[0.18em]"

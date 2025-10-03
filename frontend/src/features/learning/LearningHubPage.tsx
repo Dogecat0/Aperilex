@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { FeatureHero } from '@/components/layout/FeatureHero'
 import { FeatureHeroStat } from '@/components/layout/FeatureHeroStat'
 import { Button } from '@/components/ui/Button'
+import { SectionIntro } from '@/components/ui/SectionIntro'
 import { useThemeTokens } from '@/components/ThemeProvider'
 import { useLearningModules, useLearningProgress, useQuizAttempts } from '@/lib/hooks'
 
@@ -535,25 +536,12 @@ export function LearningHubPage() {
           boxShadow: tokens.shadows.soft,
         }}
       >
-        <h2
-          className="text-base font-semibold"
-          style={{
-            color: 'var(--text-primary)',
-            letterSpacing: tokens.typography.letterSpacing.tight,
-          }}
-        >
-          Learning streak
-        </h2>
-        <p
-          className="mt-1 text-sm"
-          style={{
-            color: 'var(--text-secondary)',
-            lineHeight: 'var(--typography-line-heights-standard)',
-          }}
-        >
-          Track your recent practice cadence across modules. Highlighted days reflect logged
-          interactions from your authenticated session.
-        </p>
+        <SectionIntro
+          title="Learning streak"
+          description="Track your recent practice cadence across modules. Highlighted days reflect logged interactions from your authenticated session."
+          titleStyle={{ letterSpacing: tokens.typography.letterSpacing.tight }}
+          descriptionClassName="text-[var(--text-secondary)] leading-[var(--typography-line-heights-standard)]"
+        />
         <div className="mt-4 grid grid-cols-7 gap-2">
           {Array.from({ length: 7 }).map((_, index) => {
             const isActive = index < streakHighlight
@@ -583,34 +571,19 @@ export function LearningHubPage() {
           boxShadow: tokens.shadows.soft,
         }}
       >
-        <div className="flex flex-col gap-1 md:flex-row md:items-center md:justify-between">
-          <div>
-            <h2
-              className="text-base font-semibold"
-              style={{
-                color: 'var(--text-primary)',
-                letterSpacing: tokens.typography.letterSpacing.tight,
-              }}
-            >
-              Recent quiz attempts
-            </h2>
-            <p
-              className="text-sm"
-              style={{
-                color: 'var(--text-secondary)',
-                lineHeight: 'var(--typography-line-heights-standard)',
-              }}
-            >
-              Drill quick knowledge checks and keep a rolling log of accuracy without relying on
-              local storage.
-            </p>
-          </div>
-          {stats.averageScore !== null && (
-            <div className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
-              Average score: {stats.averageScore.toFixed(1)}% · Passed {stats.passedCount} attempts
-            </div>
-          )}
-        </div>
+        <SectionIntro
+          title="Recent quiz attempts"
+          description="Drill quick knowledge checks and keep a rolling log of accuracy without relying on local storage."
+          titleStyle={{ letterSpacing: tokens.typography.letterSpacing.tight }}
+          descriptionClassName="text-[var(--text-secondary)] leading-[var(--typography-line-heights-standard)]"
+          actions={
+            stats.averageScore !== null ? (
+              <div className="text-sm font-semibold text-[var(--text-primary)] md:text-right">
+                Average score: {stats.averageScore.toFixed(1)}% · Passed {stats.passedCount} attempts
+              </div>
+            ) : null
+          }
+        />
 
         {attemptsLoading && attempts.length === 0 ? (
           <p
