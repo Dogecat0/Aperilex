@@ -367,7 +367,19 @@ class AuroraDatabaseProvider(IDatabaseProvider):
             try:
                 pool = await self._ensure_pool()
                 async with pool.acquire() as conn:
-                    summary_payload = self._compose_summary_from_result_data(result)
+                    summary_payload_raw = result.summary_payload
+                    if summary_payload_raw is None:
+                        raise ValueError(
+                            "AnalysisResultData.summary_payload is required when saving analyses"
+                        )
+                    if hasattr(summary_payload_raw, "model_dump"):
+                        summary_payload = summary_payload_raw.model_dump()
+                    elif isinstance(summary_payload_raw, dict):
+                        summary_payload = dict(summary_payload_raw)
+                    else:
+                        raise TypeError(
+                            "summary_payload must be a mapping or support model_dump()"
+                        )
                     metadata_updates = self._compose_analysis_metadata(
                         result,
                         status,
@@ -549,75 +561,6 @@ class AuroraDatabaseProvider(IDatabaseProvider):
         )
 
     @staticmethod
-    def _compose_summary_from_result_data(result: AnalysisResultData) -> dict[str, Any]:
-        metadata = dict(result.metadata)
-        metrics = dict(result.metrics)
-
-        confidence_score = AuroraDatabaseProvider._coerce_float(
-            metrics.get("confidence_score")
-        )
-        sentiment_average = AuroraDatabaseProvider._coerce_float(
-            metrics.get("sentiment_average") or metrics.get("sentiment_score")
-        )
-
-        processing_ms = metrics.get("processing_time_ms")
-        if not isinstance(processing_ms, int | float):
-            processing_ms = metrics.get("duration_ms")
-        duration_seconds = (
-            float(processing_ms) / 1000.0
-            if isinstance(processing_ms, int | float)
-            else None
-        )
-
-        completed_at = metadata.get("analysis_completed_at")
-        if not isinstance(completed_at, str):
-            completed_at = datetime.now(UTC).isoformat()
-
-        insight_count = len(result.insights) if result.insights else None
-        opportunities_count = AuroraDatabaseProvider._coerce_int(
-            metrics.get("opportunities")
-        )
-        critical_findings = AuroraDatabaseProvider._coerce_int(
-            metrics.get("critical_findings")
-        )
-        sections_analyzed = AuroraDatabaseProvider._coerce_int(
-            metrics.get("total_sections")
-        )
-
-        return {
-            "company": {
-                "name": metadata.get("company_name"),
-                "cik": metadata.get("company_cik"),
-                "ticker": metadata.get("ticker"),
-            },
-            "filing": {
-                "type": metadata.get("filing_type"),
-                "date": metadata.get("filing_date"),
-                "analysis_template": metadata.get("analysis_template"),
-            },
-            "confidence": {
-                "score": confidence_score,
-                "bucket": AuroraDatabaseProvider._confidence_bucket(confidence_score),
-            },
-            "sentiment": {
-                "average": sentiment_average,
-                "sections": [],
-            },
-            "insight_counts": {
-                "key_insights": insight_count,
-                "opportunities": opportunities_count,
-                "critical_findings": critical_findings,
-                "sections_analyzed": sections_analyzed,
-            },
-            "processing": {
-                "duration_seconds": duration_seconds,
-                "completed_at": completed_at,
-            },
-            "narrative": result.summary,
-            "insights": list(result.insights),
-        }
-
-    @staticmethod
     def _compose_analysis_metadata(
         result: AnalysisResultData,
         status: AnalysisStatus,
@@ -640,7 +583,7 @@ class AuroraDatabaseProvider(IDatabaseProvider):
         metadata.update(
             {
                 "analysis_schema_version": result.schema_version,
-                "summary_schema_version": 2,
+                "summary_schema_version": 3,
                 "analysis_status": status.value,
                 "analysis_completed_at": completed_at,
             }

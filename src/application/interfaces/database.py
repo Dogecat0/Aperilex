@@ -3,7 +3,7 @@ Database provider interface for abstracted database operations.
 """
 
 from abc import abstractmethod
-from typing import Protocol, TypeVar, runtime_checkable
+from typing import Any, Protocol, TypeVar, runtime_checkable
 
 from pydantic import BaseModel, Field
 
@@ -24,7 +24,7 @@ class AnalysisResultData(BaseModel):
     """Analysis result data structure."""
 
     schema_version: int = Field(
-        default=1,
+        default=2,
         ge=1,
         description="Schema version for analysis result data models",
     )
@@ -33,6 +33,10 @@ class AnalysisResultData(BaseModel):
     insights: list[str] = []
     metrics: dict[str, float] = {}
     metadata: MetadataDict = {}
+    summary_payload: dict[str, Any] | None = Field(
+        default=None,
+        description="Curated summary payload persisted alongside the analysis.",
+    )
 
 
 class TransactionContext(BaseModel):

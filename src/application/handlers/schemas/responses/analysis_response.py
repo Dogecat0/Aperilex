@@ -382,9 +382,12 @@ class AnalysisResponse(SchemaVersionedModel):
         full_results: dict[str, Any] | None = None,
     ) -> AnalysisResponse:
         """Construct an `AnalysisResponse` from repository data."""
-        summary = AnalysisSummary.from_payload(
-            summary_payload if summary_payload is not None else analysis.summary
-        )
+        summary_source = summary_payload if summary_payload is not None else analysis.summary
+        if summary_source is None:
+            raise ValueError(
+                f"Analysis {analysis.id} is missing a persisted summary payload"
+            )
+        summary = AnalysisSummary.from_payload(summary_source)
 
         created_at = analysis.created_at or datetime.utcnow()
 

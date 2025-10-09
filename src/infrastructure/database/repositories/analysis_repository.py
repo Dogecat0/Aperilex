@@ -4,7 +4,7 @@ from datetime import datetime
 from typing import Any, cast
 from uuid import UUID
 
-from sqlalchemy import Integer, String, and_, false, func, or_, select
+from sqlalchemy import Float, Integer, String, and_, false, func, or_, select
 from sqlalchemy import cast as sa_cast
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql import ColumnElement, Select
@@ -50,6 +50,14 @@ class AnalysisRepository(IAnalysisRepository):
             expr = expr.op("->")(key)
 
         return expr.op("->>")(path[-1])
+
+    def _confidence_score_expression(self) -> ColumnElement[float]:
+        """Expression extracting confidence score from summary JSON."""
+
+        return sa_cast(
+            self._json_text(AnalysisModel.summary, "confidence", "score"),
+            Float,
+        )
 
     def _resolve_status_filters(
         self, segment: str | None, statuses: list[str] | None
@@ -634,10 +642,11 @@ class AnalysisRepository(IAnalysisRepository):
         )
 
         summary_critical_expr = self._critical_findings_expression()
+        summary_confidence_expr = self._confidence_score_expression()
 
         sort_expr: ColumnElement[Any] = AnalysisModel.created_at
         if sort_by == "confidence_score":
-            sort_expr = AnalysisModel.confidence_score
+            sort_expr = summary_confidence_expr
         elif sort_by == "insight_counts.critical_findings":
             sort_expr = summary_critical_expr
 
