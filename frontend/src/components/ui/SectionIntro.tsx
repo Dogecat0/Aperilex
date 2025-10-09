@@ -31,12 +31,7 @@ export function SectionIntro({
 
   return (
     <header
-      className={[
-        'flex flex-col gap-3 md:flex-row md:items-start md:justify-between',
-        className,
-      ]
-        .filter(Boolean)
-        .join(' ')}
+      className={`flex flex-col gap-3 md:flex-row md:items-start md:justify-between ${className}`.trim()}
     >
       <div className="flex flex-col gap-2">
         {eyebrow ? (

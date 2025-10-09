@@ -4,6 +4,7 @@ import {
   applyAuthSession,
   parseAuthResponse,
   requestAuthRefresh,
+  resolveAuthEndpoint,
   type AuthApiError,
 } from '@/state/authSession'
 
@@ -208,7 +209,7 @@ export function useAuth() {
 
       const task = (async () => {
         try {
-          const response = await fetch('/api/auth/google/callback', {
+          const response = await fetch(resolveAuthEndpoint('/api/auth/google/callback'), {
             method: 'POST',
             credentials: 'include',
             headers: { 'Content-Type': 'application/json' },
@@ -269,7 +270,7 @@ export function useAuth() {
     setError(null)
 
     try {
-      await fetch('/api/auth/logout', {
+      await fetch(resolveAuthEndpoint('/api/auth/logout'), {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
@@ -280,7 +281,7 @@ export function useAuth() {
       clearSession()
       channelRef.current?.postMessage({ type: 'logout', source: clientId })
     }
-  }, [clearSession, setError])
+  }, [clearSession, clientId, setError])
 
   const requireSession = useCallback((): AuthSession => {
     const currentSession = useAuthStore.getState().session
@@ -333,7 +334,7 @@ export function useAuth() {
         channelRef.current = null
       }
     }
-  }, [clearSession, refreshSession, setError])
+  }, [clientId, clearSession, refreshSession, setError])
 
   useEffect(() => {
     if (!isAuthenticated) {

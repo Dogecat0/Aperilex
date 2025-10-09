@@ -2,6 +2,8 @@ import { cleanup, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { renderWithRouter } from '@/test/utils'
 import type { AuthSession, AuthStatus } from '@/state/authStore'
+import { apiClient } from '@/lib/apiClient'
+import { mockAnalysisDetail, mockPaginatedAnalysesResponse } from '@/test/fixtures/analyses'
 
 vi.mock('@/hooks/useAuth', () => ({
   useAuth: vi.fn(),
@@ -53,6 +55,19 @@ const buildAuthState = (overrides: Partial<MockedAuthState> = {}): MockedAuthSta
 
 beforeEach(() => {
   useAuthMock.mockReset()
+  vi.spyOn(apiClient, 'get').mockImplementation(async (path: string) => {
+    if (path.startsWith('/analyses/')) {
+      return mockAnalysisDetail as unknown
+    }
+    if (path === '/analyses') {
+      return mockPaginatedAnalysesResponse as unknown
+    }
+    return mockPaginatedAnalysesResponse as unknown
+  })
+})
+
+afterEach(() => {
+  vi.restoreAllMocks()
 })
 
 describe('App routing', () => {
@@ -109,10 +124,10 @@ describe('App routing', () => {
 
     await screen.findByText('Filing intelligence at a glance')
 
-    await user.click(await screen.findByRole('link', { name: 'Learn' }))
+    await user.click(await screen.findByRole('link', { name: 'Learning Hub' }))
     await screen.findByText('Build your filing fluency')
 
-    await user.click(await screen.findByRole('link', { name: 'Saved' }))
+    await user.click(await screen.findByRole('link', { name: 'Saved Items' }))
     await screen.findByText('Keep your research within reach')
   })
 })

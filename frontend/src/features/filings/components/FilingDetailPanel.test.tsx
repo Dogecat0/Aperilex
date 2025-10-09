@@ -1,6 +1,5 @@
 import { screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { MemoryRouter } from 'react-router-dom'
 import { renderWithProviders } from '@/test/utils'
 import type { AuthSession, AuthStatus } from '@/state/authStore'
 import type { FilingSearchResult } from '@/lib/types/filing'
@@ -78,14 +77,12 @@ describe('FilingDetailPanel analyze CTA', () => {
     useAuthMock.mockReturnValue(buildAuthState())
 
     renderWithProviders(
-      <MemoryRouter>
-        <FilingDetailPanel
-          searchResult={filing}
-          onAnalyze={onAnalyze}
-          isAnalyzeDisabled={false}
-          isAnalyzing={false}
-        />
-      </MemoryRouter>
+      <FilingDetailPanel
+        searchResult={filing}
+        onAnalyze={onAnalyze}
+        isAnalyzeDisabled={false}
+        isAnalyzing={false}
+      />
     )
 
     const user = userEvent.setup()
@@ -109,14 +106,12 @@ describe('FilingDetailPanel analyze CTA', () => {
     )
 
     renderWithProviders(
-      <MemoryRouter>
-        <FilingDetailPanel
-          searchResult={filing}
-          onAnalyze={onAnalyze}
-          isAnalyzeDisabled={false}
-          isAnalyzing={false}
-        />
-      </MemoryRouter>
+      <FilingDetailPanel
+        searchResult={filing}
+        onAnalyze={onAnalyze}
+        isAnalyzeDisabled={false}
+        isAnalyzing={false}
+      />
     )
 
     const user = userEvent.setup()

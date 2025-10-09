@@ -1,7 +1,8 @@
 import { act, renderHook } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useAuthStore, resetAuthStoreState } from '@/state/authStore'
-import { resetAuthRefreshStateForTests } from '@/state/authSession'
+import { resetAuthRefreshStateForTests, type AuthApiError } from '@/state/authSession'
+import * as authSessionModule from '@/state/authSession'
 import { useAuth, __resetAuthHydrationForTests } from './useAuth'
 
 class MockBroadcastChannel {
@@ -52,6 +53,15 @@ async function flushMicrotasks() {
 describe('useAuth', () => {
   const originalBroadcastChannel = window.BroadcastChannel
   const originalFetch = window.fetch
+  const originalGlobalFetch = globalThis.fetch
+  let refreshSpy: vi.SpyInstance
+
+  const createMissingTokenError = () => {
+    const error = new Error('missing token') as AuthApiError
+    error.status = 401
+    error.payload = { message: 'missing token' }
+    return error
+  }
 
   beforeEach(() => {
     vi.useFakeTimers()
@@ -63,12 +73,14 @@ describe('useAuth', () => {
     const fetchMock = vi.fn(() =>
       Promise.resolve(
         new Response(JSON.stringify({ message: 'unexpected call' }), {
-          status: 401,
+          status: 200,
           headers: { 'Content-Type': 'application/json' },
         })
       )
     )
     window.fetch = fetchMock as unknown as typeof fetch
+    globalThis.fetch = fetchMock as unknown as typeof fetch
+    refreshSpy = vi.spyOn(authSessionModule, 'requestAuthRefresh')
   })
 
   afterEach(() => {
@@ -80,19 +92,15 @@ describe('useAuth', () => {
     __resetAuthHydrationForTests()
     window.BroadcastChannel = originalBroadcastChannel
     window.fetch = originalFetch
+    globalThis.fetch = originalGlobalFetch
+    refreshSpy.mockRestore()
     vi.restoreAllMocks()
   })
 
   it('completes Google callback and stores session', async () => {
     const fetchMock = window.fetch as unknown as ReturnType<typeof vi.fn>
 
-    // Hydration attempt fails with 401 (missing cookie).
-    fetchMock.mockResolvedValueOnce(
-      new Response(JSON.stringify({ message: 'missing token' }), {
-        status: 401,
-        headers: { 'Content-Type': 'application/json' },
-      })
-    )
+    refreshSpy.mockRejectedValueOnce(createMissingTokenError())
 
     const { result, unmount } = renderHook(() => useAuth())
 
@@ -122,6 +130,7 @@ describe('useAuth', () => {
         headers: { 'Content-Type': 'application/json' },
       })
     )
+    refreshSpy.mockResolvedValue(sessionResponse)
 
     await act(async () => {
       const resultPayload = await result.current.completeCallback({ code: 'code', state: 'state' })
@@ -132,7 +141,7 @@ describe('useAuth', () => {
     expect(state.isAuthenticated).toBe(true)
     expect(state.session?.user.email).toBe('investor@example.com')
     expect(fetchMock).toHaveBeenCalledWith(
-      '/api/auth/google/callback',
+      expect.stringContaining('/api/auth/google/callback'),
       expect.objectContaining({ method: 'POST', credentials: 'include' })
     )
 
@@ -144,12 +153,7 @@ describe('useAuth', () => {
   it('schedules refresh and rotates access token before expiry', async () => {
     const fetchMock = window.fetch as unknown as ReturnType<typeof vi.fn>
 
-    fetchMock.mockResolvedValueOnce(
-      new Response(JSON.stringify({ message: 'missing token' }), {
-        status: 401,
-        headers: { 'Content-Type': 'application/json' },
-      })
-    )
+    refreshSpy.mockRejectedValueOnce(createMissingTokenError())
 
     const { result, unmount } = renderHook(() => useAuth())
 
@@ -190,21 +194,14 @@ describe('useAuth', () => {
       issuedAt: new Date().toISOString(),
     }
 
-    fetchMock.mockResolvedValueOnce(
-      new Response(JSON.stringify(refreshPayload), {
-        status: 200,
-        headers: { 'Content-Type': 'application/json' },
-      })
-    )
+    refreshSpy.mockResolvedValueOnce(refreshPayload)
 
     await act(async () => {
       vi.advanceTimersByTime(60_000)
       await flushMicrotasks()
     })
 
-    const calls = fetchMock.mock.calls
-    const refreshCall = calls.find(([url]) => url === '/api/auth/refresh')
-    expect(refreshCall).toBeDefined()
+    expect(refreshSpy).toHaveBeenCalled()
 
     const state = useAuthStore.getState()
     expect(state.accessToken).toBe('jwt-token-2')
@@ -217,12 +214,7 @@ describe('useAuth', () => {
   it('handles cross-tab logout broadcast', async () => {
     const fetchMock = window.fetch as unknown as ReturnType<typeof vi.fn>
 
-    fetchMock.mockResolvedValueOnce(
-      new Response(JSON.stringify({ message: 'missing token' }), {
-        status: 401,
-        headers: { 'Content-Type': 'application/json' },
-      })
-    )
+    refreshSpy.mockRejectedValueOnce(createMissingTokenError())
 
     const { result, unmount } = renderHook(() => useAuth())
 

@@ -19,7 +19,7 @@ describe('DashboardPage', () => {
     renderWithProviders(<DashboardPage />)
 
     expect(await screen.findByText(/Analyses in view/i)).toBeInTheDocument()
-    expect(screen.getByText(/1 with confidence scores/i)).toBeInTheDocument()
+    expect(await screen.findByText(/1 with confidence scores/i)).toBeInTheDocument()
     expect(screen.getByText(/Average confidence/i)).toBeInTheDocument()
     expect(screen.getByText('87%')).toBeInTheDocument()
 

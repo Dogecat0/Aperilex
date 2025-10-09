@@ -4,11 +4,62 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { apiClient } from '@/lib/apiClient'
 import { mockAnalysisDetail, mockPaginatedAnalysesResponse } from '@/test/fixtures/analyses'
 import { renderWithRouter } from '@/test/utils'
+import type { AuthSession, AuthStatus } from '@/state/authStore'
+
+vi.mock('@/hooks/useAuth', () => ({
+  useAuth: vi.fn(),
+}))
+
+import { useAuth } from '@/hooks/useAuth'
+
+type MockedAuthState = {
+  status: AuthStatus
+  session: AuthSession | null
+  accessToken: string | null
+  accessTokenExpiresAt: number | null
+  isAuthenticated: boolean
+  lastError: string | null
+  loginWithGoogle: (redirectTo?: string) => void
+  completeCallback: () => Promise<{ redirectTo: string | null }>
+  logout: () => void | Promise<void>
+  refreshSession: () => void | Promise<void>
+  requireSession: () => AuthSession
+}
+
+const useAuthMock = useAuth as unknown as vi.Mock<[], MockedAuthState>
+
+const baseSession: AuthSession = {
+  user: {
+    id: 'user-1',
+    email: 'user@example.com',
+    tier: null,
+    permissions: [],
+  },
+  issuedAt: null,
+  refreshExpiresAt: null,
+}
+
+const buildAuthState = (overrides: Partial<MockedAuthState> = {}): MockedAuthState => ({
+  status: 'authenticated',
+  session: baseSession,
+  isAuthenticated: true,
+  accessToken: 'token',
+  accessTokenExpiresAt: Date.now() + 60_000,
+  lastError: null,
+  loginWithGoogle: vi.fn(),
+  logout: vi.fn(),
+  completeCallback: vi.fn(async () => ({ redirectTo: null })),
+  refreshSession: vi.fn(),
+  requireSession: vi.fn(() => baseSession),
+  ...overrides,
+})
 
 const DETAIL_ID = mockAnalysisDetail.analysis_id
 
 describe('FilingDetailPage', () => {
   beforeEach(() => {
+    useAuthMock.mockReset()
+    useAuthMock.mockReturnValue(buildAuthState())
     vi.spyOn(apiClient, 'get').mockImplementation(async (path: string) => {
       if (path.startsWith('/analyses/')) {
         return mockAnalysisDetail as unknown
@@ -23,6 +74,7 @@ describe('FilingDetailPage', () => {
   })
 
   afterEach(() => {
+    useAuthMock.mockReset()
     vi.restoreAllMocks()
   })
 

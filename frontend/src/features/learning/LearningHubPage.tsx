@@ -579,7 +579,8 @@ export function LearningHubPage() {
           actions={
             stats.averageScore !== null ? (
               <div className="text-sm font-semibold text-[var(--text-primary)] md:text-right">
-                Average score: {stats.averageScore.toFixed(1)}% · Passed {stats.passedCount} attempts
+                Average score: {stats.averageScore.toFixed(1)}%{' · '}
+                Passed {stats.passedCount} attempts
               </div>
             ) : null
           }

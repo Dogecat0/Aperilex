@@ -26,6 +26,24 @@ const REFRESH_ENDPOINT = '/api/auth/refresh'
 
 let refreshPromise: Promise<AuthSessionResponse> | null = null
 
+export function resolveAuthEndpoint(path: string): string {
+  if (/^https?:\/\//i.test(path)) {
+    return path
+  }
+
+  const normalized = path.startsWith('/') ? path : `/${path}`
+
+  if (typeof window !== 'undefined' && typeof window.location !== 'undefined') {
+    try {
+      return new URL(normalized, window.location.origin).toString()
+    } catch {
+      // Fall through to localhost fallback.
+    }
+  }
+
+  return `http://localhost${normalized}`
+}
+
 export function computeExpiry(expiresIn: number | null, issuedAt: string | null): number | null {
   if (!expiresIn || expiresIn <= 0) {
     return null
@@ -80,12 +98,15 @@ export async function parseAuthResponse(response: Response): Promise<AuthSession
   throw authError
 }
 
-export async function requestAuthRefresh(
-  fetchImpl: typeof fetch = fetch
-): Promise<AuthSessionResponse> {
+export async function requestAuthRefresh(fetchImpl?: typeof fetch): Promise<AuthSessionResponse> {
   if (!refreshPromise) {
     const pending = (async () => {
-      const response = await fetchImpl(REFRESH_ENDPOINT, {
+      const executor = fetchImpl ?? globalThis.fetch
+      if (!executor) {
+        throw new Error('Fetch API is not available in this environment')
+      }
+
+      const response = await executor(resolveAuthEndpoint(REFRESH_ENDPOINT), {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },

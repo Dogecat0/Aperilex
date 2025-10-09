@@ -112,83 +112,88 @@ export function RecentAnalysesList({ items, recentCompanies, isLoading }: Recent
           Run an analysis or adjust your filters to populate this list.
         </p>
       ) : (
-        <ul className="space-y-3">
+        <div className="space-y-2">
           <p
-          className="text-xs font-semibold uppercase tracking-[0.2em]"
-          style={{ color: 'var(--text-secondary)' }}
-        >
-          Analyses
-        </p>
-          {items.map((item) => {
-            const saved = isSaved(item.analysisId)
-            return (
-              <li
-                key={item.analysisId}
-                className="flex flex-col gap-3 rounded-2xl border p-4 md:flex-row md:items-center md:justify-between"
-                style={{ borderColor: 'var(--lines-subtle)', background: 'var(--surfaces-muted)' }}
-              >
-                <div className="space-y-1">
-                  <p className="text-sm font-semibold text-[var(--text-primary)]">
-                    {item.companyName}
-                    {item.ticker ? ` • ${item.ticker}` : ''}
-                  </p>
-                  <p className="text-xs text-[var(--text-secondary)]">
-                    {item.filingType ?? 'Filing'} • {item.analyzedAt}
-                  </p>
-                  <p className="text-xs font-semibold text-[var(--text-secondary)]">
-                    {item.confidenceLabel}
-                    {typeof item.criticalFindings === 'number'
-                      ? ` • ${item.criticalFindings} critical findings`
-                      : ''}
-                    {typeof item.opportunities === 'number'
-                      ? ` • ${item.opportunities} opportunities`
-                      : ''}
-                  </p>
-                </div>
+            className="text-xs font-semibold uppercase tracking-[0.2em]"
+            style={{ color: 'var(--text-secondary)' }}
+          >
+            Analyses
+          </p>
+          <ul className="space-y-3">
+            {items.map((item) => {
+              const saved = isSaved(item.analysisId)
+              return (
+                <li
+                  key={item.analysisId}
+                  className="flex flex-col gap-3 rounded-2xl border p-4 md:flex-row md:items-center md:justify-between"
+                  style={{
+                    borderColor: 'var(--lines-subtle)',
+                    background: 'var(--surfaces-muted)',
+                  }}
+                >
+                  <div className="space-y-1">
+                    <p className="text-sm font-semibold text-[var(--text-primary)]">
+                      {item.companyName}
+                      {item.ticker ? ` • ${item.ticker}` : ''}
+                    </p>
+                    <p className="text-xs text-[var(--text-secondary)]">
+                      {item.filingType ?? 'Filing'} • {item.analyzedAt}
+                    </p>
+                    <p className="text-xs font-semibold text-[var(--text-secondary)]">
+                      {item.confidenceLabel}
+                      {typeof item.criticalFindings === 'number'
+                        ? ` • ${item.criticalFindings} critical findings`
+                        : ''}
+                      {typeof item.opportunities === 'number'
+                        ? ` • ${item.opportunities} opportunities`
+                        : ''}
+                    </p>
+                  </div>
 
-                <div className="flex flex-wrap items-center gap-2 text-xs font-semibold uppercase tracking-wide">
-                  <Link
-                    to={`/filing/${item.analysisId}`}
-                    className={`${controlBaseClass} hover:bg-[var(--surfaces-raised)]`}
-                    style={{
-                      borderColor: 'var(--lines-subtle)',
-                      color: 'var(--text-primary)',
-                      outlineColor: 'var(--focus-ring)',
-                    }}
-                  >
-                    View analysis
-                  </Link>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      toggle({
-                        analysisId: item.analysisId,
-                        filingId: item.filingId,
-                        companyName: item.companyName,
-                        ticker: item.ticker,
-                        filingType: item.filingType,
-                        filingDate: item.filingDate ?? undefined,
-                      })
-                    }
-                    className={`${controlBaseClass} ${
-                      saved
-                        ? 'hover:bg-[rgba(69,195,136,0.16)]'
-                        : 'hover:bg-[var(--surfaces-raised)]'
-                    }`}
-                    style={{
-                      borderColor: saved ? 'var(--status-positive)' : 'var(--lines-subtle)',
-                      color: saved ? 'var(--status-positive)' : 'var(--text-primary)',
-                      background: saved ? 'rgba(69, 195, 136, 0.12)' : 'transparent',
-                      outlineColor: 'var(--focus-ring)',
-                    }}
-                  >
-                    {saved ? 'Saved' : 'Save'}
-                  </button>
-                </div>
-              </li>
-            )
-          })}
-        </ul>
+                  <div className="flex flex-wrap items-center gap-2 text-xs font-semibold uppercase tracking-wide">
+                    <Link
+                      to={`/filing/${item.analysisId}`}
+                      className={`${controlBaseClass} hover:bg-[var(--surfaces-raised)]`}
+                      style={{
+                        borderColor: 'var(--lines-subtle)',
+                        color: 'var(--text-primary)',
+                        outlineColor: 'var(--focus-ring)',
+                      }}
+                    >
+                      View analysis
+                    </Link>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        toggle({
+                          analysisId: item.analysisId,
+                          filingId: item.filingId,
+                          companyName: item.companyName,
+                          ticker: item.ticker,
+                          filingType: item.filingType,
+                          filingDate: item.filingDate ?? undefined,
+                        })
+                      }
+                      className={`${controlBaseClass} ${
+                        saved
+                          ? 'hover:bg-[rgba(69,195,136,0.16)]'
+                          : 'hover:bg-[var(--surfaces-raised)]'
+                      }`}
+                      style={{
+                        borderColor: saved ? 'var(--status-positive)' : 'var(--lines-subtle)',
+                        color: saved ? 'var(--status-positive)' : 'var(--text-primary)',
+                        background: saved ? 'rgba(69, 195, 136, 0.12)' : 'transparent',
+                        outlineColor: 'var(--focus-ring)',
+                      }}
+                    >
+                      {saved ? 'Saved' : 'Save'}
+                    </button>
+                  </div>
+                </li>
+              )
+            })}
+          </ul>
+        </div>
       )}
     </section>
   )
