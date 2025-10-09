@@ -358,7 +358,7 @@ export function FilingDetailPage() {
   const criticalActions = riskHighlights?.critical_actions ?? []
   const monitorSignals = riskHighlights?.signals_to_monitor ?? []
   const sentimentRollup: SentimentRollup | null = summary.sentiment_rollup ?? null
-  const rawNarrative = analysis.full_results?.content ?? analysis.full_results?.summary ?? null
+  const rawNarrative = analysis.full_results?.narrative?.content ?? null
 
   const tabs: { key: TabKey; label: string }[] = [
     { key: 'overview', label: 'Overview' },

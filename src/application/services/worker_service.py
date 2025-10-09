@@ -1198,7 +1198,6 @@ class WorkerService:
 
             # Create analysis result
             result = AnalysisResult(
-                schema_version=1,
                 analysis_id=request.analysis_id,
                 filing_id=filing_id,
                 task_id=request.task_id,
@@ -2213,8 +2212,7 @@ class WorkerService:
 
             from src.shared.models import StorageMetadataFields
 
-            # Serialize result with JSON-safe primitives
-            payload = result.model_dump(mode="json")
+            payload = self._serialize_analysis_artifact(result)
             content = json.dumps(payload).encode("utf-8")
 
             # Create proper metadata object
@@ -2235,6 +2233,60 @@ class WorkerService:
 
         except Exception as e:
             raise StorageError(f"Failed to store analysis: {str(e)}") from e
+
+    def _serialize_analysis_artifact(
+        self,
+        result: AnalysisResult,
+    ) -> dict[str, Any]:
+        """Produce the trimmed analysis artifact stored in blob storage."""
+
+        structured_data = (
+            result.structured_data if isinstance(result.structured_data, dict) else {}
+        )
+
+        provider: dict[str, Any] = {
+            "name": result.llm_provider.value,
+            "model_name": result.model_name,
+        }
+        if result.model_version:
+            provider["model_version"] = result.model_version
+
+        token_usage = result.token_usage.model_dump(mode="json")
+        provider["token_usage"] = {
+            key: value for key, value in token_usage.items() if value is not None
+        }
+
+        provider["processing"] = {
+            "time_ms": result.processing_time_ms,
+            "started_at": result.created_at.isoformat(),
+            "completed_at": result.completed_at.isoformat(),
+        }
+
+        if result.estimated_cost is not None:
+            provider["estimated_cost"] = result.estimated_cost
+        if result.confidence_score is not None:
+            provider["confidence_score"] = result.confidence_score
+        if result.quality_metrics:
+            provider["quality_metrics"] = dict(result.quality_metrics)
+
+        if result.metadata:
+            provider["metadata"] = dict(result.metadata)
+
+        payload: dict[str, Any] = {
+            "schema_version": result.schema_version,
+            "structured_data": structured_data,
+            "provider": provider,
+        }
+
+        narrative = (result.content or "").strip()
+        if narrative:
+            payload["narrative"] = {"content": narrative}
+
+        if result.citations:
+            payload["narrative"] = payload.get("narrative", {"content": None})
+            payload["narrative"]["citations"] = result.citations
+
+        return payload
 
     async def _update_task_status(
         self,
@@ -3178,7 +3230,6 @@ class WorkerService:
         }
 
         return AnalysisResult(
-            schema_version=1,
             analysis_id=request.analysis_id,
             filing_id=filing_id,
             task_id=request.task_id,

@@ -218,3 +218,27 @@ def test_build_summary_payload_curates_structured_artifacts() -> None:
 
     # Sentiment section breakdown retained for compatibility
     assert len(summary["sentiment"]["sections"]) == 2
+
+
+@pytest.mark.unit
+def test_serialize_analysis_artifact_trims_redundant_fields() -> None:
+    """Stored artifacts omit legacy summary/content fields while keeping provider metadata."""
+
+    structured_data = {"filing_summary": "Trimmed summary", "section_analyses": []}
+    analysis_result = _make_analysis_result(structured_data)
+
+    service = _build_worker_service()
+    payload = service._serialize_analysis_artifact(analysis_result)
+
+    assert payload["schema_version"] == 2
+    assert payload["structured_data"] == structured_data
+
+    provider = payload["provider"]
+    assert provider["name"] == LLMProvider.OPENAI.value
+    assert provider["model_name"] == "gpt-test"
+    assert provider["token_usage"]["total_tokens"] == 360
+    assert provider["processing"]["time_ms"] == 6300
+
+    # Narrative lives under the nested narrative block with no summary duplication
+    assert "summary" not in payload
+    assert payload["narrative"]["content"] == "Full analysis narrative"

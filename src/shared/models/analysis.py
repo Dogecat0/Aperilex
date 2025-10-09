@@ -142,7 +142,7 @@ class AnalysisResult(BaseModel):
     """
 
     schema_version: int = Field(
-        default=1, description="Schema version for backward compatibility"
+        default=2, description="Schema version for backward compatibility"
     )
 
     # Core identifiers

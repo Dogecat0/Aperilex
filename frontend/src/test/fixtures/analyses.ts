@@ -286,14 +286,9 @@ export const mockAnalysisDetail: AnalysisResponse = {
   created_by: 'analyst@aperilex.ai',
   summary: detailSummary,
   full_results: {
-    schema_version: 1,
-    analysis_id: '44444444-4444-4444-4444-444444444444',
-    filing_id: '55555555-5555-5555-5555-555555555555',
-    summary:
-      'Apple Inc. delivered steady revenue growth with resilient margins driven by premium services uptake.',
-    content:
-      'Narrative summary: Apple Inc. posted another quarter of balanced growth driven by services and disciplined cost controls.',
+    schema_version: 2,
     structured_data: {
+      schema_version: 2,
       filing_summary:
         'Apple Inc. delivered steady revenue growth with resilient margins driven by premium services uptake.',
       key_insights: [
@@ -415,22 +410,32 @@ export const mockAnalysisDetail: AnalysisResponse = {
         segment: 'Consumer Electronics',
       },
     },
-    status: 'COMPLETED',
-    llm_provider: 'openai',
-    model_name: 'gpt-4o-mini',
-    processing_time_ms: 48000,
-    confidence_score: 0.91,
-    token_usage: {
-      prompt_tokens: 13012,
-      completion_tokens: 2512,
-      total_tokens: 15524,
+    provider: {
+      name: 'openai',
+      model_name: 'gpt-4o-mini',
+      model_version: null,
+      token_usage: {
+        prompt_tokens: 13012,
+        completion_tokens: 2512,
+        total_tokens: 15524,
+      },
+      processing: {
+        time_ms: 48000,
+        started_at: '2025-06-12T13:42:00.000Z',
+        completed_at: '2025-06-12T13:45:00.000Z',
+      },
+      confidence_score: 0.91,
+      estimated_cost: 5.44,
+      metadata: {
+        company_name: 'Apple Inc.',
+        filing_date: '2025-06-10',
+        filing_type: '10-Q',
+        analysis_template: 'financial_focused',
+      },
     },
-    quality_metrics: {},
-    metadata: {
-      company_name: 'Apple Inc.',
-      filing_date: '2025-06-10',
-      filing_type: '10-Q',
-      analysis_template: 'financial_focused',
+    narrative: {
+      content:
+        'Narrative summary: Apple Inc. posted another quarter of balanced growth driven by services and disciplined cost controls.',
     },
   },
 }
