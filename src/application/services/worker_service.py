@@ -6,11 +6,13 @@ provider interfaces and dependency injection. It absorbs the functionality
 from AnalysisOrchestrator for a unified processing pipeline.
 """
 
+from __future__ import annotations
+
 import json
 import uuid
-from collections.abc import Callable, Coroutine
+from collections.abc import Awaitable, Callable, Coroutine
 from datetime import UTC, datetime, timedelta
-from typing import Any, cast
+from typing import TYPE_CHECKING, Any, cast
 
 from pydantic import BaseModel, Field
 
@@ -76,6 +78,44 @@ from src.shared.versioning import SchemaMigrationError as VersioningMigrationErr
 from src.shared.versioning import schema_migrator
 
 logger = get_logger(__name__)
+
+if TYPE_CHECKING:  # pragma: no cover - type checking only
+    from prometheus_client import Counter as PrometheusCounter
+else:  # pragma: no cover - runtime fallback when type info is unavailable
+    PrometheusCounter = Any
+
+
+def _init_section_failure_counter() -> PrometheusCounter | None:
+    """Initialise the Prometheus counter when the client is available."""
+
+    try:
+        from prometheus_client import Counter as RuntimeCounter
+    except Exception:  # pragma: no cover - optional dependency
+        return None
+
+    return RuntimeCounter(
+        "structured_section_extraction_failure_total",
+        "Total structured section extraction failures",
+        labelnames=("template", "filing_type"),
+    )
+
+
+SECTION_EXTRACTION_FAILURE_COUNTER = _init_section_failure_counter()
+
+
+def _record_section_failure_metric(
+    template: AnalysisTemplate, filing_type: FilingType
+) -> None:
+    """Increment section extraction failure metric when available."""
+
+    counter = SECTION_EXTRACTION_FAILURE_COUNTER
+    if counter is None:
+        return
+
+    counter.labels(
+        template=template.value,
+        filing_type=filing_type.value,
+    ).inc()
 
 
 class WorkerServiceError(Exception):
@@ -463,17 +503,30 @@ class WorkerService:
             )
             # Extract sections based on template
             template = self._get_template_from_metadata(task_data.metadata)
-            structured_sections: dict[str, str] | None = None
+            analysis_result: AnalysisResult
 
             if analysis_request.analysis_type == AnalysisType.COMPREHENSIVE:
-                structured_sections = await self._prepare_structured_sections(
-                    task_data=task_data,
-                    template=template,
-                    correlation_id=context.correlation_id,
-                    fetched_filing=fetched_filing_content,
-                )
+                try:
+                    structured_sections = await self._prepare_structured_sections(
+                        task_data=task_data,
+                        template=template,
+                        correlation_id=context.correlation_id,
+                        fetched_filing=fetched_filing_content,
+                    )
+                except FilingFetchError as exc:
+                    logger.error(
+                        "Structured section extraction failed for comprehensive analysis",
+                        extra={
+                            "task_id": str(task_data.task_id),
+                            "filing_id": str(task_data.filing_id),
+                            "template": template.value,
+                            "correlation_id": context.correlation_id,
+                            "error": str(exc),
+                            "retry_count": task_data.retry_count,
+                        },
+                    )
+                    raise
 
-            if structured_sections:
                 company_name = self._resolve_company_name(
                     task_data.metadata, task_data.ticker
                 )
@@ -489,11 +542,6 @@ class WorkerService:
                     analysis_focus=analysis_focus,
                 )
             else:
-                if analysis_request.analysis_type == AnalysisType.COMPREHENSIVE:
-                    logger.debug(
-                        "Structured sections unavailable; falling back to prompt-based analysis",
-                        extra={"filing_id": str(task_data.filing_id)},
-                    )
                 extracted_content = await self._extract_filing_sections(
                     task_data=task_data,
                     template=template,
@@ -575,6 +623,19 @@ class WorkerService:
             )
 
         except Exception as e:
+            if isinstance(e, FilingFetchError) and task_data is not None:
+                # Limit retries for structural filing issues so they escalate quickly.
+                task_data.max_retries = min(task_data.max_retries, 1)
+                logger.warning(
+                    "Structured filing issue detected; limiting retries",
+                    extra={
+                        "task_id": str(task_data.task_id),
+                        "filing_id": str(task_data.filing_id),
+                        "retry_count": task_data.retry_count,
+                        "max_retries": task_data.max_retries,
+                    },
+                )
+
             error_text = str(e)
             logger.error(
                 "Task processing failed: %s",
@@ -782,7 +843,7 @@ class WorkerService:
         try:
             # Repository is the single source of truth for filing existence
             filing_repository = await self.repository_factory.get_filing_repository()
-            exists = await filing_repository.exists(filing_id=filing_id)
+            exists = bool(await filing_repository.exists(filing_id=filing_id))
             logger.debug(f"Filing {filing_id} exists in database: {exists}")
             return exists
         except Exception as e:
@@ -872,7 +933,15 @@ class WorkerService:
                 exc,
             )
             # Fall back to raw content only if serialization fails unexpectedly
-            return filing.raw_content.encode("utf-8", errors="ignore")
+            raw_content = filing.raw_content
+            if isinstance(raw_content, str):
+                return raw_content.encode("utf-8", errors="ignore")
+
+            logger.warning(
+                "Unexpected non-text raw_content encountered during encoding",
+                extra={"filing_id": str(filing.metadata.filing_id)},
+            )
+            return str(raw_content).encode("utf-8", errors="ignore")
 
     def _deserialize_filing_payload(self, data: bytes) -> dict[str, Any]:
         """Deserialize stored filing bytes into structured payload."""
@@ -1103,7 +1172,7 @@ class WorkerService:
                 schema_version=1,
                 prompt=self._build_analysis_prompt(
                     request.analysis_type,
-                    filing_content,
+                    filing_content.encode("utf-8"),
                 ),
                 system_prompt=request.system_prompt
                 or self._get_default_system_prompt(),
@@ -2058,6 +2127,17 @@ class WorkerService:
         )
 
         if not stored_sections:
+            logger.warning(
+                "Structured sections missing from storage",
+                extra={
+                    "task_id": str(task_data.task_id),
+                    "filing_id": str(task_data.filing_id),
+                    "template": template.value,
+                    "filing_type": task_data.filing_type.value,
+                    "correlation_id": correlation_id,
+                },
+            )
+            _record_section_failure_metric(template, task_data.filing_type)
             raise FilingFetchError(
                 f"Structured sections unavailable for filing {task_data.filing_id}"
             )
@@ -2082,6 +2162,16 @@ class WorkerService:
             extracted_chunks.append(f"--- {section_name} ---\n{snippet}\n")
 
         if not extracted_chunks:
+            logger.warning(
+                "Filtered sections empty after extraction",
+                extra={
+                    "task_id": str(task_data.task_id),
+                    "filing_id": str(task_data.filing_id),
+                    "template": template.value,
+                    "filing_type": task_data.filing_type.value,
+                },
+            )
+            _record_section_failure_metric(template, task_data.filing_type)
             raise FilingFetchError(
                 f"No sections extracted for filing {task_data.filing_id}"
             )
@@ -2104,6 +2194,17 @@ class WorkerService:
         )
 
         if not stored_sections:
+            logger.warning(
+                "Structured sections missing from storage",
+                extra={
+                    "task_id": str(task_data.task_id),
+                    "filing_id": str(task_data.filing_id),
+                    "template": template.value,
+                    "filing_type": task_data.filing_type.value,
+                    "correlation_id": correlation_id,
+                },
+            )
+            _record_section_failure_metric(template, task_data.filing_type)
             raise FilingFetchError(
                 f"Structured sections unavailable for filing {task_data.filing_id}"
             )
@@ -2115,6 +2216,16 @@ class WorkerService:
         )
 
         if not filtered:
+            logger.warning(
+                "Required sections missing after filtering",
+                extra={
+                    "task_id": str(task_data.task_id),
+                    "filing_id": str(task_data.filing_id),
+                    "template": template.value,
+                    "filing_type": task_data.filing_type.value,
+                },
+            )
+            _record_section_failure_metric(template, task_data.filing_type)
             raise FilingFetchError(
                 f"Required sections missing for filing {task_data.filing_id}"
             )
@@ -2156,6 +2267,15 @@ class WorkerService:
                 missing_schemas.append(schema)
 
         if missing_schemas:
+            logger.warning(
+                "Required sections missing for analysis template",
+                extra={
+                    "filing_type": filing_type.value,
+                    "template": template.value,
+                    "missing_schemas": ",".join(missing_schemas),
+                },
+            )
+            _record_section_failure_metric(template, filing_type)
             raise FilingFetchError(
                 "Missing required sections for analysis template: "
                 + ", ".join(missing_schemas)
@@ -2196,7 +2316,7 @@ class WorkerService:
                 if value:
                     return value
 
-        return ticker.value
+        return str(ticker.value)
 
     def _resolve_analysis_focus(
         self,
@@ -2264,7 +2384,8 @@ class WorkerService:
 
         start_time = datetime.now(UTC)
 
-        comprehensive_response = await analyze_sections(  # type: ignore[func-returns-value]
+        analyze_sections_call = cast(Callable[..., Awaitable[Any]], analyze_sections)
+        comprehensive_response = await analyze_sections_call(
             filing_sections=filing_sections,
             filing_type=filing_type,
             company_name=company_name,
