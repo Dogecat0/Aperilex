@@ -1,4 +1,4 @@
-"""DTOs for analysis responses following the v2 `/api/analyses` contract."""
+"""DTOs for analysis responses following the v3 `/api/analyses` contract."""
 
 from __future__ import annotations
 
@@ -36,6 +36,9 @@ class SummaryFiling(BaseModel):
     date: summary_date | None = Field(default=None, description="Filing date")
     analysis_template: str | None = Field(
         default=None, description="Template that drove the analysis pipeline"
+    )
+    accession_number: str | None = Field(
+        default=None, description="EDGAR accession number for the analysed filing"
     )
 
     model_config = ConfigDict(extra="ignore", frozen=True)
@@ -111,6 +114,173 @@ class SummaryProcessing(BaseModel):
     model_config = ConfigDict(extra="ignore", frozen=True)
 
 
+class SummaryHeadlineMetricDisplay(BaseModel):
+    """Display formatting for a headline metric."""
+
+    current: str | None = Field(
+        default=None, description="Formatted representation of the current value"
+    )
+    previous: str | None = Field(
+        default=None, description="Formatted representation of the prior value"
+    )
+    delta: str | None = Field(
+        default=None, description="Formatted representation of the change"
+    )
+    delta_text: str | None = Field(
+        default=None, description="Narrative description of the change"
+    )
+
+    model_config = ConfigDict(extra="ignore", frozen=True)
+
+
+class SummaryHeadlineMetric(BaseModel):
+    """Hero metric surfaced in the summary."""
+
+    id: str | None = Field(
+        default=None, description="Stable identifier for the headline metric"
+    )
+    name: str = Field(description="Display name for the metric")
+    category: str | None = Field(
+        default=None, description="Metric grouping (liquidity, growth, etc.)"
+    )
+    unit: str | None = Field(default=None, description="Unit associated with values")
+    current_value: float | None = Field(
+        default=None, description="Current numeric value when available"
+    )
+    previous_value: float | None = Field(
+        default=None, description="Previous numeric value when available"
+    )
+    delta_value: float | None = Field(
+        default=None,
+        description="Numeric delta between current and previous values when available",
+    )
+    display: SummaryHeadlineMetricDisplay = Field(
+        default_factory=SummaryHeadlineMetricDisplay,
+        description="Human-friendly representations of the metric values",
+    )
+    confidence: float | None = Field(
+        default=None,
+        ge=0.0,
+        le=1.0,
+        description="Confidence score for the metric if provided by the LLM",
+    )
+
+    model_config = ConfigDict(extra="ignore", frozen=True)
+
+
+class SummaryRiskHighlight(BaseModel):
+    """Curated risk highlight for the summary."""
+
+    id: str | None = Field(
+        default=None, description="Stable identifier for the risk highlight"
+    )
+    title: str = Field(description="Title describing the risk or action")
+    severity: str | None = Field(
+        default=None, description="Severity level reported by the LLM"
+    )
+    probability: str | None = Field(
+        default=None, description="Probability tier reported by the LLM"
+    )
+    summary: str | None = Field(
+        default=None, description="Short narrative describing the highlight"
+    )
+    recommended_action: str | None = Field(
+        default=None, description="Recommended action or mitigation steps"
+    )
+    related_sections: list[str] = Field(
+        default_factory=list,
+        description="Filing sections that informed this highlight",
+    )
+
+    model_config = ConfigDict(extra="ignore", frozen=True)
+
+
+class SummaryRiskHighlights(BaseModel):
+    """Collection of curated risk highlights."""
+
+    critical_actions: list[SummaryRiskHighlight] = Field(
+        default_factory=list,
+        description="High severity items requiring action",
+    )
+    signals_to_monitor: list[SummaryRiskHighlight] = Field(
+        default_factory=list,
+        description="Medium/low severity items to monitor",
+    )
+
+    model_config = ConfigDict(extra="ignore", frozen=True)
+
+
+class SentimentWeakestSection(BaseModel):
+    """Descriptor for the weakest sentiment section."""
+
+    section: str = Field(description="Section name")
+    score: float | None = Field(
+        default=None, description="Sentiment score for the weakest section"
+    )
+
+    model_config = ConfigDict(extra="ignore", frozen=True)
+
+
+class SummarySentimentRollup(BaseModel):
+    """Enhanced sentiment rollup data for UI widgets."""
+
+    overall: float | None = Field(
+        default=None, description="Weighted sentiment across all sections"
+    )
+    weakest_section: SentimentWeakestSection | None = Field(
+        default=None, description="Weakest scoring section information"
+    )
+    previous_overall: float | None = Field(
+        default=None, description="Previous overall sentiment for comparison"
+    )
+    prior_analysis_delta: float | None = Field(
+        default=None, description="Delta vs previous overall sentiment if known"
+    )
+    trend: str | None = Field(
+        default=None,
+        description="Trend direction compared to previous analysis (up|down|flat)",
+    )
+    confidence_band: str | None = Field(
+        default=None, description="Confidence band for the aggregated sentiment"
+    )
+
+    model_config = ConfigDict(extra="ignore", frozen=True)
+
+
+class SummaryTimelineEvent(BaseModel):
+    """Timeline event extracted from structured analysis data."""
+
+    id: str | None = Field(default=None, description="Stable identifier for the event")
+    occurred_at: datetime | None = Field(
+        default=None, description="Timestamp associated with the event"
+    )
+    type: str | None = Field(
+        default=None,
+        description="Event type classification (metric|risk|milestone, etc.)",
+    )
+    severity: str | None = Field(
+        default=None, description="Optional severity tier for the event"
+    )
+    title: str | None = Field(
+        default=None, description="Short title describing the event"
+    )
+    summary: str | None = Field(
+        default=None, description="Narrative summary of the timeline event"
+    )
+    source_section: str | None = Field(
+        default=None, description="Section that produced the timeline entry"
+    )
+    related_metrics: list[str] = Field(
+        default_factory=list,
+        description="Metric identifiers linked to the event",
+    )
+    actions: list[str] = Field(
+        default_factory=list, description="Follow-up actions linked to the event"
+    )
+
+    model_config = ConfigDict(extra="ignore", frozen=True)
+
+
 class AnalysisSummary(BaseModel):
     """Structured summary exposed on `/api/analyses` list responses."""
 
@@ -138,6 +308,37 @@ class AnalysisSummary(BaseModel):
         default_factory=SummaryProcessing,
         description="Analyst pipeline processing metadata",
     )
+    filing_summary: str | None = Field(
+        default=None, description="Canonical filing summary narrative"
+    )
+    key_insights: list[str] = Field(
+        default_factory=list,
+        description="Curated key insight bullet points for the filing",
+    )
+    opportunities: list[str] = Field(
+        default_factory=list,
+        description="Identified opportunities extracted from the analysis",
+    )
+    critical_findings: list[str] = Field(
+        default_factory=list,
+        description="Critical findings requiring attention",
+    )
+    headline_metrics: list[SummaryHeadlineMetric] = Field(
+        default_factory=list,
+        description="Headline metrics for quick reference",
+    )
+    risk_highlights: SummaryRiskHighlights = Field(
+        default_factory=SummaryRiskHighlights,
+        description="Grouped risk highlight collections",
+    )
+    insight_timeline: list[SummaryTimelineEvent] = Field(
+        default_factory=list,
+        description="Ordered narrative of significant filing events",
+    )
+    sentiment_rollup: SummarySentimentRollup = Field(
+        default_factory=SummarySentimentRollup,
+        description="Enhanced sentiment aggregation for the filing",
+    )
 
     model_config = ConfigDict(extra="allow", frozen=True)
 
@@ -152,7 +353,7 @@ class AnalysisSummary(BaseModel):
 class AnalysisResponse(SchemaVersionedModel):
     """Response DTO returned by both list and detail analysis endpoints."""
 
-    schema_version: int = Field(default=2, ge=1)
+    schema_version: int = Field(default=3, ge=1)
     analysis_id: UUID = Field(description="Analysis identifier")
     filing_id: UUID = Field(description="Associated filing identifier")
     analysis_type: AnalysisType = Field(description="Type of analysis performed")
@@ -202,7 +403,7 @@ class AnalysisResponse(SchemaVersionedModel):
 class AnalysesListResponse(SchemaVersionedModel):
     """Envelope returned by the `/api/analyses` list endpoint."""
 
-    schema_version: int = Field(default=2, ge=1)
+    schema_version: int = Field(default=3, ge=1)
     items: list[AnalysisResponse] = Field(
         default_factory=list,
         description="Analyses for the requested page",
