@@ -134,9 +134,9 @@ class ListCompanyFilingsQueryHandler(
                     filters_applied=filters_applied,
                 )
 
-            filing_responses = []
+            filing_responses: list[FilingResponse] = []
             for filing in page_result.items:
-                response = FilingResponse(
+                filing_response = FilingResponse(
                     filing_id=filing.filing_id,
                     company_id=filing.company_id,
                     accession_number=filing.accession_number,
@@ -148,10 +148,10 @@ class ListCompanyFilingsQueryHandler(
                     analyses_count=None,
                     latest_analysis_date=None,
                 )
-                filing_responses.append(response)
+                filing_responses.append(filing_response)
 
             # Create paginated response
-            response = PaginatedResponse.create(
+            paginated_response = PaginatedResponse.create(
                 items=filing_responses,
                 page=query.page,
                 page_size=query.page_size,
@@ -172,7 +172,7 @@ class ListCompanyFilingsQueryHandler(
                 },
             )
 
-            return response
+            return paginated_response
 
         except Exception as e:
             logger.error(

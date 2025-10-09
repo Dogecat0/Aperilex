@@ -53,9 +53,7 @@ def _resolve_analysis_type(raw_type: str) -> AnalysisType:
     try:
         return AnalysisType.from_raw(raw_type)
     except ValueError:
-        logger.warning(
-            "Unknown analysis type '%s'; defaulting to CUSTOM", raw_type
-        )
+        logger.warning("Unknown analysis type '%s'; defaulting to CUSTOM", raw_type)
         return AnalysisType.CUSTOM
 
 

@@ -152,13 +152,19 @@ async def stream_task_updates(
     if current_user.user_id is None:
         raise HTTPException(
             status_code=HTTP_500_INTERNAL_SERVER_ERROR,
-            detail={"code": "auth.user.missing_id", "message": "Authenticated user is missing an identifier"},
+            detail={
+                "code": "auth.user.missing_id",
+                "message": "Authenticated user is missing an identifier",
+            },
         )
 
     if current_user.user_email is None:
         raise HTTPException(
             status_code=HTTP_500_INTERNAL_SERVER_ERROR,
-            detail={"code": "auth.user.missing_email", "message": "Authenticated user is missing an email address"},
+            detail={
+                "code": "auth.user.missing_email",
+                "message": "Authenticated user is missing an email address",
+            },
         )
 
     event_types = None

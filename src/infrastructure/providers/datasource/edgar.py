@@ -325,8 +325,8 @@ class EDGARDataSourceProvider(IDataSourceProvider):
             return None
 
         if isinstance(value, str):
-            text = value.strip()
-            return text or None
+            normalized_value = value.strip()
+            return normalized_value or None
 
         # Some data objects expose `.text` or `.content`
         for attr in ("text", "content", "markdown", "html"):
@@ -343,16 +343,16 @@ class EDGARDataSourceProvider(IDataSourceProvider):
                     exc,
                 )
             else:
-                text = self._coerce_section_text(resolved)
-                if text:
-                    return text
+                normalized = self._coerce_section_text(resolved)
+                if normalized:
+                    return normalized
 
         # Try rich conversions commonly exposed by edgartools wrappers
         if hasattr(value, "to_markdown"):
             try:
-                text = str(value.to_markdown()).strip()
-                if text:
-                    return text
+                normalized = str(value.to_markdown()).strip()
+                if normalized:
+                    return normalized
             except (AttributeError, TypeError, ValueError) as exc:
                 logger.debug(
                     "to_markdown() failed on %s: %s",
@@ -362,9 +362,9 @@ class EDGARDataSourceProvider(IDataSourceProvider):
 
         if hasattr(value, "to_text"):
             try:
-                text = str(value.to_text()).strip()
-                if text:
-                    return text
+                normalized = str(value.to_text()).strip()
+                if normalized:
+                    return normalized
             except (AttributeError, TypeError, ValueError) as exc:
                 logger.debug(
                     "to_text() failed on %s: %s",

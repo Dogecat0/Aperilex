@@ -14,7 +14,9 @@ Commands available:
 
 # ruff: noqa: I001
 
-from src.application.handlers.schemas.commands.analyze_filing import AnalyzeFilingCommand
+from src.application.handlers.schemas.commands.analyze_filing import (
+    AnalyzeFilingCommand,
+)
 from src.application.handlers.schemas.commands.import_filings import (
     ImportFilingsCommand,
     ImportStrategy,

@@ -89,14 +89,10 @@ class SQSQueueProvider(IQueueProvider):
         try:
             response = await client.get_queue_url(QueueName=queue_identifier)
             queue_url_obj = (
-                response.get("QueueUrl")
-                if isinstance(response, Mapping)
-                else None
+                response.get("QueueUrl") if isinstance(response, Mapping) else None
             )
             if not isinstance(queue_url_obj, str):
-                raise Exception(
-                    "QueueUrl not returned when resolving queue identifier"
-                )
+                raise Exception("QueueUrl not returned when resolving queue identifier")
             self._queue_url_cache[queue_identifier] = queue_url_obj
             return queue_url_obj
         except (ClientError, BotoCoreError) as exc:

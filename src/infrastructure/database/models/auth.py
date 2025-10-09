@@ -120,7 +120,9 @@ class AuthRateLimit(Base):
         nullable=False,
     )
     window_seconds: Mapped[int] = mapped_column(Integer, nullable=False)
-    count: Mapped[int] = mapped_column(Integer, nullable=False, server_default=text("0"))
+    count: Mapped[int] = mapped_column(
+        Integer, nullable=False, server_default=text("0")
+    )
     limit: Mapped[int] = mapped_column(Integer, nullable=False)
     last_updated_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True),

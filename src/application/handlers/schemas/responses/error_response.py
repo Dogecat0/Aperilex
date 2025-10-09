@@ -29,9 +29,7 @@ class ErrorResponse(SchemaVersionedModel):
 
     error_type: ErrorType = Field(description="Classification of the error type")
     message: str = Field(description="Human-readable error message")
-    details: str | None = Field(
-        default=None, description="Additional error details"
-    )
+    details: str | None = Field(default=None, description="Additional error details")
     timestamp: datetime = Field(
         default_factory=lambda: datetime.now(UTC),
         description="Timestamp when the error occurred",

@@ -49,9 +49,7 @@ class LearningProgressQueryService(ILearningProgressQueryService):
                 .order_by(desc(LearningProgressModel.updated_at))
             )
             result = await self.session.execute(stmt)
-            return [
-                self._model_to_result(model) for model in result.scalars().all()
-            ]
+            return [self._model_to_result(model) for model in result.scalars().all()]
         except Exception as exc:  # pragma: no cover - defensive logging
             logger.error("Failed to fetch user progress", exc_info=True)
             raise QueryServiceError("Failed to fetch user progress") from exc
@@ -77,9 +75,7 @@ class LearningProgressQueryService(ILearningProgressQueryService):
                 .offset(offset)
             )
             result = await self.session.execute(stmt)
-            return [
-                self._model_to_result(model) for model in result.scalars().all()
-            ]
+            return [self._model_to_result(model) for model in result.scalars().all()]
         except Exception as exc:  # pragma: no cover - defensive logging
             logger.error("Failed to fetch module learners", exc_info=True)
             raise QueryServiceError("Failed to fetch module learners") from exc

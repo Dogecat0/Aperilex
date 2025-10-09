@@ -76,11 +76,7 @@ class UserQueryService(IUserQueryService):
             if conditions:
                 stmt = stmt.where(and_(*conditions))
 
-            stmt = (
-                stmt.order_by(desc(UserModel.created_at))
-                .limit(limit)
-                .offset(offset)
-            )
+            stmt = stmt.order_by(desc(UserModel.created_at)).limit(limit).offset(offset)
 
             result = await self.session.execute(stmt)
             return [self._model_to_result(model) for model in result.scalars().all()]
@@ -90,11 +86,7 @@ class UserQueryService(IUserQueryService):
 
     async def list_recent_users(self, *, limit: int = 20) -> list[UserQueryResult]:
         try:
-            stmt = (
-                select(UserModel)
-                .order_by(desc(UserModel.created_at))
-                .limit(limit)
-            )
+            stmt = select(UserModel).order_by(desc(UserModel.created_at)).limit(limit)
             result = await self.session.execute(stmt)
             return [self._model_to_result(model) for model in result.scalars().all()]
         except Exception as exc:  # pragma: no cover - defensive logging

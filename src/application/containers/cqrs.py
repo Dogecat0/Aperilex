@@ -64,12 +64,12 @@ class HandlerFactory:
         company_query_service_provider: Provider[ICompanyQueryService] | None = None,
         filing_query_service_provider: Provider[IFilingQueryService] | None = None,
         user_query_service_provider: Provider[IUserQueryService] | None = None,
-        learning_progress_query_service_provider: Provider[
-            ILearningProgressQueryService
-        ]
-        | None = None,
-        quiz_attempt_query_service_provider: Provider[IQuizAttemptQueryService]
-        | None = None,
+        learning_progress_query_service_provider: (
+            Provider[ILearningProgressQueryService] | None
+        ) = None,
+        quiz_attempt_query_service_provider: (
+            Provider[IQuizAttemptQueryService] | None
+        ) = None,
     ) -> None:
         """
         Initialize the handler factory with dependencies.
@@ -98,9 +98,7 @@ class HandlerFactory:
         self.learning_progress_query_service_provider = (
             learning_progress_query_service_provider
         )
-        self.quiz_attempt_query_service_provider = (
-            quiz_attempt_query_service_provider
-        )
+        self.quiz_attempt_query_service_provider = quiz_attempt_query_service_provider
 
     async def get_dependencies(self) -> dict[str, Any]:
         """
@@ -116,15 +114,11 @@ class HandlerFactory:
         user_identity_repo = (
             await self.repository_factory.get_user_identity_repository()
         )
-        user_profile_repo = (
-            await self.repository_factory.get_user_profile_repository()
-        )
+        user_profile_repo = await self.repository_factory.get_user_profile_repository()
         learning_progress_repo = (
             await self.repository_factory.get_learning_progress_repository()
         )
-        quiz_attempt_repo = (
-            await self.repository_factory.get_quiz_attempt_repository()
-        )
+        quiz_attempt_repo = await self.repository_factory.get_quiz_attempt_repository()
 
         def _resolve_dependency(candidate: Any | None) -> Any | None:
             if candidate is None:
@@ -158,8 +152,8 @@ class HandlerFactory:
         learning_progress_query_service: ILearningProgressQueryService | None = (
             _resolve_dependency(self.learning_progress_query_service_provider)
         )
-        quiz_attempt_query_service: IQuizAttemptQueryService | None = _resolve_dependency(
-            self.quiz_attempt_query_service_provider
+        quiz_attempt_query_service: IQuizAttemptQueryService | None = (
+            _resolve_dependency(self.quiz_attempt_query_service_provider)
         )
 
         dependencies: dict[str, Any] = {
@@ -189,9 +183,9 @@ class HandlerFactory:
         if user_query_service is not None:
             dependencies["user_query_service"] = user_query_service
         if learning_progress_query_service is not None:
-            dependencies[
-                "learning_progress_query_service"
-            ] = learning_progress_query_service
+            dependencies["learning_progress_query_service"] = (
+                learning_progress_query_service
+            )
         if quiz_attempt_query_service is not None:
             dependencies["quiz_attempt_query_service"] = quiz_attempt_query_service
 

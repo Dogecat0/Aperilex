@@ -391,7 +391,8 @@ def provider(monkeypatch: pytest.MonkeyPatch) -> GoogleOAuthAuthenticationProvid
     async def fake_exchange(**_: Any) -> dict[str, Any]:
         return {"id_token": "fake-id-token"}
 
-    async def fake_validate(_: str) -> dict[str, Any]:
+    async def fake_validate(_: str, *, access_token: str | None = None) -> dict[str, Any]:
+        assert access_token is None or access_token == "access-token"
         return {
             "email": "user@example.com",
             "email_verified": True,

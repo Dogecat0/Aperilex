@@ -5,7 +5,7 @@ import json
 import re
 from abc import ABC, abstractmethod
 from collections.abc import Callable, Sequence
-from typing import Any, ClassVar, Union, get_args, get_origin
+from typing import Any, ClassVar, Union, cast, get_args, get_origin
 
 from pydantic import BaseModel, ConfigDict, Field
 from pydantic import BaseModel as PydanticBaseModel
@@ -652,20 +652,23 @@ class BaseLLMProvider(ABC, ILLMProvider):
 
 
 # Common constants and mappings for all providers
-SECTION_SCHEMAS = {
-    # 10-K sections
-    "Item 1 - Business": schemas.BusinessAnalysisSection,
-    "Item 1A - Risk Factors": schemas.RiskFactorsAnalysisSection,
-    "Item 7 - Management Discussion & Analysis": schemas.MDAAnalysisSection,
-    # 10-Q sections - Part I
-    "Part I Item 2 - Management Discussion & Analysis": schemas.MDAAnalysisSection,
-    # 10-Q sections - Part II
-    "Part II Item 1A - Risk Factors": schemas.RiskFactorsAnalysisSection,
-    # Financial statement schemas
-    "Balance Sheet": schemas.BalanceSheetAnalysisSection,
-    "Income Statement": schemas.IncomeStatementAnalysisSection,
-    "Cash Flow Statement": schemas.CashFlowAnalysisSection,
-}
+SECTION_SCHEMAS: dict[str, type[PydanticBaseModel]] = cast(
+    dict[str, type[PydanticBaseModel]],
+    {
+        # 10-K sections
+        "Item 1 - Business": schemas.BusinessAnalysisSection,
+        "Item 1A - Risk Factors": schemas.RiskFactorsAnalysisSection,
+        "Item 7 - Management Discussion & Analysis": schemas.MDAAnalysisSection,
+        # 10-Q sections - Part I
+        "Part I Item 2 - Management Discussion & Analysis": schemas.MDAAnalysisSection,
+        # 10-Q sections - Part II
+        "Part II Item 1A - Risk Factors": schemas.RiskFactorsAnalysisSection,
+        # Financial statement schemas
+        "Balance Sheet": schemas.BalanceSheetAnalysisSection,
+        "Income Statement": schemas.IncomeStatementAnalysisSection,
+        "Cash Flow Statement": schemas.CashFlowAnalysisSection,
+    },
+)
 
 
 def _canonical_section_key(name: str) -> str:
@@ -923,14 +926,15 @@ def create_section_summary_prompts(
         Tuple of (system_prompt, user_prompt)
     """
 
-    def _serialise_analysis_payload(payload: Any) -> str:
+    def _serialise_analysis_payload(raw_payload: Any) -> str:
         """Convert structured subsection output into a compact prompt fragment."""
 
-        if payload is None:
+        if raw_payload is None:
             return ""
 
-        if hasattr(payload, "model_dump"):
-            payload = payload.model_dump()  # type: ignore[assignment]
+        payload: Any = raw_payload
+        if isinstance(payload, BaseModel):
+            payload = payload.model_dump()
 
         if isinstance(payload, str):
             text = payload.strip()

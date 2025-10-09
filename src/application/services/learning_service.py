@@ -90,7 +90,9 @@ class LearningService:
             schema_version=payload.schema_version,
         )
 
-        learning_repository = await self._repository_factory.get_learning_progress_repository()
+        learning_repository = (
+            await self._repository_factory.get_learning_progress_repository()
+        )
 
         saved = await learning_repository.upsert(data)
         return self._to_progress_model(saved)
@@ -98,14 +100,18 @@ class LearningService:
     async def list_user_progress(self, user_id: UserId) -> list[LearningProgress]:
         """Return all learning progress entries for a user."""
 
-        learning_repository = await self._repository_factory.get_learning_progress_repository()
+        learning_repository = (
+            await self._repository_factory.get_learning_progress_repository()
+        )
         records = await learning_repository.list_for_user(user_id)
         return [self._to_progress_model(record) for record in records]
 
     async def delete_progress(self, progress_id: LearningProgressId) -> bool:
         """Delete a learning progress entry by identifier."""
 
-        learning_repository = await self._repository_factory.get_learning_progress_repository()
+        learning_repository = (
+            await self._repository_factory.get_learning_progress_repository()
+        )
         return await learning_repository.delete(progress_id)
 
     async def record_quiz_attempt(
@@ -142,9 +148,7 @@ class LearningService:
         """Return recent quiz attempts for a user."""
 
         quiz_repository = await self._repository_factory.get_quiz_attempt_repository()
-        attempts = await quiz_repository.list_for_user(
-            user_id, limit=limit
-        )
+        attempts = await quiz_repository.list_for_user(user_id, limit=limit)
         return [self._to_quiz_model(attempt) for attempt in attempts]
 
     async def get_best_quiz_attempt(

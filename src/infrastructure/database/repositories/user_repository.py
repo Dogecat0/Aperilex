@@ -38,11 +38,11 @@ class UserRepository(IUserRepository):
             updated_at=getattr(model, "updated_at", None),
         )
 
-    def _invalidate_cache(self, *, user_id: UserId | None = None, email: str | None = None) -> None:
+    def _invalidate_cache(
+        self, *, user_id: UserId | None = None, email: str | None = None
+    ) -> None:
         if user_id:
-            self.cache_manager.invalidate_key(
-                self.cache_region, f"user:id:{user_id}"
-            )
+            self.cache_manager.invalidate_key(self.cache_region, f"user:id:{user_id}")
         if email:
             self.cache_manager.invalidate_key(
                 self.cache_region, f"user:email:{email.lower()}"
@@ -63,7 +63,7 @@ class UserRepository(IUserRepository):
 
     async def get_by_id(self, user_id: UserId) -> UserData | None:
         cache_key = f"user:id:{user_id}"
-        stmt: Select[UserModel] = select(UserModel).where(UserModel.id == user_id)
+        stmt = select(UserModel).where(UserModel.id == user_id)
         return await self._get_cached(cache_key, stmt)
 
     async def get_by_email(self, email: Email) -> UserData | None:

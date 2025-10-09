@@ -52,7 +52,9 @@ class UserProfileRepository(IUserProfileRepository):
                 self.cache_region, f"profile:user:{user_id}"
             )
 
-    async def _get_cached(self, cache_key: str, query: Select[Any]) -> UserProfileData | None:
+    async def _get_cached(
+        self, cache_key: str, query: Select[Any]
+    ) -> UserProfileData | None:
         async def fetch_from_db() -> UserProfileData | None:
             result = await self.session.execute(query)
             model = result.scalar_one_or_none()
@@ -65,13 +67,9 @@ class UserProfileRepository(IUserProfileRepository):
         )
         return cast("UserProfileData | None", cached)
 
-    async def get_by_id(
-        self, profile_id: UserProfileId
-    ) -> UserProfileData | None:
+    async def get_by_id(self, profile_id: UserProfileId) -> UserProfileData | None:
         cache_key = f"profile:id:{profile_id}"
-        stmt: Select[UserProfileModel] = select(UserProfileModel).where(
-            UserProfileModel.id == profile_id
-        )
+        stmt = select(UserProfileModel).where(UserProfileModel.id == profile_id)
         return await self._get_cached(cache_key, stmt)
 
     async def get_by_user_id(self, user_id: UserId) -> UserProfileData | None:

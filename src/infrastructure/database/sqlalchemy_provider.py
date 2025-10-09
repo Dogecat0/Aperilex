@@ -290,9 +290,11 @@ class SQLAlchemyDatabaseProvider(IDatabaseProvider):
                         analysis_type=result.analysis_type,
                         summary=summary_payload,
                         meta_data=metadata_updates,
-                        created_by=str(metadata_updates.get("created_by"))
-                        if metadata_updates.get("created_by")
-                        else str(user_id),
+                        created_by=(
+                            str(metadata_updates.get("created_by"))
+                            if metadata_updates.get("created_by")
+                            else str(user_id)
+                        ),
                     )
                     session.add(analysis)
 
@@ -421,7 +423,9 @@ class SQLAlchemyDatabaseProvider(IDatabaseProvider):
 
         duration_seconds = summary.get("processing", {}).get("duration_seconds")
         duration_float = SQLAlchemyDatabaseProvider._coerce_float(duration_seconds)
-        processing_ms = int(duration_float * 1000) if duration_float is not None else None
+        processing_ms = (
+            int(duration_float * 1000) if duration_float is not None else None
+        )
 
         confidence_score = SQLAlchemyDatabaseProvider._coerce_float(
             summary.get("confidence", {}).get("score")

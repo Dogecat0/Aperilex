@@ -74,7 +74,9 @@ class BackgroundTaskCoordinator:
     ) -> TaskResponse:
         """Queue a filing analysis for background processing."""
         if user_email is None:
-            raise ValueError("Authenticated user email is required to queue analysis tasks")
+            raise ValueError(
+                "Authenticated user email is required to queue analysis tasks"
+            )
 
         try:
             logger.info(
@@ -264,9 +266,11 @@ class BackgroundTaskCoordinator:
             )
 
             response_payload = {
-                "message": "Analysis completed successfully"
-                if result.status == TaskStatus.COMPLETED
-                else "Analysis failed",
+                "message": (
+                    "Analysis completed successfully"
+                    if result.status == TaskStatus.COMPLETED
+                    else "Analysis failed"
+                ),
                 "filing_identifier": command.filing_identifier,
                 "company_cik": task_data.metadata.get("company_cik"),
                 "accession_number": task_data.metadata.get("accession_number"),

@@ -21,7 +21,9 @@ class TaskStatusStore:
     """Persist and retrieve task status snapshots on the local filesystem."""
 
     def __init__(self, base_path: str | Path | None = None) -> None:
-        raw_path = base_path or os.environ.get("TASK_STATUS_STORE_PATH") or "task-status"
+        raw_path = (
+            base_path or os.environ.get("TASK_STATUS_STORE_PATH") or "task-status"
+        )
 
         target = Path(raw_path)
         if not target.is_absolute():

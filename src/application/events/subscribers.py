@@ -53,7 +53,9 @@ class EventStoreSubscriber(IEventSubscriber):
     async def handle(self, event: DomainEvent) -> None:
         try:
             await self._event_store.append(event)
-        except Exception as exc:  # noqa: BLE001 - prevent subscriber failure from bubbling
+        except (
+            Exception
+        ) as exc:  # noqa: BLE001 - prevent subscriber failure from bubbling
             logger.error(
                 "Failed to append event to store",
                 extra={
@@ -62,4 +64,6 @@ class EventStoreSubscriber(IEventSubscriber):
                 },
                 exc_info=True,
             )
-            logger.debug("Event store append failure details", extra={"error": str(exc)})
+            logger.debug(
+                "Event store append failure details", extra={"error": str(exc)}
+            )

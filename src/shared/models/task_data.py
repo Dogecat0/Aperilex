@@ -99,7 +99,9 @@ class TaskData(BaseModel):
 
     @field_validator("email", mode="before")
     @classmethod
-    def _coerce_email(cls, value: Email | dict[str, str] | str) -> Email | dict[str, str] | str:
+    def _coerce_email(
+        cls, value: Email | dict[str, str] | str
+    ) -> Email | dict[str, str] | str:
         """Allow plain strings when reconstructing from serialized payloads."""
         if isinstance(value, str):
             return {"value": value}
@@ -107,7 +109,9 @@ class TaskData(BaseModel):
 
     @field_validator("ticker", mode="before")
     @classmethod
-    def _coerce_ticker(cls, value: Ticker | dict[str, str] | str) -> Ticker | dict[str, str] | str:
+    def _coerce_ticker(
+        cls, value: Ticker | dict[str, str] | str
+    ) -> Ticker | dict[str, str] | str:
         """Allow plain strings when reconstructing from serialized payloads."""
         if isinstance(value, str):
             return {"value": value}

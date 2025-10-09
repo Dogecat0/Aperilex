@@ -62,8 +62,10 @@ class DockerWorkerProvider(IWorkerProvider):
         except DockerError:
             # Network doesn't exist, create it
             await client.networks.create(
-                name=self.config.network_name,
-                driver="bridge",
+                {
+                    "Name": self.config.network_name,
+                    "Driver": "bridge",
+                }
             )
 
     async def _build_container_config(
@@ -142,6 +144,22 @@ class DockerWorkerProvider(IWorkerProvider):
             return parsed.astimezone(UTC).replace(tzinfo=None)
         return parsed
 
+    @staticmethod
+    def _extract_exit_status(result: Any) -> int | None:
+        """Extract an integer exit status from Docker wait results."""
+        if isinstance(result, int):
+            return result
+        if isinstance(result, dict):
+            status = result.get("StatusCode")
+            if isinstance(status, int):
+                return status
+            if isinstance(status, str):
+                try:
+                    return int(status)
+                except ValueError:
+                    return None
+        return None
+
     def _schedule_status_persist(self, status: WorkerTaskStatus) -> None:
         """Persist status asynchronously without blocking the worker loop."""
 
@@ -189,7 +207,7 @@ class DockerWorkerProvider(IWorkerProvider):
                 dict[str, object], result.model_dump()
             )
         elif isinstance(result, dict):
-            result_payload = cast(dict[str, object], result)
+            result_payload = dict(result)
         else:
             result_payload = None
 
@@ -244,33 +262,32 @@ class DockerWorkerProvider(IWorkerProvider):
             # Start the container
             await container.start()
 
-            # Wait for container to complete or timeout
             timeout = context.timeout_seconds
             try:
-                exit_code = await asyncio.wait_for(container.wait(), timeout=timeout)
+                wait_result = await asyncio.wait_for(container.wait(), timeout=timeout)
             except TimeoutError:
-                # Container timed out
                 await container.kill()
                 raise TimeoutError(
                     f"Task {context.task_id} exceeded timeout of {timeout}s"
                 ) from None
 
-            # Get container logs
+            exit_status = self._extract_exit_status(wait_result)
+
             logs = await container.log(stdout=True, stderr=True)
             log_output = "".join(logs)
 
-            # Parse result from container output (assuming JSON output)
-            result_data = None
-            error_message = None
+            result_data: WorkerResultData | None = None
+            error_message: str | None = None
             status = TaskStatus.COMPLETED
 
-            if exit_code != 0:
+            if exit_status is None:
                 status = TaskStatus.FAILED
-                error_message = f"Container exited with code {exit_code}"
+                error_message = "Container exited with an unknown status"
+            elif exit_status != 0:
+                status = TaskStatus.FAILED
+                error_message = f"Container exited with code {exit_status}"
             else:
-                # Try to parse JSON result from logs
                 try:
-                    # Look for JSON result in the last line
                     lines = log_output.strip().split("\n")
                     if lines:
                         last_line = lines[-1]
@@ -284,8 +301,7 @@ class DockerWorkerProvider(IWorkerProvider):
                                 ),
                                 warnings=result_json.get("warnings", []),
                             )
-                except (json.JSONDecodeError, KeyError):
-                    # Failed to parse result, treat as plain text
+                except (json.JSONDecodeError, KeyError, TypeError, ValueError):
                     result_data = WorkerResultData(
                         output_type="text",
                         output_data={"output": log_output},
@@ -434,23 +450,23 @@ class DockerWorkerProvider(IWorkerProvider):
         for container_id in self.active_containers.values():
             try:
                 container = await client.containers.get(container_id)
-                stats = await container.stats(stream=False)
+                stats_raw = await container.stats(stream=False)
+                if not isinstance(stats_raw, dict):
+                    continue
 
-                # Parse memory usage
-                if "memory_stats" in stats:
-                    memory_stats = stats["memory_stats"]
-                    if "usage" in memory_stats:
-                        total_memory += memory_stats["usage"] // (
-                            1024 * 1024
-                        )  # Convert to MB
+                memory_stats = stats_raw.get("memory_stats")
+                if isinstance(memory_stats, dict):
+                    usage = memory_stats.get("usage")
+                    if isinstance(usage, int | float):
+                        total_memory += int(usage) // (1024 * 1024)
 
-                # Parse CPU usage
-                if "cpu_stats" in stats:
-                    cpu_stats = stats["cpu_stats"]
-                    if "cpu_usage" in cpu_stats:
-                        total_cpu += (
-                            cpu_stats["cpu_usage"].get("total_usage", 0) // 1000000
-                        )  # Convert to ms
+                cpu_stats = stats_raw.get("cpu_stats")
+                if isinstance(cpu_stats, dict):
+                    cpu_usage = cpu_stats.get("cpu_usage")
+                    if isinstance(cpu_usage, dict):
+                        total_usage = cpu_usage.get("total_usage", 0)
+                        if isinstance(total_usage, int | float):
+                            total_cpu += int(total_usage) // 1_000_000
             except DockerError:
                 continue
 
@@ -642,9 +658,11 @@ class DockerWorkerProvider(IWorkerProvider):
                     task_id=task_id,
                     status=resolved_status,
                     started_at=started_at,
-                    completed_at=finished_at
-                    if resolved_status != TaskStatus.IN_PROGRESS
-                    else None,
+                    completed_at=(
+                        finished_at
+                        if resolved_status != TaskStatus.IN_PROGRESS
+                        else None
+                    ),
                     message=state.get("Error") or state.get("Status"),
                 )
 

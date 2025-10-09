@@ -68,8 +68,14 @@ class QuizAttemptRepository(IQuizAttemptRepository):
                 self.cache_region,
                 f"quiz_attempt:latest:{user_id}:{quiz_cache_key}",
             )
+            self.cache_manager.invalidate_key(
+                self.cache_region,
+                f"quiz_attempt:best:{user_id}:{quiz_cache_key}",
+            )
 
-    async def _get_cached(self, cache_key: str, query: Select[Any]) -> QuizAttemptData | None:
+    async def _get_cached(
+        self, cache_key: str, query: Select[Any]
+    ) -> QuizAttemptData | None:
         async def fetch_from_db() -> QuizAttemptData | None:
             result = await self.session.execute(query)
             model = result.scalar_one_or_none()
@@ -84,9 +90,7 @@ class QuizAttemptRepository(IQuizAttemptRepository):
 
     async def get_by_id(self, attempt_id: QuizAttemptId) -> QuizAttemptData | None:
         cache_key = f"quiz_attempt:id:{attempt_id}"
-        stmt: Select[QuizAttemptModel] = select(QuizAttemptModel).where(
-            QuizAttemptModel.id == attempt_id
-        )
+        stmt = select(QuizAttemptModel).where(QuizAttemptModel.id == attempt_id)
         return await self._get_cached(cache_key, stmt)
 
     async def get_latest_for_quiz(
@@ -105,6 +109,29 @@ class QuizAttemptRepository(IQuizAttemptRepository):
                 )
             )
             .order_by(desc(QuizAttemptModel.attempted_at))
+            .limit(1)
+        )
+        return await self._get_cached(cache_key, stmt)
+
+    async def get_best_attempt(
+        self,
+        user_id: UserId,
+        quiz_id: str,
+    ) -> QuizAttemptData | None:
+        quiz_cache_key = quiz_id.lower()
+        cache_key = f"quiz_attempt:best:{user_id}:{quiz_cache_key}"
+        stmt = (
+            select(QuizAttemptModel)
+            .where(
+                and_(
+                    QuizAttemptModel.user_id == user_id,
+                    QuizAttemptModel.quiz_id == quiz_id,
+                )
+            )
+            .order_by(
+                desc(QuizAttemptModel.score_percent),
+                desc(QuizAttemptModel.attempted_at),
+            )
             .limit(1)
         )
         return await self._get_cached(cache_key, stmt)

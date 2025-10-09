@@ -1,6 +1,6 @@
 """Shared schema base classes for application layer DTOs."""
 
-from typing import Generic, TypeVar
+from typing import TypeVar
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -19,7 +19,7 @@ class SchemaVersionedModel(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
 
 
-class SchemaVersionedGenericModel(BaseModel, Generic[T_co]):
+class SchemaVersionedGenericModel[T_co](BaseModel):
     """Generic base model variant with schema versioning."""
 
     schema_version: int = Field(

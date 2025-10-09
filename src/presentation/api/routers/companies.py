@@ -194,9 +194,11 @@ async def list_company_analyses(
             "ticker": ticker,
             "search": params.search,
             "segment": params.segment.value,
-            "statuses": [status.value for status in params.statuses]
-            if params.statuses
-            else None,
+            "statuses": (
+                [status.value for status in params.statuses]
+                if params.statuses
+                else None
+            ),
             "page": params.page,
             "page_size": params.page_size,
         },
@@ -249,7 +251,9 @@ async def list_company_analyses(
 
         company_info = company_info_result
 
-        from src.shared.types import CIK  # Local import to avoid circulars during module load  # noqa: I001
+        from src.shared.types import (
+            CIK,
+        )
 
         company_cik = CIK(value=company_info.cik)
 

@@ -60,10 +60,14 @@ class AuthRateLimitRepository(IAuthRateLimitRepository):
         now: datetime,
     ) -> tuple[AuthRateLimitData, bool]:
         window_start = self._window_floor(now, window_seconds)
-        stmt = select(AuthRateLimit).where(
-            AuthRateLimit.key == key,
-            AuthRateLimit.action == action,
-        ).with_for_update(nowait=False)
+        stmt = (
+            select(AuthRateLimit)
+            .where(
+                AuthRateLimit.key == key,
+                AuthRateLimit.action == action,
+            )
+            .with_for_update(nowait=False)
+        )
         result = await self._session.execute(stmt)
         model = result.scalar_one_or_none()
 
@@ -98,10 +102,14 @@ class AuthRateLimitRepository(IAuthRateLimitRepository):
         return self._model_to_data(model), allowed
 
     async def reset(self, key: str, action: str) -> bool:
-        stmt = select(AuthRateLimit).where(
-            AuthRateLimit.key == key,
-            AuthRateLimit.action == action,
-        ).with_for_update(nowait=False)
+        stmt = (
+            select(AuthRateLimit)
+            .where(
+                AuthRateLimit.key == key,
+                AuthRateLimit.action == action,
+            )
+            .with_for_update(nowait=False)
+        )
         result = await self._session.execute(stmt)
         model = result.scalar_one_or_none()
         if model is None:

@@ -143,7 +143,9 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         try:
             self._auth_provider = await get_authentication_provider()
         except Exception:
-            logger.debug("Authentication provider not available for rate limiting", exc_info=True)
+            logger.debug(
+                "Authentication provider not available for rate limiting", exc_info=True
+            )
             self._auth_provider = None
         return self._auth_provider
 

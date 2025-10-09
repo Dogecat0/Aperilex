@@ -1,7 +1,7 @@
 import logging
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
-from typing import Any
+from typing import Any, cast
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -61,14 +61,18 @@ async def http_exception_handler(request: Request, exc: HTTPException) -> JSONRe
         JSON response with error details
     """
     detail = exc.detail
+    extras: dict[str, object] = {}
     if isinstance(detail, dict):
         message = detail.get("message", "Request failed")
         code = detail.get("code")
-        extras = {k: v for k, v in detail.items() if k not in {"message", "code"}}
+        extras = {
+            key: cast(object, value)
+            for key, value in detail.items()
+            if key not in {"message", "code"}
+        }
     else:
         message = str(detail) if detail is not None else "Request failed"
         code = None
-        extras: dict[str, object] = {}
 
     payload: dict[str, object] = {
         "message": message,

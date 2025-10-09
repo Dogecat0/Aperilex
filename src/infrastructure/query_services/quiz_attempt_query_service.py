@@ -39,9 +39,7 @@ class QuizAttemptQueryService(IQuizAttemptQueryService):
             attempt_id=QuizAttemptId(model.id),
             user_id=UserId(model.user_id),
             quiz_id=model.quiz_id,
-            score_percent=QuizAttemptQueryService._score_to_float(
-                model.score_percent
-            ),
+            score_percent=QuizAttemptQueryService._score_to_float(model.score_percent),
             passed=bool(model.passed),
             attempted_at=model.attempted_at,
         )
@@ -60,9 +58,7 @@ class QuizAttemptQueryService(IQuizAttemptQueryService):
                 .limit(limit)
             )
             result = await self.session.execute(stmt)
-            return [
-                self._model_to_result(model) for model in result.scalars().all()
-            ]
+            return [self._model_to_result(model) for model in result.scalars().all()]
         except Exception as exc:  # pragma: no cover - defensive logging
             logger.error("Failed to fetch recent quiz attempts", exc_info=True)
             raise QueryServiceError("Failed to fetch recent quiz attempts") from exc

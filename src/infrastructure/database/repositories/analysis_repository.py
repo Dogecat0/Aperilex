@@ -7,6 +7,7 @@ from uuid import UUID
 from sqlalchemy import Float, Integer, String, and_, false, func, or_, select
 from sqlalchemy import cast as sa_cast
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import InstrumentedAttribute
 from sqlalchemy.sql import ColumnElement, Select
 
 from src.application.interfaces.repositories import AnalysisData, IAnalysisRepository
@@ -35,14 +36,20 @@ class AnalysisRepository(IAnalysisRepository):
         """Expression extracting critical findings count from summary JSON."""
 
         return sa_cast(
-            self._json_text(AnalysisModel.summary, "insight_counts", "critical_findings"),
+            self._json_text(
+                AnalysisModel.summary, "insight_counts", "critical_findings"
+            ),
             Integer,
         )
 
-    def _json_text(self, column: ColumnElement[Any], *path: str) -> ColumnElement[str]:
+    def _json_text(
+        self,
+        column: ColumnElement[Any] | InstrumentedAttribute[Any],
+        *path: str,
+    ) -> ColumnElement[str]:
         """Extract a text value from a JSON column using Postgres operators."""
 
-        expr: ColumnElement[Any] = column
+        expr: ColumnElement[Any] = cast(ColumnElement[Any], column)
         if not path:
             return sa_cast(expr, String)
 
@@ -107,7 +114,7 @@ class AnalysisRepository(IAnalysisRepository):
 
     def _apply_filters(
         self,
-        stmt,
+        stmt: Select[Any],
         *,
         company_cik: Any | None,
         search: str | None,
@@ -116,9 +123,10 @@ class AnalysisRepository(IAnalysisRepository):
         created_after: datetime | None,
         created_before: datetime | None,
         created_by: str | None,
-    ) -> Select:
-        stmt = stmt.join(FilingModel, AnalysisModel.filing_id == FilingModel.id)
-        stmt = stmt.join(CompanyModel, FilingModel.company_id == CompanyModel.id)
+    ) -> Select[Any]:
+        working_stmt = stmt.join(
+            FilingModel, AnalysisModel.filing_id == FilingModel.id
+        ).join(CompanyModel, FilingModel.company_id == CompanyModel.id)
 
         status_filters, requires_flagged = self._resolve_status_filters(
             segment, statuses
@@ -127,7 +135,7 @@ class AnalysisRepository(IAnalysisRepository):
         conditions: list[ColumnElement[bool]] = []
 
         if status_filters == []:
-            return stmt.where(false())
+            return working_stmt.where(false())
 
         if status_filters:
             conditions.append(AnalysisModel.status.in_(status_filters))
@@ -178,9 +186,9 @@ class AnalysisRepository(IAnalysisRepository):
             conditions.append(self._critical_findings_expression() > 0)
 
         if conditions:
-            stmt = stmt.where(and_(*conditions))
+            working_stmt = working_stmt.where(and_(*conditions))
 
-        return stmt
+        return working_stmt
 
     def _model_to_data(self, model: AnalysisModel) -> AnalysisData:
         """Convert AnalysisModel to AnalysisData.
@@ -644,11 +652,12 @@ class AnalysisRepository(IAnalysisRepository):
         summary_critical_expr = self._critical_findings_expression()
         summary_confidence_expr = self._confidence_score_expression()
 
-        sort_expr: ColumnElement[Any] = AnalysisModel.created_at
         if sort_by == "confidence_score":
-            sort_expr = summary_confidence_expr
+            sort_expr: ColumnElement[Any] = summary_confidence_expr
         elif sort_by == "insight_counts.critical_findings":
             sort_expr = summary_critical_expr
+        else:
+            sort_expr = cast(ColumnElement[Any], AnalysisModel.created_at)
 
         direction = (sort_direction or "desc").lower()
         if direction == "asc":
@@ -662,7 +671,6 @@ class AnalysisRepository(IAnalysisRepository):
         result = await self.session.execute(stmt)
         models = result.scalars().all()
         return [self._model_to_data(model) for model in models]
-
 
     async def get_analysis_results_from_storage(
         self,

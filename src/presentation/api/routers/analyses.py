@@ -154,7 +154,9 @@ class AnalysesListParams(BaseModel):
     @classmethod
     def as_dependency(
         cls,
-        search: Annotated[str | None, Query(description="Full-text search term")] = None,
+        search: Annotated[
+            str | None, Query(description="Full-text search term")
+        ] = None,
         segment: Annotated[
             AnalysisSegment,
             Query(description="Segment filter", alias="segment"),
@@ -189,18 +191,19 @@ class AnalysesListParams(BaseModel):
             Query(ge=1, le=100, description="Number of results per page (max 100)"),
         ] = 20,
     ) -> AnalysesListParams:
-        return cls(
-            search=search,
-            segment=segment,
-            statuses=status,
-            created_after=created_after,
-            created_before=created_before,
-            created_by=created_by,
-            sort=sort,
-            direction=direction,
-            page=page,
-            page_size=page_size,
-        )
+        payload: dict[str, Any] = {
+            "search": search,
+            "segment": segment,
+            "statuses": status,
+            "created_after": created_after,
+            "created_before": created_before,
+            "created_by": created_by,
+            "sort": sort,
+            "direction": direction,
+            "page": page,
+            "page_size": page_size,
+        }
+        return cls.model_validate(payload)
 
     def to_query(
         self,
@@ -224,9 +227,8 @@ class AnalysesListParams(BaseModel):
         )
 
 
-ListParamsDep = Annotated[
-    AnalysesListParams, Depends(AnalysesListParams.as_dependency)
-]
+ListParamsDep = Annotated[AnalysesListParams, Depends(AnalysesListParams.as_dependency)]
+
 
 @router.get(
     "",
@@ -250,9 +252,11 @@ async def list_analyses(
         extra={
             "search": params.search,
             "segment": params.segment.value,
-            "statuses": [status.value for status in params.statuses]
-            if params.statuses
-            else None,
+            "statuses": (
+                [status.value for status in params.statuses]
+                if params.statuses
+                else None
+            ),
             "created_after": (
                 params.created_after.isoformat() if params.created_after else None
             ),
@@ -312,9 +316,11 @@ async def list_analyses(
             extra={
                 "search": params.search,
                 "segment": params.segment.value,
-                "statuses": [status.value for status in params.statuses]
-                if params.statuses
-                else None,
+                "statuses": (
+                    [status.value for status in params.statuses]
+                    if params.statuses
+                    else None
+                ),
             },
             exc_info=True,
         )

@@ -32,9 +32,7 @@ class FilingResponse(SchemaVersionedModel):
 
     filing_id: UUID = Field(description="Unique identifier for the filing")
     company_id: UUID = Field(description="Identifier of the company that filed")
-    accession_number: str = Field(
-        description="SEC accession number for the filing"
-    )
+    accession_number: str = Field(description="SEC accession number for the filing")
     filing_type: str = Field(description="Type of SEC filing")
     filing_date: date = Field(description="Date the filing was submitted")
     processing_status: ProcessingStatus = Field(

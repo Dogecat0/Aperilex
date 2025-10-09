@@ -62,9 +62,7 @@ class PostgresDatabaseProvider(SQLAlchemyDatabaseProvider):
             AsyncEngine configured for PostgreSQL
         """
         # Get password from secret manager without blocking an active event loop
-        password_coro = self.secret_manager.get_secret(
-            self.config.password_secret_name
-        )
+        password_coro = self.secret_manager.get_secret(self.config.password_secret_name)
         try:
             password = self._run_coroutine_safely(password_coro)
         except KeyError as exc:

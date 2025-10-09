@@ -40,7 +40,10 @@ from src.application.handlers.schemas.responses.analysis_response import (
     AnalysesListResponse,
     AnalysisResponse,
 )
-from src.application.handlers.schemas.responses.error_response import ErrorResponse, ErrorType
+from src.application.handlers.schemas.responses.error_response import (
+    ErrorResponse,
+    ErrorType,
+)
 from src.application.handlers.schemas.responses.filing_response import FilingResponse
 from src.application.handlers.schemas.responses.paginated_response import (
     PaginatedResponse,

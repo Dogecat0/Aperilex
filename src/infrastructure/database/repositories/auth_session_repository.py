@@ -160,17 +160,11 @@ class AuthSessionRepository(IAuthSessionRepository):
         now: datetime,
         limit: int = 100,
     ) -> int:
-        stmt = (
-            select(AuthSession.id)
-            .where(AuthSession.expires_at < now)
-            .limit(limit)
-        )
+        stmt = select(AuthSession.id).where(AuthSession.expires_at < now).limit(limit)
         result = await self._session.execute(stmt)
         ids = [row[0] for row in result.all()]
         if not ids:
             return 0
 
-        await self._session.execute(
-            delete(AuthSession).where(AuthSession.id.in_(ids))
-        )
+        await self._session.execute(delete(AuthSession).where(AuthSession.id.in_(ids)))
         return len(ids)

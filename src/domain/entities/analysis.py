@@ -166,7 +166,6 @@ class Analysis:
         # Results are now in storage, not in entity
         return []
 
-
     def get_section_analyses(self) -> list[dict[str, Any]]:
         """Get section analyses from comprehensive filing analysis.
 

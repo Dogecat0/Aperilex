@@ -531,9 +531,7 @@ class PriorityQueueService:
 
         for priority_level, queue_name in self.config.queue_names.items():
             try:
-                stats = await self.queue_provider.get_queue_stats(
-                    queue_name=queue_name
-                )
+                stats = await self.queue_provider.get_queue_stats(queue_name=queue_name)
                 depths[priority_level] = stats.message_count
             except Exception as e:
                 logger.error(f"Failed to get stats for {queue_name}: {str(e)}")

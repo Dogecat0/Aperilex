@@ -248,13 +248,9 @@ def _aggregate_health_statuses(
     ]
 
     if unhealthy:
-        message = (
-            f"{name.capitalize()} services unhealthy: {', '.join(unhealthy)}"
-        )
+        message = f"{name.capitalize()} services unhealthy: {', '.join(unhealthy)}"
     elif degraded:
-        message = (
-            f"{name.capitalize()} services degraded: {', '.join(degraded)}"
-        )
+        message = f"{name.capitalize()} services degraded: {', '.join(degraded)}"
     else:
         message = f"All {name} services are healthy"
 
@@ -268,7 +264,9 @@ def _aggregate_health_statuses(
     )
 
 
-def _derive_overall_status(statuses: list[HealthStatus] | tuple[HealthStatus, ...]) -> str:
+def _derive_overall_status(
+    statuses: list[HealthStatus] | tuple[HealthStatus, ...],
+) -> str:
     """Derive overall status from individual health statuses."""
     seen_degraded = False
 

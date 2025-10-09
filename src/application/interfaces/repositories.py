@@ -327,10 +327,12 @@ class AuthRateLimitData(BaseModel):
     )
     id: AuthRateLimitId
     key: str = Field(
-        ..., description="Unique identifier for the rate-limited subject",
+        ...,
+        description="Unique identifier for the rate-limited subject",
     )
     action: str = Field(
-        ..., description="Action being rate limited (e.g., LOGIN, REFRESH)",
+        ...,
+        description="Action being rate limited (e.g., LOGIN, REFRESH)",
     )
     user_id: UserId | None = Field(
         default=None,
@@ -939,9 +941,7 @@ class IUserIdentityRepository(Protocol):
     """Repository for external user identity mappings."""
 
     @abstractmethod
-    async def get_by_id(
-        self, identity_id: UserIdentityId
-    ) -> UserIdentityData | None:
+    async def get_by_id(self, identity_id: UserIdentityId) -> UserIdentityData | None:
         """Fetch an identity mapping by identifier."""
 
     @abstractmethod
@@ -974,9 +974,7 @@ class IUserProfileRepository(Protocol):
     """Repository for user profile records."""
 
     @abstractmethod
-    async def get_by_id(
-        self, profile_id: UserProfileId
-    ) -> UserProfileData | None:
+    async def get_by_id(self, profile_id: UserProfileId) -> UserProfileData | None:
         """Fetch a profile by identifier."""
 
     @abstractmethod
@@ -1034,9 +1032,7 @@ class IQuizAttemptRepository(Protocol):
     """Repository for quiz attempt persistence."""
 
     @abstractmethod
-    async def get_by_id(
-        self, attempt_id: QuizAttemptId
-    ) -> QuizAttemptData | None:
+    async def get_by_id(self, attempt_id: QuizAttemptId) -> QuizAttemptData | None:
         """Fetch a quiz attempt by identifier."""
 
     @abstractmethod
@@ -1046,6 +1042,14 @@ class IQuizAttemptRepository(Protocol):
         quiz_id: str,
     ) -> QuizAttemptData | None:
         """Fetch the most recent attempt for a user/quiz pair."""
+
+    @abstractmethod
+    async def get_best_attempt(
+        self,
+        user_id: UserId,
+        quiz_id: str,
+    ) -> QuizAttemptData | None:
+        """Fetch the best scoring attempt for a user/quiz pair."""
 
     @abstractmethod
     async def list_for_user(

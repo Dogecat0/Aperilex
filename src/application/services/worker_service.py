@@ -664,9 +664,11 @@ class WorkerService:
                     task_data.task_id,
                     TaskStatus.FAILED,
                     {
-                        "analysis_id": str(analysis_request.analysis_id)
-                        if analysis_request
-                        else "",
+                        "analysis_id": (
+                            str(analysis_request.analysis_id)
+                            if analysis_request
+                            else ""
+                        ),
                         "error": error_text,
                     },
                 )
@@ -1239,9 +1241,9 @@ class WorkerService:
             metadata.update(
                 {
                     "task_id": str(request.task_id),
-                    "correlation_id": str(correlation_id)
-                    if correlation_id is not None
-                    else "",
+                    "correlation_id": (
+                        str(correlation_id) if correlation_id is not None else ""
+                    ),
                     "user_email": str(task_data.email),
                 }
             )
@@ -1337,9 +1339,7 @@ class WorkerService:
             sentiment_sections.append({"section": section_name, "score": score})
 
         average_sentiment = (
-            sum(sentiment_scores) / len(sentiment_scores)
-            if sentiment_scores
-            else None
+            sum(sentiment_scores) / len(sentiment_scores) if sentiment_scores else None
         )
         weighted_sentiment = (
             weighted_sum / weighted_count if weighted_count else average_sentiment
@@ -1381,10 +1381,9 @@ class WorkerService:
         summary = {
             "company": {
                 "name": self._resolve_company_name(task_metadata, task_data.ticker),
-                "cik": task_metadata.get("company_cik")
-                or task_metadata.get("cik"),
+                "cik": task_metadata.get("company_cik") or task_metadata.get("cik"),
                 "ticker": str(task_data.ticker),
-                },
+            },
             "filing": {
                 "type": task_data.filing_type.value,
                 "date": task_metadata.get("filing_date"),
@@ -1404,16 +1403,18 @@ class WorkerService:
             "insight_counts": {
                 "key_insights": len(key_insights) if key_insights else None,
                 "opportunities": len(opportunities) if opportunities else None,
-                "critical_findings": len(critical_findings_list)
-                if critical_findings_list
-                else None,
+                "critical_findings": (
+                    len(critical_findings_list) if critical_findings_list else None
+                ),
                 "sections_analyzed": sections_analyzed,
             },
             "processing": {
                 "duration_seconds": duration_seconds,
-                "completed_at": result.completed_at.isoformat()
-                if getattr(result, "completed_at", None)
-                else None,
+                "completed_at": (
+                    result.completed_at.isoformat()
+                    if getattr(result, "completed_at", None)
+                    else None
+                ),
             },
             "filing_summary": filing_summary,
             "key_insights": key_insights,
@@ -1446,9 +1447,7 @@ class WorkerService:
         """Resolve a human-readable section name from structured data."""
 
         name_raw = (
-            section.get("section_name")
-            or section.get("section")
-            or section.get("name")
+            section.get("section_name") or section.get("section") or section.get("name")
         )
         if isinstance(name_raw, str):
             name = name_raw.strip()
@@ -1589,9 +1588,7 @@ class WorkerService:
             return None
 
         metric_id_raw = self._clean_text(
-            analysis.get("metric_id")
-            or analysis.get("ratio_id")
-            or analysis.get("id")
+            analysis.get("metric_id") or analysis.get("ratio_id") or analysis.get("id")
         )
         metric_id = (
             self._slugify_identifier(metric_id_raw)
@@ -1621,11 +1618,7 @@ class WorkerService:
         display_delta = display_block.get("delta")
         delta_text = display_block.get("delta_text")
 
-        if (
-            current_value is None
-            and previous_value is None
-            and not display_current
-        ):
+        if current_value is None and previous_value is None and not display_current:
             return None
 
         delta_value = self._coerce_float(analysis.get("delta_value"))
@@ -1876,9 +1869,7 @@ class WorkerService:
             return None
 
         occurred_at = self._clean_text(
-            entry.get("occurred_at")
-            or entry.get("date")
-            or entry.get("timestamp")
+            entry.get("occurred_at") or entry.get("date") or entry.get("timestamp")
         )
         title = self._clean_text(
             entry.get("title")
@@ -1893,9 +1884,7 @@ class WorkerService:
             or analysis.get("interpretation")
             or analysis.get("description")
         )
-        severity = self._clean_text(
-            entry.get("severity") or analysis.get("severity")
-        )
+        severity = self._clean_text(entry.get("severity") or analysis.get("severity"))
         schema_type = str(sub_section.get("schema_type") or "").lower()
         event_type = "risk" if "risk" in schema_type else "metric"
 
@@ -2148,7 +2137,9 @@ class WorkerService:
         if result.token_usage:
             metadata["token_usage_total"] = int(result.token_usage.total_tokens)
             metadata["token_usage_prompt"] = int(result.token_usage.prompt_tokens)
-            metadata["token_usage_completion"] = int(result.token_usage.completion_tokens)
+            metadata["token_usage_completion"] = int(
+                result.token_usage.completion_tokens
+            )
 
         if result.estimated_cost is not None:
             metadata["estimated_cost"] = float(result.estimated_cost)
@@ -2295,7 +2286,9 @@ class WorkerService:
 
         try:
             await self.event_publisher.publish(event)
-        except Exception as exc:  # noqa: BLE001 - do not break processing if publish fails
+        except (
+            Exception
+        ) as exc:  # noqa: BLE001 - do not break processing if publish fails
             logger.warning(
                 "Failed to publish AnalysisStartedEvent",
                 extra={
@@ -2968,7 +2961,10 @@ class WorkerService:
         missing_schemas: list[str] = []
 
         for schema in required_schemas:
-            if filing_type == FilingType.FORM_10Q and schema == "BusinessAnalysisSection":
+            if (
+                filing_type == FilingType.FORM_10Q
+                and schema == "BusinessAnalysisSection"
+            ):
                 continue
 
             keys = self.section_keys_by_schema.get(schema, ())
@@ -3140,7 +3136,9 @@ class WorkerService:
             section["overall_sentiment"] = float(sentiment)
 
             findings = section.get("critical_findings") or []
-            section["critical_findings"] = findings if isinstance(findings, list) else []
+            section["critical_findings"] = (
+                findings if isinstance(findings, list) else []
+            )
 
         structured_payload["section_analyses"] = sections
 

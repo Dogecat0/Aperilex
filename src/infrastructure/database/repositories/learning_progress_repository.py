@@ -75,7 +75,9 @@ class LearningProgressRepository(ILearningProgressRepository):
                 f"progress:user:{user_id}:module:{module_cache_key}",
             )
 
-    async def _get_cached(self, cache_key: str, query: Select[Any]) -> LearningProgressData | None:
+    async def _get_cached(
+        self, cache_key: str, query: Select[Any]
+    ) -> LearningProgressData | None:
         async def fetch_from_db() -> LearningProgressData | None:
             result = await self.session.execute(query)
             model = result.scalar_one_or_none()
@@ -92,7 +94,7 @@ class LearningProgressRepository(ILearningProgressRepository):
         self, progress_id: LearningProgressId
     ) -> LearningProgressData | None:
         cache_key = f"progress:id:{progress_id}"
-        stmt: Select[LearningProgressModel] = select(LearningProgressModel).where(
+        stmt = select(LearningProgressModel).where(
             LearningProgressModel.id == progress_id
         )
         return await self._get_cached(cache_key, stmt)
@@ -135,20 +137,17 @@ class LearningProgressRepository(ILearningProgressRepository):
         if progress.metadata:
             update_values["metadata"] = progress.metadata
 
-        stmt = (
-            insert_stmt.on_conflict_do_update(
-                index_elements=[
-                    LearningProgressModel.user_id,
-                    LearningProgressModel.module_key,
-                ],
-                set_=update_values,
-            )
-            .returning(*LearningProgressModel.__table__.c)
-        )
+        stmt = insert_stmt.on_conflict_do_update(
+            index_elements=[
+                LearningProgressModel.user_id,
+                LearningProgressModel.module_key,
+            ],
+            set_=update_values,
+        ).returning(*LearningProgressModel.__table__.c)
 
         result = await self.session.execute(stmt)
         row = result.mappings().one()
-        data = self._row_to_data(row)
+        data = self._row_to_data(cast(Mapping[str, Any], row))
         self._invalidate_cache(
             progress_id=data.id,
             user_id=data.user_id,
@@ -174,7 +173,9 @@ class LearningProgressRepository(ILearningProgressRepository):
         return [self._model_to_data(model) for model in result.scalars().all()]
 
     async def delete(self, progress_id: LearningProgressId) -> bool:
-        stmt = select(LearningProgressModel).where(LearningProgressModel.id == progress_id)
+        stmt = select(LearningProgressModel).where(
+            LearningProgressModel.id == progress_id
+        )
         result = await self.session.execute(stmt)
         model = result.scalar_one_or_none()
         if not model:

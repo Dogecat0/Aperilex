@@ -574,7 +574,9 @@ class AuroraDatabaseProvider(IDatabaseProvider):
 
         duration_seconds = summary.get("processing", {}).get("duration_seconds")
         duration_float = AuroraDatabaseProvider._coerce_float(duration_seconds)
-        processing_ms = int(duration_float * 1000) if duration_float is not None else None
+        processing_ms = (
+            int(duration_float * 1000) if duration_float is not None else None
+        )
 
         confidence_score = AuroraDatabaseProvider._coerce_float(
             summary.get("confidence", {}).get("score")

@@ -8,7 +8,7 @@ import json
 import secrets
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 from uuid import UUID, uuid4
 
 import httpx
@@ -66,9 +66,14 @@ class GoogleJWKSCache:
     async def get_key(self, kid: str) -> dict[str, Any]:
         jwks = await self._get_keys()
         keys = jwks.get("keys", [])
+        if not isinstance(keys, list):
+            raise AuthenticationError(
+                "Invalid JWKS payload received from Google",
+                code="google.jwks.invalid",
+            )
         for key in keys:
-            if key.get("kid") == kid:
-                return key
+            if isinstance(key, dict) and key.get("kid") == kid:
+                return cast(dict[str, Any], key)
         raise AuthenticationError(
             f"Unable to locate Google signing key with kid '{kid}'",
             code="google.jwks.missing",
@@ -86,7 +91,13 @@ class GoogleJWKSCache:
             async with httpx.AsyncClient(timeout=5.0) as client:
                 response = await client.get(self._jwks_uri)
                 response.raise_for_status()
-                jwks = response.json()
+                jwks_raw = response.json()
+            if not isinstance(jwks_raw, dict):
+                raise AuthenticationError(
+                    "Invalid JWKS payload received from Google",
+                    code="google.jwks.invalid",
+                )
+            jwks = cast(dict[str, Any], jwks_raw)
 
             cache_seconds = self._ttl
             control_header = response.headers.get("Cache-Control")
@@ -524,7 +535,13 @@ class GoogleOAuthAuthenticationProvider(IAuthenticationProvider):
                 code="google.exchange.failed",
             ) from exc
 
-        return response.json()
+        payload = response.json()
+        if not isinstance(payload, dict):
+            raise AuthenticationError(
+                "Unexpected response from Google token endpoint",
+                code="google.exchange.invalid_response",
+            )
+        return cast(dict[str, Any], payload)
 
     async def _validate_google_id_token(
         self, token: str, *, access_token: str | None = None
@@ -556,7 +573,7 @@ class GoogleOAuthAuthenticationProvider(IAuthenticationProvider):
             decode_kwargs["access_token"] = access_token
 
         try:
-            payload: dict[str, Any] = jwt.decode(
+            payload_mapping = jwt.decode(
                 token,
                 key,
                 **decode_kwargs,
@@ -568,7 +585,7 @@ class GoogleOAuthAuthenticationProvider(IAuthenticationProvider):
                 code="google.idtoken.invalid",
             ) from exc
 
-        return payload
+        return dict(payload_mapping)
 
     async def _ensure_user(
         self,
@@ -708,7 +725,7 @@ class GoogleOAuthAuthenticationProvider(IAuthenticationProvider):
 
         headers = {"kid": self._jwt_key_id}
         try:
-            return jwt.encode(
+            encoded = jwt.encode(
                 payload,
                 self._jwt_private_key,
                 algorithm=self._jwt_algorithm,
@@ -720,12 +737,14 @@ class GoogleOAuthAuthenticationProvider(IAuthenticationProvider):
                 code="token.issue.failed",
             ) from exc
 
+        return encoded
+
     async def _decode_access_token(self, token: str) -> dict[str, Any]:
         await self._ensure_jwt_keys()
         assert self._jwt_public_key is not None  # nosec - ensured above
 
         try:
-            payload: dict[str, Any] = jwt.decode(
+            payload_mapping = jwt.decode(
                 token,
                 self._jwt_public_key,
                 algorithms=[self._jwt_algorithm],
@@ -737,6 +756,8 @@ class GoogleOAuthAuthenticationProvider(IAuthenticationProvider):
                 "Access token validation failed",
                 code="token.invalid",
             ) from exc
+
+        payload = dict(payload_mapping)
 
         if payload.get("token_type") != "access":
             raise AuthenticationError(
@@ -844,9 +865,10 @@ class GoogleOAuthAuthenticationProvider(IAuthenticationProvider):
         setting: RateLimitSetting,
         *,
         increment: bool,
-    ) -> tuple[AuthRateLimitData, bool]:
+    ) -> tuple[AuthRateLimitData | None, bool]:
         factory = self._repository_factory
         repo: IAuthRateLimitRepository = await factory.get_auth_rate_limit_repository()
+        entry: AuthRateLimitData | None
         if increment:
             entry, allowed = await repo.increment_and_get(
                 key=self._rate_limit_key(user_id, setting.action),

@@ -47,7 +47,10 @@ class OAuthTokenType(str, Enum):
     AUTHORIZATION_CODE = "authorization_code"
     BEARER = "Bearer"
 
-AuthProviderDep = Annotated[IAuthenticationProvider, Depends(get_authentication_provider)]
+
+AuthProviderDep = Annotated[
+    IAuthenticationProvider, Depends(get_authentication_provider)
+]
 ConfigProviderDep = Annotated[IConfigProvider, Depends(get_config_provider)]
 SecretManagerDep = Annotated[ISecretManager, Depends(get_secret_manager)]
 
@@ -170,7 +173,9 @@ async def _get_google_client_id(secret_manager: ISecretManager) -> str:
     return client_id
 
 
-def _auth_error_detail(code: str, message: str, *, info: dict[str, str] | None = None) -> dict[str, object]:
+def _auth_error_detail(
+    code: str, message: str, *, info: dict[str, str] | None = None
+) -> dict[str, object]:
     payload: dict[str, object] = {"code": code, "message": message}
     if info:
         payload.update(info)
@@ -244,8 +249,12 @@ async def _build_login_redirect(
         url=auth_url,
         status_code=status.HTTP_307_TEMPORARY_REDIRECT,
     )
-    _set_cookie(response, STATE_COOKIE, state, max_age=STATE_TTL_SECONDS, http_only=True)
-    _set_cookie(response, VERIFIER_COOKIE, verifier, max_age=STATE_TTL_SECONDS, http_only=True)
+    _set_cookie(
+        response, STATE_COOKIE, state, max_age=STATE_TTL_SECONDS, http_only=True
+    )
+    _set_cookie(
+        response, VERIFIER_COOKIE, verifier, max_age=STATE_TTL_SECONDS, http_only=True
+    )
     if redirect_hint:
         _set_cookie(
             response,
@@ -437,13 +446,13 @@ async def google_oauth_callback(
     redirect_hint = _merge_redirect_hint(request, payload)
 
     return AuthSessionResponse(
-        access_token=result.access_token or "",
-        token_type=OAuthTokenType.BEARER,
-        expires_in=result.expires_in,
-        refresh_expires_in=result.refresh_expires_in,
-        issued_at=result.issued_at,
+        accessToken=result.access_token or "",
+        tokenType=OAuthTokenType.BEARER.value,
+        expiresIn=result.expires_in,
+        refreshExpiresIn=result.refresh_expires_in,
+        issuedAt=result.issued_at,
         user=_build_user_payload(result),
-        redirect_to=redirect_hint,
+        redirectTo=redirect_hint,
     )
 
 
@@ -492,7 +501,9 @@ async def refresh_session(
             ),
         )
 
-    _set_refresh_cookie(response, credentials.refresh_token, credentials.refresh_expires_in)
+    _set_refresh_cookie(
+        response, credentials.refresh_token, credentials.refresh_expires_in
+    )
 
     try:
         user_result = await auth_provider.validate_token(credentials.token)
@@ -507,13 +518,13 @@ async def refresh_session(
         ) from exc
 
     return AuthSessionResponse(
-        access_token=credentials.token,
-        token_type=credentials.token_type or "Bearer",
-        expires_in=credentials.expires_in,
-        refresh_expires_in=credentials.refresh_expires_in,
-        issued_at=credentials.issued_at,
+        accessToken=credentials.token,
+        tokenType=(credentials.token_type or OAuthTokenType.BEARER.value),
+        expiresIn=credentials.expires_in,
+        refreshExpiresIn=credentials.refresh_expires_in,
+        issuedAt=credentials.issued_at,
         user=_build_user_payload(user_result),
-        redirect_to=None,
+        redirectTo=None,
     )
 
 

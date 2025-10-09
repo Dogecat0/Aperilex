@@ -13,6 +13,7 @@ from types import ModuleType
 from dependency_injector import containers, providers
 
 from src.application.containers import ApplicationContainer
+from src.application.interfaces.database import IDatabaseProvider
 from src.shared.enums import (
     AuthenticationProvider,
     DatabaseProvider,
@@ -233,12 +234,15 @@ class CompositionRoot(containers.DeclarativeContainer):
         )
 
         # Wire concrete database provider
-        database_provider = ProviderFactory.create_database_provider(
+        database_provider_provider = ProviderFactory.create_database_provider(
             database_type,
             config_provider,
             secret_manager,
         )
-        app_container.providers_container.database_provider.override(database_provider)
+        app_container.providers_container.database_provider.override(
+            database_provider_provider
+        )
+        database_provider: IDatabaseProvider = database_provider_provider()
 
         # Authentication and real-time providers
         authentication_provider = ProviderFactory.create_authentication_provider(

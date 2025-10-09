@@ -50,9 +50,7 @@ class MockAuthenticationProvider:
         Returns:
             Successful authentication result with mock user
         """
-        logger.debug(
-            f"Mock authentication for token: {credentials.token[:20]}..."
-        )
+        logger.debug(f"Mock authentication for token: {credentials.token[:20]}...")
 
         issued_at = datetime.now(UTC)
         access_token = credentials.token or f"mock_access_token_{uuid.uuid4()}"

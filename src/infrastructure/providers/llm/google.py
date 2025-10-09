@@ -279,7 +279,7 @@ class GoogleLLMProvider(BaseLLMProvider):
 
         if section_schema:
             # Extract subsection schemas dynamically
-            subsection_schemas = extract_subsection_schemas(section_schema)  # type: ignore[arg-type]
+            subsection_schemas = extract_subsection_schemas(section_schema)
 
             # Run concurrent subsection analysis
             sub_sections = await run_concurrent_subsection_analysis(

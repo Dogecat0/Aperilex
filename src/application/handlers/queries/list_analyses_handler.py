@@ -16,9 +16,7 @@ from src.application.interfaces.repositories import IAnalysisRepository
 logger = logging.getLogger(__name__)
 
 
-class ListAnalysesQueryHandler(
-    QueryHandler[ListAnalysesQuery, AnalysesListResponse]
-):
+class ListAnalysesQueryHandler(QueryHandler[ListAnalysesQuery, AnalysesListResponse]):
     """Handler for listing analyses with filtering and pagination.
 
     This handler processes ListAnalysesQuery by:
@@ -37,9 +35,7 @@ class ListAnalysesQueryHandler(
         """
         self.analysis_repository = analysis_repository
 
-    async def handle(
-        self, query: ListAnalysesQuery
-    ) -> AnalysesListResponse:
+    async def handle(self, query: ListAnalysesQuery) -> AnalysesListResponse:
         """Process the list analyses query.
 
         Args:
@@ -58,9 +54,11 @@ class ListAnalysesQueryHandler(
                 "company_cik": str(query.company_cik) if query.company_cik else None,
                 "search": query.search,
                 "segment": query.segment.value,
-                "statuses": [status.value for status in query.statuses]
-                if query.statuses
-                else None,
+                "statuses": (
+                    [status.value for status in query.statuses]
+                    if query.statuses
+                    else None
+                ),
                 "created_after": (
                     query.created_after.isoformat() if query.created_after else None
                 ),
@@ -78,9 +76,7 @@ class ListAnalysesQueryHandler(
         try:
             company_cik_value = str(query.company_cik) if query.company_cik else None
             status_filters = (
-                [status.value for status in query.statuses]
-                if query.statuses
-                else None
+                [status.value for status in query.statuses] if query.statuses else None
             )
 
             total_count = await self.analysis_repository.count_with_filters(

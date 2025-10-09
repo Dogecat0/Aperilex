@@ -68,7 +68,9 @@ class UserIdentityRepository(IUserIdentityRepository):
                 f"identity:provider:{provider_key}:{provider_subject}",
             )
 
-    async def _get_cached(self, cache_key: str, query: Select[Any]) -> UserIdentityData | None:
+    async def _get_cached(
+        self, cache_key: str, query: Select[Any]
+    ) -> UserIdentityData | None:
         async def fetch_from_db() -> UserIdentityData | None:
             result = await self.session.execute(query)
             model = result.scalar_one_or_none()
@@ -81,13 +83,9 @@ class UserIdentityRepository(IUserIdentityRepository):
         )
         return cast("UserIdentityData | None", cached)
 
-    async def get_by_id(
-        self, identity_id: UserIdentityId
-    ) -> UserIdentityData | None:
+    async def get_by_id(self, identity_id: UserIdentityId) -> UserIdentityData | None:
         cache_key = f"identity:id:{identity_id}"
-        stmt: Select[UserIdentityModel] = select(UserIdentityModel).where(
-            UserIdentityModel.id == identity_id
-        )
+        stmt = select(UserIdentityModel).where(UserIdentityModel.id == identity_id)
         return await self._get_cached(cache_key, stmt)
 
     async def get_by_provider_subject(

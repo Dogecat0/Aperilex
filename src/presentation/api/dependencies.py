@@ -224,7 +224,9 @@ async def get_learning_service(
         try:
             await service.close(success=succeeded)
         except Exception:
-            logger.exception("Failed to finalize learning service resources", exc_info=True)
+            logger.exception(
+                "Failed to finalize learning service resources", exc_info=True
+            )
 
 
 def _resolve_provider(instance: Any) -> Any:
@@ -259,7 +261,9 @@ class ServiceLifecycle:
     def __init__(self) -> None:
         """Initialize service lifecycle manager."""
         self.container: ApplicationContainer | None = None
-        self._event_subscribers: list[LoggingEventSubscriber | EventStoreSubscriber] = []
+        self._event_subscribers: list[LoggingEventSubscriber | EventStoreSubscriber] = (
+            []
+        )
 
     async def startup(self) -> None:
         """Initialize services during application startup.

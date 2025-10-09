@@ -125,7 +125,9 @@ class AnalyzeFilingCommandHandler(CommandHandler[AnalyzeFilingCommand, TaskRespo
                 )
 
         if user_email is None:
-            raise ValueError("Authenticated user email is required for analysis queueing")
+            raise ValueError(
+                "Authenticated user email is required for analysis queueing"
+            )
 
         return await self.background_task_coordinator.queue_filing_analysis(
             command=command,
