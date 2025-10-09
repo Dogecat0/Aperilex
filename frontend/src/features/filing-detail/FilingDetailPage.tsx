@@ -1,16 +1,20 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useLocation, useParams } from 'react-router-dom'
 import { GlossarySidebar } from './components/GlossarySidebar'
-import { InsightTimeline, type InsightTimelineEvent } from './components/InsightTimeline'
+import {
+  InsightTimeline,
+  type InsightTimelineEvent as TimelineViewEvent,
+} from './components/InsightTimeline'
 import { MetricsGrid, type MetricDatum } from './components/MetricsGrid'
 import { SectionSummaryPanel } from './components/SectionSummaryPanel'
 import { useThemeTokens } from '@/components/ThemeProvider'
 import { useFilingDetail, useSentimentBreakdown } from '@/lib/hooks'
 import type {
   AnalysisResponse,
-  SectionAnalysis,
+  HeadlineMetric,
+  InsightTimelineEvent as SummaryTimelineEvent,
+  SentimentRollup,
   StructuredAnalysisData,
-  SubsectionAnalysis,
 } from '@/lib/types/analysis'
 
 const TAB_KEYS = ['overview', 'sections', 'numbers', 'sentiment', 'raw'] as const
@@ -23,11 +27,6 @@ interface FilingDetailLocationState {
 
 const numberFormatter = new Intl.NumberFormat('en-US', {
   maximumFractionDigits: 2,
-})
-
-const signedPercentageFormatter = new Intl.NumberFormat('en-US', {
-  signDisplay: 'always',
-  maximumFractionDigits: 1,
 })
 
 function formatDate(input?: string | null) {
@@ -86,6 +85,16 @@ function formatSentiment(value?: number | null) {
   return `${(value * 100).toFixed(0)}%`
 }
 
+function formatSentimentDelta(value?: number | null) {
+  if (typeof value !== 'number') {
+    return null
+  }
+
+  const points = Math.round(value * 100)
+  const label = points > 0 ? `+${points}` : `${points}`
+  return `${label} pts vs prior analysis`
+}
+
 function determineTone(value?: number | null) {
   if (typeof value !== 'number') {
     return 'neutral'
@@ -102,151 +111,121 @@ function determineTone(value?: number | null) {
   return 'neutral'
 }
 
-function formatMetricValue(value: unknown, unit?: unknown) {
-  if (typeof value === 'number') {
-    const formatted = numberFormatter.format(value)
-    if (typeof unit === 'string' && unit.length > 0) {
-      const trimmedUnit = unit.trim()
-      return trimmedUnit.startsWith('%')
-        ? `${formatted}${trimmedUnit}`
-        : `${formatted} ${trimmedUnit}`
+function pickDisplayString(value?: string | null) {
+  if (typeof value === 'string') {
+    const trimmed = value.trim()
+    if (trimmed.length > 0) {
+      return trimmed
     }
-    return formatted
+  }
+  return undefined
+}
+
+function formatNumericWithUnit(value?: number | null, unit?: string | null) {
+  if (typeof value !== 'number') {
+    return undefined
   }
 
-  if (typeof value === 'string') {
-    return value
+  const formatted = numberFormatter.format(value)
+  if (typeof unit === 'string' && unit.trim().length > 0) {
+    const trimmedUnit = unit.trim()
+    return trimmedUnit.startsWith('%')
+      ? `${formatted}${trimmedUnit}`
+      : `${formatted} ${trimmedUnit}`
+  }
+  return formatted
+}
+
+function determineMetricTrendFromHeadline(
+  metric: HeadlineMetric
+): MetricDatum['trend'] | undefined {
+  if (typeof metric.delta_value === 'number') {
+    if (metric.delta_value > 0) {
+      return 'up'
+    }
+    if (metric.delta_value < 0) {
+      return 'down'
+    }
+    return 'stable'
+  }
+
+  if (typeof metric.current_value === 'number' && typeof metric.previous_value === 'number') {
+    if (metric.current_value > metric.previous_value) {
+      return 'up'
+    }
+    if (metric.current_value < metric.previous_value) {
+      return 'down'
+    }
+    return 'stable'
   }
 
   return undefined
 }
 
-function computeDelta(
-  analysis: Record<string, unknown>,
-  unit?: unknown
-): { delta?: string; trend?: MetricDatum['trend'] } {
-  const deltaPercentage = analysis.delta_percentage ?? analysis.percentage_change
-  if (typeof deltaPercentage === 'number') {
-    const value = signedPercentageFormatter.format(deltaPercentage)
+function buildHeadlineMetricData(metrics: HeadlineMetric[] | undefined): MetricDatum[] {
+  if (!metrics || metrics.length === 0) {
+    return []
+  }
+
+  return metrics.map((metric, index) => {
+    const current =
+      pickDisplayString(metric.display?.current) ??
+      formatNumericWithUnit(metric.current_value ?? null, metric.unit ?? null)
+    const previous =
+      pickDisplayString(metric.display?.previous) ??
+      formatNumericWithUnit(metric.previous_value ?? null, metric.unit ?? null)
+    const delta =
+      pickDisplayString(metric.display?.delta) ??
+      formatNumericWithUnit(metric.delta_value ?? null, metric.unit ?? null)
+    const interpretation = pickDisplayString(metric.display?.delta_text)
+    const trend = determineMetricTrendFromHeadline(metric)
+
     return {
-      delta: value,
-      trend: deltaPercentage > 0 ? 'up' : deltaPercentage < 0 ? 'down' : 'stable',
+      id: metric.id ?? `${metric.name}-${index}`,
+      label: metric.name,
+      current,
+      previous,
+      interpretation,
+      delta,
+      trend,
     }
-  }
-
-  const deltaValue = analysis.delta ?? analysis.delta_value
-  if (typeof deltaValue === 'number') {
-    const formatted = formatMetricValue(deltaValue, unit)
-    if (formatted) {
-      return {
-        delta: deltaValue > 0 ? `+${formatted}` : formatted,
-        trend: deltaValue > 0 ? 'up' : deltaValue < 0 ? 'down' : 'stable',
-      }
-    }
-  }
-
-  const current = analysis.current_value ?? analysis.value ?? analysis.metric_value
-  const previous = analysis.previous_value ?? analysis.prior_value
-  if (typeof current === 'number' && typeof previous === 'number' && previous !== 0) {
-    const diff = current - previous
-    const percentage = (diff / Math.abs(previous)) * 100
-    const formatted = signedPercentageFormatter.format(percentage)
-    return {
-      delta: formatted,
-      trend: percentage > 0 ? 'up' : percentage < 0 ? 'down' : 'stable',
-    }
-  }
-
-  return {}
+  })
 }
 
-function buildMetricData(sections: SectionAnalysis[]): MetricDatum[] {
-  const metrics: MetricDatum[] = []
+function timelineToneFromSeverity(severity?: string | null) {
+  if (!severity) {
+    return 'neutral'
+  }
 
-  sections.forEach((section) => {
-    section.sub_sections?.forEach((subSection: SubsectionAnalysis, index) => {
-      const rawAnalysis = subSection.analysis
-      if (!rawAnalysis || typeof rawAnalysis !== 'object') {
-        return
-      }
-
-      const analysis = rawAnalysis as Record<string, unknown>
-      const unit = analysis.unit ?? analysis.units
-      const label =
-        (analysis.metric_name as string | undefined) ??
-        (analysis.title as string | undefined) ??
-        subSection.sub_section_name ??
-        `${section.section_name} metric ${index + 1}`
-
-      const current = formatMetricValue(
-        analysis.current_value ?? analysis.value ?? analysis.metric_value,
-        unit
-      )
-      const previous = formatMetricValue(analysis.previous_value ?? analysis.prior_value, unit)
-      const interpretation =
-        (analysis.interpretation as string | undefined) ??
-        (analysis.commentary as string | undefined)
-
-      const { delta, trend } = computeDelta(analysis, unit)
-
-      if (!current && !previous && !interpretation && !delta) {
-        return
-      }
-
-      metrics.push({
-        id: `${section.section_name}-${index}`,
-        label,
-        current,
-        previous,
-        interpretation,
-        delta,
-        trend,
-      })
-    })
-  })
-
-  return metrics
+  const normalized = severity.toLowerCase()
+  if (normalized.includes('high') || normalized.includes('critical')) {
+    return 'negative'
+  }
+  if (normalized.includes('low')) {
+    return 'positive'
+  }
+  return 'neutral'
 }
 
-function buildTimelineEvents(
-  sections: SectionAnalysis[],
-  analysisTimestamp?: string | null
-): InsightTimelineEvent[] {
-  const base = analysisTimestamp ? new Date(analysisTimestamp) : new Date()
-  const events: InsightTimelineEvent[] = []
-  let offset = 0
+function buildTimelineEventsFromSummary(
+  events: SummaryTimelineEvent[] | undefined
+): TimelineViewEvent[] {
+  if (!events || events.length === 0) {
+    return []
+  }
 
-  sections.forEach((section) => {
-    const tone = determineTone(section.overall_sentiment)
+  return events.map((event, index) => {
+    const tone = timelineToneFromSeverity(event.severity)
 
-    section.consolidated_insights?.forEach((insight, index) => {
-      const timestamp = new Date(base.getTime() + offset * 6 * 60 * 1000)
-      events.push({
-        id: `${section.section_name}-insight-${index}`,
-        sectionName: section.section_name,
-        title: insight,
-        description: section.section_summary ?? 'Insight surfaced from section analysis.',
-        timestamp: timestamp.toISOString(),
-        tone,
-      })
-      offset += 1
-    })
-
-    section.critical_findings?.forEach((finding, index) => {
-      const timestamp = new Date(base.getTime() + offset * 6 * 60 * 1000)
-      events.push({
-        id: `${section.section_name}-critical-${index}`,
-        sectionName: section.section_name,
-        title: 'Critical finding',
-        description: finding,
-        timestamp: timestamp.toISOString(),
-        tone,
-      })
-      offset += 1
-    })
+    return {
+      id: event.id ?? `summary-event-${index}`,
+      sectionName: event.source_section ?? event.type ?? 'Summary',
+      title: event.title ?? 'Insight update',
+      description: event.summary ?? 'Insight captured during analysis.',
+      timestamp: event.occurred_at ?? new Date().toISOString(),
+      tone,
+    }
   })
-
-  return events
 }
 
 function safeStructuredJson(structured?: StructuredAnalysisData) {
@@ -261,14 +240,7 @@ function safeStructuredJson(structured?: StructuredAnalysisData) {
   }
 }
 
-function combineConfidence(
-  analysis?: AnalysisResponse | null,
-  structured?: StructuredAnalysisData
-) {
-  if (typeof structured?.confidence_score === 'number') {
-    return structured.confidence_score
-  }
-
+function combineConfidence(analysis?: AnalysisResponse | null) {
   return analysis?.summary.confidence?.score ?? null
 }
 
@@ -303,17 +275,15 @@ export function FilingDetailPage() {
   const analysis = detailQuery.data
   const structured = analysis?.full_results?.structured_data
   const sections = structured?.section_analyses ?? []
-  const analysisTimestamp =
-    structured?.analysis_timestamp ??
-    analysis?.summary.processing?.completed_at ??
-    analysis?.created_at ??
-    null
 
   const sentiment = useSentimentBreakdown(sections)
-  const metrics = useMemo(() => buildMetricData(sections), [sections])
+  const metrics = useMemo(
+    () => buildHeadlineMetricData(analysis?.summary.headline_metrics),
+    [analysis?.summary.headline_metrics]
+  )
   const timelineEvents = useMemo(
-    () => buildTimelineEvents(sections, analysisTimestamp),
-    [sections, analysisTimestamp]
+    () => buildTimelineEventsFromSummary(analysis?.summary.insight_timeline),
+    [analysis?.summary.insight_timeline]
   )
   const structuredJson = useMemo(() => safeStructuredJson(structured), [structured])
 
@@ -363,43 +333,31 @@ export function FilingDetailPage() {
     )
   }
 
-  const metadata = (analysis.full_results?.metadata ?? {}) as Record<string, unknown>
-  const summarySnapshot = analysis.summary
-  const fallbackCompany = (structured?.company_name ??
-    metadata.company_name ??
-    metadata.company ??
-    metadata.ticker) as string | undefined
-  const companyName = summarySnapshot.company.name ?? fallbackCompany ?? 'Unknown company'
-  const fallbackFilingType = (structured?.filing_type ??
-    metadata.filing_type ??
-    analysis.analysis_type) as string | undefined
-  const filingType = summarySnapshot.filing.type ?? fallbackFilingType ?? 'Filing overview'
-  const filingDate =
-    summarySnapshot.filing.date ??
-    summarySnapshot.processing?.completed_at ??
-    (metadata.filing_date as string | undefined) ??
-    structured?.analysis_timestamp ??
-    analysis.created_at
+  const summary = analysis.summary
+  const companyName = summary.company.name ?? 'Unknown company'
+  const filingType = summary.filing.type ?? 'Filing overview'
+  const filingDate = summary.filing.date ?? summary.processing?.completed_at ?? analysis.created_at
   const headlineDate = formatDate(filingDate)
 
-  const confidenceValue = combineConfidence(analysis, structured)
+  const confidenceValue = combineConfidence(analysis)
   const confidence = formatConfidence(confidenceValue)
   const processingTime = formatProcessingTime(
-    typeof summarySnapshot.processing?.duration_seconds === 'number'
-      ? summarySnapshot.processing.duration_seconds * 1000
-      : analysis.full_results?.processing_time_ms
+    typeof summary.processing?.duration_seconds === 'number'
+      ? summary.processing.duration_seconds * 1000
+      : null
   )
-  const sectionsAnalyzed =
-    summarySnapshot.insight_counts?.sections_analyzed ??
-    structured?.total_sections_analyzed ??
-    sections.length
+  const sectionsAnalyzed = summary.insight_counts?.sections_analyzed ?? sections.length
 
   const filingSummary =
-    structured?.filing_summary ??
-    analysis.full_results?.summary ??
+    summary.filing_summary ??
     'Summary will populate once the analysis completes narrative synthesis.'
-  const keyInsights = structured?.key_insights ?? []
-  const opportunities = structured?.opportunities ?? []
+  const keyInsights = summary.key_insights ?? []
+  const criticalFindings = summary.critical_findings ?? []
+  const opportunities = summary.opportunities ?? []
+  const riskHighlights = summary.risk_highlights ?? null
+  const criticalActions = riskHighlights?.critical_actions ?? []
+  const monitorSignals = riskHighlights?.signals_to_monitor ?? []
+  const sentimentRollup: SentimentRollup | null = summary.sentiment_rollup ?? null
   const rawNarrative = analysis.full_results?.content ?? analysis.full_results?.summary ?? null
 
   const tabs: { key: TabKey; label: string }[] = [
@@ -514,7 +472,7 @@ export function FilingDetailPage() {
                   </p>
                 </article>
 
-                <div className="grid gap-4 lg:grid-cols-2">
+                <div className="grid gap-4 lg:grid-cols-2 xl:grid-cols-3">
                   <article
                     className="flex flex-col gap-3 rounded-3xl border p-5"
                     style={{
@@ -527,14 +485,14 @@ export function FilingDetailPage() {
                       Key insights
                     </h3>
                     {keyInsights.length > 0 ? (
-                      <ul className="flex list-disc flex-col gap-2 pl-5 text-sm text-[var(--text-muted)]">
+                      <ul className="flex list-disc flex-col gap-2 pl-5 text-sm text-[var(--text-secondary)]">
                         {keyInsights.map((insight) => (
                           <li key={insight}>{insight}</li>
                         ))}
                       </ul>
                     ) : (
                       <p className="text-sm italic text-[var(--text-secondary)]">
-                        Insights will appear as soon as the backend provides structured highlights.
+                        Insights will appear once the curated summary is available for this filing.
                       </p>
                     )}
                   </article>
@@ -548,21 +506,138 @@ export function FilingDetailPage() {
                     }}
                   >
                     <h3 className="text-sm font-semibold text-[var(--text-primary)]">
-                      Learning prompts
+                      Critical findings
+                    </h3>
+                    {criticalFindings.length > 0 ? (
+                      <ul className="flex list-disc flex-col gap-2 pl-5 text-sm text-[var(--text-secondary)]">
+                        {criticalFindings.map((finding) => (
+                          <li key={finding}>{finding}</li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p className="text-sm italic text-[var(--text-secondary)]">
+                        Critical findings will surface once the analysis flags material risks.
+                      </p>
+                    )}
+                  </article>
+
+                  <article
+                    className="flex flex-col gap-3 rounded-3xl border p-5"
+                    style={{
+                      borderColor: 'var(--lines-subtle)',
+                      background: 'var(--surfaces-muted)',
+                      boxShadow: tokens.shadows.soft,
+                    }}
+                  >
+                    <h3 className="text-sm font-semibold text-[var(--text-primary)]">
+                      Opportunities
                     </h3>
                     {opportunities.length > 0 ? (
-                      <ul className="flex list-disc flex-col gap-2 pl-5 text-sm text-[var(--text-muted)]">
+                      <ul className="flex list-disc flex-col gap-2 pl-5 text-sm text-[var(--text-secondary)]">
                         {opportunities.map((item) => (
                           <li key={item}>{item}</li>
                         ))}
                       </ul>
                     ) : (
                       <p className="text-sm italic text-[var(--text-secondary)]">
-                        Surface practice prompts once learning preferences are captured.
+                        Opportunities will appear once the analysis identifies growth or efficiency
+                        levers.
                       </p>
                     )}
                   </article>
                 </div>
+
+                <section className="flex flex-col gap-3">
+                  <h3 className="text-sm font-semibold text-[var(--text-primary)]">
+                    Risk highlights
+                  </h3>
+                  {criticalActions.length === 0 && monitorSignals.length === 0 ? (
+                    <div
+                      className="rounded-3xl border p-6 text-sm text-[var(--text-muted)]"
+                      style={{
+                        borderColor: 'var(--lines-subtle)',
+                        background: 'var(--surfaces-muted)',
+                      }}
+                    >
+                      Risk highlights will appear once the analysis identifies critical actions or
+                      monitoring signals.
+                    </div>
+                  ) : (
+                    <div className="grid gap-4 lg:grid-cols-2">
+                      {criticalActions.length > 0 ? (
+                        <article
+                          className="flex flex-col gap-3 rounded-3xl border p-5"
+                          style={{
+                            borderColor: 'var(--lines-subtle)',
+                            background: 'var(--surfaces-muted)',
+                            boxShadow: tokens.shadows.soft,
+                          }}
+                        >
+                          <h4 className="text-sm font-semibold uppercase tracking-wide text-[var(--text-secondary)]">
+                            Critical actions
+                          </h4>
+                          <ul className="flex flex-col gap-3 text-sm text-[var(--text-secondary)]">
+                            {criticalActions.map((highlight) => (
+                              <li key={highlight.id ?? highlight.title}>
+                                <p className="font-semibold text-[var(--text-primary)]">
+                                  {highlight.title}
+                                </p>
+                                {highlight.summary ? (
+                                  <p className="mt-1 leading-relaxed">{highlight.summary}</p>
+                                ) : null}
+                                <p className="mt-2 text-xs uppercase tracking-wide text-[var(--text-muted)]">
+                                  Severity: {highlight.severity ?? 'n/a'} • Probability:{' '}
+                                  {highlight.probability ?? 'n/a'}
+                                </p>
+                                {highlight.recommended_action ? (
+                                  <p className="mt-1 text-xs text-[var(--text-secondary)]">
+                                    Recommended action: {highlight.recommended_action}
+                                  </p>
+                                ) : null}
+                              </li>
+                            ))}
+                          </ul>
+                        </article>
+                      ) : null}
+
+                      {monitorSignals.length > 0 ? (
+                        <article
+                          className="flex flex-col gap-3 rounded-3xl border p-5"
+                          style={{
+                            borderColor: 'var(--lines-subtle)',
+                            background: 'var(--surfaces-muted)',
+                            boxShadow: tokens.shadows.soft,
+                          }}
+                        >
+                          <h4 className="text-sm font-semibold uppercase tracking-wide text-[var(--text-secondary)]">
+                            Signals to monitor
+                          </h4>
+                          <ul className="flex flex-col gap-3 text-sm text-[var(--text-secondary)]">
+                            {monitorSignals.map((highlight) => (
+                              <li key={highlight.id ?? highlight.title}>
+                                <p className="font-semibold text-[var(--text-primary)]">
+                                  {highlight.title}
+                                </p>
+                                {highlight.summary ? (
+                                  <p className="mt-1 leading-relaxed">{highlight.summary}</p>
+                                ) : null}
+                                <p className="mt-2 text-xs uppercase tracking-wide text-[var(--text-muted)]">
+                                  Severity: {highlight.severity ?? 'n/a'} • Probability:{' '}
+                                  {highlight.probability ?? 'n/a'}
+                                </p>
+                                {highlight.recommended_action ? (
+                                  <p className="mt-1 text-xs text-[var(--text-secondary)]">
+                                    Next step: {highlight.recommended_action}
+                                  </p>
+                                ) : null}
+                              </li>
+                            ))}
+                          </ul>
+                        </article>
+                      ) : null}
+                    </div>
+                  )}
+                </section>
 
                 <section className="flex flex-col gap-3">
                   <h3 className="text-sm font-semibold text-[var(--text-primary)]">
@@ -642,6 +717,24 @@ export function FilingDetailPage() {
                     Average sentiment: {formatSentiment(sentiment.averageSentiment)} (
                     {totalSentimentSections} sections)
                   </p>
+                  {sentimentRollup ? (
+                    <ul className="mt-3 grid gap-2 text-xs text-[var(--text-secondary)] sm:grid-cols-2">
+                      <li>
+                        Weighted overall: {formatSentiment(sentimentRollup.overall)} • Trend:{' '}
+                        {sentimentRollup.trend ?? 'n/a'}
+                      </li>
+                      <li>
+                        Prior overall: {formatSentiment(sentimentRollup.previous_overall)} •{' '}
+                        {formatSentimentDelta(sentimentRollup.prior_analysis_delta) ??
+                          'No prior comparison'}
+                      </li>
+                      <li>Confidence band: {sentimentRollup.confidence_band ?? 'n/a'}</li>
+                      <li>
+                        Weakest section: {sentimentRollup.weakest_section?.section ?? 'n/a'} (
+                        {formatSentiment(sentimentRollup.weakest_section?.score ?? null)})
+                      </li>
+                    </ul>
+                  ) : null}
                   <div className="mt-3 grid gap-3 sm:grid-cols-3">
                     {(['positive', 'neutral', 'negative'] as const).map((tone) => {
                       const count = sentiment.distribution[tone]

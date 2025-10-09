@@ -89,16 +89,7 @@ function formatDate(input?: string | null) {
 
 function getConfidenceScore(analysis: AnalysisResponse): number | null {
   const summaryScore = analysis.summary.confidence?.score
-  if (typeof summaryScore === 'number') {
-    return summaryScore
-  }
-
-  const fullResultsScore = analysis.full_results?.confidence_score
-  if (typeof fullResultsScore === 'number') {
-    return fullResultsScore
-  }
-
-  return null
+  return typeof summaryScore === 'number' ? summaryScore : null
 }
 
 export interface SummaryMetricItem {

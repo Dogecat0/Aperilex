@@ -33,13 +33,92 @@ const listSummary: AnalysisResponse['summary'] = {
     duration_seconds: 42,
     completed_at: '2025-06-12T13:45:42.000Z',
   },
+  filing_summary:
+    'Apple delivered steady revenue growth with resilient margins supported by premium services.',
+  key_insights: [
+    'Services revenue accelerated while hardware stabilized.',
+    'Cash flow conversion remained strong despite increased capital investment.',
+  ],
+  critical_findings: ['FX volatility remains a near-term watchpoint for guidance.'],
+  opportunities: ['Expand enterprise services bundles to deepen recurring revenue.'],
+  headline_metrics: [
+    {
+      id: 'total_revenue',
+      name: 'Total Revenue',
+      category: 'growth',
+      unit: 'B',
+      current_value: 118.4,
+      previous_value: 112.3,
+      delta_value: 6.1,
+      display: {
+        current: '$118.4B',
+        previous: '$112.3B',
+        delta: '+$6.1B',
+        delta_text: 'Revenue climbed $6.1B versus prior-year quarter on services momentum.',
+      },
+      confidence: 0.9,
+    },
+  ],
+  risk_highlights: {
+    critical_actions: [
+      {
+        id: 'fx-headwinds',
+        title: 'Currency volatility threatens guidance',
+        severity: 'high',
+        probability: 'medium',
+        summary: 'Regional FX swings could compress near-term revenue targets.',
+        recommended_action: 'Refresh hedging program before Q4 close.',
+        related_sections: ['Management Discussion & Analysis'],
+      },
+    ],
+    signals_to_monitor: [
+      {
+        id: 'app-store-scrutiny',
+        title: 'App Store policy scrutiny persists',
+        severity: 'medium',
+        probability: 'medium',
+        summary: 'Global regulators continue to review App Store economics.',
+        recommended_action: 'Maintain regulator touchpoints and update compliance roadmap.',
+        related_sections: ['Risk Factors'],
+      },
+    ],
+  },
+  insight_timeline: [
+    {
+      id: 'timeline-revenue',
+      occurred_at: '2025-06-10T00:00:00Z',
+      type: 'metric',
+      severity: 'medium',
+      title: 'Revenue up 5.4% YoY',
+      summary: 'Services momentum accelerated total revenue expansion.',
+      source_section: 'Management Discussion & Analysis',
+      related_metrics: ['total_revenue'],
+    },
+    {
+      id: 'timeline-fx',
+      occurred_at: '2025-06-10T00:05:00Z',
+      type: 'risk',
+      severity: 'high',
+      title: 'FX headwinds risk surfaces',
+      summary: 'Currency volatility may pressure upcoming guidance.',
+      source_section: 'Risk Factors',
+    },
+  ],
+  sentiment_rollup: {
+    overall: 0.12,
+    weakest_section: { section: 'Risk Factors', score: -0.18 },
+    previous_overall: 0.18,
+    prior_analysis_delta: -0.06,
+    trend: 'down',
+    confidence_band: 'medium',
+  },
 }
 
 export const mockPaginatedAnalysesResponse: PaginatedAnalysesResponse = {
-  schema_version: 2,
+  schema_version: 3,
   items: [
     {
-      schema_version: 2,
+      schema_version: 3,
       analysis_id: '11111111-1111-1111-1111-111111111111',
       filing_id: '22222222-2222-2222-2222-222222222222',
       analysis_type: 'COMPREHENSIVE',
@@ -96,10 +175,109 @@ const detailSummary: AnalysisResponse['summary'] = {
     duration_seconds: 48,
     completed_at: '2025-06-12T13:45:48.000Z',
   },
+  filing_summary:
+    'Apple posted another quarter of balanced growth driven by services mix shift and disciplined operating expenses.',
+  key_insights: [
+    'Services revenue accelerated to double-digit growth, improving recurring visibility.',
+    'Hardware demand stabilized after supply chain volatility, supporting margin resilience.',
+  ],
+  critical_findings: ['Watch for regional FX headwinds pressuring guidance.'],
+  opportunities: [
+    'Explore bundling enterprise services to deepen adoption in regulated industries.',
+    'Leverage product launch momentum to expand high-margin accessory attach rates.',
+  ],
+  headline_metrics: [
+    {
+      id: 'total_revenue',
+      name: 'Total Revenue',
+      category: 'growth',
+      unit: 'B',
+      current_value: 118.4,
+      previous_value: 112.3,
+      delta_value: 6.1,
+      display: {
+        current: '$118.4B',
+        previous: '$112.3B',
+        delta: '+$6.1B',
+        delta_text: 'Revenue climbed $6.1B versus prior-year quarter on services momentum.',
+      },
+      confidence: 0.92,
+    },
+    {
+      id: 'operating_margin',
+      name: 'Operating Margin',
+      category: 'profitability',
+      unit: '%',
+      current_value: 0.29,
+      previous_value: 0.28,
+      delta_value: 0.01,
+      display: {
+        current: '29%',
+        previous: '28%',
+        delta: '+1 pt',
+        delta_text: 'Operating margin expanded one point due to disciplined OpEx.',
+      },
+      confidence: 0.88,
+    },
+  ],
+  risk_highlights: {
+    critical_actions: [
+      {
+        id: 'fx-headwinds',
+        title: 'FX headwinds threaten guidance',
+        severity: 'high',
+        probability: 'medium',
+        summary: 'Currency volatility could compress guidance in the next quarter.',
+        recommended_action: 'Refresh hedging program and update guidance sensitivity.',
+        related_sections: ['Management Discussion & Analysis', 'Risk Factors'],
+      },
+    ],
+    signals_to_monitor: [
+      {
+        id: 'app-store-compliance',
+        title: 'App Store compliance scrutiny',
+        severity: 'medium',
+        probability: 'medium',
+        summary: 'Global regulators continue to evaluate App Store economics and fees.',
+        recommended_action: 'Maintain regulator touchpoints and scenario plans.',
+        related_sections: ['Risk Factors'],
+      },
+    ],
+  },
+  insight_timeline: [
+    {
+      id: 'timeline-revenue',
+      occurred_at: '2025-06-10T00:00:00Z',
+      type: 'metric',
+      severity: 'medium',
+      title: 'Revenue up 5.4% YoY',
+      summary: 'Services momentum accelerated total revenue expansion.',
+      source_section: 'Management Discussion & Analysis',
+      related_metrics: ['total_revenue'],
+    },
+    {
+      id: 'timeline-risk',
+      occurred_at: '2025-06-10T00:05:00Z',
+      type: 'risk',
+      severity: 'high',
+      title: 'FX headwinds risk surfaces',
+      summary: 'Currency volatility may pressure upcoming guidance without hedging adjustments.',
+      source_section: 'Risk Factors',
+      actions: ['Refresh hedging strategy'],
+    },
+  ],
+  sentiment_rollup: {
+    overall: 0.14,
+    weakest_section: { section: 'Risk Factors', score: -0.12 },
+    previous_overall: 0.2,
+    prior_analysis_delta: -0.06,
+    trend: 'down',
+    confidence_band: 'medium',
+  },
 }
 
 export const mockAnalysisDetail: AnalysisResponse = {
-  schema_version: 2,
+  schema_version: 3,
   analysis_id: '44444444-4444-4444-4444-444444444444',
   filing_id: '55555555-5555-5555-5555-555555555555',
   analysis_type: 'COMPREHENSIVE',
