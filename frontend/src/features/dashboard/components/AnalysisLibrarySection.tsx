@@ -21,6 +21,7 @@ interface AnalysisLibrarySectionProps {
 }
 
 const filingTypeOptions: { label: string; value: FilingTypeFilter }[] = [
+  { label: 'All filings', value: 'all' },
   { label: '10-Q Snapshot', value: '10-Q' },
   { label: '10-K Comprehensive', value: '10-K' },
 ]

@@ -9,7 +9,7 @@ import { useAnalyses, useAnalysisLibrary } from '@/lib/hooks'
 import { ApiClientError } from '@/lib/apiClient'
 import type { AnalysisResponse, ListAnalysesParams } from '@/lib/types/analysis'
 
-export type FilingTypeFilter = '10-Q' | '10-K'
+export type FilingTypeFilter = 'all' | '10-Q' | '10-K'
 export type DateRangeFilter = '90d' | '180d' | '365d' | 'all'
 export type SegmentFilter = 'all' | 'attention' | 'ready_for_review' | 'flagged'
 
@@ -20,12 +20,12 @@ export interface DashboardFiltersState {
 }
 
 const DEFAULT_FILTERS: DashboardFiltersState = {
-  filingType: '10-Q',
+  filingType: 'all',
   dateRange: '180d',
   segment: 'all',
 }
 
-const filingTypeToSearch: Record<DashboardFiltersState['filingType'], string> = {
+const filingTypeSearchMap: Partial<Record<FilingTypeFilter, string>> = {
   '10-Q': '10-Q',
   '10-K': '10-K',
 }
@@ -289,7 +289,7 @@ export function DashboardPage() {
       ...dateFilters,
     }
 
-    const searchTerm = filingTypeToSearch[filters.filingType]
+    const searchTerm = filingTypeSearchMap[filters.filingType]
     if (searchTerm) {
       params.search = searchTerm
     }
