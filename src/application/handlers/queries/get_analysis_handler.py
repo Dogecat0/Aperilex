@@ -104,11 +104,30 @@ class GetAnalysisQueryHandler(QueryHandler[GetAnalysisQuery, AnalysisResponse]):
                     f"{query.analysis_id} (metadata exists but results missing - please contact support)",
                 )
 
+            summary_payload: dict[str, Any] | None = analysis.summary
+            full_results_payload: dict[str, Any] | None = None
+
+            if isinstance(results, dict):
+                schema_version = results.get("schema_version")
+                if (
+                    isinstance(schema_version, int)
+                    and schema_version >= 3
+                    and isinstance(results.get("full_results"), dict)
+                ):
+                    full_results_payload = results["full_results"]
+                    summary_candidate = results.get("summary")
+                    if isinstance(summary_candidate, dict):
+                        summary_payload = summary_candidate
+                else:
+                    full_results_payload = results
+
             # Convert to response DTO based on requested detail level
             response = AnalysisResponse.from_data(
                 analysis,
-                summary_payload=analysis.summary,
-                full_results=results if query.include_full_results else None,
+                summary_payload=summary_payload,
+                full_results=(
+                    full_results_payload if query.include_full_results else None
+                ),
             )
 
             logger.info(

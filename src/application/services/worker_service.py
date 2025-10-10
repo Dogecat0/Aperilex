@@ -564,11 +564,16 @@ class WorkerService:
             )
 
             # Step 6: Store analysis result
-            storage_key = await self._store_analysis(analysis_result)
+            summary_payload = self._build_summary_payload(analysis_result, task_data)
+            storage_key = await self._store_analysis(
+                analysis_result,
+                summary_payload,
+            )
             await self._persist_analysis_completed(
                 analysis_result,
                 storage_key,
                 task_data,
+                summary_payload=summary_payload,
             )
             task_data.mark_completed()
             await self._track_progress(
@@ -1278,18 +1283,20 @@ class WorkerService:
         result: AnalysisResult,
         storage_key: StorageKey,
         task_data: TaskData,
+        *,
+        summary_payload: dict[str, Any] | None = None,
     ) -> None:
         """Persist analysis completion result and status."""
 
         try:
             analysis_repo = await self.repository_factory.get_analysis_repository()
 
-            summary_payload = self._build_summary_payload(result, task_data)
+            summary = summary_payload or self._build_summary_payload(result, task_data)
             metadata_updates = self._build_completion_metadata(result, storage_key)
 
             await analysis_repo.save_summary(
                 result.analysis_id,
-                summary_payload,
+                summary,
                 metadata_updates=metadata_updates,
             )
             await analysis_repo.update_status(
@@ -2120,7 +2127,8 @@ class WorkerService:
 
         metadata: dict[str, str | int | float | bool] = {
             "storage_key": str(storage_key),
-            "analysis_schema_version": result.schema_version,
+            "analysis_schema_version": 3,
+            "full_results_schema_version": result.schema_version,
             "analysis_processing_time_ms": result.processing_time_ms,
             "analysis_status": result.status.value,
             "analysis_completed_at": result.completed_at.isoformat(),
@@ -2194,12 +2202,17 @@ class WorkerService:
                 },
             )
 
-    async def _store_analysis(self, result: AnalysisResult) -> StorageKey:
+    async def _store_analysis(
+        self,
+        result: AnalysisResult,
+        summary_payload: dict[str, Any],
+    ) -> StorageKey:
         """
         Store analysis result.
 
         Args:
             result: Analysis result to store
+            summary_payload: Curated summary payload to embed alongside full results
 
         Returns:
             Storage key for the analysis
@@ -2212,7 +2225,7 @@ class WorkerService:
 
             from src.shared.models import StorageMetadataFields
 
-            payload = self._serialize_analysis_artifact(result)
+            payload = self._serialize_analysis_artifact(result, summary_payload)
             content = json.dumps(payload).encode("utf-8")
 
             # Create proper metadata object
@@ -2237,8 +2250,9 @@ class WorkerService:
     def _serialize_analysis_artifact(
         self,
         result: AnalysisResult,
+        summary_payload: dict[str, Any],
     ) -> dict[str, Any]:
-        """Produce the trimmed analysis artifact stored in blob storage."""
+        """Produce the versioned analysis artifact stored in blob storage."""
 
         structured_data = (
             result.structured_data if isinstance(result.structured_data, dict) else {}
@@ -2272,19 +2286,32 @@ class WorkerService:
         if result.metadata:
             provider["metadata"] = dict(result.metadata)
 
-        payload: dict[str, Any] = {
+        narrative = (result.content or "").strip()
+        full_results: dict[str, Any] = {
             "schema_version": result.schema_version,
             "structured_data": structured_data,
             "provider": provider,
         }
-
-        narrative = (result.content or "").strip()
         if narrative:
-            payload["narrative"] = {"content": narrative}
+            full_results["narrative"] = {"content": narrative}
 
         if result.citations:
-            payload["narrative"] = payload.get("narrative", {"content": None})
-            payload["narrative"]["citations"] = result.citations
+            full_results["narrative"] = full_results.get(
+                "narrative", {"content": narrative or None}
+            )
+            full_results["narrative"]["citations"] = result.citations
+
+        payload: dict[str, Any] = {
+            "schema_version": 3,
+            "analysis_id": str(result.analysis_id),
+            "filing_id": str(result.filing_id),
+            "analysis_type": result.analysis_type.value,
+            "status": result.status.value,
+            "created_at": result.created_at.isoformat(),
+            "created_by": str(result.user_id),
+            "summary": summary_payload,
+            "full_results": full_results,
+        }
 
         return payload
 

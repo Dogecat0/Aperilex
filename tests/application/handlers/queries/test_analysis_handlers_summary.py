@@ -141,8 +141,9 @@ class _StubAnalysisRepository:
 class _StubStorageProvider:
     """Storage provider stub returning a minimal JSON payload."""
 
-    def __init__(self) -> None:
-        payload = {"structured_data": {"schema_version": 2}}
+    def __init__(self, payload: dict[str, object] | None = None) -> None:
+        if payload is None:
+            payload = {"structured_data": {"schema_version": 2}}
         self._storage_object = SimpleNamespace(
             data=json.dumps(payload).encode("utf-8")
         )
@@ -179,6 +180,67 @@ async def test_get_analysis_handler_surfaces_curated_summary() -> None:
     assert response.summary.insight_timeline[0].title == "Revenue up 14% YoY"
     assert response.summary.sentiment_rollup.overall == 0.18
     assert response.full_results is None
+
+
+@pytest.mark.asyncio
+async def test_get_analysis_handler_unwraps_storage_envelope() -> None:
+    """Envelope payloads produced by the worker are unwrapped for API consumers."""
+
+    db_summary = _make_summary_payload()
+    db_summary["filing_summary"] = "DB summary should be overridden"
+
+    analysis = _make_analysis_data(db_summary)
+    repository = _StubAnalysisRepository(analysis)
+
+    storage_summary = _make_summary_payload()
+    storage_summary["filing_summary"] = "Storage-built summary"
+
+    full_results_payload = {
+        "schema_version": 2,
+        "structured_data": {"filing_summary": "Deep artifact"},
+        "provider": {
+            "name": "OPENAI",
+            "model_name": "gpt-test",
+            "token_usage": {
+                "prompt_tokens": 10,
+                "completion_tokens": 20,
+                "total_tokens": 30,
+            },
+            "processing": {
+                "time_ms": 1234,
+                "started_at": "2024-01-01T00:00:00Z",
+                "completed_at": "2024-01-01T00:00:01Z",
+            },
+        },
+    }
+    storage_payload = {
+        "schema_version": 3,
+        "analysis_id": str(analysis.id),
+        "filing_id": str(analysis.filing_id),
+        "analysis_type": analysis.analysis_type,
+        "status": analysis.status.value,
+        "created_at": datetime.now(UTC).isoformat(),
+        "created_by": str(analysis.user_id),
+        "summary": storage_summary,
+        "full_results": full_results_payload,
+    }
+
+    storage_provider = _StubStorageProvider(storage_payload)
+    handler = GetAnalysisQueryHandler(repository, storage_provider)
+
+    query = GetAnalysisQuery(
+        analysis_id=analysis.id,
+        include_full_results=True,
+        include_section_details=False,
+        include_processing_metadata=False,
+    )
+
+    response = await handler.handle(query)
+
+    assert response.summary.filing_summary == "Storage-built summary"
+    assert response.full_results is not None
+    assert response.full_results["schema_version"] == 2
+    assert response.full_results["structured_data"]["filing_summary"] == "Deep artifact"
 
 
 @pytest.mark.asyncio

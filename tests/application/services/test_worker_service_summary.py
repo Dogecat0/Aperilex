@@ -221,24 +221,40 @@ def test_build_summary_payload_curates_structured_artifacts() -> None:
 
 
 @pytest.mark.unit
-def test_serialize_analysis_artifact_trims_redundant_fields() -> None:
-    """Stored artifacts omit legacy summary/content fields while keeping provider metadata."""
+def test_serialize_analysis_artifact_wraps_full_results() -> None:
+    """Stored artifacts wrap full results under schema v3 contract."""
 
     structured_data = {"filing_summary": "Trimmed summary", "section_analyses": []}
     analysis_result = _make_analysis_result(structured_data)
+    summary_payload = {
+        "company": {"name": "ACME Corp", "cik": "0000000", "ticker": "ACME"},
+        "filing": {"type": "10-Q", "date": "2024-08-01"},
+    }
 
     service = _build_worker_service()
-    payload = service._serialize_analysis_artifact(analysis_result)
+    payload = service._serialize_analysis_artifact(
+        analysis_result,
+        summary_payload,
+    )
 
-    assert payload["schema_version"] == 2
-    assert payload["structured_data"] == structured_data
+    assert payload["schema_version"] == 3
+    assert payload["analysis_id"] == str(analysis_result.analysis_id)
+    assert payload["filing_id"] == str(analysis_result.filing_id)
+    assert payload["analysis_type"] == analysis_result.analysis_type.value
+    assert payload["status"] == analysis_result.status.value
+    assert payload["created_by"] == str(analysis_result.user_id)
+    assert payload["summary"] == summary_payload
 
-    provider = payload["provider"]
+    assert "structured_data" not in payload
+    full_results = payload["full_results"]
+    assert full_results["schema_version"] == analysis_result.schema_version
+    assert full_results["structured_data"] == structured_data
+
+    provider = full_results["provider"]
     assert provider["name"] == LLMProvider.OPENAI.value
     assert provider["model_name"] == "gpt-test"
     assert provider["token_usage"]["total_tokens"] == 360
     assert provider["processing"]["time_ms"] == 6300
 
-    # Narrative lives under the nested narrative block with no summary duplication
-    assert "summary" not in payload
-    assert payload["narrative"]["content"] == "Full analysis narrative"
+    # Narrative is nested under the full_results contract
+    assert full_results["narrative"]["content"] == "Full analysis narrative"
