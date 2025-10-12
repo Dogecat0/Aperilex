@@ -31,7 +31,7 @@ import {
 } from '@/lib/types/analysisSchemas'
 import type { SentimentTone, SubsectionPanelData } from './types'
 
-const TAB_KEYS = ['overview', 'sections', 'numbers', 'sentiment', 'raw'] as const
+const TAB_KEYS = ['overview', 'sections', 'numbers', 'sentiment'] as const
 type TabKey = (typeof TAB_KEYS)[number]
 
 interface FilingDetailLocationState {
@@ -306,15 +306,15 @@ function buildSubsectionPanels(
       : slugify(`${sectionKey}-${index}`)
     const id = keyBase.length > 0 ? `${sectionKey}-${keyBase}` : `${sectionKey}-subsection-${index}`
     const schemaLabel = pickDisplayString(subsection.schema_type ?? null) ?? null
-    const rawAnalysis = subsection.analysis ?? null
+    const rawSubsectionAnalysis = subsection.analysis ?? null
 
     let parsedAnalysis: ParsedSubsection | null = null
     const normalizedSchemaType =
       schemaLabel && isSubsectionSchemaType(schemaLabel) ? schemaLabel : null
 
-    if (normalizedSchemaType && rawAnalysis !== null) {
+    if (normalizedSchemaType && rawSubsectionAnalysis !== null) {
       try {
-        parsedAnalysis = parseSubsection(normalizedSchemaType, rawAnalysis)
+        parsedAnalysis = parseSubsection(normalizedSchemaType, rawSubsectionAnalysis)
       } catch (error) {
         console.warn(
           `Failed to parse subsection ${subsection.sub_section_name ?? index} as ${normalizedSchemaType}`,
@@ -333,7 +333,6 @@ function buildSubsectionPanels(
       processingTimeMs:
         typeof subsection.processing_time_ms === 'number' ? subsection.processing_time_ms : null,
       analysis: parsedAnalysis,
-      rawAnalysis,
       source: subsection,
     }
   })
@@ -736,18 +735,6 @@ function buildTimelineEventsFromSummary(
   })
 }
 
-function safeStructuredJson(structured?: StructuredAnalysisData) {
-  if (!structured) {
-    return 'Structured payload not provided in analysis.'
-  }
-
-  try {
-    return JSON.stringify(structured, null, 2)
-  } catch (error) {
-    return `Failed to format structured payload: ${(error as Error).message}`
-  }
-}
-
 function combineConfidence(analysis?: AnalysisResponse | null) {
   return analysis?.summary.confidence?.score ?? null
 }
@@ -799,7 +786,6 @@ export function FilingDetailPage() {
     () => buildTimelineEventsFromSummary(analysis?.summary?.insight_timeline),
     [analysis?.summary?.insight_timeline]
   )
-  const structuredJson = useMemo(() => safeStructuredJson(structured), [structured])
 
   if (!id) {
     return (
@@ -878,18 +864,16 @@ export function FilingDetailPage() {
   const criticalActions = riskHighlights?.critical_actions ?? []
   const monitorSignals = riskHighlights?.signals_to_monitor ?? []
   const sentimentRollup: SentimentRollup | null = summary.sentiment_rollup ?? null
-  const rawNarrative = analysis.full_results?.narrative?.content ?? null
-
   const tabs: { key: TabKey; label: string }[] = [
     { key: 'overview', label: 'Overview' },
     { key: 'sections', label: 'Sections' },
     { key: 'numbers', label: 'Numbers' },
     { key: 'sentiment', label: 'Sentiment' },
-    { key: 'raw', label: 'Raw' },
   ]
 
   function handleSelectSubsection(sectionName: string, subsection: SubsectionPanelData) {
     setActiveTab('sections')
+    setFocusedSection(sectionName)
     setActiveSubsection({ sectionName, subsection })
   }
 
@@ -897,20 +881,8 @@ export function FilingDetailPage() {
     setActiveSubsection(null)
   }
 
-  function handleJumpToRawFromSubsection(sectionName: string, _subsection: SubsectionPanelData) {
-    setFocusedSection(sectionName)
-    setActiveTab('raw')
-    setActiveSubsection(null)
-  }
-
   function handleExplain(sectionName: string) {
     setFocusedSection(sectionName)
-    setActiveTab('sentiment')
-  }
-
-  function handleJumpToRaw(sectionName: string) {
-    setFocusedSection(sectionName)
-    setActiveTab('raw')
   }
 
   function clearFocus() {
@@ -1261,7 +1233,6 @@ export function FilingDetailPage() {
                       criticalFindings={section.criticalFindings}
                       subsections={section.subsections}
                       onExplain={handleExplain}
-                      onJumpToRaw={handleJumpToRaw}
                       onSelectSubsection={handleSelectSubsection}
                     />
                   ))
@@ -1440,62 +1411,6 @@ export function FilingDetailPage() {
               </section>
             ) : null}
 
-            {activeTab === 'raw' ? (
-              <section className="flex flex-col gap-4">
-                {focusedSection ? (
-                  <div
-                    className="rounded-3xl border p-4 text-xs font-semibold uppercase tracking-wide"
-                    style={{
-                      borderColor: tokens.status.neutral,
-                      background: 'var(--surfaces-muted)',
-                      color: 'var(--text-primary)',
-                    }}
-                  >
-                    Highlighted section: {focusedSection}
-                    <button type="button" className="ml-3 underline" onClick={clearFocus}>
-                      Clear focus
-                    </button>
-                  </div>
-                ) : null}
-
-                <article
-                  className="flex flex-col gap-3 rounded-3xl border p-5"
-                  style={{
-                    borderColor: 'var(--lines-subtle)',
-                    background: 'var(--surfaces-muted)',
-                    boxShadow: tokens.shadows.soft,
-                  }}
-                >
-                  <h3 className="text-sm font-semibold text-[var(--text-primary)]">
-                    Narrative output
-                  </h3>
-                  {rawNarrative ? (
-                    <pre className="max-h-96 overflow-auto rounded-2xl bg-[var(--surfaces-raised)] p-4 text-xs leading-relaxed text-[var(--text-secondary)]">
-                      {rawNarrative}
-                    </pre>
-                  ) : (
-                    <p className="text-sm italic text-[var(--text-secondary)]">
-                      Narrative content not provided in the analysis payload.
-                    </p>
-                  )}
-                </article>
-
-                <details
-                  className="rounded-3xl border"
-                  style={{
-                    borderColor: 'var(--lines-subtle)',
-                    background: 'var(--surfaces-muted)',
-                  }}
-                >
-                  <summary className="cursor-pointer px-5 py-4 text-sm font-semibold text-[var(--text-primary)]">
-                    Structured payload
-                  </summary>
-                  <pre className="max-h-[32rem] overflow-auto bg-[var(--surfaces-raised)] p-4 text-xs leading-relaxed text-[var(--text-secondary)]">
-                    {structuredJson}
-                  </pre>
-                </details>
-              </section>
-            ) : null}
           </div>
         </section>
 
@@ -1506,7 +1421,6 @@ export function FilingDetailPage() {
         sectionName={activeSubsection?.sectionName ?? null}
         subsection={activeSubsection?.subsection ?? null}
         onClose={handleCloseSubsectionDrawer}
-        onJumpToRaw={handleJumpToRawFromSubsection}
       />
     </div>
   )

@@ -115,10 +115,10 @@ describe('FilingDetailPage', () => {
     const sectionsTab = screen.getByRole('tab', { name: /Sections/i })
     expect(sectionsTab).toHaveAttribute('aria-selected', 'true')
 
-    const [explainButton] = await screen.findAllByRole('button', { name: /Explain more/i })
-    await user.click(explainButton)
+    const explainToggle = (await screen.findAllByRole('button', { name: /Explain more/i }))[0]
+    await user.click(explainToggle)
 
-    expect(screen.getByText(/Focused on Management Discussion & Analysis/i)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Hide details/i })).toBeInTheDocument()
 
     const numbersTab = screen.getByRole('tab', { name: /Numbers/i })
     await user.click(numbersTab)
@@ -126,14 +126,7 @@ describe('FilingDetailPage', () => {
     expect(await screen.findByText(/Total Revenue/i)).toBeInTheDocument()
     expect(screen.getByText('Operating Margin')).toBeInTheDocument()
 
-    const rawTab = screen.getByRole('tab', { name: /Raw/i })
-    await user.click(rawTab)
-
-    expect(screen.getByText(/Narrative output/i)).toBeInTheDocument()
-    expect(screen.getByText(/Structured payload/i)).toBeInTheDocument()
-
-    await user.click(screen.getByText(/Structured payload/i))
-    expect(screen.getByText(/Apple Inc. delivered steady revenue growth/i)).toBeInTheDocument()
+    expect(screen.queryByRole('tab', { name: /Raw/i })).not.toBeInTheDocument()
   })
 
   it('highlights sentiment cards and clears focus state', async () => {
@@ -143,14 +136,12 @@ describe('FilingDetailPage', () => {
     await screen.findByText('Filing summary')
 
     await user.click(screen.getByRole('tab', { name: /Sections/i }))
-    const [jumpButton] = await screen.findAllByRole('button', { name: /Jump to raw text/i })
-    await user.click(jumpButton)
-
-    expect(screen.getByText(/Highlighted section/i)).toBeInTheDocument()
+    const explainToggle = (await screen.findAllByRole('button', { name: /Explain more/i }))[0]
+    await user.click(explainToggle)
 
     await user.click(screen.getByRole('tab', { name: /Sentiment/i }))
+    expect(await screen.findByText(/Focused on Management Discussion & Analysis/i)).toBeInTheDocument()
     expect(screen.getByText(/Average sentiment/i)).toBeInTheDocument()
-    expect(screen.getAllByText('Management Discussion & Analysis')[0]).toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: /Clear focus/i }))
     await waitFor(() => {

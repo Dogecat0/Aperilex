@@ -12,6 +12,5 @@ export interface SubsectionPanelData {
   synopsis: string | null
   processingTimeMs: number | null
   analysis: ParsedSubsection | null
-  rawAnalysis: unknown | null
   source: SubsectionAnalysis
 }

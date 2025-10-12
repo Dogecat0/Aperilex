@@ -18,7 +18,6 @@ export interface SectionSummaryPanelProps {
   criticalFindings?: string[]
   subsections?: SubsectionPanelData[]
   onExplain?(sectionName: string): void
-  onJumpToRaw?(sectionName: string): void
   onSelectSubsection?(sectionName: string, subsection: SubsectionPanelData): void
 }
 
@@ -26,19 +25,25 @@ function buildBaseChips(subsection: SubsectionPanelData): SummaryChip[] {
   const chips: SummaryChip[] = []
 
   if (subsection.focus) {
-    chips.push({
-      id: `${subsection.id}-focus`,
-      text: toTitleCase(subsection.focus),
-      tone: 'neutral',
-    })
+    const focusLabel = humanizeLabel(subsection.focus)
+    if (focusLabel) {
+      chips.push({
+        id: `${subsection.id}-focus`,
+        text: focusLabel,
+        tone: 'neutral',
+      })
+    }
   }
 
   if (subsection.schemaLabel) {
-    chips.push({
-      id: `${subsection.id}-schema`,
-      text: subsection.schemaLabel,
-      tone: 'neutral',
-    })
+    const schemaLabel = humanizeLabel(subsection.schemaLabel)
+    if (schemaLabel) {
+      chips.push({
+        id: `${subsection.id}-schema`,
+        text: schemaLabel,
+        tone: 'neutral',
+      })
+    }
   }
 
   return chips
@@ -503,21 +508,6 @@ function toTitleCase(value: string) {
     .join(' ')
 }
 
-function formatProcessingDuration(ms: number) {
-  if (ms < 1000) {
-    return `${ms} ms`
-  }
-
-  const seconds = ms / 1000
-  if (seconds < 60) {
-    return `${seconds.toFixed(1)} s`
-  }
-
-  const minutes = Math.floor(seconds / 60)
-  const remaining = seconds % 60
-  return remaining < 1 ? `${minutes} min` : `${minutes} min ${Math.round(remaining)} s`
-}
-
 const CHIP_NUMBER_FORMATTER = new Intl.NumberFormat('en-US', {
   maximumFractionDigits: 2,
 })
@@ -530,6 +520,42 @@ interface SummaryChip {
   tone: ChipTone
 }
 
+function humanizeLabel(raw: string): string {
+  const withSpaces = raw
+    .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
+    .replace(/[_-]+/g, ' ')
+    .trim()
+  if (withSpaces.length === 0) {
+    return ''
+  }
+
+  return withSpaces
+    .split(' ')
+    .filter((segment) => segment.length > 0)
+    .map((segment) => segment.charAt(0).toUpperCase() + segment.slice(1).toLowerCase())
+    .join(' ')
+}
+
+function normalizeChipText(text: string): string {
+  return text.replace(/[\s_-]+/g, '').toLowerCase()
+}
+
+function dedupeChips(chips: SummaryChip[]): SummaryChip[] {
+  const seen = new Set<string>()
+  const result: SummaryChip[] = []
+
+  for (const chip of chips) {
+    const normalized = normalizeChipText(chip.text)
+    if (!normalized || seen.has(normalized)) {
+      continue
+    }
+    seen.add(normalized)
+    result.push(chip)
+  }
+
+  return result
+}
+
 export function SectionSummaryPanel({
   sectionName,
   tone,
@@ -539,7 +565,6 @@ export function SectionSummaryPanel({
   criticalFindings,
   subsections,
   onExplain,
-  onJumpToRaw,
   onSelectSubsection,
 }: SectionSummaryPanelProps) {
   const tokens = useThemeTokens()
@@ -562,6 +587,18 @@ export function SectionSummaryPanel({
 
     return Array.from(values).sort((a, b) => a.localeCompare(b))
   }, [subsections])
+
+  const handleToggleSubsections = () => {
+    setShowSubsections((prev) => {
+      const next = !prev
+      if (next) {
+        onExplain?.(sectionName)
+      } else {
+        setFocusFilter(null)
+      }
+      return next
+    })
+  }
 
   const filteredSubsections = useMemo(() => {
     if (!subsections || subsections.length === 0) {
@@ -704,10 +741,10 @@ export function SectionSummaryPanel({
               <button
                 type="button"
                 className="text-xs font-semibold uppercase tracking-wide underline"
-                style={{ color: tokens.metrics.stable }}
-                onClick={() => setShowSubsections((prev) => !prev)}
+                style={{ color: tokens.metrics.up }}
+                onClick={handleToggleSubsections}
               >
-                {showSubsections ? 'Hide subsections' : 'View subsections'}
+                {showSubsections ? 'Hide details' : 'Explain more'}
               </button>
               {focusOptions.length > 0 && showSubsections ? (
                 <div className="flex flex-wrap gap-2">
@@ -727,6 +764,7 @@ export function SectionSummaryPanel({
                   </button>
                   {focusOptions.map((focusValue) => {
                     const isActive = focusFilter === focusValue
+                    const displayFocus = humanizeLabel(focusValue)
                     return (
                       <button
                         key={focusValue}
@@ -739,7 +777,7 @@ export function SectionSummaryPanel({
                         }}
                         onClick={() => setFocusFilter(isActive ? null : focusValue)}
                       >
-                        {toTitleCase(focusValue)}
+                        {displayFocus || toTitleCase(focusValue)}
                       </button>
                     )
                   })}
@@ -767,7 +805,10 @@ export function SectionSummaryPanel({
                 </li>
               ) : (
                 filteredSubsections.map((subsection) => {
-                  const chips = [...buildBaseChips(subsection), ...buildHighlightChips(subsection)]
+                  const chips = dedupeChips([
+                    ...buildBaseChips(subsection),
+                    ...buildHighlightChips(subsection),
+                  ])
 
                   return (
                     <li key={subsection.id}>
@@ -801,11 +842,6 @@ export function SectionSummaryPanel({
                         </div>
                         <div className="flex flex-wrap items-center gap-2 text-xs text-[var(--text-secondary)]">
                           {chips.map((chip) => renderChip(chip))}
-                          {typeof subsection.processingTimeMs === 'number' ? (
-                            <span className="text-[var(--text-muted)]">
-                              Processing: {formatProcessingDuration(subsection.processingTimeMs)}
-                            </span>
-                          ) : null}
                         </div>
                       </button>
                     </li>
@@ -817,24 +853,6 @@ export function SectionSummaryPanel({
         </section>
       ) : null}
 
-      <footer className="flex flex-wrap gap-3">
-        <button
-          type="button"
-          className="text-xs font-semibold uppercase tracking-wide"
-          style={{ color: tokens.metrics.up }}
-          onClick={() => onExplain?.(sectionName)}
-        >
-          Explain more
-        </button>
-        <button
-          type="button"
-          className="text-xs font-semibold uppercase tracking-wide"
-          style={{ color: tokens.metrics.stable }}
-          onClick={() => onJumpToRaw?.(sectionName)}
-        >
-          Jump to raw text
-        </button>
-      </footer>
     </article>
   )
 }
