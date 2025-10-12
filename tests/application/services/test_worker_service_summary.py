@@ -219,6 +219,39 @@ def test_build_summary_payload_curates_structured_artifacts() -> None:
     # Sentiment section breakdown retained for compatibility
     assert len(summary["sentiment"]["sections"]) == 2
 
+    # Summary segments surface the four primary cards expected by the UI
+    summary_sections = summary["summary_sections"]
+    assert [segment["anchor"] for segment in summary_sections] == [
+        "overview",
+        "sections",
+        "numbers",
+        "sentiment",
+    ]
+
+    overview_segment = summary_sections[0]
+    assert overview_segment["summary"] == "Overall filing outlook remains positive."
+    assert overview_segment["supporting_points"][:2] == [
+        "Revenue growth accelerated.",
+        "Operating margins expanded.",
+    ]
+
+    sections_segment = summary_sections[1]
+    assert sections_segment["cta_label"] == "Open sections tab"
+    assert "privacy" in sections_segment["summary"].lower()
+    assert sections_segment["supporting_points"][0] == "Data Privacy Penalties"
+
+    metrics_segment = summary_sections[2]
+    assert metrics_segment["summary"] == "Liquidity position improved against prior quarter."
+    assert any("+0.20×" in point for point in metrics_segment["supporting_points"])
+
+    sentiment_segment = summary_sections[3]
+    assert sentiment_segment["title"] == "Sentiment pulse"
+    assert sentiment_segment["summary"].startswith("Overall sentiment sits at 0.07")
+    assert any(
+        point.startswith("Weakest section: Risk Factors")
+        for point in sentiment_segment["supporting_points"]
+    )
+
 
 @pytest.mark.unit
 def test_serialize_analysis_artifact_wraps_full_results() -> None:

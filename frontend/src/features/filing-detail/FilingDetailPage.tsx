@@ -7,9 +7,10 @@ import {
 } from './components/InsightTimeline'
 import { MetricsGrid, type MetricDatum } from './components/MetricsGrid'
 import { SectionSummaryPanel } from './components/SectionSummaryPanel'
-import { FeatureHero } from '@/components/layout/FeatureHero'
 import { FeatureHeroStat } from '@/components/layout/FeatureHeroStat'
+import { FeatureHero } from '@/components/layout/FeatureHero'
 import { useThemeTokens } from '@/components/ThemeProvider'
+import { Button } from '@/components/ui/Button'
 import { useFilingDetail } from '@/lib/hooks'
 import type {
   AnalysisResponse,
@@ -17,6 +18,7 @@ import type {
   InsightTimelineEvent as SummaryTimelineEvent,
   RiskHighlight,
   SentimentRollup,
+  SummarySection,
   StructuredAnalysisData,
 } from '@/lib/types/analysis'
 import type { SentimentTone } from './types'
@@ -196,6 +198,60 @@ function formatNumericWithUnit(value?: number | null, unit?: string | null) {
       : `${formatted} ${trimmedUnit}`
   }
   return formatted
+}
+
+const SUMMARY_ANCHOR_ALIASES: Record<string, TabKey> = {
+  overview: 'overview',
+  intro: 'overview',
+  summary: 'overview',
+  sections: 'sections',
+  narrative: 'sections',
+  structure: 'sections',
+  numbers: 'numbers',
+  metrics: 'numbers',
+  quantitative: 'numbers',
+  sentiment: 'sentiment',
+  tone: 'sentiment',
+}
+
+function resolveTabKeyFromAnchor(anchor?: string | null): TabKey | null {
+  if (!anchor) {
+    return null
+  }
+
+  const normalized = anchor.replace(/^#/, '').trim().toLowerCase()
+  if (!normalized) {
+    return null
+  }
+
+  if (TAB_KEYS.includes(normalized as TabKey)) {
+    return normalized as TabKey
+  }
+
+  const alias = SUMMARY_ANCHOR_ALIASES[normalized]
+  return alias ?? null
+}
+
+function sanitizeSummaryPoints(points: SummarySection['supporting_points']): string[] {
+  if (!points) {
+    return []
+  }
+
+  const cleaned: string[] = []
+  for (const point of points) {
+    const text = pickDisplayString(point)
+    if (text) {
+      cleaned.push(text)
+    }
+  }
+  return cleaned
+}
+
+const SUMMARY_CTA_DEFAULTS: Partial<Record<TabKey, string>> = {
+  overview: 'Review overview',
+  sections: 'Go to sections',
+  numbers: 'Inspect metrics',
+  sentiment: 'View sentiment',
 }
 
 function determineMetricTrendFromHeadline(
@@ -584,6 +640,7 @@ export function FilingDetailPage() {
   const turnaroundStatValue = turnaroundRaw === 'TBD' ? 'Pending' : turnaroundRaw
   const turnaroundHelperText = formatCompletionHelper(summary.processing?.completed_at ?? null)
 
+  const summarySections = summary.summary_sections ?? []
   const filingSummary =
     summary.filing_summary ??
     'Summary will populate once the analysis completes narrative synthesis.'
@@ -683,21 +740,83 @@ export function FilingDetailPage() {
           <div role="tabpanel" className="flex flex-col gap-6">
             {activeTab === 'overview' ? (
               <div className="flex flex-col gap-6">
-                <article
-                  className="flex flex-col gap-3 rounded-3xl border p-5"
-                  style={{
-                    borderColor: 'var(--lines-subtle)',
-                    background: 'var(--surfaces-muted)',
-                    boxShadow: tokens.shadows.soft,
-                  }}
-                >
+                <section className="flex flex-col gap-4">
                   <h2 className="text-base font-semibold text-[var(--text-primary)]">
                     Filing summary
                   </h2>
-                  <p className="text-sm leading-relaxed text-[var(--text-secondary)]">
-                    {filingSummary}
-                  </p>
-                </article>
+                  {summarySections.length > 0 ? (
+                    <div className="grid gap-4 lg:grid-cols-2">
+                      {summarySections.map((segment, index) => {
+                        const key = segment.id ?? `${segment.anchor}-${index}`
+                        const synopsis = pickDisplayString(segment.summary)
+                        const points = sanitizeSummaryPoints(segment.supporting_points)
+                        const targetTab = resolveTabKeyFromAnchor(segment.anchor)
+                        const ctaLabel =
+                          pickDisplayString(segment.cta_label) ??
+                          (targetTab ? SUMMARY_CTA_DEFAULTS[targetTab] : undefined)
+
+                        return (
+                          <article
+                            key={key}
+                            className="flex flex-col gap-4 rounded-3xl border p-5"
+                            style={{
+                              borderColor: 'var(--lines-subtle)',
+                              background: 'var(--surfaces-muted)',
+                              boxShadow: tokens.shadows.soft,
+                            }}
+                          >
+                            <div className="flex items-start justify-between gap-4">
+                              <div className="flex flex-col gap-2">
+                                <h3 className="text-sm font-semibold text-[var(--text-primary)]">
+                                  {segment.title}
+                                </h3>
+                                {synopsis ? (
+                                  <p className="text-sm leading-relaxed text-[var(--text-secondary)]">
+                                    {synopsis}
+                                  </p>
+                                ) : (
+                                  <p className="text-sm italic text-[var(--text-secondary)]">
+                                    Summary segment pending additional context.
+                                  </p>
+                                )}
+                              </div>
+                              {targetTab ? (
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  variant="secondary"
+                                  onClick={() => setActiveTab(targetTab)}
+                                >
+                                  {ctaLabel ?? 'View details'}
+                                </Button>
+                              ) : null}
+                            </div>
+                            {points.length > 0 ? (
+                              <ul className="flex list-disc flex-col gap-2 pl-5 text-sm text-[var(--text-secondary)]">
+                                {points.map((point) => (
+                                  <li key={point}>{point}</li>
+                                ))}
+                              </ul>
+                            ) : null}
+                          </article>
+                        )
+                      })}
+                    </div>
+                  ) : (
+                    <article
+                      className="flex flex-col gap-3 rounded-3xl border p-5"
+                      style={{
+                        borderColor: 'var(--lines-subtle)',
+                        background: 'var(--surfaces-muted)',
+                        boxShadow: tokens.shadows.soft,
+                      }}
+                    >
+                      <p className="text-sm leading-relaxed text-[var(--text-secondary)]">
+                        {filingSummary}
+                      </p>
+                    </article>
+                  )}
+                </section>
 
                 <div className="grid gap-4 lg:grid-cols-2 xl:grid-cols-3">
                   <article

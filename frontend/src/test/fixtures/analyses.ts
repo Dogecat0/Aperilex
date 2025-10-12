@@ -33,6 +33,53 @@ const listSummary: AnalysisResponse['summary'] = {
     duration_seconds: 42,
     completed_at: '2025-06-12T13:45:42.000Z',
   },
+  summary_sections: [
+    {
+      id: 'overview-pulse',
+      title: 'What to know first',
+      anchor: 'overview',
+      summary:
+        'Services growth anchored the quarter while disciplined spending kept margins resilient.',
+      supporting_points: [
+        'Recurring services mix expanded share of revenue.',
+        'Hardware demand stabilized after the prior supply disruption.',
+      ],
+    },
+    {
+      id: 'section-deep-dive',
+      title: 'Where to dive deeper',
+      anchor: 'sections',
+      summary:
+        'Focus on Management Discussion & Analysis to connect the qualitative narrative with execution updates.',
+      supporting_points: [
+        'MD&A outlines the cost discipline behind the margin expansion.',
+        'Risk Factors detail regulatory scrutiny that could pressure guidance.',
+      ],
+      cta_label: 'Open sections tab',
+    },
+    {
+      id: 'metric-scan',
+      title: 'Numbers to watch',
+      anchor: 'numbers',
+      summary:
+        'Top-line and operating leverage remain the headline metrics with FX volatility as the swing factor.',
+      supporting_points: [
+        'Total revenue climbed 5.4% year over year.',
+        'Operating margin widened by one percentage point.',
+      ],
+    },
+    {
+      id: 'sentiment-check',
+      title: 'Sentiment pulse',
+      anchor: 'sentiment',
+      summary:
+        'Overall tone is positive, though Risk Factors trend weaker as regulators probe App Store policy.',
+      supporting_points: [
+        'Risk Factors posted the lowest sentiment at -0.18.',
+        'MD&A sentiment remains constructive on execution.',
+      ],
+    },
+  ],
   filing_summary:
     'Apple delivered steady revenue growth with resilient margins supported by premium services.',
   key_insights: [
@@ -175,6 +222,53 @@ const detailSummary: AnalysisResponse['summary'] = {
     duration_seconds: 48,
     completed_at: '2025-06-12T13:45:48.000Z',
   },
+  summary_sections: [
+    {
+      id: 'overview-primer',
+      title: 'Quick read',
+      anchor: 'overview',
+      summary:
+        'Apple balanced services momentum with disciplined OpEx, keeping profitability on track.',
+      supporting_points: [
+        'Recurring services revenue continues to expand share.',
+        'Management signalled confidence in supply resilience.',
+      ],
+    },
+    {
+      id: 'section-follow-up',
+      title: 'Where to focus',
+      anchor: 'sections',
+      summary:
+        'Start in MD&A for execution details, then review Risk Factors for regulatory exposure tracking.',
+      supporting_points: [
+        'MD&A details the cost controls that supported margin gains.',
+        'Risk Factors outline regulatory and FX watchpoints.',
+      ],
+      cta_label: 'Review sections',
+    },
+    {
+      id: 'numbers-overview',
+      title: 'Metric watchlist',
+      anchor: 'numbers',
+      summary:
+        'Track total revenue, operating margin, and FX impact to understand quarter-to-quarter leverage.',
+      supporting_points: [
+        'Revenue increased 5.4% YoY on services mix.',
+        'Operating margin expanded one point thanks to cost discipline.',
+      ],
+    },
+    {
+      id: 'sentiment-trend',
+      title: 'Sentiment snapshot',
+      anchor: 'sentiment',
+      summary:
+        'Sentiment remains net positive with MD&A leading, but Risk Factors soften on regulatory pressure.',
+      supporting_points: [
+        'Overall sentiment registered at 0.14.',
+        'Risk Factors scored -0.12, marking the weakest tone.',
+      ],
+    },
+  ],
   filing_summary:
     'Apple posted another quarter of balanced growth driven by services mix shift and disciplined operating expenses.',
   key_insights: [

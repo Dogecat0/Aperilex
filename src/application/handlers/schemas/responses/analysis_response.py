@@ -114,6 +114,33 @@ class SummaryProcessing(BaseModel):
     model_config = ConfigDict(extra="ignore", frozen=True)
 
 
+class SummarySectionSegment(BaseModel):
+    """Segmented overview card powering the filing summary surface."""
+
+    id: str | None = Field(
+        default=None,
+        description="Stable identifier for the summary segment",
+    )
+    title: str = Field(description="Headline describing the segment focus")
+    anchor: str = Field(
+        description="Destination tab anchor (overview|sections|numbers|sentiment)"
+    )
+    summary: str | None = Field(
+        default=None,
+        description="Short narrative aligned to the segment",
+    )
+    supporting_points: list[str] = Field(
+        default_factory=list,
+        description="Supporting highlights reinforcing the segment narrative",
+    )
+    cta_label: str | None = Field(
+        default=None,
+        description="Optional call-to-action label overriding default button copy",
+    )
+
+    model_config = ConfigDict(extra="ignore", frozen=True)
+
+
 class SummaryHeadlineMetricDisplay(BaseModel):
     """Display formatting for a headline metric."""
 
@@ -307,6 +334,10 @@ class AnalysisSummary(BaseModel):
     processing: SummaryProcessing = Field(
         default_factory=SummaryProcessing,
         description="Analyst pipeline processing metadata",
+    )
+    summary_sections: list[SummarySectionSegment] = Field(
+        default_factory=list,
+        description="Segmented overview cards for the summary surface",
     )
     filing_summary: str | None = Field(
         default=None, description="Canonical filing summary narrative"

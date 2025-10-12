@@ -82,8 +82,12 @@ describe('FilingDetailPage', () => {
     renderWithRouter([`/filing/${DETAIL_ID}`])
 
     expect(await screen.findByText('Filing summary')).toBeInTheDocument()
-    expect(screen.getByText(/91% confidence/i)).toBeInTheDocument()
-    expect(screen.getByText(/Sections analyzed/i)).toBeInTheDocument()
+    expect(screen.getByText('Quick read')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /review sections/i })).toBeInTheDocument()
+    expect(screen.getByText('Confidence')).toBeInTheDocument()
+    expect(screen.getByText('91%')).toBeInTheDocument()
+    expect(screen.getByText('Coverage')).toBeInTheDocument()
+    expect(screen.getByText('3 sections')).toBeInTheDocument()
 
     expect(screen.getByText(/Watch for regional FX headwinds/i)).toBeInTheDocument()
     expect(
@@ -105,10 +109,11 @@ describe('FilingDetailPage', () => {
     const user = userEvent.setup()
     renderWithRouter([`/filing/${DETAIL_ID}`])
 
-    await screen.findByText('Filing summary')
+    const summaryCta = await screen.findByRole('button', { name: /review sections/i })
+    await user.click(summaryCta)
 
     const sectionsTab = screen.getByRole('tab', { name: /Sections/i })
-    await user.click(sectionsTab)
+    expect(sectionsTab).toHaveAttribute('aria-selected', 'true')
 
     const [explainButton] = await screen.findAllByRole('button', { name: /Explain more/i })
     await user.click(explainButton)

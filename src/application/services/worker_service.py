@@ -1384,6 +1384,17 @@ class WorkerService:
             structured_data,
         )
 
+        summary_sections = self._compose_summary_sections(
+            filing_summary,
+            key_insights,
+            opportunities,
+            critical_findings_list,
+            headline_metrics,
+            risk_highlights,
+            sentiment_rollup_payload,
+            sentiment_sections,
+        )
+
         summary = {
             "company": {
                 "name": self._resolve_company_name(task_metadata, task_data.ticker),
@@ -1422,6 +1433,7 @@ class WorkerService:
                     else None
                 ),
             },
+            "summary_sections": summary_sections,
             "filing_summary": filing_summary,
             "key_insights": key_insights,
             "opportunities": opportunities,
@@ -1947,6 +1959,452 @@ class WorkerService:
             "related_metrics": related_metrics,
             "actions": actions,
         }
+
+    def _compose_summary_sections(
+        self,
+        filing_summary: str | None,
+        key_insights: list[str],
+        opportunities: list[str],
+        critical_findings: list[str],
+        headline_metrics: list[dict[str, Any]],
+        risk_highlights: dict[str, Any],
+        sentiment_rollup: dict[str, Any],
+        sentiment_sections: list[dict[str, Any]],
+    ) -> list[dict[str, Any]]:
+        """Derive segmented summary cards from curated analysis artifacts."""
+
+        segments: list[dict[str, Any]] = []
+
+        overview_segment = self._build_overview_segment(
+            filing_summary,
+            key_insights,
+            opportunities,
+        )
+        if overview_segment:
+            segments.append(overview_segment)
+
+        sections_segment = self._build_sections_segment(
+            risk_highlights,
+            critical_findings,
+            sentiment_sections,
+        )
+        if sections_segment:
+            segments.append(sections_segment)
+
+        metrics_segment = self._build_metrics_segment(headline_metrics)
+        if metrics_segment:
+            segments.append(metrics_segment)
+
+        sentiment_segment = self._build_sentiment_segment(
+            sentiment_rollup,
+            sentiment_sections,
+        )
+        if sentiment_segment:
+            segments.append(sentiment_segment)
+
+        return segments
+
+    def _build_overview_segment(
+        self,
+        filing_summary: str | None,
+        key_insights: list[str],
+        opportunities: list[str],
+    ) -> dict[str, Any] | None:
+        """Construct the overview segment derived from filing summary narratives."""
+
+        summary_text = self._clip_summary_text(filing_summary)
+        if summary_text is None:
+            for candidate in [*key_insights, *opportunities]:
+                summary_text = self._clip_summary_text(candidate)
+                if summary_text:
+                    break
+        if summary_text is None:
+            return None
+
+        points: list[str] = []
+        for collection in (key_insights, opportunities):
+            for item in collection:
+                self._append_unique(points, item, limit=3)
+
+        return {
+            "id": "overview-primer",
+            "title": "What to know first",
+            "anchor": "overview",
+            "summary": summary_text,
+            "supporting_points": points,
+        }
+
+    def _build_sections_segment(
+        self,
+        risk_highlights: dict[str, Any],
+        critical_findings: list[str],
+        sentiment_sections: list[dict[str, Any]],
+    ) -> dict[str, Any] | None:
+        """Construct the section deep-dive segment from risk highlights."""
+
+        highlight = self._select_primary_highlight(risk_highlights)
+        summary_text = None
+        points: list[str] = []
+        related_sections: list[str] = []
+
+        if highlight:
+            summary_text = self._clip_summary_text(
+                self._clean_text(highlight.get("summary"))
+                or self._clean_text(highlight.get("title"))
+            )
+            self._append_unique(points, highlight.get("title"), limit=3)
+            self._append_unique(points, highlight.get("recommended_action"), limit=3)
+            related_sections_raw = highlight.get("related_sections")
+            if isinstance(related_sections_raw, list):
+                related_sections = [
+                    item for item in related_sections_raw if isinstance(item, str)
+                ]
+
+        if summary_text is None and critical_findings:
+            summary_text = self._clip_summary_text(critical_findings[0])
+
+        if summary_text is None:
+            return None
+
+        related_text = self._format_related_sections_summary(related_sections)
+        self._append_unique(points, related_text, limit=3)
+
+        for finding in critical_findings:
+            self._append_unique(points, finding, limit=3)
+            if len(points) >= 3:
+                break
+
+        if not points:
+            sentiment_point = self._describe_notable_sentiment_section(
+                sentiment_sections,
+                strongest=False,
+            )
+            self._append_unique(points, sentiment_point, limit=3)
+
+        return {
+            "id": "section-deep-dive",
+            "title": "Where to dive deeper",
+            "anchor": "sections",
+            "summary": summary_text,
+            "supporting_points": points,
+            "cta_label": "Open sections tab",
+        }
+
+    def _select_primary_highlight(
+        self,
+        risk_highlights: dict[str, Any],
+    ) -> dict[str, Any] | None:
+        """Select the leading highlight used to anchor section guidance."""
+
+        if not isinstance(risk_highlights, dict):
+            return None
+
+        for collection_name in ("critical_actions", "signals_to_monitor"):
+            entries = risk_highlights.get(collection_name)
+            if not isinstance(entries, list):
+                continue
+            for entry in entries:
+                if not isinstance(entry, dict):
+                    continue
+                if self._clean_text(entry.get("summary")) or self._clean_text(
+                    entry.get("title")
+                ):
+                    return entry
+        return None
+
+    def _format_related_sections_summary(
+        self,
+        related_sections: list[str],
+    ) -> str | None:
+        """Summarise related sections into a concise supporting point."""
+
+        if not related_sections:
+            return None
+
+        names: list[str] = []
+        for section in related_sections:
+            cleaned = self._clean_text(section)
+            if cleaned and cleaned not in names:
+                names.append(cleaned)
+            if len(names) == 3:
+                break
+
+        if not names:
+            return None
+
+        joined = ", ".join(names)
+        return f"Anchored in {joined}."
+
+    def _build_metrics_segment(
+        self,
+        headline_metrics: list[dict[str, Any]],
+    ) -> dict[str, Any] | None:
+        """Construct the metrics segment from headline metric payloads."""
+
+        if not isinstance(headline_metrics, list) or not headline_metrics:
+            return None
+
+        primary_metric: dict[str, Any] | None = None
+        for candidate in headline_metrics:
+            if isinstance(candidate, dict):
+                primary_metric = candidate
+                break
+
+        if not primary_metric:
+            return None
+
+        display_block = primary_metric.get("display")
+        if not isinstance(display_block, dict):
+            display_block = {}
+
+        summary_text = self._clip_summary_text(
+            self._clean_text(display_block.get("delta_text"))
+        )
+        if summary_text is None:
+            summary_text = self._clip_summary_text(
+                self._clean_text(primary_metric.get("summary"))
+                or self._clean_text(primary_metric.get("name"))
+            )
+
+        if summary_text is None:
+            return None
+
+        points: list[str] = []
+        metric_name = self._clean_text(primary_metric.get("name"))
+        current_display = self._clean_text(display_block.get("current"))
+        delta_display = self._clean_text(display_block.get("delta"))
+        previous_display = self._clean_text(display_block.get("previous"))
+
+        if metric_name and current_display:
+            self._append_unique(
+                points,
+                f"{metric_name}: {current_display}",
+                limit=3,
+            )
+        elif metric_name:
+            self._append_unique(points, metric_name, limit=3)
+
+        if delta_display:
+            self._append_unique(points, f"Δ {delta_display}", limit=3)
+
+        if previous_display:
+            self._append_unique(points, f"Prior: {previous_display}", limit=3)
+
+        for candidate in headline_metrics:
+            if len(points) >= 3:
+                break
+            if candidate is primary_metric or not isinstance(candidate, dict):
+                continue
+            candidate_name = self._clean_text(candidate.get("name"))
+            candidate_display = candidate.get("display")
+            if not isinstance(candidate_display, dict):
+                candidate_display = {}
+            delta_text = self._clean_text(candidate_display.get("delta_text"))
+            current_text = self._clean_text(candidate_display.get("current"))
+
+            if candidate_name and delta_text:
+                self._append_unique(
+                    points,
+                    f"{candidate_name}: {delta_text}",
+                    limit=3,
+                )
+            elif candidate_name and current_text:
+                self._append_unique(
+                    points,
+                    f"{candidate_name}: {current_text}",
+                    limit=3,
+                )
+
+        return {
+            "id": "metric-scan",
+            "title": "Numbers to watch",
+            "anchor": "numbers",
+            "summary": summary_text,
+            "supporting_points": points,
+        }
+
+    def _build_sentiment_segment(
+        self,
+        sentiment_rollup: dict[str, Any],
+        sentiment_sections: list[dict[str, Any]],
+    ) -> dict[str, Any] | None:
+        """Construct the sentiment segment using rollup insights."""
+
+        if not isinstance(sentiment_rollup, dict):
+            sentiment_rollup = {}
+
+        overall = self._coerce_float(sentiment_rollup.get("overall"))
+        trend = self._clean_text(sentiment_rollup.get("trend"))
+        confidence_band = self._clean_text(sentiment_rollup.get("confidence_band"))
+        prior_delta = self._coerce_float(sentiment_rollup.get("prior_analysis_delta"))
+
+        summary_clause = "Overall sentiment"
+        confidence_used_inline = False
+        if trend:
+            trend_phrase = {
+                "up": "is rising",
+                "down": "is softening",
+                "flat": "is steady",
+            }.get(trend, f"is {trend}")
+            summary_clause = f"{summary_clause} {trend_phrase}"
+            if overall is not None:
+                summary_clause = f"{summary_clause} at {overall:.2f}"
+        elif overall is not None:
+            summary_clause = f"{summary_clause} sits at {overall:.2f}"
+        elif confidence_band:
+            summary_clause = f"{summary_clause} holds {confidence_band} confidence"
+            confidence_used_inline = True
+        else:
+            return None
+
+        if confidence_band and not confidence_used_inline:
+            summary_clause = (
+                f"{summary_clause} ({confidence_band.capitalize()} confidence)"
+            )
+
+        if prior_delta is not None:
+            summary_clause = f"{summary_clause}, {prior_delta:+.2f} vs prior analysis"
+
+        summary_text = self._clip_summary_text(summary_clause)
+        if summary_text is None:
+            return None
+
+        points: list[str] = []
+
+        weakest_section = sentiment_rollup.get("weakest_section")
+        if isinstance(weakest_section, dict):
+            weakest_name = self._clean_text(weakest_section.get("section"))
+            weakest_score = self._coerce_float(weakest_section.get("score"))
+            if weakest_name:
+                if weakest_score is not None:
+                    weakest_point = (
+                        f"Weakest section: {weakest_name} ({weakest_score:.2f})"
+                    )
+                else:
+                    weakest_point = f"Weakest section: {weakest_name}"
+                self._append_unique(points, weakest_point, limit=3)
+
+        strongest_point = self._describe_notable_sentiment_section(
+            sentiment_sections,
+            strongest=True,
+        )
+        self._append_unique(points, strongest_point, limit=3)
+
+        previous_overall = self._coerce_float(sentiment_rollup.get("previous_overall"))
+        if previous_overall is not None:
+            self._append_unique(
+                points,
+                f"Previous overall: {previous_overall:.2f}",
+                limit=3,
+            )
+
+        if prior_delta is not None:
+            self._append_unique(
+                points,
+                f"Change vs prior: {prior_delta:+.2f}",
+                limit=3,
+            )
+
+        return {
+            "id": "sentiment-check",
+            "title": "Sentiment pulse",
+            "anchor": "sentiment",
+            "summary": summary_text,
+            "supporting_points": points,
+        }
+
+    def _describe_notable_sentiment_section(
+        self,
+        sentiment_sections: list[dict[str, Any]],
+        *,
+        strongest: bool,
+    ) -> str | None:
+        """Describe the strongest or weakest sentiment section."""
+
+        selected_section: dict[str, Any] | None = None
+        selected_score: float | None = None
+
+        for entry in sentiment_sections:
+            if not isinstance(entry, dict):
+                continue
+            score = self._coerce_float(entry.get("score"))
+            if score is None:
+                continue
+            if selected_score is None:
+                selected_section = entry
+                selected_score = score
+                continue
+            if strongest and score > selected_score:
+                selected_section = entry
+                selected_score = score
+                continue
+            if not strongest and score < selected_score:
+                selected_section = entry
+                selected_score = score
+
+        if not selected_section:
+            return None
+
+        section_name = self._clean_text(selected_section.get("section"))
+        if not section_name:
+            return None
+
+        if selected_score is not None:
+            qualifier = "Strongest" if strongest else "Weakest"
+            return f"{qualifier} section: {section_name} ({selected_score:.2f})"
+
+        qualifier = "Strongest" if strongest else "Weakest"
+        return f"{qualifier} section: {section_name}"
+
+    @staticmethod
+    def _append_unique(
+        items: list[str],
+        candidate: Any,
+        *,
+        limit: int | None = None,
+    ) -> None:
+        """Append cleaned string candidates while avoiding duplicates."""
+
+        if limit is not None and len(items) >= limit:
+            return
+
+        text = WorkerService._clean_text(candidate)
+        if not text or text in items:
+            return
+
+        if limit is not None and len(items) >= limit:
+            return
+        items.append(text)
+
+    def _clip_summary_text(
+        self,
+        value: str | None,
+        *,
+        max_chars: int = 280,
+    ) -> str | None:
+        """Trim narrative strings to the summary segment constraints."""
+
+        text = self._clean_text(value)
+        if text is None:
+            return None
+
+        if len(text) <= max_chars:
+            return text
+
+        sentences = re.split(r"(?<=[.!?])\s+", text)
+        clipped = ""
+        for sentence in sentences:
+            if not sentence:
+                continue
+            candidate = sentence if not clipped else f"{clipped} {sentence}"
+            if len(candidate) > max_chars:
+                break
+            clipped = candidate
+
+        if clipped:
+            return clipped
+
+        return text[: max_chars - 1].rstrip() + "…"
 
     def _build_sentiment_rollup_payload(
         self,
