@@ -7,6 +7,8 @@ import {
 } from './components/InsightTimeline'
 import { MetricsGrid, type MetricDatum } from './components/MetricsGrid'
 import { SectionSummaryPanel } from './components/SectionSummaryPanel'
+import { FeatureHero } from '@/components/layout/FeatureHero'
+import { FeatureHeroStat } from '@/components/layout/FeatureHeroStat'
 import { useThemeTokens } from '@/components/ThemeProvider'
 import { useFilingDetail } from '@/lib/hooks'
 import type {
@@ -48,14 +50,6 @@ function formatDate(input?: string | null) {
   }).format(parsed)
 }
 
-function formatConfidence(value?: number | null) {
-  if (typeof value !== 'number') {
-    return 'Confidence pending'
-  }
-
-  return `${Math.round(value * 100)}% confidence`
-}
-
 function formatProcessingTime(ms?: number | null) {
   if (typeof ms !== 'number') {
     return 'TBD'
@@ -77,6 +71,72 @@ function formatProcessingTime(ms?: number | null) {
   }
 
   return `${minutes} min ${Math.round(leftover)} s`
+}
+
+function formatConfidenceStatValue(value?: number | null) {
+  if (typeof value !== 'number') {
+    return 'Pending'
+  }
+
+  return `${Math.round(value * 100)}%`
+}
+
+function describeConfidenceBucket(bucket?: string | null) {
+  if (typeof bucket !== 'string' || bucket.trim().length === 0) {
+    return 'Awaiting model scoring'
+  }
+
+  const normalized = bucket.trim()
+  return `${normalized.charAt(0).toUpperCase()}${normalized.slice(1)} confidence`
+}
+
+function formatCoverageStatValue(count?: number | null) {
+  if (typeof count === 'number') {
+    const normalized = Math.max(count, 0)
+    const noun = normalized === 1 ? 'section' : 'sections'
+    return `${normalized} ${noun}`
+  }
+
+  return 'Pending'
+}
+
+function describeCoverageHelper(counts: AnalysisResponse['summary']['insight_counts'] | undefined) {
+  if (!counts) {
+    return 'Coverage synthesizing'
+  }
+
+  const pieces: string[] = []
+
+  if (typeof counts.key_insights === 'number') {
+    pieces.push(`${counts.key_insights} insights`)
+  }
+
+  if (typeof counts.critical_findings === 'number') {
+    pieces.push(`${counts.critical_findings} risks`)
+  }
+
+  if (typeof counts.opportunities === 'number') {
+    pieces.push(`${counts.opportunities} opportunities`)
+  }
+
+  if (pieces.length === 0) {
+    return 'Coverage synthesizing'
+  }
+
+  return `${pieces.join(' · ')} logged`
+}
+
+function formatCompletionHelper(completedAt?: string | null) {
+  if (!completedAt) {
+    return 'Completion timestamp pending'
+  }
+
+  const formatted = formatDate(completedAt)
+  if (formatted === 'Date pending') {
+    return 'Completion timestamp pending'
+  }
+
+  return `Completed ${formatted}`
 }
 
 function formatSentiment(value?: number | null) {
@@ -511,13 +571,18 @@ export function FilingDetailPage() {
   const headlineDate = formatDate(filingDate)
 
   const confidenceValue = combineConfidence(analysis)
-  const confidence = formatConfidence(confidenceValue)
-  const processingTime = formatProcessingTime(
+  const confidenceStatValue = formatConfidenceStatValue(confidenceValue)
+  const confidenceHelperText = describeConfidenceBucket(summary.confidence?.bucket ?? null)
+  const sectionsAnalyzed = summary.insight_counts?.sections_analyzed ?? null
+  const coverageStatValue = formatCoverageStatValue(sectionsAnalyzed)
+  const coverageHelperText = describeCoverageHelper(summary.insight_counts)
+  const processingDurationMs =
     typeof summary.processing?.duration_seconds === 'number'
       ? summary.processing.duration_seconds * 1000
       : null
-  )
-  const sectionsAnalyzed = summary.insight_counts?.sections_analyzed ?? null
+  const turnaroundRaw = formatProcessingTime(processingDurationMs)
+  const turnaroundStatValue = turnaroundRaw === 'TBD' ? 'Pending' : turnaroundRaw
+  const turnaroundHelperText = formatCompletionHelper(summary.processing?.completed_at ?? null)
 
   const filingSummary =
     summary.filing_summary ??
@@ -553,23 +618,42 @@ export function FilingDetailPage() {
     setFocusedSection(null)
   }
 
-  const totalSections = sectionsAnalyzed ?? sentimentOverview.sections.length
   const totalSentimentSections = sentimentOverview.sections.length
 
   return (
     <div className="flex flex-col gap-6">
-      <header className="flex flex-col gap-3">
-        <p className="text-xs font-semibold uppercase tracking-wide text-[var(--text-secondary)]">
-          Filing Detail • {filingType}
-        </p>
-        <h1 className="text-3xl font-semibold" style={{ color: 'var(--text-primary)' }}>
-          {companyName}
-        </h1>
-        <p className="text-sm text-[var(--text-muted)]">
-          Generated {headlineDate}. Explore summaries, section sentiment, quantitative deltas, and
-          the raw narrative in one workspace.
-        </p>
-      </header>
+      <FeatureHero
+        overline={`Filing Detail • ${filingType}`}
+        title={companyName}
+        description={`Generated ${headlineDate}. Confidence, coverage, and turnaround reflect the most recent Aperilex analysis.`}
+      >
+        <div className="grid gap-4 md:grid-cols-3 xl:grid-cols-3">
+          {[
+            {
+              label: 'Confidence',
+              value: confidenceStatValue,
+              helper: confidenceHelperText,
+            },
+            {
+              label: 'Coverage',
+              value: coverageStatValue,
+              helper: coverageHelperText,
+            },
+            {
+              label: 'Turnaround',
+              value: turnaroundStatValue,
+              helper: turnaroundHelperText,
+            },
+          ].map((stat) => (
+            <FeatureHeroStat
+              key={stat.label}
+              label={stat.label}
+              value={stat.value}
+              helper={stat.helper}
+            />
+          ))}
+        </div>
+      </FeatureHero>
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
         <section className="flex flex-col gap-6">
@@ -599,34 +683,6 @@ export function FilingDetailPage() {
           <div role="tabpanel" className="flex flex-col gap-6">
             {activeTab === 'overview' ? (
               <div className="flex flex-col gap-6">
-                <div className="grid gap-4 md:grid-cols-3">
-                  {[
-                    { label: 'Confidence', value: confidence },
-                    {
-                      label: 'Sections analyzed',
-                      value: totalSections ? `${totalSections}` : 'TBD',
-                    },
-                    { label: 'Processing time', value: processingTime },
-                  ].map((stat) => (
-                    <article
-                      key={stat.label}
-                      className="rounded-3xl border p-5"
-                      style={{
-                        borderColor: 'var(--lines-subtle)',
-                        background: 'var(--surfaces-muted)',
-                        boxShadow: tokens.shadows.soft,
-                      }}
-                    >
-                      <p className="text-xs font-semibold uppercase tracking-wide text-[var(--text-secondary)]">
-                        {stat.label}
-                      </p>
-                      <p className="mt-2 text-lg font-semibold text-[var(--text-primary)]">
-                        {stat.value}
-                      </p>
-                    </article>
-                  ))}
-                </div>
-
                 <article
                   className="flex flex-col gap-3 rounded-3xl border p-5"
                   style={{
