@@ -8,14 +8,16 @@ import {
 import { MetricsGrid, type MetricDatum } from './components/MetricsGrid'
 import { SectionSummaryPanel } from './components/SectionSummaryPanel'
 import { useThemeTokens } from '@/components/ThemeProvider'
-import { useFilingDetail, useSentimentBreakdown } from '@/lib/hooks'
+import { useFilingDetail } from '@/lib/hooks'
 import type {
   AnalysisResponse,
   HeadlineMetric,
   InsightTimelineEvent as SummaryTimelineEvent,
+  RiskHighlight,
   SentimentRollup,
   StructuredAnalysisData,
 } from '@/lib/types/analysis'
+import type { SentimentTone } from './types'
 
 const TAB_KEYS = ['overview', 'sections', 'numbers', 'sentiment', 'raw'] as const
 type TabKey = (typeof TAB_KEYS)[number]
@@ -95,7 +97,7 @@ function formatSentimentDelta(value?: number | null) {
   return `${label} pts vs prior analysis`
 }
 
-function determineTone(value?: number | null) {
+function toneFromScore(value?: number | null): SentimentTone {
   if (typeof value !== 'number') {
     return 'neutral'
   }
@@ -192,6 +194,171 @@ function buildHeadlineMetricData(metrics: HeadlineMetric[] | undefined): MetricD
   })
 }
 
+interface SectionPanelData {
+  sectionName: string
+  sentiment: number | null
+  tone: SentimentTone
+  summary?: string | null
+  insights: string[]
+  criticalFindings: string[]
+}
+
+interface SentimentOverview {
+  sections: SectionPanelData[]
+  average: number | null
+  distribution: Record<SentimentTone, number>
+}
+
+type HighlightBuckets = {
+  critical: string[]
+  signals: string[]
+}
+
+function highlightTextFromSummary(highlight: RiskHighlight): string {
+  const fragments: string[] = []
+  if (highlight.title) {
+    fragments.push(highlight.title)
+  }
+
+  if (highlight.summary) {
+    fragments.push(highlight.summary)
+  }
+
+  if (fragments.length === 0) {
+    return 'Highlight detail pending.'
+  }
+
+  return fragments.join(' — ')
+}
+
+function ensureBuckets(map: Map<string, HighlightBuckets>, sectionName: string) {
+  const existing = map.get(sectionName)
+  if (existing) {
+    return existing
+  }
+  const buckets: HighlightBuckets = { critical: [], signals: [] }
+  map.set(sectionName, buckets)
+  return buckets
+}
+
+function appendUnique(target: string[], value: string) {
+  if (!target.includes(value)) {
+    target.push(value)
+  }
+}
+
+function collectHighlightsBySection(
+  highlights: AnalysisResponse['summary']['risk_highlights'] | undefined
+): Map<string, HighlightBuckets> {
+  const map = new Map<string, HighlightBuckets>()
+
+  if (!highlights) {
+    return map
+  }
+
+  const assignHighlights = (
+    items: RiskHighlight[] | undefined,
+    bucketKey: keyof HighlightBuckets
+  ) => {
+    if (!items) {
+      return
+    }
+
+    for (const item of items) {
+      const relatedSections = item.related_sections ?? []
+      if (relatedSections.length === 0) {
+        continue
+      }
+
+      const text = highlightTextFromSummary(item)
+      for (const section of relatedSections) {
+        const normalized = section.trim()
+        if (!normalized) {
+          continue
+        }
+
+        const buckets = ensureBuckets(map, normalized)
+        appendUnique(buckets[bucketKey], text)
+      }
+    }
+  }
+
+  assignHighlights(highlights.critical_actions, 'critical')
+  assignHighlights(highlights.signals_to_monitor, 'signals')
+
+  return map
+}
+
+function buildSentimentOverviewFromSummary(
+  summary?: AnalysisResponse['summary']
+): SentimentOverview {
+  if (!summary) {
+    return {
+      sections: [],
+      average: null,
+      distribution: {
+        positive: 0,
+        neutral: 0,
+        negative: 0,
+      },
+    }
+  }
+
+  const sentiment = summary.sentiment
+  const highlightLookup = collectHighlightsBySection(summary.risk_highlights)
+
+  const sections: SectionPanelData[] = (sentiment?.sections ?? []).map((section) => {
+    const sectionName = section.section
+    const score = typeof section.score === 'number' ? section.score : null
+    const tone = toneFromScore(score)
+    const highlights = highlightLookup.get(sectionName) ?? { critical: [], signals: [] }
+
+    return {
+      sectionName,
+      sentiment: score,
+      tone,
+      summary: undefined,
+      insights: highlights.signals,
+      criticalFindings: highlights.critical,
+    }
+  })
+
+  const existingNames = new Set(sections.map((section) => section.sectionName))
+  for (const [sectionName, highlight] of highlightLookup.entries()) {
+    if (existingNames.has(sectionName)) {
+      continue
+    }
+    sections.push({
+      sectionName,
+      sentiment: null,
+      tone: 'neutral',
+      summary: undefined,
+      insights: highlight.signals,
+      criticalFindings: highlight.critical,
+    })
+  }
+
+  const distribution = sections.reduce(
+    (acc, section) => {
+      acc[section.tone] += 1
+      return acc
+    },
+    {
+      positive: 0,
+      neutral: 0,
+      negative: 0,
+    } satisfies Record<SentimentTone, number>
+  )
+
+  const average = typeof sentiment?.average === 'number' ? sentiment.average : null
+
+  return {
+    sections,
+    average,
+    distribution,
+  }
+}
+
 function timelineToneFromSeverity(severity?: string | null) {
   if (!severity) {
     return 'neutral'
@@ -222,7 +389,9 @@ function buildTimelineEventsFromSummary(
       sectionName: event.source_section ?? event.type ?? 'Summary',
       title: event.title ?? 'Insight update',
       description: event.summary ?? 'Insight captured during analysis.',
-      timestamp: event.occurred_at ?? new Date().toISOString(),
+      timestamp: event.occurred_at ?? null,
+      actions: event.actions ?? [],
+      relatedMetrics: event.related_metrics ?? [],
       tone,
     }
   })
@@ -274,16 +443,18 @@ export function FilingDetailPage() {
   const detailQuery = useFilingDetail(id)
   const analysis = detailQuery.data
   const structured = analysis?.full_results?.structured_data
-  const sections = structured?.section_analyses ?? []
 
-  const sentiment = useSentimentBreakdown(sections)
+  const sentimentOverview = useMemo(
+    () => buildSentimentOverviewFromSummary(analysis?.summary),
+    [analysis?.summary]
+  )
   const metrics = useMemo(
-    () => buildHeadlineMetricData(analysis?.summary.headline_metrics),
-    [analysis?.summary.headline_metrics]
+    () => buildHeadlineMetricData(analysis?.summary?.headline_metrics),
+    [analysis?.summary?.headline_metrics]
   )
   const timelineEvents = useMemo(
-    () => buildTimelineEventsFromSummary(analysis?.summary.insight_timeline),
-    [analysis?.summary.insight_timeline]
+    () => buildTimelineEventsFromSummary(analysis?.summary?.insight_timeline),
+    [analysis?.summary?.insight_timeline]
   )
   const structuredJson = useMemo(() => safeStructuredJson(structured), [structured])
 
@@ -346,7 +517,7 @@ export function FilingDetailPage() {
       ? summary.processing.duration_seconds * 1000
       : null
   )
-  const sectionsAnalyzed = summary.insight_counts?.sections_analyzed ?? sections.length
+  const sectionsAnalyzed = summary.insight_counts?.sections_analyzed ?? null
 
   const filingSummary =
     summary.filing_summary ??
@@ -382,8 +553,8 @@ export function FilingDetailPage() {
     setFocusedSection(null)
   }
 
-  const totalSections = Math.max(sectionsAnalyzed ?? 0, sections.length)
-  const totalSentimentSections = sentiment.items.length
+  const totalSections = sectionsAnalyzed ?? sentimentOverview.sections.length
+  const totalSentimentSections = sentimentOverview.sections.length
 
   return (
     <div className="flex flex-col gap-6">
@@ -650,7 +821,7 @@ export function FilingDetailPage() {
 
             {activeTab === 'sections' ? (
               <div className="grid gap-4">
-                {sections.length === 0 ? (
+                {sentimentOverview.sections.length === 0 ? (
                   <div
                     className="rounded-3xl border p-6 text-sm text-[var(--text-muted)]"
                     style={{
@@ -662,15 +833,15 @@ export function FilingDetailPage() {
                     summaries.
                   </div>
                 ) : (
-                  sections.map((section) => (
+                  sentimentOverview.sections.map((section) => (
                     <SectionSummaryPanel
-                      key={section.section_name}
-                      sectionName={section.section_name}
-                      tone={determineTone(section.overall_sentiment)}
-                      sentiment={section.overall_sentiment ?? null}
-                      summary={section.section_summary}
-                      insights={section.consolidated_insights}
-                      criticalFindings={section.critical_findings}
+                      key={section.sectionName}
+                      sectionName={section.sectionName}
+                      tone={section.tone}
+                      sentiment={section.sentiment}
+                      summary={section.summary}
+                      insights={section.insights}
+                      criticalFindings={section.criticalFindings}
                       onExplain={handleExplain}
                       onJumpToRaw={handleJumpToRaw}
                     />
@@ -714,7 +885,7 @@ export function FilingDetailPage() {
                   }}
                 >
                   <p className="text-sm font-semibold text-[var(--text-primary)]">
-                    Average sentiment: {formatSentiment(sentiment.averageSentiment)} (
+                    Average sentiment: {formatSentiment(sentimentOverview.average)} (
                     {totalSentimentSections} sections)
                   </p>
                   {sentimentRollup ? (
@@ -737,7 +908,7 @@ export function FilingDetailPage() {
                   ) : null}
                   <div className="mt-3 grid gap-3 sm:grid-cols-3">
                     {(['positive', 'neutral', 'negative'] as const).map((tone) => {
-                      const count = sentiment.distribution[tone]
+                      const count = sentimentOverview.distribution[tone]
                       const total = totalSentimentSections || 1
                       const percentage = Math.round((count / total) * 100)
                       const toneColor =
@@ -781,7 +952,7 @@ export function FilingDetailPage() {
                 </div>
 
                 <div className="flex flex-col gap-3">
-                  {sentiment.items.length === 0 ? (
+                  {sentimentOverview.sections.length === 0 ? (
                     <div
                       className="rounded-3xl border p-6 text-sm text-[var(--text-muted)]"
                       style={{
@@ -789,11 +960,12 @@ export function FilingDetailPage() {
                         background: 'var(--surfaces-muted)',
                       }}
                     >
-                      Sentiment breakdowns will render once section analyses include tone scores.
+                      Sentiment breakdowns will render once the analysis provides section sentiment.
                     </div>
                   ) : (
-                    sentiment.items.map((item) => {
-                      const normalized = ((item.sentiment ?? 0) + 1) / 2
+                    sentimentOverview.sections.map((item) => {
+                      const score = item.sentiment ?? 0
+                      const normalized = (score + 1) / 2
                       const toneColor =
                         item.tone === 'positive'
                           ? tokens.status.positive

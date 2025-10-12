@@ -1,5 +1,5 @@
 import { useThemeTokens } from '@/components/ThemeProvider'
-import type { SentimentTone } from '@/lib/hooks/useSentimentBreakdown'
+import type { SentimentTone } from '../types'
 
 export interface SectionSummaryPanelProps {
   sectionName: string

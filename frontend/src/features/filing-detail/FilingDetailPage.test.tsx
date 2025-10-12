@@ -86,6 +86,10 @@ describe('FilingDetailPage', () => {
     expect(screen.getByText(/Sections analyzed/i)).toBeInTheDocument()
 
     expect(screen.getByText(/Watch for regional FX headwinds/i)).toBeInTheDocument()
+    expect(
+      screen.getByText(/No recommended actions captured for this insight/i)
+    ).toBeInTheDocument()
+    expect(screen.getByText(/Refresh hedging strategy/i)).toBeInTheDocument()
 
     await waitFor(() => {
       expect(apiClient.get).toHaveBeenCalledWith(

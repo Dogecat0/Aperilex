@@ -1,19 +1,25 @@
 import { useThemeTokens } from '@/components/ThemeProvider'
-import type { SentimentTone } from '@/lib/hooks/useSentimentBreakdown'
+import type { SentimentTone } from '../types'
 
 export interface InsightTimelineEvent {
   id: string
-  timestamp: string
+  timestamp: string | null
   title: string
   description: string
   sectionName: string
   tone: SentimentTone
+  actions: string[]
+  relatedMetrics: string[]
 }
 
-function formatTimestamp(value: string) {
+function formatTimestamp(value: string | null) {
+  if (!value) {
+    return 'Timing pending'
+  }
+
   const parsed = new Date(value)
   if (Number.isNaN(parsed.getTime())) {
-    return value
+    return 'Timing pending'
   }
 
   return new Intl.DateTimeFormat('en-US', {
@@ -57,6 +63,8 @@ export function InsightTimeline({ events }: InsightTimelineProps) {
             : event.tone === 'negative'
               ? tokens.status.negative
               : tokens.status.neutral
+        const actions = event.actions ?? []
+        const relatedMetrics = event.relatedMetrics ?? []
 
         return (
           <li key={event.id} className="relative flex flex-col gap-2">
@@ -72,6 +80,27 @@ export function InsightTimeline({ events }: InsightTimelineProps) {
             <p className="text-sm leading-relaxed text-[var(--text-secondary)]">
               {event.description}
             </p>
+            {actions.length > 0 ? (
+              <div className="flex flex-col gap-1">
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-[var(--text-secondary)]">
+                  Recommended actions
+                </p>
+                <ul className="flex list-disc flex-col gap-1 pl-4 text-[10px] text-[var(--text-secondary)]">
+                  {actions.map((action, actionIndex) => (
+                    <li key={`${event.id}-action-${actionIndex}`}>{action}</li>
+                  ))}
+                </ul>
+              </div>
+            ) : (
+              <p className="text-[10px] italic text-[var(--text-muted)]">
+                No recommended actions captured for this insight.
+              </p>
+            )}
+            {relatedMetrics.length > 0 ? (
+              <p className="text-[10px] uppercase tracking-wide text-[var(--text-secondary)]">
+                Linked metrics: {relatedMetrics.join(', ')}
+              </p>
+            ) : null}
             <p className="text-[10px] font-semibold uppercase tracking-wide text-[var(--text-secondary)]">
               Event {index + 1} of {events.length}
             </p>
