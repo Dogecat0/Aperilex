@@ -8,13 +8,22 @@ orchestrator can delegate LLM-specific concerns to a dedicated component.
 from __future__ import annotations
 
 import uuid
-from typing import Final
+from collections.abc import Awaitable, Callable
+from datetime import UTC, datetime
+from typing import Any, Final, cast
 
-from src.application.interfaces.llm import ILLMProvider
+from src.application.interfaces.llm import ILLMProvider, LLMRequest, LLMResponse
 from src.application.interfaces.storage import IStorageProvider
-from src.shared.enums import UserTier
-from src.shared.models import AnalysisRequest, AnalysisType, ModelTier, TaskData
-from src.shared.types import AnalysisId
+from src.shared.enums import AnalysisStatus, FilingType, UserTier
+from src.shared.models import (
+    AnalysisRequest,
+    AnalysisResult,
+    AnalysisType,
+    ModelTier,
+    TaskData,
+    TokenUsage,
+)
+from src.shared.types import AnalysisId, FilingId
 
 
 class AnalysisExecutionServiceError(Exception):
@@ -177,6 +186,198 @@ class AnalysisExecutionService:
         return prompts.get(
             analysis_type,
             f"Please analyze the following SEC filing sections:\n\n{content}",
+        )
+
+    async def perform_structured_comprehensive_analysis(
+        self,
+        *,
+        request: AnalysisRequest,
+        filing_id: FilingId,
+        filing_type: FilingType,
+        filing_sections: dict[str, str],
+        company_name: str,
+        analysis_focus: list[str] | None,
+    ) -> AnalysisResult:
+        """Run the hierarchical LLM workflow for comprehensive filings."""
+
+        if self.llm is None:
+            raise AnalysisExecutionServiceError(
+                "LLM provider is not configured for structured analysis"
+            )
+
+        analyze_sections = getattr(self.llm, "analyze_filing_sections", None)
+        if analyze_sections is None or not callable(analyze_sections):
+            raise AnalysisExecutionServiceError(
+                "Configured LLM provider does not support structured filing analysis"
+            )
+
+        if not filing_sections:
+            raise AnalysisExecutionServiceError(
+                f"No filing sections available for analysis of {filing_id}"
+            )
+
+        start_time = datetime.now(UTC)
+
+        analyze_sections_call = cast(Callable[..., Awaitable[Any]], analyze_sections)
+        comprehensive_response = await analyze_sections_call(
+            filing_sections=filing_sections,
+            filing_type=filing_type,
+            company_name=company_name,
+            analysis_focus=analysis_focus,
+        )
+
+        try:
+            model_info = await self.llm.get_model_info()
+            model_name = model_info.model_name
+        except Exception:  # noqa: BLE001 - fall back to request data
+            model_name = request.model_name or "unknown"
+
+        processing_time_ms = comprehensive_response.total_processing_time_ms or int(
+            (datetime.now(UTC) - start_time).total_seconds() * 1000
+        )
+
+        structured_payload = comprehensive_response.model_dump(mode="json")
+        for deprecated in ("executive_summary", "financial_highlights", "risk_factors"):
+            structured_payload.pop(deprecated, None)
+
+        sections = structured_payload.get("section_analyses") or []
+        for section in sections:
+            summary_text = str(section.get("section_summary") or "").strip()
+            section["section_summary"] = summary_text or "Summary unavailable."
+
+            insights = section.get("consolidated_insights") or []
+            section["consolidated_insights"] = (
+                insights if isinstance(insights, list) else []
+            )
+
+            sentiment = section.get("overall_sentiment")
+            if not isinstance(sentiment, (int | float)):
+                sentiment = 0.0
+            section["overall_sentiment"] = float(sentiment)
+
+            findings = section.get("critical_findings") or []
+            section["critical_findings"] = (
+                findings if isinstance(findings, list) else []
+            )
+
+        structured_payload["section_analyses"] = sections
+
+        narrative_parts: list[str] = []
+        summary_text = (comprehensive_response.filing_summary or "").strip()
+        if summary_text:
+            narrative_parts.append(summary_text)
+
+        if comprehensive_response.key_insights:
+            insight_lines = "\n".join(
+                f"- {insight}" for insight in comprehensive_response.key_insights
+            )
+            narrative_parts.append(f"Key insights:\n{insight_lines}")
+
+        if comprehensive_response.opportunities:
+            opportunity_lines = "\n".join(
+                f"- {item}" for item in comprehensive_response.opportunities
+            )
+            narrative_parts.append(f"Opportunities:\n{opportunity_lines}")
+
+        content_body = "\n\n".join(part for part in narrative_parts if part)
+        if not content_body:
+            content_body = "Analysis generated without narrative details."
+
+        focus_metadata = dict(request.metadata)
+        if analysis_focus:
+            focus_metadata["analysis_focus"] = ",".join(analysis_focus)
+
+        quality_metrics = {
+            "total_sections_analyzed": float(
+                comprehensive_response.total_sections_analyzed
+            ),
+            "total_subsections_analyzed": float(
+                comprehensive_response.total_sub_sections_analyzed
+            ),
+            "confidence_score": comprehensive_response.confidence_score,
+        }
+
+        return AnalysisResult(
+            analysis_id=request.analysis_id,
+            filing_id=filing_id,
+            task_id=request.task_id,
+            user_id=request.user_id,
+            content=content_body,
+            summary=comprehensive_response.filing_summary,
+            structured_data=structured_payload,
+            analysis_type=request.analysis_type,
+            status=AnalysisStatus.COMPLETED,
+            llm_provider=request.llm_provider,
+            model_name=model_name,
+            token_usage=TokenUsage(
+                prompt_tokens=0,
+                completion_tokens=0,
+                total_tokens=0,
+            ),
+            processing_time_ms=processing_time_ms,
+            estimated_cost=None,
+            confidence_score=comprehensive_response.confidence_score,
+            quality_metrics=quality_metrics,
+            created_at=start_time,
+            completed_at=datetime.now(UTC),
+            metadata=focus_metadata,
+        )
+
+    async def perform_llm_analysis_with_sections(
+        self,
+        request: AnalysisRequest,
+        filing_id: FilingId,
+        extracted_content: str,
+    ) -> AnalysisResult:
+        """Perform LLM analysis using pre-extracted filing sections."""
+
+        if self.llm is None:
+            raise AnalysisExecutionServiceError(
+                "LLM provider is not configured for section analysis"
+            )
+
+        llm_request = LLMRequest(
+            schema_version=1,
+            prompt=self.build_analysis_prompt_with_content(
+                request.analysis_type,
+                extracted_content,
+            ),
+            system_prompt=request.system_prompt or self.get_default_system_prompt(),
+            temperature=request.temperature,
+            max_tokens=request.max_tokens,
+            streaming=request.streaming,
+            response_format=request.response_format,
+            metadata={
+                "analysis_id": str(request.analysis_id),
+                "filing_id": str(filing_id),
+                "sections_extracted": "true",
+            },
+        )
+
+        start_time = datetime.now(UTC)
+        llm_response: LLMResponse = await self.llm.complete(llm_request)
+        processing_time_ms = int((datetime.now(UTC) - start_time).total_seconds() * 1000)
+
+        return AnalysisResult(
+            schema_version=1,
+            analysis_id=request.analysis_id,
+            filing_id=filing_id,
+            task_id=request.task_id,
+            user_id=request.user_id,
+            content=llm_response.content,
+            analysis_type=request.analysis_type,
+            status=AnalysisStatus.COMPLETED,
+            llm_provider=request.llm_provider,
+            model_name=llm_response.model_used,
+            token_usage=TokenUsage(
+                prompt_tokens=llm_response.prompt_tokens,
+                completion_tokens=llm_response.completion_tokens,
+                total_tokens=llm_response.total_tokens,
+            ),
+            processing_time_ms=processing_time_ms,
+            estimated_cost=llm_response.cost,
+            created_at=start_time,
+            completed_at=datetime.now(UTC),
         )
 
 

@@ -1,9 +1,9 @@
-"""Parity tests for `WorkerRetryCoordinator` retry and DLQ behaviour."""
+"""Behavioural tests for `WorkerRetryCoordinator`."""
 
 from __future__ import annotations
 
 import uuid
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock
 
@@ -28,31 +28,24 @@ from src.shared.types import (
     Ticker,
     UserId,
 )
-from tests.application.services.worker.factories import build_worker_service
 
 
 class FixedDateTime(datetime):
-    """Deterministic datetime helper for parity checks."""
+    """Deterministic datetime helper for scheduler assertions."""
 
     _fixed_now = datetime(2024, 3, 1, 9, 45, tzinfo=UTC)
 
     @classmethod
-    def now(cls, tz: Any | None = None) -> datetime:
-        if tz is not None:
-            return cls._fixed_now
-        return cls._fixed_now.replace(tzinfo=None)
+    def now(cls, tz: Any | None = None) -> datetime:  # pragma: no cover - helper
+        return cls._fixed_now if tz else cls._fixed_now.replace(tzinfo=None)
 
 
 @pytest.fixture()
 def patched_datetime(monkeypatch: pytest.MonkeyPatch) -> datetime:
-    """Patch datetime.now in both implementations for deterministic scheduling."""
+    """Patch retry coordinator datetime helper for deterministic scheduling."""
 
     monkeypatch.setattr(
         "src.application.services.worker.worker_retry_coordinator.datetime",
-        FixedDateTime,
-    )
-    monkeypatch.setattr(
-        "src.application.services.worker_service.datetime",
         FixedDateTime,
     )
     return FixedDateTime._fixed_now
@@ -104,103 +97,54 @@ def _build_retry_coordinator(
         retry_backoff_base=2.0,
         retry_max_delay=60,
     )
+
+
 @pytest.mark.unit
 @pytest.mark.asyncio
-async def test_handle_retry_matches_worker_service(
+async def test_handle_retry_schedules_next_attempt(patched_datetime: datetime) -> None:
+    task_data = _make_task_data()
+    context = _make_worker_context(task_data)
+
+    priority_queue = MagicMock()
+    priority_queue.schedule_retry = AsyncMock()
+
+    coordinator = _build_retry_coordinator(priority_queue, queue_provider=MagicMock())
+    result = await coordinator.handle_retry(task_data, context, "temporary failure")
+
+    assert task_data.retry_count == 1
+    assert task_data.status is TaskStatus.RETRY
+    assert task_data.scheduled_at == FixedDateTime._fixed_now + timedelta(seconds=2)
+    priority_queue.schedule_retry.assert_awaited_once()
+
+    scheduled_task, delay = priority_queue.schedule_retry.await_args.args
+    assert isinstance(scheduled_task, TaskData)
+    assert delay == 2  # base backoff of 2^1
+
+    assert result.status is TaskStatus.RETRY
+    assert "Retry scheduled" in (result.error_message or "")
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+async def test_handle_retry_without_priority_queue_logs_only(
     patched_datetime: datetime,
 ) -> None:
-    base_task_data = _make_task_data()
-    task_data_collab = base_task_data.model_copy(deep=True)
-    context = _make_worker_context(task_data_collab)
+    task_data = _make_task_data()
+    context = _make_worker_context(task_data)
 
-    priority_queue_collab = MagicMock()
-    priority_queue_collab.schedule_retry = AsyncMock()
-    queue_provider_collab = MagicMock()
+    queue_provider = MagicMock()
+    coordinator = _build_retry_coordinator(priority_queue=None, queue_provider=queue_provider)
 
-    coordinator = _build_retry_coordinator(priority_queue_collab, queue_provider_collab)
-    result_collab = await coordinator.handle_retry(
-        task_data_collab,
-        context,
-        "temporary failure",
-    )
+    result = await coordinator.handle_retry(task_data, context, "temporary failure")
 
-    task_data_worker = base_task_data.model_copy(deep=True)
-    context_worker = _make_worker_context(task_data_worker)
-
-    priority_queue_worker = MagicMock()
-    priority_queue_worker.schedule_retry = AsyncMock()
-    queue_provider_worker = MagicMock()
-
-    worker_service = build_worker_service(
-        priority_queue=priority_queue_worker,
-        queue_provider=queue_provider_worker,
-    )
-    result_worker = await worker_service._handle_retry(
-        task_data_worker,
-        context_worker,
-        "temporary failure",
-    )
-
-    assert priority_queue_collab.schedule_retry.await_count == 1
-    assert priority_queue_worker.schedule_retry.await_count == 1
-
-    collab_call = priority_queue_collab.schedule_retry.await_args
-    worker_call = priority_queue_worker.schedule_retry.await_args
-    assert collab_call is not None and worker_call is not None
-    assert collab_call.args[1] == worker_call.args[1]
-
-    collab_task = collab_call.args[0].model_dump()
-    worker_task = worker_call.args[0].model_dump()
-
-    assert collab_task.get("scheduled_at") == worker_task.get("scheduled_at")
-    collab_task.pop("updated_at", None)
-    worker_task.pop("updated_at", None)
-
-    assert collab_task == worker_task
-    assert task_data_collab.retry_count == task_data_worker.retry_count
-    assert task_data_collab.scheduled_at == task_data_worker.scheduled_at
-    assert result_collab.model_dump() == result_worker.model_dump()
+    assert task_data.retry_count == 1
+    assert result.status is TaskStatus.RETRY
+    queue_provider.delete_task.assert_not_called()
 
 
 @pytest.mark.unit
 @pytest.mark.asyncio
-async def test_handle_retry_without_priority_queue_matches_worker_service(
-    patched_datetime: datetime,
-) -> None:
-    base_task_data = _make_task_data()
-    task_data_collab = base_task_data.model_copy(deep=True)
-    context = _make_worker_context(task_data_collab)
-
-    queue_provider_collab = MagicMock()
-    coordinator = _build_retry_coordinator(None, queue_provider_collab)
-    result_collab = await coordinator.handle_retry(
-        task_data_collab,
-        context,
-        "temporary failure",
-    )
-
-    task_data_worker = base_task_data.model_copy(deep=True)
-    context_worker = _make_worker_context(task_data_worker)
-
-    queue_provider_worker = MagicMock()
-    worker_service = build_worker_service(
-        priority_queue=None,
-        queue_provider=queue_provider_worker,
-    )
-    result_worker = await worker_service._handle_retry(
-        task_data_worker,
-        context_worker,
-        "temporary failure",
-    )
-
-    assert result_collab.model_dump() == result_worker.model_dump()
-    assert task_data_collab.retry_count == task_data_worker.retry_count
-    assert task_data_collab.scheduled_at == task_data_worker.scheduled_at
-
-
-@pytest.mark.unit
-@pytest.mark.asyncio
-async def test_move_to_dead_letter_matches_worker_service_with_priority_queue(
+async def test_move_to_dead_letter_with_priority_queue_invokes_queue(
     patched_datetime: datetime,
 ) -> None:
     task_data = _make_task_data()
@@ -212,31 +156,18 @@ async def test_move_to_dead_letter_matches_worker_service_with_priority_queue(
         queue_name="analysis",
     )
 
-    priority_queue_collab = MagicMock()
-    priority_queue_collab.move_to_dead_letter = AsyncMock()
+    priority_queue = MagicMock()
+    priority_queue.move_to_dead_letter = AsyncMock()
 
-    coordinator = _build_retry_coordinator(
-        priority_queue_collab,
-        queue_provider=MagicMock(),
-    )
+    coordinator = _build_retry_coordinator(priority_queue, queue_provider=MagicMock())
     await coordinator.move_to_dead_letter(message, "fatal error")
 
-    message_worker = message.model_copy(deep=True)
-    priority_queue_worker = MagicMock()
-    priority_queue_worker.move_to_dead_letter = AsyncMock()
-
-    worker_service = build_worker_service(
-        priority_queue=priority_queue_worker,
-        queue_provider=MagicMock(),
-    )
-    await worker_service._move_to_dlq(message_worker, "fatal error")
-
-    assert priority_queue_collab.move_to_dead_letter.await_args_list == priority_queue_worker.move_to_dead_letter.await_args_list
+    priority_queue.move_to_dead_letter.assert_awaited_once_with(message, "fatal error")
 
 
 @pytest.mark.unit
 @pytest.mark.asyncio
-async def test_move_to_dead_letter_matches_worker_service_without_priority_queue(
+async def test_move_to_dead_letter_without_priority_queue_deletes_message(
     patched_datetime: datetime,
 ) -> None:
     task_data = _make_task_data()
@@ -248,23 +179,10 @@ async def test_move_to_dead_letter_matches_worker_service_without_priority_queue
         queue_name="analysis",
     )
 
-    queue_provider_collab = MagicMock()
-    queue_provider_collab.delete_task = AsyncMock()
+    queue_provider = MagicMock()
+    queue_provider.delete_task = AsyncMock()
 
-    coordinator = _build_retry_coordinator(
-        priority_queue=None,
-        queue_provider=queue_provider_collab,
-    )
+    coordinator = _build_retry_coordinator(priority_queue=None, queue_provider=queue_provider)
     await coordinator.move_to_dead_letter(message, "fatal error")
 
-    message_worker = message.model_copy(deep=True)
-    queue_provider_worker = MagicMock()
-    queue_provider_worker.delete_task = AsyncMock()
-
-    worker_service = build_worker_service(
-        priority_queue=None,
-        queue_provider=queue_provider_worker,
-    )
-    await worker_service._move_to_dlq(message_worker, "fatal error")
-
-    assert queue_provider_collab.delete_task.await_args_list == queue_provider_worker.delete_task.await_args_list
+    queue_provider.delete_task.assert_awaited_once_with(message.receipt_handle)

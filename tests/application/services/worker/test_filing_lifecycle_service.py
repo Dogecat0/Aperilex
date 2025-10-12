@@ -1,375 +1,240 @@
-"""Parity tests for `FilingLifecycleService` against the legacy WorkerService."""
+"""Behavioural tests for `FilingLifecycleService`."""
 
 from __future__ import annotations
 
 import uuid
-from datetime import UTC, date, datetime
-from typing import Any
+from datetime import UTC, datetime
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from src.application.handlers.schemas.commands.analyze_filing import (
-    AnalysisTemplate,
-    AnalyzeFilingCommand,
-)
+from src.application.handlers.schemas.commands.analyze_filing import AnalysisTemplate
 from src.application.interfaces.datasource import FilingContent, FilingMetadata
-from src.application.interfaces.repositories import CompanyData, FilingData
-from src.application.interfaces.storage import StorageMetadata, StorageObject
-from src.application.services.worker import (
-    AnalysisTaskBuilder,
-    FilingLifecycleService,
-    FilingLifecycleServiceError,
-)
+from src.application.services.worker import FilingLifecycleService
 from src.application.services.worker.filing_lifecycle_service import (
+    DEFAULT_SECTION_KEYS_BY_SCHEMA,
     DEFAULT_TEMPLATE_SCHEMAS,
+    FilingFetchError,
+    StorageError,
 )
-from src.shared.enums import FilingType
+from src.shared.enums import FilingType, TaskPriority, TaskStatus, UserTier
 from src.shared.models import TaskData
-from src.shared.types import (
-    CIK,
-    AccessionNumber,
-    CompanyId,
-    Email,
-    FilingId,
-    StorageKey,
-    TaskId,
-    Ticker,
-    UserId,
-)
-from tests.application.services.worker.factories import build_worker_service
+from src.shared.types import CIK, Email, FilingId, StorageKey, TaskId, Ticker, UserId
 
 
-class InMemoryStorage:
-    """Minimal in-memory storage double satisfying the storage protocol surface."""
-
-    def __init__(self) -> None:
-        self._objects: dict[FilingId, tuple[bytes, StorageMetadata, StorageKey]] = {}
-
-    async def store_filing(self, request: Any) -> StorageKey:  # pragma: no cover - protocol
-        key = StorageKey(str(uuid.uuid4()))
-        metadata = StorageMetadata(
-            content_type="application/json",
-            size=len(request.content),
-            checksum="in-memory",
-            created_at=datetime.now(UTC).isoformat(),
-            updated_at=datetime.now(UTC).isoformat(),
-            tags=request.metadata,
-        )
-        self._objects[request.filing_id] = (request.content, metadata, key)
-        return key
-
-    async def get_filing(self, filing_id: FilingId) -> StorageObject:
-        content, metadata, key = self._objects[filing_id]
-        return StorageObject(key=key, data=content, metadata=metadata)
-
-    async def store_analysis(self, *args: Any, **kwargs: Any) -> StorageKey:
-        raise NotImplementedError
-
-    async def get_analysis(self, *args: Any, **kwargs: Any) -> StorageObject:
-        raise NotImplementedError
-
-    async def exists(self, filing_id: FilingId) -> bool:
-        return filing_id in self._objects
-
-    async def delete(self, *args: Any, **kwargs: Any) -> bool:
-        raise NotImplementedError
-
-    async def list_keys(self, *args: Any, **kwargs: Any) -> list[StorageKey]:
-        raise NotImplementedError
-
-    async def get_presigned_url(self, *args: Any, **kwargs: Any) -> str:
-        raise NotImplementedError
-
-
-def _make_company() -> CompanyData:
-    return CompanyData(
-        id=CompanyId(uuid.uuid4()),
-        cik=CIK(value="0000123456"),
-        name="AperiLex Holdings",
-        ticker=Ticker(value="APXL"),
-        metadata={"industry": "AI"},
-        created_at=datetime.now(UTC),
-    )
-
-
-def _make_filing(company: CompanyData, filing_id: FilingId) -> FilingData:
-    return FilingData(
-        id=filing_id,
-        company_id=company.id,
-        filing_type=FilingType.FORM_10K,
-        accession_number=AccessionNumber(value="0000123456-24-000001"),
-        filing_date=datetime.now(UTC),
-        metadata={"source": "edgar"},
-        created_at=datetime.now(UTC),
-    )
-
-
-def _make_filing_content(filing_id: FilingId) -> FilingContent:
-    metadata = FilingMetadata(
-        filing_id=filing_id,
-        filing_type=FilingType.FORM_10K,
-        filing_date=date.today(),
-        company_cik=CIK(value="0000123456"),
-        url="https://example.com/filing.pdf",
-    )
-    sections = {
-        "Item 1 - Business": "Business overview details.",
-        "Item 1A - Risk Factors": "Risk factors discussed comprehensively.",
-        "Item 7 - Management Discussion & Analysis": "Management discussion content.",
-        "Balance Sheet": "Balance sheet data.",
-        "Income Statement": "Income statement data.",
-        "Cash Flow Statement": "Cash flow statement data.",
-    }
-    return FilingContent(
-        metadata=metadata,
-        raw_content="Complete filing text.",
-        parsed_sections=sections,
-    )
-
-
-def _make_task_data(
-    builder: AnalysisTaskBuilder,
-    company: CompanyData,
-    filing: FilingData,
-) -> TaskData:
-    command = AnalyzeFilingCommand(
-        company_cik=company.cik,
-        accession_number=filing.accession_number,
-        analysis_template=AnalysisTemplate.COMPREHENSIVE,
-        force_reprocess=False,
-    )
-
-    return builder.build_task_data(
-        command=command,
-        company=company,
-        filing=filing,
-        user_email=Email(value="analyst@example.com"),
+def _make_task_data() -> TaskData:
+    return TaskData(
+        task_id=TaskId(uuid.uuid4()),
+        filing_id=FilingId(uuid.uuid4()),
         user_id=UserId(uuid.uuid4()),
-        correlation_id="corr-test",
-        parent_task_id=TaskId(uuid.uuid4()),
+        email=Email(value="analyst@example.com"),
+        user_tier=UserTier.PROFESSIONAL,
+        ticker=Ticker(value="APXL"),
+        filing_type=FilingType.FORM_10K,
+        priority=TaskPriority.HIGH,
+        status=TaskStatus.PENDING,
+        deduplication_id="dedupe",
+        metadata={
+            "analysis_template": "comprehensive",
+            "accession_number": "0001234567",
+            "cik": "0000123456",
+        },
     )
-def _build_collaborator(
+
+
+def _make_filing_content() -> FilingContent:
+    metadata = FilingMetadata(
+        filing_id=FilingId(uuid.uuid4()),
+        filing_type=FilingType.FORM_10K,
+        company_name="Acme Corp",
+        company_cik=CIK(value="0000123456"),
+        filing_date=datetime(2024, 1, 1, tzinfo=UTC),
+    )
+    return FilingContent(
+        schema_version=1,
+        metadata=metadata,
+        raw_content="Filing body",
+        parsed_sections={
+            "Item 1 - Business": "Business section",
+            "Item 1A - Risk Factors": "Risk section",
+            "Item 7 - Management Discussion & Analysis": "MDA section",
+            "Balance Sheet": "BS",
+            "Income Statement": "IS",
+            "Cash Flow Statement": "CF",
+        },
+    )
+
+
+def _build_service(
     *,
-    storage: Any,
-    datasource: Any,
-    repository_factory: Any,
+    datasource: MagicMock | None = None,
+    storage: MagicMock | None = None,
+    repository_factory: MagicMock | None = None,
 ) -> FilingLifecycleService:
+    datasource = datasource or MagicMock()
+    storage = storage or MagicMock()
+    repository_factory = repository_factory or MagicMock()
+
     return FilingLifecycleService(
         datasource=datasource,
         storage=storage,
         repository_factory=repository_factory,
         template_schemas=DEFAULT_TEMPLATE_SCHEMAS,
+        section_keys_by_schema=DEFAULT_SECTION_KEYS_BY_SCHEMA,
     )
 
 
 @pytest.mark.unit
 @pytest.mark.asyncio
-async def test_check_filing_exists_matches_worker_service() -> None:
-    filing_id = FilingId(uuid.uuid4())
+async def test_validate_filing_access_uses_latest_when_accession_missing() -> None:
+    task_data = _make_task_data()
+    task_data.metadata.pop("accession_number")
 
-    filing_repo = MagicMock()
-    filing_repo.exists = AsyncMock(return_value=True)
-
-    repository_factory = MagicMock()
-    repository_factory.get_filing_repository = AsyncMock(return_value=filing_repo)
-
-    storage = InMemoryStorage()
     datasource = MagicMock()
+    datasource.get_latest_filing = AsyncMock()
 
-    collaborator = _build_collaborator(
-        storage=storage,
-        datasource=datasource,
-        repository_factory=repository_factory,
-    )
-    worker_service = build_worker_service(
-        storage_provider=storage,
-        datasource_provider=datasource,
-        repository_factory=repository_factory,
-    )
+    service = _build_service(datasource=datasource)
+    await service.validate_filing_access(task_data)
 
-    assert await collaborator.check_filing_exists(filing_id) is True
-    assert await worker_service._check_filing_exists(filing_id) is True
+    datasource.get_latest_filing.assert_awaited_once()
 
 
 @pytest.mark.unit
 @pytest.mark.asyncio
-async def test_fetch_filing_matches_worker_service() -> None:
-    filing_id = FilingId(uuid.uuid4())
-    filing_content = _make_filing_content(filing_id)
+async def test_check_filing_exists_returns_bool() -> None:
+    repository = MagicMock()
+    repository.exists = AsyncMock(return_value=True)
+    repo_factory = MagicMock()
+    repo_factory.get_filing_repository = AsyncMock(return_value=repository)
 
-    datasource = MagicMock()
-    datasource.get_filing_by_accession = AsyncMock(return_value=filing_content)
-    datasource.get_latest_filing = AsyncMock(return_value=filing_content)
-
-    repository_factory = MagicMock()
-    repository_factory.get_filing_repository = AsyncMock(return_value=MagicMock())
-
-    storage = InMemoryStorage()
-
-    collaborator = _build_collaborator(
-        storage=storage,
-        datasource=datasource,
-        repository_factory=repository_factory,
-    )
-    worker_service = build_worker_service(
-        storage_provider=storage,
-        datasource_provider=datasource,
-        repository_factory=repository_factory,
-    )
-
-    metadata = {"accession_number": "0000123456-24-000001", "cik": "0000123456"}
-    result = await collaborator.fetch_filing(
-        ticker=Ticker(value="APXL"),
-        filing_type=FilingType.FORM_10K,
-        correlation_id="corr-fetch",
-        metadata=metadata,
-    )
-    worker_result = await worker_service._fetch_filing(
-        ticker=Ticker(value="APXL"),
-        filing_type=FilingType.FORM_10K,
-        correlation_id="corr-fetch",
-        metadata=metadata,
-    )
-
-    assert result == worker_result
-
-
-@pytest.mark.unit
-def test_encode_deserialize_roundtrip_matches_worker_service() -> None:
-    filing_id = FilingId(uuid.uuid4())
-    filing_content = _make_filing_content(filing_id)
-
-    storage = InMemoryStorage()
-    datasource = MagicMock()
-    repository_factory = MagicMock()
-
-    collaborator = _build_collaborator(
-        storage=storage,
-        datasource=datasource,
-        repository_factory=repository_factory,
-    )
-    worker_service = build_worker_service(
-        storage_provider=storage,
-        datasource_provider=datasource,
-        repository_factory=repository_factory,
-    )
-
-    encoded_collaborator = collaborator.encode_filing_content(filing_content)
-    encoded_worker = worker_service._encode_filing_content(filing_content)
-    assert encoded_collaborator == encoded_worker
-
-    decoded_collaborator = collaborator.deserialize_filing_payload(encoded_collaborator)
-    decoded_worker = worker_service._deserialize_filing_payload(encoded_worker)
-    assert decoded_collaborator.keys() == decoded_worker.keys()
-    assert decoded_collaborator["raw_content"] == decoded_worker["raw_content"]
-    assert decoded_collaborator["parsed_sections"] == decoded_worker["parsed_sections"]
+    service = _build_service(repository_factory=repo_factory)
+    assert await service.check_filing_exists(FilingId(uuid.uuid4())) is True
 
 
 @pytest.mark.unit
 @pytest.mark.asyncio
-async def test_extract_and_prepare_sections_match_worker_service() -> None:
-    company = _make_company()
-    filing_id = FilingId(uuid.uuid4())
-    filing = _make_filing(company, filing_id)
-    filing_content = _make_filing_content(filing_id)
-
-    builder = AnalysisTaskBuilder()
-    task_data_collaborator = _make_task_data(builder, company, filing)
-    task_data_worker = _make_task_data(builder, company, filing)
-
-    storage = InMemoryStorage()
+async def test_fetch_filing_raises_when_missing() -> None:
     datasource = MagicMock()
-    datasource.get_filing_by_accession = AsyncMock(return_value=filing_content)
-    datasource.get_latest_filing = AsyncMock(return_value=filing_content)
+    datasource.get_filing_by_accession = AsyncMock(return_value=None)
+    service = _build_service(datasource=datasource)
 
-    filing_repo = MagicMock()
-    filing_repo.exists = AsyncMock(return_value=True)
-    repository_factory = MagicMock()
-    repository_factory.get_filing_repository = AsyncMock(return_value=filing_repo)
+    with pytest.raises(FilingFetchError):
+        await service.fetch_filing(
+            ticker=Ticker(value="APXL"),
+            filing_type=FilingType.FORM_10K,
+            correlation_id="corr",
+            metadata={"accession_number": "000123", "cik": "000001"},
+        )
 
-    collaborator = _build_collaborator(
-        storage=storage,
-        datasource=datasource,
-        repository_factory=repository_factory,
-    )
-    worker_service = build_worker_service(
-        storage_provider=storage,
-        datasource_provider=datasource,
-        repository_factory=repository_factory,
-    )
 
-    await collaborator.store_filing(
-        filing_id=filing_id,
-        content=collaborator.encode_filing_content(filing_content),
-        task_data=task_data_collaborator,
-    )
+@pytest.mark.unit
+def test_encode_and_decode_roundtrip_preserves_sections() -> None:
+    service = _build_service()
+    filing = _make_filing_content()
+    encoded = service.encode_filing_content(filing)
+    payload = service.deserialize_filing_payload(encoded)
 
-    template = AnalysisTemplate.COMPREHENSIVE
-    correlation_id = "corr-sections"
-
-    extracted_collaborator = await collaborator.extract_filing_sections(
-        task_data=task_data_collaborator,
-        template=template,
-        correlation_id=correlation_id,
-    )
-    extracted_worker = await worker_service._extract_filing_sections(
-        task_data=task_data_worker,
-        template=template,
-        correlation_id=correlation_id,
-    )
-    assert extracted_collaborator == extracted_worker
-
-    sections_collaborator = await collaborator.prepare_structured_sections(
-        task_data=task_data_collaborator,
-        template=template,
-        correlation_id=correlation_id,
-    )
-    sections_worker = await worker_service._prepare_structured_sections(
-        task_data=task_data_worker,
-        template=template,
-        correlation_id=correlation_id,
-    )
-    assert sections_collaborator == sections_worker
+    assert payload["raw_content"] == filing.raw_content
+    assert payload["parsed_sections"]["Item 1 - Business"] == "Business section"
+    assert isinstance(payload["metadata"], FilingMetadata)
 
 
 @pytest.mark.unit
 @pytest.mark.asyncio
-async def test_validate_filing_access_error_matches_worker_service() -> None:
-    company = _make_company()
-    filing_id = FilingId(uuid.uuid4())
-    filing = _make_filing(company, filing_id)
-    builder = AnalysisTaskBuilder()
-    task_data = _make_task_data(builder, company, filing)
+async def test_store_filing_invokes_storage_and_handler() -> None:
+    storage = MagicMock()
+    storage.store_filing = AsyncMock(return_value=StorageKey("filings/123"))
 
-    # Remove accession number to force latest filing path and simulate datasource failure.
-    task_data.metadata.pop("accession_number", None)
+    handler_calls: list[tuple[TaskData, StorageKey]] = []
 
-    datasource = MagicMock()
-    datasource.get_latest_filing = AsyncMock(side_effect=RuntimeError("boom"))
-    datasource.get_filing_by_accession = AsyncMock()
+    async def handler(task: TaskData, key: StorageKey) -> None:
+        handler_calls.append((task, key))
 
-    repository_factory = MagicMock()
-    repository_factory.get_filing_repository = AsyncMock(return_value=MagicMock())
-
-    storage = InMemoryStorage()
-
-    collaborator = _build_collaborator(
+    service = FilingLifecycleService(
+        datasource=MagicMock(),
         storage=storage,
+        repository_factory=MagicMock(),
+        filing_imported_handler=handler,
+    )
+
+    task_data = _make_task_data()
+    key = await service.store_filing(
+        task_data.filing_id,
+        b"filing-bytes",
+        task_data,
+        publish_event=True,
+    )
+
+    assert key == StorageKey("filings/123")
+    storage.store_filing.assert_awaited_once()
+    assert handler_calls == [(task_data, key)]
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+async def test_store_filing_raises_storage_error_on_failure() -> None:
+    storage = MagicMock()
+    storage.store_filing = AsyncMock(side_effect=RuntimeError("boom"))
+
+    service = _build_service(storage=storage)
+
+    with pytest.raises(StorageError):
+        await service.store_filing(
+            FilingId(uuid.uuid4()),
+            b"bytes",
+            _make_task_data(),
+        )
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+async def test_prepare_structured_sections_filters_by_template() -> None:
+    datasource = MagicMock()
+    storage = MagicMock()
+    repository_factory = MagicMock()
+
+    service = _build_service(
         datasource=datasource,
-        repository_factory=repository_factory,
-    )
-    worker_service = build_worker_service(
-        storage_provider=storage,
-        datasource_provider=datasource,
+        storage=storage,
         repository_factory=repository_factory,
     )
 
-    with pytest.raises(FilingLifecycleServiceError) as collaborator_exc:
-        await collaborator.validate_filing_access(task_data)
+    filing = _make_filing_content()
+    storage.get_filing = AsyncMock(
+        return_value=SimpleNamespace(data=service.encode_filing_content(filing))
+    )
+    storage.exists = AsyncMock(return_value=True)
 
-    with pytest.raises(Exception) as worker_exc:
-        await worker_service._validate_filing_access(task_data)
+    task_data = _make_task_data()
+    sections = await service.prepare_structured_sections(
+        task_data=task_data,
+        template=AnalysisTemplate.COMPREHENSIVE,
+        correlation_id="corr",
+    )
 
-    assert type(collaborator_exc.value).__name__ == type(worker_exc.value).__name__
-    assert str(collaborator_exc.value) == str(worker_exc.value)
+    assert "Item 1 - Business" in sections
+    assert "Balance Sheet" in sections
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+async def test_extract_filing_sections_returns_concatenated_text() -> None:
+    service = _build_service()
+
+    filing = _make_filing_content()
+    storage = service.storage
+    storage.get_filing = AsyncMock(
+        return_value=SimpleNamespace(data=service.encode_filing_content(filing))
+    )
+    storage.exists = AsyncMock(return_value=True)
+
+    task_data = _make_task_data()
+    text = await service.extract_filing_sections(
+        task_data=task_data,
+        template=AnalysisTemplate.COMPREHENSIVE,
+        correlation_id="corr",
+    )
+
+    assert "--- Item 1 - Business ---" in text
+    assert "Business section" in text

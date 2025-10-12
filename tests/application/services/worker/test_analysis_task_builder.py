@@ -30,7 +30,6 @@ from src.shared.types import (
     Ticker,
     UserId,
 )
-from tests.application.services.worker.factories import build_worker_service
 
 
 def _make_company() -> CompanyData:
@@ -72,8 +71,8 @@ def _uuid_sequence(monkeypatch: pytest.MonkeyPatch, values: list[str]) -> None:
 
 
 @pytest.mark.unit
-def test_builder_matches_worker_service(monkeypatch: pytest.MonkeyPatch) -> None:
-    """The extracted builder mirrors WorkerService behaviour exactly."""
+def test_builder_constructs_expected_task_data(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The builder emits deterministic TaskData with enriched metadata."""
 
     company = _make_company()
     filing = _make_filing(company)
@@ -91,15 +90,12 @@ def test_builder_matches_worker_service(monkeypatch: pytest.MonkeyPatch) -> None
     _uuid_sequence(
         monkeypatch,
         [
-            "11111111-1111-4111-8111-111111111111",  # parent task id
-            "22222222-2222-4222-8222-222222222222",  # builder task id
-            "33333333-3333-4333-8333-333333333333",  # worker task id
+            "11111111-1111-4111-8111-111111111111",
+            "22222222-2222-4222-8222-222222222222",
         ],
     )
 
     builder = AnalysisTaskBuilder()
-    worker_service = build_worker_service()
-
     parent_task = TaskId(uuid.uuid4())
 
     builder_result = builder.build_task_data(
@@ -117,26 +113,24 @@ def test_builder_matches_worker_service(monkeypatch: pytest.MonkeyPatch) -> None
         ip_address="192.0.2.1",
     )
 
-    worker_result = worker_service.prepare_analysis_task_data(
-        command=command,
-        company=company,
-        filing=filing,
-        user_email=email,
-        user_id=user_id,
-        user_tier=UserTier.PROFESSIONAL,
-        priority=TaskPriority.HIGH,
-        source="api-test",
-        correlation_id="corr-123",
-        parent_task_id=parent_task,
-        user_agent="pytest/worker-task-builder",
-        ip_address="192.0.2.1",
+    assert parent_task == TaskId(
+        uuid.UUID("11111111-1111-4111-8111-111111111111")
     )
-
-    exclude_keys = {"task_id", "created_at", "updated_at"}
-    assert builder_result.model_dump(exclude=exclude_keys) == worker_result.model_dump(
-        exclude=exclude_keys
+    assert builder_result.task_id == TaskId(
+        uuid.UUID("22222222-2222-4222-8222-222222222222")
     )
-    assert isinstance(builder_result.task_id, type(worker_result.task_id))
+    assert builder_result.filing_id == filing.id
+    assert builder_result.user_id == user_id
+    assert builder_result.email == email
+    assert builder_result.user_tier is UserTier.PROFESSIONAL
+    assert builder_result.priority is TaskPriority.HIGH
+    assert builder_result.source == "api-test"
+    assert builder_result.correlation_id == "corr-123"
+    assert builder_result.parent_task_id == parent_task
+    assert builder_result.metadata["analysis_template"] == AnalysisTemplate.COMPREHENSIVE.value
+    assert builder_result.metadata["company_name"] == company.name
+    assert builder_result.metadata["filing_type"] == filing.filing_type.value
+    assert builder_result.metadata["user_tier"] == UserTier.PROFESSIONAL.value
     assert builder_result.status is TaskStatus.PENDING
 
 

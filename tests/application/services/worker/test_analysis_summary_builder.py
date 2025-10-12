@@ -18,7 +18,6 @@ from src.shared.enums import (
 )
 from src.shared.enums.provider import LLMProvider
 from src.shared.models import AnalysisResult, TaskData, TokenUsage
-from tests.application.services.worker.factories import build_worker_service
 
 
 def _make_task_data(metadata: dict[str, str]) -> TaskData:
@@ -88,8 +87,8 @@ def _make_analysis_result(structured_data: dict[str, object]) -> AnalysisResult:
 
 
 @pytest.mark.unit
-def test_summary_builder_matches_worker_service() -> None:
-    """Structured data projection is parity between collaborator and legacy service."""
+def test_summary_builder_curates_structured_artifacts() -> None:
+    """Structured data is projected into the upgraded summary schema."""
 
     structured_data = {
         "filing_summary": "Overall filing outlook remains positive.",
@@ -160,14 +159,51 @@ def test_summary_builder_matches_worker_service() -> None:
     analysis_result = _make_analysis_result(structured_data)
 
     builder = AnalysisSummaryBuilder()
-    worker_service = build_worker_service()
+    summary = builder.build_summary_payload(analysis_result, task_data)
 
-    collaborator_summary = builder.build_summary_payload(analysis_result, task_data)
-    legacy_summary = worker_service._build_summary_payload(
-        analysis_result, task_data.model_copy(deep=True)
+    # Filing metadata and canonical summary
+    assert summary["filing"]["accession_number"] == "0001234567"
+    assert summary["filing_summary"] == "Overall filing outlook remains positive."
+
+    # Curated collections trimmed
+    assert summary["key_insights"] == [
+        "Revenue growth accelerated.",
+        "Operating margins expanded.",
+    ]
+    assert summary["critical_findings"] == ["Regulatory investigations intensifying."]
+
+    # Insight counts align with curated payloads
+    assert summary["insight_counts"]["key_insights"] == 2
+    assert summary["insight_counts"]["critical_findings"] == 1
+
+    # Headline metrics projected with delta calculations
+    headline_metric = summary["headline_metrics"][0]
+    assert headline_metric["name"] == "Current Ratio"
+    assert headline_metric["unit"] == "ratio"
+    assert headline_metric["delta_value"] == pytest.approx(0.2)
+    assert headline_metric["display"]["delta"] == "+0.20×"
+
+    # Risk highlights grouped by severity
+    risk_highlights = summary["risk_highlights"]
+    assert len(risk_highlights["critical_actions"]) == 1
+    assert risk_highlights["critical_actions"][0]["severity"] == "high"
+    assert (
+        "privacy compliance programs"
+        in risk_highlights["critical_actions"][0]["recommended_action"]
     )
 
-    assert collaborator_summary == legacy_summary
+    # Sentiment rollup provides weighted averages and weakest section
+    sentiment_rollup = summary["sentiment_rollup"]
+    assert sentiment_rollup["overall"] == pytest.approx(0.0666667, rel=1e-6)
+    assert sentiment_rollup["weakest_section"]["section"] == "Risk Factors"
+    assert sentiment_rollup["confidence_band"] == "medium"
+
+    # Timeline entries surfaced from subsection timelines
+    timeline_entry = summary["insight_timeline"][0]
+    assert timeline_entry["type"] == "risk"
+    assert timeline_entry["summary"] == "Privacy regulator confirmed on-site audit."
+    assert timeline_entry["occurred_at"] == "2024-09-30"
+    assert "data-privacy-penalties" in timeline_entry["id"]
 
 
 @pytest.mark.unit
@@ -185,11 +221,9 @@ def test_summary_builder_handles_missing_structured_data() -> None:
     analysis_result.confidence_score = None
 
     builder = AnalysisSummaryBuilder()
-    worker_service = build_worker_service()
+    summary = builder.build_summary_payload(analysis_result, task_data)
 
-    collaborator_summary = builder.build_summary_payload(analysis_result, task_data)
-    legacy_summary = worker_service._build_summary_payload(
-        analysis_result, task_data.model_copy(deep=True)
-    )
-
-    assert collaborator_summary == legacy_summary
+    assert summary["confidence"]["score"] is None
+    assert summary["key_insights"] == []
+    assert summary["headline_metrics"] == []
+    assert summary["risk_highlights"]["critical_actions"] == []

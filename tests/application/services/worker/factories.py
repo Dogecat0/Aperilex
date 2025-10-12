@@ -76,7 +76,6 @@ def build_worker_service(
         analysis_persistence_service=persistence_service,
         analysis_event_emitter=event_emitter,
         worker_retry_coordinator=retry_coordinator,
-        event_publisher=publisher,
         priority_queue=priority_queue,
     )
 

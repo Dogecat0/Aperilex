@@ -1,4 +1,4 @@
-"""Parity tests for `AnalysisPersistenceService` persistence behaviour."""
+"""Behavioural tests for `AnalysisPersistenceService`."""
 
 from __future__ import annotations
 
@@ -31,32 +31,6 @@ from src.shared.types import (
     Ticker,
     UserId,
 )
-from tests.application.services.worker.factories import build_worker_service
-
-
-class FixedDateTime(datetime):
-    """Deterministic datetime helper for parity checks."""
-
-    _fixed_now = datetime(2024, 1, 1, 12, 0, tzinfo=UTC)
-
-    @classmethod
-    def now(cls, tz: Any | None = None) -> datetime:
-        return cls._fixed_now if tz else cls._fixed_now.replace(tzinfo=None)
-
-
-@pytest.fixture()
-def fixed_now(monkeypatch: pytest.MonkeyPatch) -> datetime:
-    """Patch datetime.now in both implementations to ensure deterministic timestamps."""
-
-    monkeypatch.setattr(
-        "src.application.services.worker.analysis_persistence_service.datetime",
-        FixedDateTime,
-    )
-    monkeypatch.setattr(
-        "src.application.services.worker_service.datetime",
-        FixedDateTime,
-    )
-    return FixedDateTime._fixed_now
 
 
 def _make_task_data() -> TaskData:
@@ -115,9 +89,7 @@ def _make_analysis_result(task_data: TaskData) -> AnalysisResult:
             "key_insights": ["Insight A", "Insight B"],
             "total_sections_analyzed": 3,
         },
-        citations=[
-            {"section": "Item 1", "page": 12},
-        ],
+        citations=[{"section": "Item 1", "page": 12}],
         analysis_type=AnalysisType.COMPREHENSIVE,
         status=AnalysisStatus.COMPLETED,
         llm_provider=LLMProvider.OPENAI,
@@ -128,8 +100,8 @@ def _make_analysis_result(task_data: TaskData) -> AnalysisResult:
             completion_tokens=800,
             total_tokens=2000,
         ),
-        processing_time_ms=1500,
-        estimated_cost=0.23,
+        processing_time_ms=60000,
+        estimated_cost=4.25,
         confidence_score=0.85,
         quality_metrics={"fluency": 0.95},
         created_at=datetime(2024, 1, 1, 10, 0, tzinfo=UTC),
@@ -139,211 +111,158 @@ def _make_analysis_result(task_data: TaskData) -> AnalysisResult:
     )
 
 
-def _build_collaborator(
-    repository_factory: Any,
-    storage: Any,
-) -> AnalysisPersistenceService:
+def _build_service(repository_factory: MagicMock, storage: MagicMock) -> AnalysisPersistenceService:
     return AnalysisPersistenceService(
         repository_factory=repository_factory,
         storage=storage,
     )
 
 
-
 @pytest.mark.unit
 @pytest.mark.asyncio
-async def test_persist_analysis_started_create_matches_worker_service(
-    fixed_now: datetime,
-) -> None:
+async def test_persist_analysis_started_creates_record_when_missing() -> None:
     task_data = _make_task_data()
     request = _make_analysis_request(task_data)
 
-    analysis_repo_collab = MagicMock()
-    analysis_repo_collab.exists = AsyncMock(return_value=False)
-    analysis_repo_collab.create = AsyncMock()
-    analysis_repo_collab.update_status = AsyncMock()
+    analysis_repo = MagicMock()
+    analysis_repo.exists = AsyncMock(return_value=False)
+    analysis_repo.create = AsyncMock()
+    analysis_repo.update_status = AsyncMock()
 
-    repo_factory_collab = MagicMock()
-    repo_factory_collab.get_analysis_repository = AsyncMock(return_value=analysis_repo_collab)
+    repo_factory = MagicMock()
+    repo_factory.get_analysis_repository = AsyncMock(return_value=analysis_repo)
 
-    collaborator = _build_collaborator(repo_factory_collab, storage=MagicMock())
-    await collaborator.persist_analysis_started(request, task_data)
+    service = _build_service(repo_factory, storage=MagicMock())
+    await service.persist_analysis_started(request, task_data)
 
-    analysis_repo_worker = MagicMock()
-    analysis_repo_worker.exists = AsyncMock(return_value=False)
-    analysis_repo_worker.create = AsyncMock()
-    analysis_repo_worker.update_status = AsyncMock()
-
-    repo_factory_worker = MagicMock()
-    repo_factory_worker.get_analysis_repository = AsyncMock(return_value=analysis_repo_worker)
-
-    worker_service = build_worker_service(
-        repository_factory=repo_factory_worker,
-        storage_provider=MagicMock(),
-    )
-    await worker_service._persist_analysis_started(request, task_data.model_copy(deep=True))
-
-    assert analysis_repo_collab.exists.await_args_list == analysis_repo_worker.exists.await_args_list
-    assert analysis_repo_collab.create.await_args_list == analysis_repo_worker.create.await_args_list
-    assert analysis_repo_collab.update_status.await_count == 0
-    assert analysis_repo_worker.update_status.await_count == 0
+    analysis_repo.exists.assert_awaited_once_with(request.analysis_id)
+    analysis_repo.create.assert_awaited_once()
+    analysis_repo.update_status.assert_not_called()
 
 
 @pytest.mark.unit
 @pytest.mark.asyncio
-async def test_persist_analysis_started_update_matches_worker_service(
-    fixed_now: datetime,
-) -> None:
+async def test_persist_analysis_started_updates_when_record_exists() -> None:
     task_data = _make_task_data()
     request = _make_analysis_request(task_data)
 
-    analysis_repo_collab = MagicMock()
-    analysis_repo_collab.exists = AsyncMock(return_value=True)
-    analysis_repo_collab.create = AsyncMock()
-    analysis_repo_collab.update_status = AsyncMock()
+    analysis_repo = MagicMock()
+    analysis_repo.exists = AsyncMock(return_value=True)
+    analysis_repo.create = AsyncMock()
+    analysis_repo.update_status = AsyncMock()
 
-    repo_factory_collab = MagicMock()
-    repo_factory_collab.get_analysis_repository = AsyncMock(return_value=analysis_repo_collab)
+    repo_factory = MagicMock()
+    repo_factory.get_analysis_repository = AsyncMock(return_value=analysis_repo)
 
-    collaborator = _build_collaborator(repo_factory_collab, storage=MagicMock())
-    await collaborator.persist_analysis_started(request, task_data)
+    service = _build_service(repo_factory, storage=MagicMock())
+    await service.persist_analysis_started(request, task_data)
 
-    analysis_repo_worker = MagicMock()
-    analysis_repo_worker.exists = AsyncMock(return_value=True)
-    analysis_repo_worker.create = AsyncMock()
-    analysis_repo_worker.update_status = AsyncMock()
-
-    repo_factory_worker = MagicMock()
-    repo_factory_worker.get_analysis_repository = AsyncMock(return_value=analysis_repo_worker)
-
-    worker_service = build_worker_service(
-        repository_factory=repo_factory_worker,
-        storage_provider=MagicMock(),
+    analysis_repo.exists.assert_awaited_once()
+    analysis_repo.update_status.assert_awaited_once_with(
+        request.analysis_id,
+        AnalysisStatus.ANALYZING,
     )
-    await worker_service._persist_analysis_started(request, task_data.model_copy(deep=True))
-
-    assert analysis_repo_collab.exists.await_args_list == analysis_repo_worker.exists.await_args_list
-    assert analysis_repo_collab.update_status.await_args_list == analysis_repo_worker.update_status.await_args_list
-    assert analysis_repo_collab.create.await_count == 0
-    assert analysis_repo_worker.create.await_count == 0
+    analysis_repo.create.assert_not_called()
 
 
 @pytest.mark.unit
 @pytest.mark.asyncio
-async def test_persist_analysis_completed_matches_worker_service(
-    fixed_now: datetime,
-) -> None:
+async def test_persist_analysis_completed_saves_summary() -> None:
     task_data = _make_task_data()
     result = _make_analysis_result(task_data)
-    storage_key = StorageKey("analysis/123.json")
-    summary_payload = {"summary": "All good"}
+    repository = MagicMock()
+    repository.save_summary = AsyncMock()
+    repository.update_status = AsyncMock()
 
-    analysis_repo_collab = MagicMock()
-    analysis_repo_collab.save_summary = AsyncMock()
-    analysis_repo_collab.update_status = AsyncMock()
+    repo_factory = MagicMock()
+    repo_factory.get_analysis_repository = AsyncMock(return_value=repository)
 
-    repo_factory_collab = MagicMock()
-    repo_factory_collab.get_analysis_repository = AsyncMock(return_value=analysis_repo_collab)
-
-    collaborator = _build_collaborator(repo_factory_collab, storage=MagicMock())
-    await collaborator.persist_analysis_completed(
+    service = _build_service(repo_factory, storage=MagicMock())
+    await service.persist_analysis_completed(
         result,
-        storage_key,
-        summary_payload,
+        StorageKey("analysis/123.json"),
+        {"summary": "All good"},
     )
 
-    analysis_repo_worker = MagicMock()
-    analysis_repo_worker.save_summary = AsyncMock()
-    analysis_repo_worker.update_status = AsyncMock()
-
-    repo_factory_worker = MagicMock()
-    repo_factory_worker.get_analysis_repository = AsyncMock(return_value=analysis_repo_worker)
-
-    worker_service = build_worker_service(
-        repository_factory=repo_factory_worker,
-        storage_provider=MagicMock(),
+    repository.save_summary.assert_awaited_once()
+    repository.update_status.assert_awaited_once_with(
+        result.analysis_id,
+        AnalysisStatus.COMPLETED,
     )
-    await worker_service._persist_analysis_completed(
-        result,
-        storage_key,
-        task_data.model_copy(deep=True),
-        summary_payload=summary_payload,
-    )
-
-    assert analysis_repo_collab.save_summary.await_args_list == analysis_repo_worker.save_summary.await_args_list
-    assert analysis_repo_collab.update_status.await_args_list == analysis_repo_worker.update_status.await_args_list
 
 
 @pytest.mark.unit
-@pytest.mark.asyncio
-async def test_store_analysis_matches_worker_service(
-    fixed_now: datetime,
-) -> None:
+def test_build_completion_metadata_includes_cost_and_tokens() -> None:
     task_data = _make_task_data()
     result = _make_analysis_result(task_data)
-    summary_payload = {"summary": "All good"}
+    service = _build_service(repository_factory=MagicMock(), storage=MagicMock())
 
-    storage_collab = MagicMock()
-    storage_collab.store_analysis = AsyncMock(return_value=StorageKey("analysis/abc.json"))
+    metadata = service.build_completion_metadata(result, StorageKey("analysis/123.json"))
 
-    collaborator = _build_collaborator(
-        repository_factory=MagicMock(),
-        storage=storage_collab,
-    )
+    assert metadata["storage_key"] == "analysis/123.json"
+    assert metadata["analysis_status"] == result.status.value
+    assert metadata["token_usage_total"] == 2000
+    assert metadata["estimated_cost"] == pytest.approx(4.25)
 
-    storage_key_collab = await collaborator.store_analysis(result, summary_payload)
 
-    storage_worker = MagicMock()
-    storage_worker.store_analysis = AsyncMock(return_value=StorageKey("analysis/abc.json"))
+@pytest.mark.unit
+def test_serialize_analysis_artifact_contains_summary_and_results() -> None:
+    task_data = _make_task_data()
+    result = _make_analysis_result(task_data)
+    service = _build_service(repository_factory=MagicMock(), storage=MagicMock())
 
-    worker_service = build_worker_service(
-        repository_factory=MagicMock(),
-        storage_provider=storage_worker,
-    )
-    storage_key_worker = await worker_service._store_analysis(result, summary_payload)
+    summary_payload = {"key_insights": ["Insight A"]}
+    payload = service.serialize_analysis_artifact(result, summary_payload)
 
-    assert storage_key_collab == storage_key_worker
-
-    collab_args = storage_collab.store_analysis.await_args
-    worker_args = storage_worker.store_analysis.await_args
-
-    assert collab_args.kwargs.keys() == worker_args.kwargs.keys()
-
-    assert collab_args.kwargs["analysis_id"] == worker_args.kwargs["analysis_id"]
-
-    collab_payload = json.loads(collab_args.kwargs["content"].decode("utf-8"))
-    worker_payload = json.loads(worker_args.kwargs["content"].decode("utf-8"))
-    assert collab_payload == worker_payload
-
-    assert collab_args.kwargs["metadata"].model_dump() == worker_args.kwargs["metadata"].model_dump()
+    assert payload["analysis_id"] == str(result.analysis_id)
+    assert payload["summary"] == summary_payload
+    assert payload["full_results"]["provider"]["name"] == result.llm_provider.value
+    assert payload["full_results"]["structured_data"]["key_insights"] == ["Insight A", "Insight B"]
 
 
 @pytest.mark.unit
 @pytest.mark.asyncio
-async def test_persist_analysis_failed_matches_worker_service(
-    fixed_now: datetime,
-) -> None:
-    analysis_id = AnalysisId(uuid.uuid4())
+async def test_store_analysis_persists_payload_to_storage(tmp_path: pytest.TempPathFactory) -> None:
+    task_data = _make_task_data()
+    result = _make_analysis_result(task_data)
 
-    analysis_repo_collab = MagicMock()
-    analysis_repo_collab.update_status = AsyncMock()
+    stored_contents: dict[str, Any] = {}
 
-    repo_factory_collab = MagicMock()
-    repo_factory_collab.get_analysis_repository = AsyncMock(return_value=analysis_repo_collab)
+    async def fake_store_analysis(*, analysis_id, content, metadata) -> StorageKey:
+        stored_contents["analysis_id"] = analysis_id
+        stored_contents["raw"] = json.loads(content.decode("utf-8"))
+        stored_contents["metadata"] = metadata.model_dump()
+        return StorageKey("analysis/456.json")
 
-    collaborator = _build_collaborator(repo_factory_collab, storage=MagicMock())
-    await collaborator.persist_analysis_failed(analysis_id, "boom")
+    storage = MagicMock()
+    storage.store_analysis = AsyncMock(side_effect=fake_store_analysis)
 
-    analysis_repo_worker = MagicMock()
-    analysis_repo_worker.update_status = AsyncMock()
+    service = _build_service(repository_factory=MagicMock(), storage=storage)
+    summary_payload = {"summary": "Win"}
 
-    repo_factory_worker = MagicMock()
-    repo_factory_worker.get_analysis_repository = AsyncMock(return_value=analysis_repo_worker)
+    storage_key = await service.store_analysis(result, summary_payload)
 
-    worker_service = build_worker_service(
-        repository_factory=repo_factory_worker,
-        storage_provider=MagicMock(),
-    )
-    await worker_service._persist_analysis_failed(analysis_id, "boom")
+    assert storage_key == StorageKey("analysis/456.json")
+    assert stored_contents["analysis_id"] == result.analysis_id
+    assert stored_contents["raw"]["summary"] == summary_payload
 
-    assert analysis_repo_collab.update_status.await_args_list == analysis_repo_worker.update_status.await_args_list
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+async def test_persist_analysis_failed_updates_status() -> None:
+    task_data = _make_task_data()
+    request = _make_analysis_request(task_data)
+
+    analysis_repo = MagicMock()
+    analysis_repo.update_status = AsyncMock()
+
+    repo_factory = MagicMock()
+    repo_factory.get_analysis_repository = AsyncMock(return_value=analysis_repo)
+
+    service = _build_service(repo_factory, storage=MagicMock())
+    await service.persist_analysis_failed(request.analysis_id, "boom")
+
+    analysis_repo.update_status.assert_awaited_once()
+    update_call = analysis_repo.update_status.await_args
+    assert update_call.args[:2] == (request.analysis_id, AnalysisStatus.ERROR)
+    assert update_call.kwargs["error_message"] == "boom"
