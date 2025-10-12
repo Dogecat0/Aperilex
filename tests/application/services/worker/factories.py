@@ -13,6 +13,7 @@ from src.application.services.worker import (
     AnalysisSummaryBuilder,
     AnalysisTaskBuilder,
     FilingLifecycleService,
+    TemplateRegistry,
     WorkerRetryCoordinator,
 )
 from src.application.services.worker_service import WorkerService
@@ -41,14 +42,17 @@ def build_worker_service(
     publisher = event_publisher or MagicMock()
 
     task_builder = AnalysisTaskBuilder()
+    template_registry = TemplateRegistry()
     filing_lifecycle = FilingLifecycleService(
         datasource=datasource,
         storage=storage,
         repository_factory=repository,
+        template_registry=template_registry,
     )
     execution_service = AnalysisExecutionService(
         llm_provider=llm,
         storage=storage,
+        template_registry=template_registry,
     )
     summary_builder = AnalysisSummaryBuilder()
     persistence_service = AnalysisPersistenceService(
@@ -73,6 +77,7 @@ def build_worker_service(
         filing_lifecycle_service=filing_lifecycle,
         analysis_execution_service=execution_service,
         analysis_summary_builder=summary_builder,
+        template_registry=template_registry,
         analysis_persistence_service=persistence_service,
         analysis_event_emitter=event_emitter,
         worker_retry_coordinator=retry_coordinator,

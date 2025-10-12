@@ -20,14 +20,13 @@ from .analysis_persistence_service import (
 from .analysis_summary_builder import AnalysisSummaryBuilder
 from .analysis_task_builder import AnalysisTaskBuilder
 from .filing_lifecycle_service import (
-    DEFAULT_SECTION_KEYS_BY_SCHEMA,
-    DEFAULT_TEMPLATE_SCHEMAS,
     FilingFetchError,
     FilingLifecycleService,
     FilingLifecycleServiceError,
     StorageError,
 )
-from .worker_retry_coordinator import WorkerRetryCoordinator
+from .template_registry import TemplateRegistry
+from .worker_retry_coordinator import RetryPolicy, WorkerRetryCoordinator
 
 __all__ = [
     "AnalysisSummaryBuilder",
@@ -38,11 +37,11 @@ __all__ = [
     "AnalysisPersistenceService",
     "AnalysisPersistenceServiceError",
     "AnalysisStorageError",
-    "DEFAULT_SECTION_KEYS_BY_SCHEMA",
-    "DEFAULT_TEMPLATE_SCHEMAS",
     "FilingFetchError",
     "FilingLifecycleService",
     "FilingLifecycleServiceError",
     "StorageError",
+    "RetryPolicy",
+    "TemplateRegistry",
     "WorkerRetryCoordinator",
 ]

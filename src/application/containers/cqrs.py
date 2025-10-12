@@ -46,6 +46,7 @@ from src.application.services.worker import (
     AnalysisSummaryBuilder,
     AnalysisTaskBuilder,
     FilingLifecycleService,
+    TemplateRegistry,
     WorkerRetryCoordinator,
 )
 from src.application.services.worker_service import WorkerService
@@ -312,17 +313,21 @@ class CQRSContainer(containers.DeclarativeContainer):
 
     analysis_task_builder = providers.Singleton(AnalysisTaskBuilder)
 
+    template_registry = providers.Singleton(TemplateRegistry)
+
     filing_lifecycle_service = providers.Singleton(
         FilingLifecycleService,
         datasource=providers_container.data_source_provider,
         storage=providers_container.storage_provider,
         repository_factory=repository_factory,
+        template_registry=template_registry,
     )
 
     analysis_execution_service = providers.Singleton(
         AnalysisExecutionService,
         llm_provider=providers_container.llm_provider,
         storage=providers_container.storage_provider,
+        template_registry=template_registry,
     )
 
     analysis_summary_builder = providers.Singleton(AnalysisSummaryBuilder)
@@ -358,6 +363,7 @@ class CQRSContainer(containers.DeclarativeContainer):
         filing_lifecycle_service=filing_lifecycle_service,
         analysis_execution_service=analysis_execution_service,
         analysis_summary_builder=analysis_summary_builder,
+        template_registry=template_registry,
         analysis_persistence_service=analysis_persistence_service,
         analysis_event_emitter=analysis_event_emitter,
         worker_retry_coordinator=worker_retry_coordinator,

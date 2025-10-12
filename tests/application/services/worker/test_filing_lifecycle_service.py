@@ -11,12 +11,11 @@ import pytest
 
 from src.application.handlers.schemas.commands.analyze_filing import AnalysisTemplate
 from src.application.interfaces.datasource import FilingContent, FilingMetadata
-from src.application.services.worker import FilingLifecycleService
-from src.application.services.worker.filing_lifecycle_service import (
-    DEFAULT_SECTION_KEYS_BY_SCHEMA,
-    DEFAULT_TEMPLATE_SCHEMAS,
+from src.application.services.worker import (
     FilingFetchError,
+    FilingLifecycleService,
     StorageError,
+    TemplateRegistry,
 )
 from src.shared.enums import FilingType, TaskPriority, TaskStatus, UserTier
 from src.shared.models import TaskData
@@ -75,13 +74,13 @@ def _build_service(
     datasource = datasource or MagicMock()
     storage = storage or MagicMock()
     repository_factory = repository_factory or MagicMock()
+    template_registry = TemplateRegistry()
 
     return FilingLifecycleService(
         datasource=datasource,
         storage=storage,
         repository_factory=repository_factory,
-        template_schemas=DEFAULT_TEMPLATE_SCHEMAS,
-        section_keys_by_schema=DEFAULT_SECTION_KEYS_BY_SCHEMA,
+        template_registry=template_registry,
     )
 
 
@@ -155,6 +154,7 @@ async def test_store_filing_invokes_storage_and_handler() -> None:
         datasource=MagicMock(),
         storage=storage,
         repository_factory=MagicMock(),
+        template_registry=TemplateRegistry(),
         filing_imported_handler=handler,
     )
 

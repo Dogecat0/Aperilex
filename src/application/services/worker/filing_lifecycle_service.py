@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import inspect
 import json
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Callable
 from datetime import UTC, datetime
 from typing import Any
 
@@ -23,6 +23,7 @@ from src.application.interfaces.datasource import (
 from src.application.interfaces.repositories import IRepositoryFactory
 from src.application.interfaces.storage import IStorageProvider, StorageRequest
 from src.application.services.worker.metrics_utils import record_section_failure_metric
+from src.application.services.worker.template_registry import TemplateRegistry
 from src.shared.enums import FilingType
 from src.shared.models import TaskData
 from src.shared.types import CIK, FilingId, StorageKey, Ticker
@@ -43,48 +44,7 @@ class StorageError(FilingLifecycleServiceError):
     """Raised when filing persistence fails."""
 
 
-TemplateSchemaMap = Mapping[AnalysisTemplate, Sequence[str]]
-SectionKeyMap = Mapping[str, Sequence[str]]
 FilingImportedHandler = Callable[[TaskData, StorageKey], Any]
-
-DEFAULT_TEMPLATE_SCHEMAS: dict[AnalysisTemplate, tuple[str, ...]] = {
-    AnalysisTemplate.COMPREHENSIVE: (
-        "BusinessAnalysisSection",
-        "RiskFactorsAnalysisSection",
-        "MDAAnalysisSection",
-        "BalanceSheetAnalysisSection",
-        "IncomeStatementAnalysisSection",
-        "CashFlowAnalysisSection",
-    ),
-    AnalysisTemplate.FINANCIAL_FOCUSED: (
-        "BalanceSheetAnalysisSection",
-        "IncomeStatementAnalysisSection",
-        "CashFlowAnalysisSection",
-    ),
-    AnalysisTemplate.RISK_FOCUSED: (
-        "RiskFactorsAnalysisSection",
-        "MDAAnalysisSection",
-    ),
-    AnalysisTemplate.BUSINESS_FOCUSED: (
-        "BusinessAnalysisSection",
-        "MDAAnalysisSection",
-    ),
-}
-
-DEFAULT_SECTION_KEYS_BY_SCHEMA: dict[str, tuple[str, ...]] = {
-    "BusinessAnalysisSection": ("Item 1 - Business",),
-    "RiskFactorsAnalysisSection": (
-        "Item 1A - Risk Factors",
-        "Part II Item 1A - Risk Factors",
-    ),
-    "MDAAnalysisSection": (
-        "Item 7 - Management Discussion & Analysis",
-        "Part I Item 2 - Management Discussion & Analysis",
-    ),
-    "BalanceSheetAnalysisSection": ("Balance Sheet",),
-    "IncomeStatementAnalysisSection": ("Income Statement",),
-    "CashFlowAnalysisSection": ("Cash Flow Statement",),
-}
 
 
 class FilingLifecycleService:
@@ -96,17 +56,13 @@ class FilingLifecycleService:
         datasource: IDataSourceProvider,
         storage: IStorageProvider,
         repository_factory: IRepositoryFactory,
-        template_schemas: TemplateSchemaMap | None = None,
-        section_keys_by_schema: SectionKeyMap | None = None,
+        template_registry: TemplateRegistry,
         filing_imported_handler: FilingImportedHandler | None = None,
     ) -> None:
         self.datasource = datasource
         self.storage = storage
         self.repository_factory = repository_factory
-        self.template_schemas = dict(template_schemas or DEFAULT_TEMPLATE_SCHEMAS)
-        self.section_keys_by_schema = dict(
-            section_keys_by_schema or DEFAULT_SECTION_KEYS_BY_SCHEMA
-        )
+        self.template_registry = template_registry
         self._filing_imported_handler = filing_imported_handler
 
     async def validate_filing_access(self, task_data: TaskData) -> None:
@@ -556,7 +512,7 @@ class FilingLifecycleService:
         if not sections:
             return {}
 
-        required_schemas = self.template_schemas.get(template, ())
+        required_schemas = self.template_registry.get_required_schemas(template)
         if not required_schemas:
             return sections
 
@@ -570,7 +526,7 @@ class FilingLifecycleService:
             ):
                 continue
 
-            keys = self.section_keys_by_schema.get(schema, ())
+            keys = self.template_registry.get_section_keys_for_schema(schema)
             section_found = False
             for key in keys:
                 section_text = sections.get(key)
@@ -622,8 +578,6 @@ class FilingLifecycleService:
 
 
 __all__ = [
-    "DEFAULT_SECTION_KEYS_BY_SCHEMA",
-    "DEFAULT_TEMPLATE_SCHEMAS",
     "FilingFetchError",
     "FilingLifecycleService",
     "FilingLifecycleServiceError",

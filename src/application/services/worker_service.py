@@ -17,7 +17,6 @@ from typing import Any
 from pydantic import BaseModel, Field
 
 from src.application.handlers.schemas.commands.analyze_filing import (
-    AnalysisTemplate,
     AnalyzeFilingCommand,
 )
 from src.application.interfaces.datasource import FilingContent, IDataSourceProvider
@@ -38,6 +37,7 @@ from src.application.services.worker import (
     AnalysisSummaryBuilder,
     AnalysisTaskBuilder,
     FilingLifecycleService,
+    TemplateRegistry,
     WorkerRetryCoordinator,
 )
 from src.shared.enums import (
@@ -150,6 +150,7 @@ class WorkerService:
         filing_lifecycle_service: FilingLifecycleService,
         analysis_execution_service: AnalysisExecutionService,
         analysis_summary_builder: AnalysisSummaryBuilder,
+        template_registry: TemplateRegistry,
         analysis_persistence_service: AnalysisPersistenceService,
         analysis_event_emitter: AnalysisEventEmitter,
         worker_retry_coordinator: WorkerRetryCoordinator,
@@ -182,6 +183,7 @@ class WorkerService:
         self.filing_lifecycle_service = filing_lifecycle_service
         self.analysis_execution_service = analysis_execution_service
         self.analysis_summary_builder = analysis_summary_builder
+        self.template_registry = template_registry
         self.analysis_persistence_service = analysis_persistence_service
         self.analysis_event_emitter = analysis_event_emitter
         self.worker_retry_coordinator = worker_retry_coordinator
@@ -236,6 +238,8 @@ class WorkerService:
         if not task_data.correlation_id:
             task_data.correlation_id = correlation_value
 
+        self.worker_retry_coordinator.apply_policy(task_data)
+
         visibility_timeout = (
             self.priority_queue.config.default_visibility_timeout
             if self.priority_queue
@@ -246,8 +250,6 @@ class WorkerService:
             if self.priority_queue
             else None
         )
-
-        import json
 
         task_payload = json.loads(task_data.json())
 
@@ -336,6 +338,8 @@ class WorkerService:
         try:
             # Step 1: Version check and schema migration
             task_data = await self._validate_and_migrate_schema(message.task_data)
+            self.worker_retry_coordinator.apply_policy(task_data)
+            context.max_retries = task_data.max_retries
             analysis_request = self.analysis_execution_service.create_analysis_request(
                 task_data
             )
@@ -413,7 +417,7 @@ class WorkerService:
                 task_data=task_data,
             )
             # Extract sections based on template
-            template = self._get_template_from_metadata(task_data.metadata)
+            template = self.template_registry.resolve_template(task_data.metadata)
             analysis_result: AnalysisResult
 
             if analysis_request.analysis_type == AnalysisType.COMPREHENSIVE:
@@ -441,9 +445,6 @@ class WorkerService:
                 company_name = self._resolve_company_name(
                     task_data.metadata, task_data.ticker
                 )
-                analysis_focus = self._resolve_analysis_focus(
-                    template, task_data.metadata
-                )
                 analysis_result = (
                     await self.analysis_execution_service.perform_structured_comprehensive_analysis(
                         request=analysis_request,
@@ -451,7 +452,8 @@ class WorkerService:
                         filing_type=task_data.filing_type,
                         filing_sections=structured_sections,
                         company_name=company_name,
-                        analysis_focus=analysis_focus,
+                        template=template,
+                        metadata=task_data.metadata,
                     )
                 )
             else:
@@ -547,7 +549,7 @@ class WorkerService:
         except Exception as e:
             if isinstance(e, FilingFetchError) and task_data is not None:
                 # Limit retries for structural filing issues so they escalate quickly.
-                task_data.max_retries = min(task_data.max_retries, 1)
+                self.worker_retry_coordinator.override_max_attempts(task_data, 1)
                 logger.warning(
                     "Structured filing issue detected; limiting retries",
                     extra={
@@ -682,27 +684,6 @@ class WorkerService:
                 f"Failed to parse task data with schema version {schema_version}: {str(e)}"
             ) from e
 
-    def _get_template_from_metadata(
-        self, metadata: dict[str, str] | None
-    ) -> AnalysisTemplate:
-        """Extract the analysis template identifier from task metadata."""
-
-        if not metadata:
-            return AnalysisTemplate.COMPREHENSIVE
-
-        template_name = metadata.get("analysis_template", "comprehensive")
-
-        template_mapping = {
-            "comprehensive": AnalysisTemplate.COMPREHENSIVE,
-            "financial_focused": AnalysisTemplate.FINANCIAL_FOCUSED,
-            "risk_focused": AnalysisTemplate.RISK_FOCUSED,
-            "business_focused": AnalysisTemplate.BUSINESS_FOCUSED,
-        }
-
-        return template_mapping.get(
-            template_name.lower(), AnalysisTemplate.COMPREHENSIVE
-        )
-
     def _resolve_company_name(
         self, metadata: dict[str, str] | None, ticker: Ticker
     ) -> str:
@@ -715,45 +696,3 @@ class WorkerService:
                     return value
 
         return str(ticker.value)
-
-    def _resolve_analysis_focus(
-        self, template: AnalysisTemplate, metadata: dict[str, str] | None
-    ) -> list[str] | None:
-        """Derive focus areas for structured analyses from metadata."""
-
-        focus_values: list[str] = []
-
-        if metadata:
-            raw_focus = metadata.get("analysis_focus") or metadata.get("focus_areas")
-            if raw_focus:
-                parsed: list[str] = []
-                try:
-                    loaded = json.loads(raw_focus)
-                    if isinstance(loaded, list):
-                        parsed = [str(item) for item in loaded if str(item).strip()]
-                except Exception:  # noqa: BLE001 - fall back to comma parsing
-                    parsed = [
-                        part.strip() for part in raw_focus.split(",") if part.strip()
-                    ]
-
-                focus_values.extend(parsed)
-
-        if focus_values:
-            return focus_values
-
-        template_focus_map = {
-            AnalysisTemplate.FINANCIAL_FOCUSED: [
-                "Financial performance",
-                "Capital allocation",
-            ],
-            AnalysisTemplate.RISK_FOCUSED: [
-                "Risk posture",
-                "Mitigation strategies",
-            ],
-            AnalysisTemplate.BUSINESS_FOCUSED: [
-                "Business strategy",
-                "Operational execution",
-            ],
-        }
-
-        return template_focus_map.get(template)

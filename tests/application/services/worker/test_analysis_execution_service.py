@@ -221,7 +221,8 @@ async def test_perform_structured_comprehensive_analysis_shapes_result() -> None
         filing_type=task_data.filing_type,
         filing_sections={"Risk Factors": "Section text"},
         company_name="Acme Corp",
-        analysis_focus=["Risk posture"],
+        template=AnalysisTemplate.COMPREHENSIVE,
+        metadata=task_data.metadata,
     )
 
     assert result.analysis_id == request.analysis_id
@@ -231,3 +232,37 @@ async def test_perform_structured_comprehensive_analysis_shapes_result() -> None
     assert result.quality_metrics["confidence_score"] == 0.82
     assert result.model_name == "gpt-4-structured"
     assert result.analysis_type == AnalysisType.COMPREHENSIVE
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+async def test_structured_analysis_attaches_focus_metadata() -> None:
+    async def fake_analyze_sections(**_: Any) -> _FakeStructuredResponse:
+        return _FakeStructuredResponse()
+
+    async def fake_model_info() -> SimpleNamespace:
+        return SimpleNamespace(model_name="gpt-4-structured")
+
+    llm_provider = SimpleNamespace(
+        analyze_filing_sections=fake_analyze_sections,
+        get_model_info=fake_model_info,
+    )
+
+    service = AnalysisExecutionService(llm_provider=llm_provider)
+
+    task_data = _make_task_data()
+    task_data.metadata["analysis_template"] = AnalysisTemplate.FINANCIAL_FOCUSED.value
+
+    request = service.create_analysis_request(task_data)
+
+    result = await service.perform_structured_comprehensive_analysis(
+        request=request,
+        filing_id=task_data.filing_id,
+        filing_type=task_data.filing_type,
+        filing_sections={"Balance Sheet": "Details"},
+        company_name="Acme Corp",
+        template=AnalysisTemplate.FINANCIAL_FOCUSED,
+        metadata=task_data.metadata,
+    )
+
+    assert result.metadata["analysis_focus"] == "Financial performance,Capital allocation"

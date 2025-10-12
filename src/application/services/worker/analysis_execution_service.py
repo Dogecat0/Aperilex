@@ -12,6 +12,7 @@ from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime
 from typing import Any, Final, cast
 
+from src.application.handlers.schemas.commands.analyze_filing import AnalysisTemplate
 from src.application.interfaces.llm import ILLMProvider, LLMRequest, LLMResponse
 from src.application.interfaces.storage import IStorageProvider
 from src.shared.enums import AnalysisStatus, FilingType, UserTier
@@ -24,6 +25,8 @@ from src.shared.models import (
     TokenUsage,
 )
 from src.shared.types import AnalysisId, FilingId
+
+from .template_registry import TemplateRegistry
 
 
 class AnalysisExecutionServiceError(Exception):
@@ -40,9 +43,11 @@ class AnalysisExecutionService:
         *,
         llm_provider: ILLMProvider | None = None,
         storage: IStorageProvider | None = None,
+        template_registry: TemplateRegistry | None = None,
     ) -> None:
         self.llm = llm_provider
         self.storage = storage
+        self.template_registry = template_registry or TemplateRegistry()
 
     def create_analysis_request(self, task_data: TaskData) -> AnalysisRequest:
         """Build an `AnalysisRequest` mirroring WorkerService semantics."""
@@ -196,7 +201,8 @@ class AnalysisExecutionService:
         filing_type: FilingType,
         filing_sections: dict[str, str],
         company_name: str,
-        analysis_focus: list[str] | None,
+        template: AnalysisTemplate,
+        metadata: dict[str, str] | None,
     ) -> AnalysisResult:
         """Run the hierarchical LLM workflow for comprehensive filings."""
 
@@ -219,6 +225,11 @@ class AnalysisExecutionService:
         start_time = datetime.now(UTC)
 
         analyze_sections_call = cast(Callable[..., Awaitable[Any]], analyze_sections)
+        analysis_focus = self.template_registry.resolve_analysis_focus(
+            template,
+            metadata,
+        )
+
         comprehensive_response = await analyze_sections_call(
             filing_sections=filing_sections,
             filing_type=filing_type,

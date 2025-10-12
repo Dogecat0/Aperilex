@@ -239,6 +239,7 @@ async def test_publish_completion_event_includes_storage_key(
     assert event.task_id == task_data.task_id
     assert event.user_id == result.user_id
     assert event.timestamp == fixed_time.isoformat()
+    assert event.metadata["status"] == result.status.value
 
 
 @pytest.mark.unit

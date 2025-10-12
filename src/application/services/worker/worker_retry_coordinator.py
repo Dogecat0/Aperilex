@@ -7,6 +7,7 @@ priority queue when available, and moves exhausted messages to the DLQ.
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING
 
@@ -24,27 +25,99 @@ if TYPE_CHECKING:
 logger = get_logger(__name__)
 
 
+@dataclass(frozen=True)
+class RetryPolicy:
+    """Configuration for retry attempts and backoff behaviour."""
+
+    max_attempts: int = 3
+    backoff_base: float = 2.0
+    initial_delay_seconds: int = 2
+    max_delay_seconds: int = 60
+
+    def delay_for_attempt(self, attempt: int) -> int:
+        """Calculate delay for the given attempt using exponential backoff."""
+
+        attempt_index = max(1, attempt)
+        exponent = max(0, attempt_index - 1)
+        delay = self.initial_delay_seconds * (self.backoff_base**exponent)
+        return min(int(delay), self.max_delay_seconds)
+
+
 class WorkerRetryCoordinator:
     """Manage retry scheduling and DLQ transitions for task processing."""
+
+    RETRY_OVERRIDE_KEY = "retry_policy_override_max"
 
     def __init__(
         self,
         *,
         priority_queue: PriorityQueueService | None,
         queue_provider: IQueueProvider,
-        retry_backoff_base: float = 2.0,
-        retry_max_delay: int = 60,
+        retry_policy: RetryPolicy | None = None,
     ) -> None:
         self.priority_queue = priority_queue
         self.queue = queue_provider
-        self.retry_backoff_base = retry_backoff_base
-        self.retry_max_delay = retry_max_delay
+        self.policy = retry_policy or RetryPolicy()
 
     def calculate_backoff_delay(self, retry_count: int) -> int:
         """Calculate capped exponential backoff delay in seconds."""
 
-        backoff_seconds = self.retry_backoff_base**retry_count
-        return min(int(backoff_seconds), self.retry_max_delay)
+        return self.policy.delay_for_attempt(retry_count)
+
+    def get_retry_schedule(self, attempts: int | None = None) -> list[int]:
+        """Return the deterministic backoff schedule for the given attempts."""
+
+        total_attempts = attempts or self.policy.max_attempts
+        return [
+            self.calculate_backoff_delay(attempt)
+            for attempt in range(1, total_attempts + 1)
+        ]
+
+    def apply_policy(self, task_data: TaskData) -> None:
+        """Ensure task metadata reflects the active retry policy."""
+
+        override = None
+        metadata = task_data.metadata or {}
+        override_value = metadata.get(self.RETRY_OVERRIDE_KEY)
+        if override_value is not None:
+            try:
+                override = max(0, int(str(override_value)))
+            except ValueError:
+                override = None
+
+        if override is not None:
+            task_data.max_retries = override
+            logger.debug(
+                "Applying retry override",
+                extra={
+                    "task_id": str(task_data.task_id),
+                    "override_max": override,
+                },
+            )
+        else:
+            task_data.max_retries = self.policy.max_attempts
+            logger.debug(
+                "Applying retry policy",
+                extra={
+                    "task_id": str(task_data.task_id),
+                    "policy_max": self.policy.max_attempts,
+                },
+            )
+
+    def override_max_attempts(self, task_data: TaskData, max_attempts: int) -> None:
+        """Persist a max retry override for the given task."""
+
+        attempts = max(0, max_attempts)
+        task_data.max_retries = attempts
+        metadata = task_data.metadata
+        metadata[self.RETRY_OVERRIDE_KEY] = str(attempts)
+        logger.info(
+            "Retry attempts overridden",
+            extra={
+                "task_id": str(task_data.task_id),
+                "override_max": attempts,
+            },
+        )
 
     async def handle_retry(
         self,

@@ -139,6 +139,11 @@ async def test_persist_analysis_started_creates_record_when_missing() -> None:
     analysis_repo.create.assert_awaited_once()
     analysis_repo.update_status.assert_not_called()
 
+    created_record = analysis_repo.create.await_args.args[0]
+    assert created_record.metadata["analysis_template"] == "comprehensive"
+    assert created_record.metadata["task_id"] == str(request.task_id)
+    assert created_record.metadata["user_email"] == str(task_data.email)
+
 
 @pytest.mark.unit
 @pytest.mark.asyncio
@@ -225,6 +230,7 @@ def test_serialize_analysis_artifact_contains_summary_and_results() -> None:
 async def test_store_analysis_persists_payload_to_storage(tmp_path: pytest.TempPathFactory) -> None:
     task_data = _make_task_data()
     result = _make_analysis_result(task_data)
+    result.metadata["analysis_focus"] = "Financial performance,Capital allocation"
 
     stored_contents: dict[str, Any] = {}
 
@@ -245,6 +251,8 @@ async def test_store_analysis_persists_payload_to_storage(tmp_path: pytest.TempP
     assert storage_key == StorageKey("analysis/456.json")
     assert stored_contents["analysis_id"] == result.analysis_id
     assert stored_contents["raw"]["summary"] == summary_payload
+    provider_metadata = stored_contents["raw"]["full_results"]["provider"].get("metadata", {})
+    assert provider_metadata["analysis_focus"] == "Financial performance,Capital allocation"
 
 
 @pytest.mark.unit

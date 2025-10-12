@@ -10,7 +10,7 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 
 from src.application.interfaces.worker import WorkerContext
-from src.application.services.worker import WorkerRetryCoordinator
+from src.application.services.worker import RetryPolicy, WorkerRetryCoordinator
 from src.shared.enums import (
     FilingType,
     TaskPriority,
@@ -90,12 +90,13 @@ def _make_worker_context(task_data: TaskData) -> WorkerContext:
 def _build_retry_coordinator(
     priority_queue: Any,
     queue_provider: Any,
+    *,
+    policy: RetryPolicy | None = None,
 ) -> WorkerRetryCoordinator:
     return WorkerRetryCoordinator(
         priority_queue=priority_queue,
         queue_provider=queue_provider,
-        retry_backoff_base=2.0,
-        retry_max_delay=60,
+        retry_policy=policy or RetryPolicy(),
     )
 
 
@@ -109,6 +110,7 @@ async def test_handle_retry_schedules_next_attempt(patched_datetime: datetime) -
     priority_queue.schedule_retry = AsyncMock()
 
     coordinator = _build_retry_coordinator(priority_queue, queue_provider=MagicMock())
+    coordinator.apply_policy(task_data)
     result = await coordinator.handle_retry(task_data, context, "temporary failure")
 
     assert task_data.retry_count == 1
@@ -134,6 +136,7 @@ async def test_handle_retry_without_priority_queue_logs_only(
 
     queue_provider = MagicMock()
     coordinator = _build_retry_coordinator(priority_queue=None, queue_provider=queue_provider)
+    coordinator.apply_policy(task_data)
 
     result = await coordinator.handle_retry(task_data, context, "temporary failure")
 
@@ -160,6 +163,7 @@ async def test_move_to_dead_letter_with_priority_queue_invokes_queue(
     priority_queue.move_to_dead_letter = AsyncMock()
 
     coordinator = _build_retry_coordinator(priority_queue, queue_provider=MagicMock())
+    coordinator.apply_policy(task_data)
     await coordinator.move_to_dead_letter(message, "fatal error")
 
     priority_queue.move_to_dead_letter.assert_awaited_once_with(message, "fatal error")
@@ -183,6 +187,47 @@ async def test_move_to_dead_letter_without_priority_queue_deletes_message(
     queue_provider.delete_task = AsyncMock()
 
     coordinator = _build_retry_coordinator(priority_queue=None, queue_provider=queue_provider)
+    coordinator.apply_policy(task_data)
     await coordinator.move_to_dead_letter(message, "fatal error")
 
     queue_provider.delete_task.assert_awaited_once_with(message.receipt_handle)
+
+
+@pytest.mark.unit
+def test_apply_policy_sets_policy_max_when_no_override() -> None:
+    policy = RetryPolicy(max_attempts=5, initial_delay_seconds=3, backoff_base=2.0, max_delay_seconds=60)
+    coordinator = _build_retry_coordinator(priority_queue=None, queue_provider=MagicMock(), policy=policy)
+
+    task_data = _make_task_data()
+    coordinator.apply_policy(task_data)
+
+    assert task_data.max_retries == 5
+
+
+@pytest.mark.unit
+def test_override_max_attempts_persists_to_metadata() -> None:
+    coordinator = _build_retry_coordinator(priority_queue=None, queue_provider=MagicMock())
+    task_data = _make_task_data()
+
+    coordinator.override_max_attempts(task_data, 1)
+    assert task_data.max_retries == 1
+    assert task_data.metadata[coordinator.RETRY_OVERRIDE_KEY] == "1"
+
+    coordinator.apply_policy(task_data)
+    assert task_data.max_retries == 1  # override remains dominant
+
+
+@pytest.mark.unit
+def test_get_retry_schedule_reflects_policy() -> None:
+    policy = RetryPolicy(
+        max_attempts=4,
+        initial_delay_seconds=3,
+        backoff_base=2.0,
+        max_delay_seconds=20,
+    )
+    coordinator = _build_retry_coordinator(priority_queue=None, queue_provider=MagicMock(), policy=policy)
+
+    schedule = coordinator.get_retry_schedule()
+
+    # 3, 6, 12, and capped at 20 for the final attempt
+    assert schedule == [3, 6, 12, 20]
