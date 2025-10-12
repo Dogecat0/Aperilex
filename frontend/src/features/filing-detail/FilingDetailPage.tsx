@@ -7,6 +7,7 @@ import {
 } from './components/InsightTimeline'
 import { MetricsGrid, type MetricDatum } from './components/MetricsGrid'
 import { SectionSummaryPanel } from './components/SectionSummaryPanel'
+import { SubsectionDetailDrawer } from './components/SubsectionDetailDrawer'
 import { FeatureHeroStat } from '@/components/layout/FeatureHeroStat'
 import { FeatureHero } from '@/components/layout/FeatureHero'
 import { useThemeTokens } from '@/components/ThemeProvider'
@@ -20,8 +21,15 @@ import type {
   SentimentRollup,
   SummarySection,
   StructuredAnalysisData,
+  SectionAnalysis,
+  SubsectionAnalysis,
 } from '@/lib/types/analysis'
-import type { SentimentTone } from './types'
+import {
+  isSubsectionSchemaType,
+  parseSubsection,
+  type ParsedSubsection,
+} from '@/lib/types/analysisSchemas'
+import type { SentimentTone, SubsectionPanelData } from './types'
 
 const TAB_KEYS = ['overview', 'sections', 'numbers', 'sentiment', 'raw'] as const
 type TabKey = (typeof TAB_KEYS)[number]
@@ -185,6 +193,152 @@ function pickDisplayString(value?: string | null) {
   return undefined
 }
 
+function normalizeSectionKey(value?: string | null) {
+  if (typeof value !== 'string') {
+    return ''
+  }
+
+  const trimmed = value.trim().toLowerCase()
+  if (trimmed.length === 0) {
+    return ''
+  }
+
+  const collapsedWhitespace = trimmed.replace(/\s+/g, ' ')
+  return collapsedWhitespace.replace(/^item\s+[0-9a-z.-]+\s*[-:–—]?\s*/i, '')
+}
+
+function mergeUniqueStrings(...groups: (string[] | undefined | null)[]) {
+  const merged: string[] = []
+
+  for (const group of groups) {
+    if (!group) {
+      continue
+    }
+
+    for (const item of group) {
+      if (typeof item !== 'string') {
+        continue
+      }
+
+      const trimmed = item.trim()
+      if (trimmed.length === 0) {
+        continue
+      }
+
+      if (!merged.includes(trimmed)) {
+        merged.push(trimmed)
+      }
+    }
+  }
+
+  return merged
+}
+
+function slugify(value: string) {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/(^-|-$)+/g, '')
+}
+
+function extractSubsectionSynopsis(
+  subsection: SubsectionAnalysis,
+  parsed: ParsedSubsection | null
+): string | null {
+  const directSummary = pickDisplayString(subsection.section_summary ?? null)
+  if (directSummary) {
+    return directSummary
+  }
+
+  const candidate = parsed?.data ?? subsection.analysis
+  if (!candidate || typeof candidate !== 'object' || Array.isArray(candidate)) {
+    return null
+  }
+
+  const record = candidate as Record<string, unknown>
+  const preferredKeys = [
+    'summary',
+    'description',
+    'overview',
+    'insight',
+    'key_takeaway',
+    'narrative',
+    'context',
+  ]
+
+  for (const key of preferredKeys) {
+    const value = record[key]
+    const summary = pickDisplayString(typeof value === 'string' ? value : undefined)
+    if (summary) {
+      return summary
+    }
+
+    if (Array.isArray(value)) {
+      const joined = value
+        .map((item) => (typeof item === 'string' ? item.trim() : ''))
+        .filter((item) => item.length > 0)
+        .join(' ')
+      if (joined.length > 0) {
+        return joined
+      }
+    }
+  }
+
+  return null
+}
+
+function buildSubsectionPanels(
+  structuredSection: SectionAnalysis | undefined,
+  sectionKey: string
+): SubsectionPanelData[] {
+  if (!structuredSection?.sub_sections || structuredSection.sub_sections.length === 0) {
+    return []
+  }
+
+  return structuredSection.sub_sections.map((subsection, index) => {
+    const fallbackNumber = index + 1
+    const fallbackLabel = fallbackNumber < 10 ? `0${fallbackNumber}` : `${fallbackNumber}`
+    const name = pickDisplayString(subsection.sub_section_name) ?? `Subsection ${fallbackLabel}`
+    const focus = pickDisplayString(subsection.subsection_focus ?? null) ?? null
+    const keyBase = subsection.sub_section_name
+      ? slugify(subsection.sub_section_name)
+      : slugify(`${sectionKey}-${index}`)
+    const id = keyBase.length > 0 ? `${sectionKey}-${keyBase}` : `${sectionKey}-subsection-${index}`
+    const schemaLabel = pickDisplayString(subsection.schema_type ?? null) ?? null
+    const rawAnalysis = subsection.analysis ?? null
+
+    let parsedAnalysis: ParsedSubsection | null = null
+    const normalizedSchemaType =
+      schemaLabel && isSubsectionSchemaType(schemaLabel) ? schemaLabel : null
+
+    if (normalizedSchemaType && rawAnalysis !== null) {
+      try {
+        parsedAnalysis = parseSubsection(normalizedSchemaType, rawAnalysis)
+      } catch (error) {
+        console.warn(
+          `Failed to parse subsection ${subsection.sub_section_name ?? index} as ${normalizedSchemaType}`,
+          error
+        )
+      }
+    }
+
+    return {
+      id,
+      name,
+      focus,
+      schemaType: parsedAnalysis?.schemaType ?? normalizedSchemaType,
+      schemaLabel,
+      synopsis: extractSubsectionSynopsis(subsection, parsedAnalysis),
+      processingTimeMs:
+        typeof subsection.processing_time_ms === 'number' ? subsection.processing_time_ms : null,
+      analysis: parsedAnalysis,
+      rawAnalysis,
+      source: subsection,
+    }
+  })
+}
+
 function formatNumericWithUnit(value?: number | null, unit?: string | null) {
   if (typeof value !== 'number') {
     return undefined
@@ -317,6 +471,7 @@ interface SectionPanelData {
   summary?: string | null
   insights: string[]
   criticalFindings: string[]
+  subsections: SubsectionPanelData[]
 }
 
 interface SentimentOverview {
@@ -328,6 +483,7 @@ interface SentimentOverview {
 type HighlightBuckets = {
   critical: string[]
   signals: string[]
+  labels: string[]
 }
 
 function highlightTextFromSummary(highlight: RiskHighlight): string {
@@ -347,13 +503,13 @@ function highlightTextFromSummary(highlight: RiskHighlight): string {
   return fragments.join(' — ')
 }
 
-function ensureBuckets(map: Map<string, HighlightBuckets>, sectionName: string) {
-  const existing = map.get(sectionName)
+function ensureBuckets(map: Map<string, HighlightBuckets>, sectionKey: string) {
+  const existing = map.get(sectionKey)
   if (existing) {
     return existing
   }
-  const buckets: HighlightBuckets = { critical: [], signals: [] }
-  map.set(sectionName, buckets)
+  const buckets: HighlightBuckets = { critical: [], signals: [], labels: [] }
+  map.set(sectionKey, buckets)
   return buckets
 }
 
@@ -388,12 +544,16 @@ function collectHighlightsBySection(
 
       const text = highlightTextFromSummary(item)
       for (const section of relatedSections) {
-        const normalized = section.trim()
-        if (!normalized) {
+        const normalizedKey = normalizeSectionKey(section)
+        if (!normalizedKey) {
           continue
         }
 
-        const buckets = ensureBuckets(map, normalized)
+        const buckets = ensureBuckets(map, normalizedKey)
+        const label = pickDisplayString(section)
+        if (label) {
+          appendUnique(buckets.labels, label)
+        }
         appendUnique(buckets[bucketKey], text)
       }
     }
@@ -405,52 +565,115 @@ function collectHighlightsBySection(
   return map
 }
 
-function buildSentimentOverviewFromSummary(
-  summary?: AnalysisResponse['summary']
-): SentimentOverview {
-  if (!summary) {
-    return {
-      sections: [],
-      average: null,
-      distribution: {
-        positive: 0,
-        neutral: 0,
-        negative: 0,
-      },
-    }
+function buildStructuredSectionLookup(structured?: StructuredAnalysisData | null) {
+  const map = new Map<string, SectionAnalysis>()
+
+  if (!structured?.section_analyses) {
+    return map
   }
 
-  const sentiment = summary.sentiment
-  const highlightLookup = collectHighlightsBySection(summary.risk_highlights)
-
-  const sections: SectionPanelData[] = (sentiment?.sections ?? []).map((section) => {
-    const sectionName = section.section
-    const score = typeof section.score === 'number' ? section.score : null
-    const tone = toneFromScore(score)
-    const highlights = highlightLookup.get(sectionName) ?? { critical: [], signals: [] }
-
-    return {
-      sectionName,
-      sentiment: score,
-      tone,
-      summary: undefined,
-      insights: highlights.signals,
-      criticalFindings: highlights.critical,
-    }
-  })
-
-  const existingNames = new Set(sections.map((section) => section.sectionName))
-  for (const [sectionName, highlight] of highlightLookup.entries()) {
-    if (existingNames.has(sectionName)) {
+  for (const section of structured.section_analyses) {
+    const key = normalizeSectionKey(section.section_name)
+    if (!key || map.has(key)) {
       continue
     }
+
+    map.set(key, section)
+  }
+
+  return map
+}
+
+function buildSentimentOverviewFromSummary(
+  summary?: AnalysisResponse['summary'],
+  structured?: StructuredAnalysisData | null
+): SentimentOverview {
+  const highlightLookup = collectHighlightsBySection(summary?.risk_highlights)
+  const structuredLookup = buildStructuredSectionLookup(structured)
+  const sections: SectionPanelData[] = []
+  const seenKeys = new Set<string>()
+
+  const sentimentSections = summary?.sentiment?.sections ?? []
+  for (const section of sentimentSections) {
+    const sectionName = section.section
+    const key = normalizeSectionKey(sectionName)
+    if (!key) {
+      continue
+    }
+
+    seenKeys.add(key)
+    const structuredSection = structuredLookup.get(key)
+    const highlights = highlightLookup.get(key)
+    const subsections = buildSubsectionPanels(structuredSection, key)
+
+    const sentimentScore =
+      typeof section.score === 'number'
+        ? section.score
+        : typeof structuredSection?.overall_sentiment === 'number'
+          ? structuredSection.overall_sentiment
+          : null
+
+    const tone = toneFromScore(sentimentScore)
+    const summaryText = structuredSection?.section_summary
+
+    sections.push({
+      sectionName,
+      sentiment: sentimentScore,
+      tone,
+      summary: pickDisplayString(summaryText) ?? null,
+      insights: mergeUniqueStrings(structuredSection?.consolidated_insights, highlights?.signals),
+      criticalFindings: mergeUniqueStrings(
+        structuredSection?.critical_findings,
+        highlights?.critical
+      ),
+      subsections,
+    })
+  }
+
+  for (const [key, structuredSection] of structuredLookup.entries()) {
+    if (seenKeys.has(key)) {
+      continue
+    }
+
+    seenKeys.add(key)
+    const highlights = highlightLookup.get(key)
+    const subsections = buildSubsectionPanels(structuredSection, key)
+    const sentimentScore =
+      typeof structuredSection.overall_sentiment === 'number'
+        ? structuredSection.overall_sentiment
+        : null
+
+    const sectionName = structuredSection.section_name ?? highlights?.labels[0] ?? 'Section insight'
+
+    sections.push({
+      sectionName,
+      sentiment: sentimentScore,
+      tone: toneFromScore(sentimentScore),
+      summary: pickDisplayString(structuredSection.section_summary) ?? null,
+      insights: mergeUniqueStrings(structuredSection.consolidated_insights, highlights?.signals),
+      criticalFindings: mergeUniqueStrings(
+        structuredSection.critical_findings,
+        highlights?.critical
+      ),
+      subsections,
+    })
+  }
+
+  for (const [key, highlights] of highlightLookup.entries()) {
+    if (seenKeys.has(key)) {
+      continue
+    }
+
+    seenKeys.add(key)
+    const sectionName = highlights.labels[0] ?? 'Section highlight'
     sections.push({
       sectionName,
       sentiment: null,
       tone: 'neutral',
-      summary: undefined,
-      insights: highlight.signals,
-      criticalFindings: highlight.critical,
+      summary: null,
+      insights: mergeUniqueStrings(highlights.signals),
+      criticalFindings: mergeUniqueStrings(highlights.critical),
+      subsections: [],
     })
   }
 
@@ -466,7 +689,7 @@ function buildSentimentOverviewFromSummary(
     } satisfies Record<SentimentTone, number>
   )
 
-  const average = typeof sentiment?.average === 'number' ? sentiment.average : null
+  const average = typeof summary?.sentiment?.average === 'number' ? summary.sentiment.average : null
 
   return {
     sections,
@@ -546,6 +769,10 @@ export function FilingDetailPage() {
   const [focusedSection, setFocusedSection] = useState<string | null>(() =>
     hasFocusSection ? (focusSectionFromLocation ?? null) : null
   )
+  const [activeSubsection, setActiveSubsection] = useState<{
+    sectionName: string
+    subsection: SubsectionPanelData
+  } | null>(null)
 
   useEffect(() => {
     if (focusTabFromLocation && TAB_KEYS.includes(focusTabFromLocation)) {
@@ -561,8 +788,8 @@ export function FilingDetailPage() {
   const structured = analysis?.full_results?.structured_data
 
   const sentimentOverview = useMemo(
-    () => buildSentimentOverviewFromSummary(analysis?.summary),
-    [analysis?.summary]
+    () => buildSentimentOverviewFromSummary(analysis?.summary, structured ?? null),
+    [analysis?.summary, structured]
   )
   const metrics = useMemo(
     () => buildHeadlineMetricData(analysis?.summary?.headline_metrics),
@@ -660,6 +887,21 @@ export function FilingDetailPage() {
     { key: 'sentiment', label: 'Sentiment' },
     { key: 'raw', label: 'Raw' },
   ]
+
+  function handleSelectSubsection(sectionName: string, subsection: SubsectionPanelData) {
+    setActiveTab('sections')
+    setActiveSubsection({ sectionName, subsection })
+  }
+
+  function handleCloseSubsectionDrawer() {
+    setActiveSubsection(null)
+  }
+
+  function handleJumpToRawFromSubsection(sectionName: string, _subsection: SubsectionPanelData) {
+    setFocusedSection(sectionName)
+    setActiveTab('raw')
+    setActiveSubsection(null)
+  }
 
   function handleExplain(sectionName: string) {
     setFocusedSection(sectionName)
@@ -1017,8 +1259,10 @@ export function FilingDetailPage() {
                       summary={section.summary}
                       insights={section.insights}
                       criticalFindings={section.criticalFindings}
+                      subsections={section.subsections}
                       onExplain={handleExplain}
                       onJumpToRaw={handleJumpToRaw}
+                      onSelectSubsection={handleSelectSubsection}
                     />
                   ))
                 )}
@@ -1257,6 +1501,13 @@ export function FilingDetailPage() {
 
         <GlossarySidebar />
       </div>
+      <SubsectionDetailDrawer
+        open={Boolean(activeSubsection)}
+        sectionName={activeSubsection?.sectionName ?? null}
+        subsection={activeSubsection?.subsection ?? null}
+        onClose={handleCloseSubsectionDrawer}
+        onJumpToRaw={handleJumpToRawFromSubsection}
+      />
     </div>
   )
 }
