@@ -1,0 +1,230 @@
+{
+  "schema_version": 3,
+  "analysis_id": "dc3a738f-d9b8-434b-9a68-ba9d22c3db42",
+  "filing_id": "27ae64e6-c4cb-5f6c-9d84-aabd05a7a4f6",
+  "analysis_type": "COMPREHENSIVE",
+  "status": "COMPLETED",
+  "created_at": "2025-10-01T22:13:17.160788Z",
+  "created_by": "a6064814-b766-4b54-accd-c11b5b92b674",
+  "summary": {
+    "company": {
+      "name": "Alphabet Inc.",
+      "cik": "1652044",
+      "ticker": "GOOGL"
+    },
+    "filing": {
+      "type": "10-Q",
+      "date": "2025-07-24",
+      "analysis_template": "comprehensive",
+      "accession_number": "0001652044-25-000062"
+    },
+    "confidence": {
+      "score": 0.85,
+      "bucket": "high"
+    },
+    "processing": {
+      "duration_seconds": 66.069,
+      "completed_at": "2025-10-01T22:14:23.230976Z"
+    },
+    "insight_counts": {
+      "key_insights": 8,
+      "opportunities": 4,
+      "critical_findings": 6,
+      "sections_analyzed": 5
+    },
+    "filing_summary": "Alphabet Inc. reported solid revenue growth of 14%, reaching $96.4 billion, driven by strong performance in Google Services and Google Cloud. Despite stable gross and operating margins at 32%, net income dropped significantly to $28.2 billion, raising concerns about cost management and operational efficiencies. The balance sheet remains robust with total assets of $502.1 billion, although increased liabilities warrant careful monitoring to mitigate potential liquidity risks.",
+    "key_insights": [
+      "Total revenue reached $96.4B, up 14% YoY, reflecting strength across Google Services and Cloud.",
+      "Gross and operating margins held steady at 32% despite higher traffic acquisition costs."
+    ],
+    "opportunities": [
+      "Expand Google Cloud to capture enterprise migration demand and deepen AI workload adoption."
+    ],
+    "critical_findings": [
+      "Net income fell to $28.2B (‑55% YoY), signaling cost pressure and execution risk around expense controls."
+    ],
+    "headline_metrics": [
+      {
+        "id": "revenue_yoy",
+        "name": "Revenue YoY Growth",
+        "category": "growth",
+        "unit": "percent",
+        "current_value": 0.14,
+        "previous_value": 0.09,
+        "display": {
+          "current": "+14%",
+          "previous": "+9%",
+          "delta": "+5 pts",
+          "delta_text": "Revenue growth accelerated 5 pts versus prior-year quarter."
+        },
+        "confidence": 0.8
+      },
+      {
+        "id": "cash_flow_to_debt",
+        "name": "Cash Flow to Debt",
+        "category": "liquidity",
+        "unit": "ratio",
+        "current_value": 1.24,
+        "previous_value": 1.15,
+        "display": {
+          "current": "1.24×",
+          "previous": "1.15×",
+          "delta": "+0.09×",
+          "delta_text": "Operating cash now covers debt obligations 0.09× more than last quarter."
+        },
+        "confidence": 0.7
+      }
+    ],
+    "risk_highlights": {
+      "critical_actions": [
+        {
+          "id": "net_income_collapse",
+          "title": "Profitability under pressure",
+          "severity": "high",
+          "probability": "medium",
+          "summary": "Net income dropped 55% YoY while traffic acquisition costs climbed.",
+          "recommended_action": "Review cost structure, adjust FY guidance, and outline mitigation in MD&A.",
+          "related_sections": ["Income Statement", "Risk Factors"]
+        }
+      ],
+      "signals_to_monitor": [
+        {
+          "id": "cloud_margin_trend",
+          "title": "Cloud margin variability",
+          "severity": "medium",
+          "probability": "medium",
+          "summary": "Cloud margins dipped quarter-over-quarter as deal incentives increased.",
+          "recommended_action": "Track pipeline mix and deal profitability through Q3 earnings.",
+          "related_sections": ["Management Discussion & Analysis"]
+        }
+      ]
+    },
+    "insight_timeline": [
+      {
+        "id": "2025-07-24-revenue",
+        "occurred_at": "2025-07-24T00:00:00Z",
+        "type": "metric",
+        "severity": "medium",
+        "title": "Revenue up 14% YoY",
+        "summary": "Alphabet’s top-line acceleration beat consensus and reflects strength in Google Services and Cloud.",
+        "source_section": "Income Statement",
+        "related_metrics": ["revenue_yoy"]
+      },
+      {
+        "id": "2025-07-24-risk",
+        "occurred_at": "2025-07-24T00:00:00Z",
+        "type": "risk",
+        "severity": "high",
+        "title": "Net income compression",
+        "summary": "Operating cost growth offset revenue gains, driving profit contraction.",
+        "source_section": "Risk Factors",
+        "related_metrics": ["net_income_margin"],
+        "actions": ["Initiate cost containment review"]
+      }
+    ],
+    "sentiment_rollup": {
+      "overall": 0.12,
+      "weakest_section": {
+        "section": "Risk Factors",
+        "score": -0.28
+      },
+      "previous_overall": 0.20,
+      "prior_analysis_delta": -0.08,
+      "trend": "down",
+      "confidence_band": "medium"
+    }
+  },
+  "full_results": {
+    "schema_version": 2,
+    "structured_data": {
+      "schema_version": 2,
+      "analysis_timestamp": "2025-10-01T22:14:23.230538Z",
+      "confidence_score": 0.85,
+      "total_sections_analyzed": 5,
+      "total_sub_sections_analyzed": 22,
+      "section_analyses": [
+        {
+          "section_name": "Risk Factors",
+          "section_summary": "Alphabet continues to face regulatory scrutiny and margin pressure driven by higher traffic acquisition costs and strategic investments in AI infrastructure.",
+          "overall_sentiment": -0.28,
+          "consolidated_insights": [
+            "Regulatory risks remain elevated across the EU and U.S. enforcement landscape.",
+            "Traffic acquisition costs are climbing faster than revenue, pressuring profitability."
+          ],
+          "critical_findings": [
+            "Net income decline raises concerns about cost discipline and the sustainability of recent growth investments."
+          ],
+          "sub_sections": [
+            {
+              "sub_section_name": "Top Risks",
+              "schema_type": "RiskFactor",
+              "analysis": {
+                "risk_id": "rf-001",
+                "risk_name": "Regulatory enforcement actions",
+                "severity": "high",
+                "probability": "medium",
+                "potential_impact": "Fines and operational constraints on core ad businesses.",
+                "mitigation_measures": "Engage regulators proactively and increase compliance investment.",
+                "timeline": [
+                  {
+                    "label": "EU DMA enforcement window",
+                    "occurred_at": "2025-06-30",
+                    "expected_resolution_at": "2025-12-31",
+                    "narrative": "DMA compliance review scheduled for Q4 2025."
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "section_name": "Cash Flow Statement",
+          "section_summary": "Operating cash flow remains strong despite elevated capital expenditures; financing outflows reflect aggressive share repurchases.",
+          "overall_sentiment": 0.18,
+          "sub_sections": [
+            {
+              "sub_section_name": "Cash Flow Ratios",
+              "schema_type": "CashFlowRatio",
+              "analysis": {
+                "ratio_name": "Cash Flow to Debt",
+                "current_value": 1.24,
+                "previous_value": 1.15,
+                "display": {
+                  "current": "1.24×",
+                  "previous": "1.15×",
+                  "delta": "+0.09×"
+                },
+                "interpretation": "Improved coverage of debt with operating cash as Alphabet boosted operating cash generation."
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "provider": {
+      "name": "openai",
+      "model_name": "gpt-4.1",
+      "token_usage": {
+        "prompt_tokens": 8694,
+        "completion_tokens": 2314,
+        "total_tokens": 11008
+      },
+      "processing": {
+        "time_ms": 66069,
+        "started_at": "2025-10-01T22:13:17.160788Z",
+        "completed_at": "2025-10-01T22:14:23.230976Z"
+      },
+      "confidence_score": 0.85,
+      "estimated_cost": 6.12,
+      "metadata": {
+        "analysis_template": "comprehensive",
+        "requested_by": "zcmmwang@gmail.com",
+        "force_reprocess": false,
+        "analysis_focus": "earnings quality, margin trajectory"
+      }
+    },
+    "narrative": {
+      "content": "Alphabet posted 14% revenue growth driven by Services and Cloud, but profitability compressed on higher traffic acquisition costs. Cash generation remained strong, bolstering liquidity despite elevated capital intensity."
+    }
+  }
+}
