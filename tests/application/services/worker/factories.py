@@ -26,7 +26,6 @@ def build_worker_service(
     queue_provider: Any | None = None,
     llm_provider: Any | None = None,
     datasource_provider: Any | None = None,
-    worker_provider: Any | None = None,
     repository_factory: Any | None = None,
     event_publisher: Any | None = None,
     priority_queue: PriorityQueueService | None = None,
@@ -37,7 +36,6 @@ def build_worker_service(
     queue = queue_provider or MagicMock()
     llm = llm_provider or MagicMock()
     datasource = datasource_provider or MagicMock()
-    worker = worker_provider or MagicMock()
     repository = repository_factory or MagicMock()
     publisher = event_publisher or MagicMock()
 
@@ -66,11 +64,6 @@ def build_worker_service(
     )
 
     return WorkerService(
-        storage_provider=storage,
-        queue_provider=queue,
-        llm_provider=llm,
-        datasource_provider=datasource,
-        worker_provider=worker,
         worker_provider_type=WorkerProvider.DOCKER,
         repository_factory=repository,
         analysis_task_builder=task_builder,

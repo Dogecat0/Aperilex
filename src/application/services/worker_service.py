@@ -19,16 +19,13 @@ from pydantic import BaseModel, Field
 from src.application.handlers.schemas.commands.analyze_filing import (
     AnalyzeFilingCommand,
 )
-from src.application.interfaces.datasource import FilingContent, IDataSourceProvider
-from src.application.interfaces.llm import ILLMProvider
-from src.application.interfaces.queue import IQueueProvider
+from src.application.interfaces.datasource import FilingContent
 from src.application.interfaces.repositories import (
     CompanyData,
     FilingData,
     IRepositoryFactory,
 )
-from src.application.interfaces.storage import IStorageProvider
-from src.application.interfaces.worker import IWorkerProvider, WorkerContext
+from src.application.interfaces.worker import WorkerContext
 from src.application.services.priority_queue_service import PriorityQueueService
 from src.application.services.worker import (
     AnalysisEventEmitter,
@@ -139,11 +136,7 @@ class WorkerService:
 
     def __init__(
         self,
-        storage_provider: IStorageProvider,
-        queue_provider: IQueueProvider,
-        llm_provider: ILLMProvider,
-        datasource_provider: IDataSourceProvider,
-        worker_provider: IWorkerProvider,
+        *,
         worker_provider_type: WorkerProvider,
         repository_factory: IRepositoryFactory,
         analysis_task_builder: AnalysisTaskBuilder,
@@ -160,11 +153,6 @@ class WorkerService:
         Initialize worker service with provider dependencies.
 
         Args:
-            storage_provider: Storage provider for files and analysis
-            queue_provider: Queue provider for task management
-            llm_provider: LLM provider for analysis
-            datasource_provider: Data source provider for filings
-            worker_provider: Worker provider for execution context
             worker_provider_type: Worker provider enum identifier for context creation
             repository_factory: Factory for creating repository instances
             analysis_task_builder: Collaborator for task preparation

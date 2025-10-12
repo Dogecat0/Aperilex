@@ -352,11 +352,6 @@ class CQRSContainer(containers.DeclarativeContainer):
     # Worker service for processing
     worker_service = providers.Singleton(
         WorkerService,
-        storage_provider=providers_container.storage_provider,
-        queue_provider=providers_container.queue_provider,
-        llm_provider=providers_container.llm_provider,
-        datasource_provider=providers_container.data_source_provider,
-        worker_provider=providers_container.worker_provider,
         worker_provider_type=providers_container.worker_provider_type,
         repository_factory=repository_factory,
         analysis_task_builder=analysis_task_builder,
@@ -367,7 +362,6 @@ class CQRSContainer(containers.DeclarativeContainer):
         analysis_persistence_service=analysis_persistence_service,
         analysis_event_emitter=analysis_event_emitter,
         worker_retry_coordinator=worker_retry_coordinator,
-        event_publisher=providers_container.event_publisher,
         priority_queue=priority_queue,
     )
 
