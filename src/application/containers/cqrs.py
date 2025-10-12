@@ -39,6 +39,15 @@ from src.application.services.background_task_coordinator import (
 )
 from src.application.services.learning_service import LearningService
 from src.application.services.priority_queue_service import PriorityQueueService
+from src.application.services.worker import (
+    AnalysisEventEmitter,
+    AnalysisExecutionService,
+    AnalysisPersistenceService,
+    AnalysisSummaryBuilder,
+    AnalysisTaskBuilder,
+    FilingLifecycleService,
+    WorkerRetryCoordinator,
+)
 from src.application.services.worker_service import WorkerService
 
 
@@ -301,6 +310,40 @@ class CQRSContainer(containers.DeclarativeContainer):
         queue_provider=providers_container.queue_provider,
     )
 
+    analysis_task_builder = providers.Singleton(AnalysisTaskBuilder)
+
+    filing_lifecycle_service = providers.Singleton(
+        FilingLifecycleService,
+        datasource=providers_container.data_source_provider,
+        storage=providers_container.storage_provider,
+        repository_factory=repository_factory,
+    )
+
+    analysis_execution_service = providers.Singleton(
+        AnalysisExecutionService,
+        llm_provider=providers_container.llm_provider,
+        storage=providers_container.storage_provider,
+    )
+
+    analysis_summary_builder = providers.Singleton(AnalysisSummaryBuilder)
+
+    analysis_persistence_service = providers.Singleton(
+        AnalysisPersistenceService,
+        repository_factory=repository_factory,
+        storage=providers_container.storage_provider,
+    )
+
+    analysis_event_emitter = providers.Factory(
+        AnalysisEventEmitter,
+        event_publisher=providers_container.event_publisher,
+    )
+
+    worker_retry_coordinator = providers.Singleton(
+        WorkerRetryCoordinator,
+        priority_queue=priority_queue,
+        queue_provider=providers_container.queue_provider,
+    )
+
     # Worker service for processing
     worker_service = providers.Singleton(
         WorkerService,
@@ -311,6 +354,13 @@ class CQRSContainer(containers.DeclarativeContainer):
         worker_provider=providers_container.worker_provider,
         worker_provider_type=providers_container.worker_provider_type,
         repository_factory=repository_factory,
+        analysis_task_builder=analysis_task_builder,
+        filing_lifecycle_service=filing_lifecycle_service,
+        analysis_execution_service=analysis_execution_service,
+        analysis_summary_builder=analysis_summary_builder,
+        analysis_persistence_service=analysis_persistence_service,
+        analysis_event_emitter=analysis_event_emitter,
+        worker_retry_coordinator=worker_retry_coordinator,
         event_publisher=providers_container.event_publisher,
         priority_queue=priority_queue,
     )

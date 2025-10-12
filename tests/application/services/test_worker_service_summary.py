@@ -4,11 +4,9 @@ from __future__ import annotations
 
 import uuid
 from datetime import UTC, datetime
-from unittest.mock import MagicMock
 
 import pytest
 
-from src.application.services.worker_service import WorkerService
 from src.shared.enums import (
     AnalysisStatus,
     AnalysisType,
@@ -16,25 +14,10 @@ from src.shared.enums import (
     TaskPriority,
     TaskStatus,
     UserTier,
-    WorkerProvider,
 )
 from src.shared.enums.provider import LLMProvider
 from src.shared.models import AnalysisResult, TaskData, TokenUsage
-
-
-def _build_worker_service() -> WorkerService:
-    """Create a worker service instance backed by test doubles."""
-
-    return WorkerService(
-        storage_provider=MagicMock(),
-        queue_provider=MagicMock(),
-        llm_provider=MagicMock(),
-        datasource_provider=MagicMock(),
-        worker_provider=MagicMock(),
-        worker_provider_type=WorkerProvider.DOCKER,
-        repository_factory=MagicMock(),
-        event_publisher=MagicMock(),
-    )
+from tests.application.services.worker.factories import build_worker_service
 
 
 def _make_task_data(metadata: dict[str, str]) -> TaskData:
@@ -171,7 +154,7 @@ def test_build_summary_payload_curates_structured_artifacts() -> None:
     )
     analysis_result = _make_analysis_result(structured_data)
 
-    service = _build_worker_service()
+    service = build_worker_service()
 
     summary = service._build_summary_payload(analysis_result, task_data)
 
@@ -264,7 +247,7 @@ def test_serialize_analysis_artifact_wraps_full_results() -> None:
         "filing": {"type": "10-Q", "date": "2024-08-01"},
     }
 
-    service = _build_worker_service()
+    service = build_worker_service()
     payload = service._serialize_analysis_artifact(
         analysis_result,
         summary_payload,

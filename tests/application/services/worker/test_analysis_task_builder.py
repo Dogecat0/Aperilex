@@ -5,7 +5,6 @@ from __future__ import annotations
 import uuid
 from collections.abc import Iterator
 from datetime import UTC, datetime
-from unittest.mock import MagicMock
 
 import pytest
 
@@ -15,13 +14,11 @@ from src.application.handlers.schemas.commands.analyze_filing import (
 )
 from src.application.interfaces.repositories import CompanyData, FilingData
 from src.application.services.worker import AnalysisTaskBuilder
-from src.application.services.worker_service import WorkerService
 from src.shared.enums import (
     FilingType,
     TaskPriority,
     TaskStatus,
     UserTier,
-    WorkerProvider,
 )
 from src.shared.types import (
     CIK,
@@ -33,21 +30,7 @@ from src.shared.types import (
     Ticker,
     UserId,
 )
-
-
-def _build_worker_service() -> WorkerService:
-    """Reuse the existing worker service test fixture."""
-
-    return WorkerService(
-        storage_provider=MagicMock(),
-        queue_provider=MagicMock(),
-        llm_provider=MagicMock(),
-        datasource_provider=MagicMock(),
-        worker_provider=MagicMock(),
-        worker_provider_type=WorkerProvider.DOCKER,
-        repository_factory=MagicMock(),
-        event_publisher=MagicMock(),
-    )
+from tests.application.services.worker.factories import build_worker_service
 
 
 def _make_company() -> CompanyData:
@@ -115,7 +98,7 @@ def test_builder_matches_worker_service(monkeypatch: pytest.MonkeyPatch) -> None
     )
 
     builder = AnalysisTaskBuilder()
-    worker_service = _build_worker_service()
+    worker_service = build_worker_service()
 
     parent_task = TaskId(uuid.uuid4())
 

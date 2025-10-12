@@ -13,7 +13,7 @@ import re
 import uuid
 from collections.abc import Awaitable, Callable, Coroutine
 from datetime import UTC, datetime, timedelta
-from typing import TYPE_CHECKING, Any, cast
+from typing import Any, cast
 
 from pydantic import BaseModel, Field
 
@@ -45,6 +45,16 @@ from src.application.interfaces.repositories import (
 from src.application.interfaces.storage import IStorageProvider, StorageRequest
 from src.application.interfaces.worker import IWorkerProvider, WorkerContext
 from src.application.services.priority_queue_service import PriorityQueueService
+from src.application.services.worker import (
+    AnalysisEventEmitter,
+    AnalysisExecutionService,
+    AnalysisPersistenceService,
+    AnalysisSummaryBuilder,
+    AnalysisTaskBuilder,
+    FilingLifecycleService,
+    WorkerRetryCoordinator,
+)
+from src.application.services.worker.metrics_utils import record_section_failure_metric
 from src.shared.enums import (
     AnalysisStatus,
     FilingType,
@@ -79,44 +89,6 @@ from src.shared.versioning import SchemaMigrationError as VersioningMigrationErr
 from src.shared.versioning import schema_migrator
 
 logger = get_logger(__name__)
-
-if TYPE_CHECKING:  # pragma: no cover - type checking only
-    from prometheus_client import Counter as PrometheusCounter
-else:  # pragma: no cover - runtime fallback when type info is unavailable
-    PrometheusCounter = Any
-
-
-def _init_section_failure_counter() -> PrometheusCounter | None:
-    """Initialise the Prometheus counter when the client is available."""
-
-    try:
-        from prometheus_client import Counter as RuntimeCounter
-    except Exception:  # pragma: no cover - optional dependency
-        return None
-
-    return RuntimeCounter(
-        "structured_section_extraction_failure_total",
-        "Total structured section extraction failures",
-        labelnames=("template", "filing_type"),
-    )
-
-
-SECTION_EXTRACTION_FAILURE_COUNTER = _init_section_failure_counter()
-
-
-def _record_section_failure_metric(
-    template: AnalysisTemplate, filing_type: FilingType
-) -> None:
-    """Increment section extraction failure metric when available."""
-
-    counter = SECTION_EXTRACTION_FAILURE_COUNTER
-    if counter is None:
-        return
-
-    counter.labels(
-        template=template.value,
-        filing_type=filing_type.value,
-    ).inc()
 
 
 class WorkerServiceError(Exception):
@@ -195,6 +167,13 @@ class WorkerService:
         worker_provider: IWorkerProvider,
         worker_provider_type: WorkerProvider,
         repository_factory: IRepositoryFactory,
+        analysis_task_builder: AnalysisTaskBuilder,
+        filing_lifecycle_service: FilingLifecycleService,
+        analysis_execution_service: AnalysisExecutionService,
+        analysis_summary_builder: AnalysisSummaryBuilder,
+        analysis_persistence_service: AnalysisPersistenceService,
+        analysis_event_emitter: AnalysisEventEmitter,
+        worker_retry_coordinator: WorkerRetryCoordinator,
         event_publisher: IEventPublisher | None = None,
         priority_queue: PriorityQueueService | None = None,
     ):
@@ -209,6 +188,13 @@ class WorkerService:
             worker_provider: Worker provider for execution context
             worker_provider_type: Worker provider enum identifier for context creation
             repository_factory: Factory for creating repository instances
+            analysis_task_builder: Collaborator for task preparation
+            filing_lifecycle_service: Collaborator managing filing lifecycle
+            analysis_execution_service: Collaborator composing LLM requests
+            analysis_summary_builder: Collaborator shaping summary payloads
+            analysis_persistence_service: Collaborator for persistence operations
+            analysis_event_emitter: Collaborator publishing lifecycle events
+            worker_retry_coordinator: Collaborator coordinating retries and DLQ
             event_publisher: Optional event publisher for notifications
             priority_queue: Priority queue service for scheduling and retries
         """
@@ -220,6 +206,13 @@ class WorkerService:
         self.worker = worker_provider
         self.worker_provider_type = worker_provider_type
         self.repository_factory = repository_factory
+        self.analysis_task_builder = analysis_task_builder
+        self.filing_lifecycle_service = filing_lifecycle_service
+        self.analysis_execution_service = analysis_execution_service
+        self.analysis_summary_builder = analysis_summary_builder
+        self.analysis_persistence_service = analysis_persistence_service
+        self.analysis_event_emitter = analysis_event_emitter
+        self.worker_retry_coordinator = worker_retry_coordinator
         self.event_publisher = event_publisher
 
         # Retry configuration
@@ -3384,7 +3377,7 @@ class WorkerService:
                     "correlation_id": correlation_id,
                 },
             )
-            _record_section_failure_metric(template, task_data.filing_type)
+            record_section_failure_metric(template, task_data.filing_type)
             raise FilingFetchError(
                 f"Structured sections unavailable for filing {task_data.filing_id}"
             )
@@ -3418,7 +3411,7 @@ class WorkerService:
                     "filing_type": task_data.filing_type.value,
                 },
             )
-            _record_section_failure_metric(template, task_data.filing_type)
+            record_section_failure_metric(template, task_data.filing_type)
             raise FilingFetchError(
                 f"No sections extracted for filing {task_data.filing_id}"
             )
@@ -3451,7 +3444,7 @@ class WorkerService:
                     "correlation_id": correlation_id,
                 },
             )
-            _record_section_failure_metric(template, task_data.filing_type)
+            record_section_failure_metric(template, task_data.filing_type)
             raise FilingFetchError(
                 f"Structured sections unavailable for filing {task_data.filing_id}"
             )
@@ -3472,7 +3465,7 @@ class WorkerService:
                     "filing_type": task_data.filing_type.value,
                 },
             )
-            _record_section_failure_metric(template, task_data.filing_type)
+            record_section_failure_metric(template, task_data.filing_type)
             raise FilingFetchError(
                 f"Required sections missing for filing {task_data.filing_id}"
             )
@@ -3525,7 +3518,7 @@ class WorkerService:
                     "missing_schemas": ",".join(missing_schemas),
                 },
             )
-            _record_section_failure_metric(template, filing_type)
+            record_section_failure_metric(template, filing_type)
             raise FilingFetchError(
                 "Missing required sections for analysis template: "
                 + ", ".join(missing_schemas)
