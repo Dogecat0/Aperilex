@@ -589,15 +589,7 @@ export function SectionSummaryPanel({
   }, [subsections])
 
   const handleToggleSubsections = () => {
-    setShowSubsections((prev) => {
-      const next = !prev
-      if (next) {
-        onExplain?.(sectionName)
-      } else {
-        setFocusFilter(null)
-      }
-      return next
-    })
+    setShowSubsections((prev) => !prev)
   }
 
   const filteredSubsections = useMemo(() => {
@@ -617,6 +609,17 @@ export function SectionSummaryPanel({
       setFocusFilter(null)
     }
   }, [focusFilter, focusOptions])
+
+  useEffect(() => {
+    if (showSubsections) {
+      onExplain?.(sectionName)
+      return
+    }
+
+    if (focusFilter !== null) {
+      setFocusFilter(null)
+    }
+  }, [focusFilter, onExplain, sectionName, showSubsections])
 
   const toneColor =
     tone === 'positive'
