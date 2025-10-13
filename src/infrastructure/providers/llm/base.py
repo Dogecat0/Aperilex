@@ -5,9 +5,9 @@ import json
 import re
 from abc import ABC, abstractmethod
 from collections.abc import Callable, Sequence
-from typing import Any, ClassVar, Union, cast, get_args, get_origin
+from typing import TYPE_CHECKING, Any, ClassVar, Union, cast, get_args, get_origin
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, conlist
 from pydantic import BaseModel as PydanticBaseModel
 
 from src.application.interfaces.llm import (
@@ -141,6 +141,12 @@ class SubsectionAnalysisResponse(BaseSubSectionAnalysisResponse):
 SubSectionAnalysisResponse = AnalysisResponse | SubsectionAnalysisResponse
 
 
+if TYPE_CHECKING:
+    CriticalFindings = list[str]
+else:
+    CriticalFindings = conlist(str, min_length=3, max_length=5)
+
+
 class SectionSummaryResponse(BaseModel):
     """Section summary response without sub-sections (for OpenAI structured output)."""
 
@@ -156,7 +162,7 @@ class SectionSummaryResponse(BaseModel):
     overall_sentiment: float = Field(
         ..., ge=-1, le=1, description="Overall sentiment for the section"
     )
-    critical_findings: list[str] = Field(
+    critical_findings: CriticalFindings = Field(
         ..., description="Critical findings that need attention"
     )
 
@@ -176,7 +182,7 @@ class SectionAnalysisResponse(BaseModel):
     overall_sentiment: float = Field(
         ..., ge=-1, le=1, description="Overall sentiment for the section"
     )
-    critical_findings: list[str] = Field(
+    critical_findings: CriticalFindings = Field(
         ..., description="Critical findings that need attention"
     )
     sub_sections: Sequence[SubSectionAnalysisResponse] = Field(
@@ -981,14 +987,28 @@ def create_section_summary_prompts(
         "using the evidence below. Quote actual figures and qualitative details when available."
     )
 
+    deliverables_block = (
+        "Deliverables:\n"
+        "- section_summary: 4-6 sentences synthesizing the section narrative and context.\n"
+        "- consolidated_insights: 5-7 bullet points capturing the most material cross-sectional signals.\n"
+        "- critical_findings: 3-5 bullet points highlighting the most urgent risks or issues; never exceed 5 entries.\n"
+        "- overall_sentiment: Float between -1 and 1 describing aggregate tone for the section.\n\n"
+    )
+
+    guideline_block = (
+        "Guidelines:\n"
+        "- Deliver a cohesive narrative, cite specific metrics when they appear, and avoid placeholder language.\n"
+        "- If a data point is unavailable, explain the gap rather than inventing numbers."
+    )
+
     user_prompt = (
         f"Based on the following sub-section analyses for the {section_name} section of "
         f"{company_name}'s {filing_type.value} filing, provide a comprehensive section summary that "
         f"integrates quantitative and qualitative signals.\n\n"
         f"Sub-section Analyses:\n{sub_sections_summary}\n\n"
         f"{section_excerpt}"
-        "Deliver a cohesive narrative, cite specific metrics when they appear, and avoid placeholder "
-        "language. If a data point is unavailable, explain the gap rather than inventing numbers."
+        f"{deliverables_block}"
+        f"{guideline_block}"
     )
 
     return system_prompt, user_prompt

@@ -183,29 +183,6 @@ class ILLMProvider(Protocol):
         ...
 
     @abstractmethod
-    async def stream_completion(
-        self,
-        prompt: LLMPrompt,
-        request_id: RequestId | None = None,
-    ) -> None:
-        """
-        Stream a completion from the LLM.
-
-        Args:
-            prompt: Structured prompt for the LLM
-            request_id: Optional request ID for tracking
-
-        Yields:
-            Chunks of completion text
-
-        Raises:
-            LLMError: If streaming fails
-            RateLimitError: If rate limit exceeded
-            TimeoutError: If request times out
-        """
-        ...
-
-    @abstractmethod
     async def validate_prompt(self, prompt: LLMPrompt) -> bool:
         """
         Validate a prompt before sending to LLM.

@@ -191,7 +191,7 @@ class _FakeStructuredResponse:
                     "section_summary": "Risk summary.",
                     "consolidated_insights": ["Mitigation roadmap"],
                     "overall_sentiment": -0.1,
-                    "critical_findings": ["Finding 1"],
+                    "critical_findings": ["Finding 1", "Finding 2", "Finding 3"],
                 }
             ]
         }

@@ -101,7 +101,12 @@ def test_summary_builder_curates_structured_artifacts() -> None:
             {
                 "section_name": "Risk Factors",
                 "overall_sentiment": -0.4,
-                "critical_findings": ["Regulatory investigations intensifying."],
+                "critical_findings": [
+                    "Regulatory investigations intensifying.",
+                    "Liquidity covenants trending toward breach.",
+                    "Deferred revenue declines signal demand risk.",
+                    "Data residency audit lacks complete remediation.",
+                ],
                 "sub_section_count": 1,
                 "sub_sections": [
                     {
@@ -131,7 +136,11 @@ def test_summary_builder_curates_structured_artifacts() -> None:
             {
                 "section_name": "Balance Sheet",
                 "overall_sentiment": 0.3,
-                "critical_findings": [],
+                "critical_findings": [
+                    "Liquidity covenants trending toward breach.",
+                    "Deferred revenue declines signal demand risk.",
+                    "Inventory valuation adjustments remain unresolved.",
+                ],
                 "sub_section_count": 2,
                 "sub_sections": [
                     {
@@ -170,11 +179,17 @@ def test_summary_builder_curates_structured_artifacts() -> None:
         "Revenue growth accelerated.",
         "Operating margins expanded.",
     ]
-    assert summary["critical_findings"] == ["Regulatory investigations intensifying."]
+    assert summary["critical_findings"] == [
+        "Regulatory investigations intensifying.",
+        "Liquidity covenants trending toward breach.",
+        "Deferred revenue declines signal demand risk.",
+        "Data residency audit lacks complete remediation.",
+        "Inventory valuation adjustments remain unresolved.",
+    ]
 
     # Insight counts align with curated payloads
     assert summary["insight_counts"]["key_insights"] == 2
-    assert summary["insight_counts"]["critical_findings"] == 1
+    assert summary["insight_counts"]["critical_findings"] == 5
 
     # Headline metrics projected with delta calculations
     headline_metric = summary["headline_metrics"][0]
@@ -204,6 +219,55 @@ def test_summary_builder_curates_structured_artifacts() -> None:
     assert timeline_entry["summary"] == "Privacy regulator confirmed on-site audit."
     assert timeline_entry["occurred_at"] == "2024-09-30"
     assert "data-privacy-penalties" in timeline_entry["id"]
+
+
+@pytest.mark.unit
+def test_summary_builder_caps_critical_findings_at_five() -> None:
+    """Critical findings are truncated at five unique entries across sections."""
+
+    structured_data = {
+        "section_analyses": [
+            {
+                "section_name": "Risk Snapshot",
+                "overall_sentiment": -0.3,
+                "critical_findings": [
+                    "Finding 1",
+                    "Finding 2",
+                    "Finding 3",
+                    "Finding 4",
+                ],
+            },
+            {
+                "section_name": "MD&A",
+                "overall_sentiment": -0.2,
+                "critical_findings": [
+                    "Finding 5",
+                    "Finding 6",
+                ],
+            },
+        ]
+    }
+
+    builder = AnalysisSummaryBuilder()
+    summary = builder.build_summary_payload(
+        _make_analysis_result(structured_data),
+        _make_task_data(
+            {
+                "filing_date": "2024-08-01",
+                "analysis_template": "comprehensive",
+                "accession_number": "0001234567",
+            }
+        ),
+    )
+
+    assert summary["critical_findings"] == [
+        "Finding 1",
+        "Finding 2",
+        "Finding 3",
+        "Finding 4",
+        "Finding 5",
+    ]
+    assert summary["insight_counts"]["critical_findings"] == 5
 
 
 @pytest.mark.unit

@@ -53,7 +53,7 @@ def test_from_data_surfaces_curated_summary_artifacts() -> None:
         "insight_counts": {
             "key_insights": 3,
             "opportunities": 1,
-            "critical_findings": 2,
+            "critical_findings": 3,
             "sections_analyzed": 5,
         },
         "processing": {"duration_seconds": 6.4, "completed_at": "2024-10-10T02:14:00+00:00"},
@@ -63,7 +63,11 @@ def test_from_data_surfaces_curated_summary_artifacts() -> None:
             "Gross margin expanded by 140 bps.",
         ],
         "opportunities": ["Expand go-to-market investment in EMEA."],
-        "critical_findings": ["Privacy regulator escalated to formal review."],
+        "critical_findings": [
+            "Privacy regulator escalated to formal review.",
+            "Gross margin compression threatens outlook despite revenue growth.",
+            "Legacy ERP migration is behind schedule and increasing capex.",
+        ],
         "headline_metrics": [
             {
                 "id": "revenue-growth",

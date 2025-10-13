@@ -206,6 +206,8 @@ class AnalysisSummaryBuilder:
                     continue
                 seen.add(text)
                 findings.append(text)
+                if len(findings) >= 5:
+                    return findings
         return findings
 
     @staticmethod

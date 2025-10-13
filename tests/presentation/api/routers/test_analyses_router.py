@@ -54,7 +54,7 @@ def _summary_payload() -> dict[str, Any]:
         "insight_counts": {
             "key_insights": 3,
             "opportunities": 2,
-            "critical_findings": 2,
+            "critical_findings": 3,
             "sections_analyzed": 4,
         },
         "processing": {
@@ -71,6 +71,8 @@ def _summary_payload() -> dict[str, Any]:
         ],
         "critical_findings": [
             "R&D intensity widened operating losses by 2 points.",
+            "Gross margin volatility threatens guidance reliability.",
+            "Legacy ERP migration is behind schedule and increasing capex.",
         ],
         "opportunities": [
             "Bundle analytics add-ons with enterprise subscriptions.",
