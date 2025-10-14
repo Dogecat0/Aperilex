@@ -29,7 +29,7 @@
     "insight_counts": {
       "key_insights": 8,
       "opportunities": 4,
-      "critical_findings": 6,
+      "critical_findings": 3,
       "sections_analyzed": 5
     },
     "filing_summary": "Alphabet Inc. reported solid revenue growth of 14%, reaching $96.4 billion, driven by strong performance in Google Services and Google Cloud. Despite stable gross and operating margins at 32%, net income dropped significantly to $28.2 billion, raising concerns about cost management and operational efficiencies. The balance sheet remains robust with total assets of $502.1 billion, although increased liabilities warrant careful monitoring to mitigate potential liquidity risks.",
@@ -41,7 +41,9 @@
       "Expand Google Cloud to capture enterprise migration demand and deepen AI workload adoption."
     ],
     "critical_findings": [
-      "Net income fell to $28.2B (‑55% YoY), signaling cost pressure and execution risk around expense controls."
+      "Net income fell to $28.2B (‑55% YoY), signaling cost pressure and execution risk around expense controls.",
+      "Traffic acquisition costs are rising faster than revenue, compressing operating margins.",
+      "Cloud incentive spend risks delaying profitability improvements despite top-line growth."
     ],
     "headline_metrics": [
       {
@@ -146,14 +148,16 @@
         {
           "section_name": "Risk Factors",
           "section_summary": "Alphabet continues to face regulatory scrutiny and margin pressure driven by higher traffic acquisition costs and strategic investments in AI infrastructure.",
-          "overall_sentiment": -0.28,
-          "consolidated_insights": [
-            "Regulatory risks remain elevated across the EU and U.S. enforcement landscape.",
-            "Traffic acquisition costs are climbing faster than revenue, pressuring profitability."
-          ],
-          "critical_findings": [
-            "Net income decline raises concerns about cost discipline and the sustainability of recent growth investments."
-          ],
+        "overall_sentiment": -0.28,
+        "consolidated_insights": [
+          "Regulatory risks remain elevated across the EU and U.S. enforcement landscape.",
+          "Traffic acquisition costs are climbing faster than revenue, pressuring profitability."
+        ],
+        "critical_findings": [
+          "Net income decline raises concerns about cost discipline and the sustainability of recent growth investments.",
+          "Escalating traffic acquisition costs are outpacing revenue growth and eroding operating leverage.",
+          "Cloud incentive programs are widening short-term losses and require tighter guardrails."
+        ],
           "sub_sections": [
             {
               "sub_section_name": "Top Risks",

@@ -1,0 +1,4659 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Aperilex",
+    "description": "SEC Filing Analysis Engine",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/api/auth/google/login": {
+      "get": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "Initiate Google OAuth login",
+        "description": "Begin Google OAuth flow and redirect the user to the consent screen.",
+        "operationId": "login_with_google_api_auth_google_login_get",
+        "parameters": [
+          {
+            "name": "redirectTo",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Redirectto"
+            }
+          },
+          {
+            "name": "secret_manager",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "title": "Secret Manager"
+            }
+          },
+          {
+            "name": "config_provider",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "title": "Config Provider"
+            }
+          }
+        ],
+        "responses": {
+          "307": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/google/callback": {
+      "post": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "Complete Google OAuth flow",
+        "description": "Exchange Google authorization code for Aperilex session tokens.",
+        "operationId": "google_oauth_callback_api_auth_google_callback_post",
+        "parameters": [
+          {
+            "name": "auth_provider",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "title": "Auth Provider"
+            }
+          },
+          {
+            "name": "config_provider",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "title": "Config Provider"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GoogleCallbackRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthSessionResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/refresh": {
+      "post": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "Refresh access token",
+        "description": "Rotate refresh token and issue a new access token.",
+        "operationId": "refresh_session_api_auth_refresh_post",
+        "parameters": [
+          {
+            "name": "auth_provider",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "title": "Auth Provider"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthSessionResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/logout": {
+      "post": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "Revoke session",
+        "description": "Revoke the current refresh token and clear auth cookies.",
+        "operationId": "logout_api_auth_logout_post",
+        "parameters": [
+          {
+            "name": "auth_provider",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "title": "Auth Provider"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/health/": {
+      "get": {
+        "tags": [
+          "health"
+        ],
+        "summary": "Health Check",
+        "description": "Basic health check endpoint.",
+        "operationId": "health_check_api_health__get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Health Check Api Health  Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/health/detailed": {
+      "get": {
+        "tags": [
+          "health"
+        ],
+        "summary": "Detailed Health Check",
+        "description": "Detailed health check including all service statuses.\n\nReturns comprehensive health information for:\n- Messaging services (queue, worker, storage, events)\n- Configuration status",
+        "operationId": "detailed_health_check_api_health_detailed_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DetailedHealthResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/health/messaging": {
+      "get": {
+        "tags": [
+          "health"
+        ],
+        "summary": "Messaging Health Check",
+        "description": "Check messaging services (queue, worker, storage) health.",
+        "operationId": "messaging_health_check_api_health_messaging_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthStatus"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/filings/search": {
+      "get": {
+        "tags": [
+          "filings"
+        ],
+        "summary": "Search SEC filings from database",
+        "description": "Search for SEC filings from the local database.\n\n    This endpoint queries locally stored SEC filings that have been\n    previously imported. It provides fast, reliable access to filing\n    metadata without external API dependencies.\n\n    Required parameter:\n    - ticker: Company ticker symbol (e.g., \"AAPL\", \"MSFT\")\n\n    Optional filters:\n    - form_type: Specific filing type (e.g., \"10-K\", \"10-Q\", \"8-K\")\n    - date_from: Start date for filing date range (YYYY-MM-DD)\n    - date_to: End date for filing date range (YYYY-MM-DD)\n\n    Pagination and sorting:\n    - page: Page number (default: 1)\n    - page_size: Items per page (default: 20, max: 100)\n    - sort_by: Sort field (filing_date, filing_type, company_name)\n    - sort_direction: Sort direction (asc, desc)",
+        "operationId": "search_filings_api_filings_search_get",
+        "parameters": [
+          {
+            "name": "ticker",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "Company ticker symbol (required)",
+              "title": "Ticker"
+            },
+            "description": "Company ticker symbol (required)"
+          },
+          {
+            "name": "form_type",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filing type filter (e.g., 10-K, 10-Q)",
+              "title": "Form Type"
+            },
+            "description": "Filing type filter (e.g., 10-K, 10-Q)"
+          },
+          {
+            "name": "date_from",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Start date for filing range (YYYY-MM-DD)",
+              "title": "Date From"
+            },
+            "description": "Start date for filing range (YYYY-MM-DD)"
+          },
+          {
+            "name": "date_to",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "End date for filing range (YYYY-MM-DD)",
+              "title": "Date To"
+            },
+            "description": "End date for filing range (YYYY-MM-DD)"
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "Page number",
+              "default": 1,
+              "title": "Page"
+            },
+            "description": "Page number"
+          },
+          {
+            "name": "page_size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "description": "Items per page",
+              "default": 20,
+              "title": "Page Size"
+            },
+            "description": "Items per page"
+          },
+          {
+            "name": "sort_by",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "description": "Sort field",
+              "default": "filing_date",
+              "title": "Sort By"
+            },
+            "description": "Sort field"
+          },
+          {
+            "name": "sort_direction",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "description": "Sort direction",
+              "default": "desc",
+              "title": "Sort Direction"
+            },
+            "description": "Sort direction"
+          },
+          {
+            "name": "application_service",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "title": "Application Service"
+            }
+          },
+          {
+            "name": "auth_provider",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "title": "Auth Provider"
+            }
+          },
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaginatedResponse_FilingSearchResult_"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Filing not found"
+          },
+          "422": {
+            "description": "Invalid accession number or filing ID format"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        }
+      }
+    },
+    "/api/filings/by-id/{filing_id}/analyze": {
+      "post": {
+        "tags": [
+          "filings"
+        ],
+        "summary": "Start analysis of a filing by UUID",
+        "description": "Initiate background analysis of a specific SEC filing using its UUID.\n\n    The analysis process runs asynchronously and returns a task ID for tracking progress.\n    Use the task ID to check status and retrieve results when complete.",
+        "operationId": "analyze_filing_by_id_api_filings_by_id__filing_id__analyze_post",
+        "parameters": [
+          {
+            "name": "filing_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "description": "Filing UUID identifier",
+              "title": "Filing Id"
+            },
+            "description": "Filing UUID identifier"
+          },
+          {
+            "name": "application_service",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "title": "Application Service"
+            }
+          },
+          {
+            "name": "auth_provider",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "title": "Auth Provider"
+            }
+          },
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TaskResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Filing not found"
+          },
+          "422": {
+            "description": "Invalid accession number or filing ID format"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        }
+      }
+    },
+    "/api/filings/by-id/{filing_id}": {
+      "get": {
+        "tags": [
+          "filings"
+        ],
+        "summary": "Get filing by UUID",
+        "description": "Retrieve detailed information about a specific SEC filing using its unique identifier.\n\n    This endpoint retrieves filing information using the internal filing UUID,\n    providing an alternative to accession-based lookup for maintaining domain separation.\n    Returns filing metadata, processing status, and links to source documents.",
+        "operationId": "get_filing_by_id_api_filings_by_id__filing_id__get",
+        "parameters": [
+          {
+            "name": "filing_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "description": "Filing UUID identifier",
+              "title": "Filing Id"
+            },
+            "description": "Filing UUID identifier"
+          },
+          {
+            "name": "application_service",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "title": "Application Service"
+            }
+          },
+          {
+            "name": "auth_provider",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "title": "Auth Provider"
+            }
+          },
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FilingResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Filing not found"
+          },
+          "422": {
+            "description": "Invalid accession number or filing ID format"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        }
+      }
+    },
+    "/api/filings/{accession_number}": {
+      "get": {
+        "tags": [
+          "filings"
+        ],
+        "summary": "Get filing information",
+        "description": "Retrieve detailed information about a specific SEC filing.\n\n    Returns filing metadata, processing status, and links to source documents.",
+        "operationId": "get_filing_api_filings__accession_number__get",
+        "parameters": [
+          {
+            "name": "accession_number",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "SEC filing accession number",
+              "title": "Accession Number"
+            },
+            "description": "SEC filing accession number"
+          },
+          {
+            "name": "application_service",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "title": "Application Service"
+            }
+          },
+          {
+            "name": "auth_provider",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "title": "Auth Provider"
+            }
+          },
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FilingResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Filing not found"
+          },
+          "422": {
+            "description": "Invalid accession number or filing ID format"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        }
+      }
+    },
+    "/api/filings/{accession_number}/analysis": {
+      "get": {
+        "tags": [
+          "filings"
+        ],
+        "summary": "Get filing analysis results",
+        "description": "Retrieve analysis results for a specific SEC filing.\n\n    Returns the most recent completed analysis for the filing, including\n    AI-generated insights, key findings, and confidence scores.",
+        "operationId": "get_filing_analysis_api_filings__accession_number__analysis_get",
+        "parameters": [
+          {
+            "name": "accession_number",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "SEC filing accession number",
+              "title": "Accession Number"
+            },
+            "description": "SEC filing accession number"
+          },
+          {
+            "name": "application_service",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "title": "Application Service"
+            }
+          },
+          {
+            "name": "auth_provider",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "title": "Auth Provider"
+            }
+          },
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnalysisResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Filing not found"
+          },
+          "422": {
+            "description": "Invalid accession number or filing ID format"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        }
+      }
+    },
+    "/api/analyses": {
+      "get": {
+        "tags": [
+          "analyses"
+        ],
+        "summary": "List analyses",
+        "description": "List analyses with rich filtering, pagination, and sorting.\n\n    Supports full-text search, dashboard segments, lifecycle status filters,\n    creator scoping, and server-side sorting by key metrics.",
+        "operationId": "list_analyses_api_analyses_get",
+        "parameters": [
+          {
+            "name": "application_service",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "title": "Application Service"
+            }
+          },
+          {
+            "name": "auth_provider",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "title": "Auth Provider"
+            }
+          },
+          {
+            "name": "search",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Full-text search term",
+              "title": "Search"
+            },
+            "description": "Full-text search term"
+          },
+          {
+            "name": "segment",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "$ref": "#/components/schemas/AnalysisSegment",
+              "description": "Segment filter",
+              "default": "all"
+            },
+            "description": "Segment filter"
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Comma-separated list of analysis statuses",
+              "title": "Status"
+            },
+            "description": "Comma-separated list of analysis statuses"
+          },
+          {
+            "name": "created_after",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Created after timestamp",
+              "title": "Created After"
+            },
+            "description": "Created after timestamp"
+          },
+          {
+            "name": "created_before",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Created before timestamp",
+              "title": "Created Before"
+            },
+            "description": "Created before timestamp"
+          },
+          {
+            "name": "created_by",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter by analysis creator",
+              "title": "Created By"
+            },
+            "description": "Filter by analysis creator"
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "$ref": "#/components/schemas/AnalysisSortField",
+              "description": "Sort field",
+              "default": "created_at"
+            },
+            "description": "Sort field"
+          },
+          {
+            "name": "direction",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "$ref": "#/components/schemas/SortDirection",
+              "description": "Sort direction",
+              "default": "desc"
+            },
+            "description": "Sort direction"
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "Page number",
+              "default": 1,
+              "title": "Page"
+            },
+            "description": "Page number"
+          },
+          {
+            "name": "page_size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "description": "Number of results per page (max 100)",
+              "default": 20,
+              "title": "Page Size"
+            },
+            "description": "Number of results per page (max 100)"
+          },
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnalysesListResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Analysis not found"
+          },
+          "422": {
+            "description": "Invalid query parameters"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        }
+      }
+    },
+    "/api/analyses/templates": {
+      "get": {
+        "tags": [
+          "analyses"
+        ],
+        "summary": "Get analysis templates",
+        "description": "Retrieve available analysis templates and their configurations.\n\n    Returns information about supported analysis types, required parameters,\n    and template-specific settings for different filing analysis workflows.",
+        "operationId": "get_analysis_templates_api_analyses_templates_get",
+        "parameters": [
+          {
+            "name": "template_type",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter by template type (e.g., 'financial', 'risk')",
+              "title": "Template Type"
+            },
+            "description": "Filter by template type (e.g., 'financial', 'risk')"
+          },
+          {
+            "name": "application_service",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "title": "Application Service"
+            }
+          },
+          {
+            "name": "auth_provider",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "title": "Auth Provider"
+            }
+          },
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TemplatesResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Analysis not found"
+          },
+          "422": {
+            "description": "Invalid query parameters"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        }
+      }
+    },
+    "/api/analyses/{analysis_id}": {
+      "get": {
+        "tags": [
+          "analyses"
+        ],
+        "summary": "Get analysis by ID",
+        "description": "Retrieve a specific analysis by its unique ID.\n\n    Returns complete analysis results including AI insights, key findings,\n    and metadata about the analysis process.",
+        "operationId": "get_analysis_api_analyses__analysis_id__get",
+        "parameters": [
+          {
+            "name": "analysis_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "description": "Analysis ID",
+              "title": "Analysis Id"
+            },
+            "description": "Analysis ID"
+          },
+          {
+            "name": "application_service",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "title": "Application Service"
+            }
+          },
+          {
+            "name": "auth_provider",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "title": "Auth Provider"
+            }
+          },
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnalysisResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Analysis not found"
+          },
+          "422": {
+            "description": "Invalid query parameters"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        }
+      }
+    },
+    "/api/companies/{ticker}": {
+      "get": {
+        "tags": [
+          "companies"
+        ],
+        "summary": "Get company information",
+        "description": "Retrieve comprehensive information about a company by ticker symbol.\n\n    Returns company profile including basic information, industry classification,\n    address, and optional enrichments like recent Aperilex analysis summaries.\n    Data is combined from local database and live SEC EDGAR sources.",
+        "operationId": "get_company_api_companies__ticker__get",
+        "parameters": [
+          {
+            "name": "ticker",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "Company ticker symbol (e.g., 'AAPL', 'MSFT')",
+              "title": "Ticker"
+            },
+            "description": "Company ticker symbol (e.g., 'AAPL', 'MSFT')"
+          },
+          {
+            "name": "include_recent_analyses",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "description": "Include recent Aperilex analysis summaries",
+              "default": false,
+              "title": "Include Recent Analyses"
+            },
+            "description": "Include recent Aperilex analysis summaries"
+          },
+          {
+            "name": "application_service",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "title": "Application Service"
+            }
+          },
+          {
+            "name": "auth_provider",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "title": "Auth Provider"
+            }
+          },
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CompanyResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Company not found"
+          },
+          "422": {
+            "description": "Invalid ticker format"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        }
+      }
+    },
+    "/api/companies/{ticker}/analyses": {
+      "get": {
+        "tags": [
+          "companies"
+        ],
+        "summary": "List company analyses",
+        "description": "List all analyses for a specific company, filtered by ticker symbol.\n\n    Exposes the same filtering contract as `/api/analyses` while\n    implicitly scoping results to the selected company.",
+        "operationId": "list_company_analyses_api_companies__ticker__analyses_get",
+        "parameters": [
+          {
+            "name": "ticker",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "Company ticker symbol (e.g., 'AAPL', 'MSFT')",
+              "title": "Ticker"
+            },
+            "description": "Company ticker symbol (e.g., 'AAPL', 'MSFT')"
+          },
+          {
+            "name": "application_service",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "title": "Application Service"
+            }
+          },
+          {
+            "name": "auth_provider",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "title": "Auth Provider"
+            }
+          },
+          {
+            "name": "search",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Full-text search term",
+              "title": "Search"
+            },
+            "description": "Full-text search term"
+          },
+          {
+            "name": "segment",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "$ref": "#/components/schemas/AnalysisSegment",
+              "description": "Segment filter",
+              "default": "all"
+            },
+            "description": "Segment filter"
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Comma-separated list of analysis statuses",
+              "title": "Status"
+            },
+            "description": "Comma-separated list of analysis statuses"
+          },
+          {
+            "name": "created_after",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Created after timestamp",
+              "title": "Created After"
+            },
+            "description": "Created after timestamp"
+          },
+          {
+            "name": "created_before",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Created before timestamp",
+              "title": "Created Before"
+            },
+            "description": "Created before timestamp"
+          },
+          {
+            "name": "created_by",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter by analysis creator",
+              "title": "Created By"
+            },
+            "description": "Filter by analysis creator"
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "$ref": "#/components/schemas/AnalysisSortField",
+              "description": "Sort field",
+              "default": "created_at"
+            },
+            "description": "Sort field"
+          },
+          {
+            "name": "direction",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "$ref": "#/components/schemas/SortDirection",
+              "description": "Sort direction",
+              "default": "desc"
+            },
+            "description": "Sort direction"
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "Page number",
+              "default": 1,
+              "title": "Page"
+            },
+            "description": "Page number"
+          },
+          {
+            "name": "page_size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "description": "Number of results per page (max 100)",
+              "default": 20,
+              "title": "Page Size"
+            },
+            "description": "Number of results per page (max 100)"
+          },
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnalysesListResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Company not found"
+          },
+          "422": {
+            "description": "Invalid ticker format"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        }
+      }
+    },
+    "/api/companies/{ticker}/filings": {
+      "get": {
+        "tags": [
+          "companies"
+        ],
+        "summary": "List company filings",
+        "description": "List all filings for a specific company, filtered by ticker symbol.\n\n    Returns filings ordered by filing date (newest first) with optional\n    filtering by filing type, date range, and pagination support.\n\n    If pagination parameters (page, page_size) are provided, returns a PaginatedResponse.\n    Otherwise, returns a simple list of FilingResponse objects.",
+        "operationId": "list_company_filings_api_companies__ticker__filings_get",
+        "parameters": [
+          {
+            "name": "ticker",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "Company ticker symbol (e.g., 'AAPL', 'MSFT')",
+              "title": "Ticker"
+            },
+            "description": "Company ticker symbol (e.g., 'AAPL', 'MSFT')"
+          },
+          {
+            "name": "filing_type",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter by filing type (e.g., '10-K', '10-Q', '8-K')",
+              "title": "Filing Type"
+            },
+            "description": "Filter by filing type (e.g., '10-K', '10-Q', '8-K')"
+          },
+          {
+            "name": "start_date",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter filings from this date (YYYY-MM-DD)",
+              "title": "Start Date"
+            },
+            "description": "Filter filings from this date (YYYY-MM-DD)"
+          },
+          {
+            "name": "end_date",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter filings to this date (YYYY-MM-DD)",
+              "title": "End Date"
+            },
+            "description": "Filter filings to this date (YYYY-MM-DD)"
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Page number (1-based)",
+              "title": "Page"
+            },
+            "description": "Page number (1-based)"
+          },
+          {
+            "name": "page_size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "maximum": 100,
+                  "minimum": 1
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Number of filings per page (max 100)",
+              "title": "Page Size"
+            },
+            "description": "Number of filings per page (max 100)"
+          },
+          {
+            "name": "application_service",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "title": "Application Service"
+            }
+          },
+          {
+            "name": "auth_provider",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "title": "Auth Provider"
+            }
+          },
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/PaginatedResponse_FilingResponse_"
+                    },
+                    {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/FilingResponse"
+                      }
+                    }
+                  ],
+                  "title": "Response List Company Filings Api Companies  Ticker  Filings Get"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Company not found"
+          },
+          "422": {
+            "description": "Invalid ticker format"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        }
+      }
+    },
+    "/api/tasks/{task_id}/status": {
+      "get": {
+        "tags": [
+          "tasks"
+        ],
+        "summary": "Get Task Status",
+        "description": "Get the current status of a background task by its ID.",
+        "operationId": "get_task_status_api_tasks__task_id__status_get",
+        "parameters": [
+          {
+            "name": "task_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "Task ID for background task tracking",
+              "title": "Task Id"
+            },
+            "description": "Task ID for background task tracking"
+          },
+          {
+            "name": "auth_provider",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "title": "Auth Provider"
+            }
+          },
+          {
+            "name": "coordinator",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "title": "Coordinator"
+            }
+          },
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TaskResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/tasks/{task_id}/retry": {
+      "post": {
+        "tags": [
+          "tasks"
+        ],
+        "summary": "Retry Failed Task",
+        "description": "Retry a failed background task, creating a new task for the operation.",
+        "operationId": "retry_failed_task_api_tasks__task_id__retry_post",
+        "parameters": [
+          {
+            "name": "task_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "Task ID for background task tracking",
+              "title": "Task Id"
+            },
+            "description": "Task ID for background task tracking"
+          },
+          {
+            "name": "auth_provider",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "title": "Auth Provider"
+            }
+          },
+          {
+            "name": "coordinator",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "title": "Coordinator"
+            }
+          },
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TaskResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/tasks/{task_id}/stream": {
+      "get": {
+        "tags": [
+          "tasks"
+        ],
+        "summary": "Stream Task Updates",
+        "description": "Stream real-time task updates using Server-Sent Events.",
+        "operationId": "stream_task_updates_api_tasks__task_id__stream_get",
+        "parameters": [
+          {
+            "name": "task_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "Task ID for background task tracking",
+              "title": "Task Id"
+            },
+            "description": "Task ID for background task tracking"
+          },
+          {
+            "name": "events",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Optional event types to subscribe to",
+              "title": "Events"
+            },
+            "description": "Optional event types to subscribe to"
+          },
+          {
+            "name": "auth_provider",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "title": "Auth Provider"
+            }
+          },
+          {
+            "name": "sse_manager",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "title": "Sse Manager"
+            }
+          },
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/learning/progress": {
+      "get": {
+        "tags": [
+          "learning"
+        ],
+        "summary": "List learning progress entries for the authenticated user",
+        "description": "Return all learning progress entries for the current user.",
+        "operationId": "list_learning_progress_api_learning_progress_get",
+        "parameters": [
+          {
+            "name": "auth_provider",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "title": "Auth Provider"
+            }
+          },
+          {
+            "name": "learning_service",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "title": "Learning Service"
+            }
+          },
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/LearningProgressResponse"
+                  },
+                  "title": "Response List Learning Progress Api Learning Progress Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/learning/progress/{module_key}": {
+      "put": {
+        "tags": [
+          "learning"
+        ],
+        "summary": "Create or update learning progress for a module",
+        "description": "Create or update progress for the specified learning module.",
+        "operationId": "upsert_learning_progress_api_learning_progress__module_key__put",
+        "parameters": [
+          {
+            "name": "module_key",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Module Key"
+            }
+          },
+          {
+            "name": "auth_provider",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "title": "Auth Provider"
+            }
+          },
+          {
+            "name": "learning_service",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "title": "Learning Service"
+            }
+          },
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LearningProgressUpdateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LearningProgressResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/learning/quiz-attempts": {
+      "get": {
+        "tags": [
+          "learning"
+        ],
+        "summary": "List recent quiz attempts for the authenticated user",
+        "description": "Return recent quiz attempts for the current user.",
+        "operationId": "list_quiz_attempts_api_learning_quiz_attempts_get",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "default": 20,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "auth_provider",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "title": "Auth Provider"
+            }
+          },
+          {
+            "name": "learning_service",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "title": "Learning Service"
+            }
+          },
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/QuizAttemptResponse"
+                  },
+                  "title": "Response List Quiz Attempts Api Learning Quiz Attempts Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "learning"
+        ],
+        "summary": "Record a quiz attempt for the authenticated user",
+        "description": "Persist a quiz attempt tied to the current user.",
+        "operationId": "record_quiz_attempt_api_learning_quiz_attempts_post",
+        "parameters": [
+          {
+            "name": "auth_provider",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "title": "Auth Provider"
+            }
+          },
+          {
+            "name": "learning_service",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "title": "Learning Service"
+            }
+          },
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/QuizAttemptCreateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QuizAttemptResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/learning/quiz-attempts/{quiz_id}/best": {
+      "get": {
+        "tags": [
+          "learning"
+        ],
+        "summary": "Return the best quiz attempt for the specified quiz",
+        "description": "Return the best scoring attempt for a quiz, if any.",
+        "operationId": "get_best_quiz_attempt_api_learning_quiz_attempts__quiz_id__best_get",
+        "parameters": [
+          {
+            "name": "quiz_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Quiz Id"
+            }
+          },
+          {
+            "name": "auth_provider",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "title": "Auth Provider"
+            }
+          },
+          {
+            "name": "learning_service",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "title": "Learning Service"
+            }
+          },
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/QuizAttemptResponse"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "title": "Response Get Best Quiz Attempt Api Learning Quiz Attempts  Quiz Id  Best Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/": {
+      "get": {
+        "summary": "Root",
+        "description": "Root endpoint.",
+        "operationId": "root__get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Root  Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "AnalysesListResponse": {
+        "properties": {
+          "schema_version": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Schema Version",
+            "default": 3
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/AnalysisResponse"
+            },
+            "type": "array",
+            "title": "Items",
+            "description": "Analyses for the requested page"
+          },
+          "pagination": {
+            "$ref": "#/components/schemas/PaginationMetadata",
+            "description": "Pagination block describing current cursor information"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "pagination"
+        ],
+        "title": "AnalysesListResponse",
+        "description": "Envelope returned by the `/api/analyses` list endpoint."
+      },
+      "AnalysisResponse": {
+        "properties": {
+          "schema_version": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Schema Version",
+            "default": 3
+          },
+          "analysis_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Analysis Id",
+            "description": "Analysis identifier"
+          },
+          "filing_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Filing Id",
+            "description": "Associated filing identifier"
+          },
+          "analysis_type": {
+            "$ref": "#/components/schemas/AnalysisType",
+            "description": "Type of analysis performed"
+          },
+          "status": {
+            "$ref": "#/components/schemas/AnalysisStatus",
+            "description": "Lifecycle status for the analysis"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At",
+            "description": "Timestamp when the analysis was created"
+          },
+          "created_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created By",
+            "description": "User identifier that initiated the analysis"
+          },
+          "summary": {
+            "$ref": "#/components/schemas/src__application__handlers__schemas__responses__analysis_response__AnalysisSummary",
+            "description": "Compact summary payload shipped on list responses"
+          },
+          "full_results": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Full Results",
+            "description": "Full analysis artifact from blob storage when requested"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "analysis_id",
+          "filing_id",
+          "analysis_type",
+          "status",
+          "created_at"
+        ],
+        "title": "AnalysisResponse",
+        "description": "Response DTO returned by both list and detail analysis endpoints."
+      },
+      "AnalysisSegment": {
+        "type": "string",
+        "enum": [
+          "all",
+          "attention",
+          "ready_for_review",
+          "flagged"
+        ],
+        "title": "AnalysisSegment",
+        "description": "Dashboard-oriented segment filter for analyses."
+      },
+      "AnalysisSortField": {
+        "type": "string",
+        "enum": [
+          "created_at",
+          "confidence_score",
+          "insight_counts.critical_findings"
+        ],
+        "title": "AnalysisSortField",
+        "description": "Fields available for ordering analysis results."
+      },
+      "AnalysisStatus": {
+        "type": "string",
+        "enum": [
+          "INITIATED",
+          "FETCHING",
+          "PARSING",
+          "ANALYZING",
+          "STORING",
+          "COMPLETED",
+          "ERROR",
+          "EXPIRED"
+        ],
+        "title": "AnalysisStatus",
+        "description": "Analysis processing status."
+      },
+      "AnalysisType": {
+        "type": "string",
+        "enum": [
+          "COMPREHENSIVE",
+          "FINANCIAL",
+          "RISK",
+          "COMPETITION",
+          "BUSINESS",
+          "TREND",
+          "SENTIMENT",
+          "CUSTOM"
+        ],
+        "title": "AnalysisType",
+        "description": "Canonical analysis types recognised by the platform."
+      },
+      "AuthSessionResponse": {
+        "properties": {
+          "accessToken": {
+            "type": "string",
+            "title": "Accesstoken"
+          },
+          "tokenType": {
+            "type": "string",
+            "title": "Tokentype",
+            "default": "Bearer"
+          },
+          "expiresIn": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expiresin"
+          },
+          "refreshExpiresIn": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Refreshexpiresin"
+          },
+          "issuedAt": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Issuedat"
+          },
+          "user": {
+            "$ref": "#/components/schemas/AuthenticatedUserPayload"
+          },
+          "redirectTo": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Redirectto",
+            "description": "Client redirect hint preserved from login flow"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "accessToken",
+          "user"
+        ],
+        "title": "AuthSessionResponse",
+        "description": "Response returned after login/refresh operations."
+      },
+      "AuthenticatedUserPayload": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id",
+            "description": "User identifier"
+          },
+          "email": {
+            "type": "string",
+            "title": "Email",
+            "description": "Verified email address"
+          },
+          "tier": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tier",
+            "description": "User subscription tier (BASIC, PROFESSIONAL, etc.)"
+          },
+          "permissions": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Permissions",
+            "description": "Granted permission codes"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "email"
+        ],
+        "title": "AuthenticatedUserPayload",
+        "description": "Payload describing the authenticated user."
+      },
+      "CompanyResponse": {
+        "properties": {
+          "schema_version": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Schema Version",
+            "description": "Schema version for the application DTO",
+            "default": 1
+          },
+          "company_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Company Id",
+            "description": "Unique identifier for the company"
+          },
+          "cik": {
+            "type": "string",
+            "title": "Cik",
+            "description": "Company CIK identifier"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name",
+            "description": "Company legal name"
+          },
+          "ticker": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ticker",
+            "description": "Company ticker symbol if available"
+          },
+          "display_name": {
+            "type": "string",
+            "title": "Display Name",
+            "description": "Display-friendly company name"
+          },
+          "industry": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Industry",
+            "description": "Industry classification"
+          },
+          "sic_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sic Code",
+            "description": "Standard Industrial Classification code"
+          },
+          "sic_description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sic Description",
+            "description": "Description of the SIC code"
+          },
+          "fiscal_year_end": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fiscal Year End",
+            "description": "Fiscal year end"
+          },
+          "business_address": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Business Address",
+            "description": "Business address information"
+          },
+          "recent_analyses": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/src__application__handlers__schemas__responses__company_response__AnalysisSummary"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Recent Analyses",
+            "description": "Optional list of recent analysis summaries"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "company_id",
+          "cik",
+          "name",
+          "display_name"
+        ],
+        "title": "CompanyResponse",
+        "description": "Response containing comprehensive company information.\n\nCombines data from local database with enriched information from SEC EDGAR\nto provide a complete company profile including optional enhancements."
+      },
+      "DetailedHealthResponse": {
+        "properties": {
+          "schema_version": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Schema Version",
+            "description": "Schema version for detailed health response models",
+            "default": 1
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "timestamp": {
+            "type": "string",
+            "title": "Timestamp"
+          },
+          "version": {
+            "type": "string",
+            "title": "Version"
+          },
+          "environment": {
+            "type": "string",
+            "title": "Environment"
+          },
+          "services": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/HealthStatus"
+            },
+            "type": "object",
+            "title": "Services"
+          },
+          "configuration": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Configuration"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status",
+          "timestamp",
+          "version",
+          "environment",
+          "services",
+          "configuration"
+        ],
+        "title": "DetailedHealthResponse",
+        "description": "Detailed health response with service status."
+      },
+      "FilingResponse": {
+        "properties": {
+          "schema_version": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Schema Version",
+            "description": "Schema version for the application DTO",
+            "default": 1
+          },
+          "filing_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Filing Id",
+            "description": "Unique identifier for the filing"
+          },
+          "company_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Company Id",
+            "description": "Identifier of the company that filed"
+          },
+          "accession_number": {
+            "type": "string",
+            "title": "Accession Number",
+            "description": "SEC accession number for the filing"
+          },
+          "filing_type": {
+            "type": "string",
+            "title": "Filing Type",
+            "description": "Type of SEC filing"
+          },
+          "filing_date": {
+            "type": "string",
+            "format": "date",
+            "title": "Filing Date",
+            "description": "Date the filing was submitted"
+          },
+          "processing_status": {
+            "$ref": "#/components/schemas/ProcessingStatus",
+            "description": "Current processing status in analysis pipeline"
+          },
+          "processing_error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Processing Error",
+            "description": "Error message if processing failed"
+          },
+          "metadata": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Metadata",
+            "description": "Additional filing metadata"
+          },
+          "analyses_count": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Analyses Count",
+            "description": "Number of analyses performed on this filing"
+          },
+          "latest_analysis_date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latest Analysis Date",
+            "description": "Date of most recent analysis"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "filing_id",
+          "company_id",
+          "accession_number",
+          "filing_type",
+          "filing_date",
+          "processing_status"
+        ],
+        "title": "FilingResponse",
+        "description": "Response DTO for filing information.\n\nThis DTO provides a structured representation of filing data optimized\nfor application layer consumption, including processing status and metadata.\n\nAttributes:\n    filing_id: Unique identifier for the filing\n    company_id: ID of the company that filed\n    accession_number: SEC accession number\n    filing_type: Type of SEC filing (10-K, 10-Q, etc.)\n    filing_date: Date the filing was submitted to SEC\n    processing_status: Current processing status in analysis pipeline\n    processing_error: Error message if processing failed\n    metadata: Additional filing metadata\n    analyses_count: Number of analyses performed on this filing (optional)\n    latest_analysis_date: Date of most recent analysis (optional)"
+      },
+      "FilingSearchResult": {
+        "properties": {
+          "schema_version": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Schema Version",
+            "description": "Schema version for the application DTO",
+            "default": 1
+          },
+          "filing_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Filing Id",
+            "description": "UUID identifier for the filing when available"
+          },
+          "accession_number": {
+            "type": "string",
+            "title": "Accession Number",
+            "description": "SEC accession number"
+          },
+          "filing_type": {
+            "type": "string",
+            "title": "Filing Type",
+            "description": "Type of SEC filing"
+          },
+          "filing_date": {
+            "type": "string",
+            "format": "date",
+            "title": "Filing Date",
+            "description": "Date the filing was submitted"
+          },
+          "company_name": {
+            "type": "string",
+            "title": "Company Name",
+            "description": "Name of the company that filed"
+          },
+          "cik": {
+            "type": "string",
+            "title": "Cik",
+            "description": "Company CIK identifier"
+          },
+          "ticker": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ticker",
+            "description": "Company ticker symbol if available"
+          },
+          "has_content": {
+            "type": "boolean",
+            "title": "Has Content",
+            "description": "Whether the filing has extractable content",
+            "default": true
+          },
+          "sections_count": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Sections Count",
+            "description": "Number of extracted sections",
+            "default": 0
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "accession_number",
+          "filing_type",
+          "filing_date",
+          "company_name",
+          "cik"
+        ],
+        "title": "FilingSearchResult",
+        "description": "Individual search result representing a filing from Edgar.\n\nThis DTO provides filing metadata optimized for search result display,\nfocusing on key information needed by the UI without full content.\n\nAttributes:\n    accession_number: SEC accession number (unique identifier)\n    filing_type: Type of SEC filing (10-K, 10-Q, etc.)\n    filing_date: Date the filing was submitted to SEC\n    company_name: Name of the company that filed\n    cik: Central Index Key for the company\n    ticker: Company ticker symbol (if available)\n    has_content: Whether the filing has extractable content\n    sections_count: Number of extracted sections (if available)"
+      },
+      "GoogleCallbackRequest": {
+        "properties": {
+          "code": {
+            "type": "string",
+            "title": "Code",
+            "description": "Google OAuth authorization code"
+          },
+          "state": {
+            "type": "string",
+            "title": "State",
+            "description": "Opaque state returned by Google"
+          },
+          "redirectUri": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Redirecturi",
+            "description": "Optional client redirect override"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "code",
+          "state"
+        ],
+        "title": "GoogleCallbackRequest",
+        "description": "Request payload for exchanging Google OAuth authorization codes."
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "type": "array",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "title": "HTTPValidationError"
+      },
+      "HealthStatus": {
+        "properties": {
+          "schema_version": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Schema Version",
+            "description": "Schema version for health status response models",
+            "default": 1
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Message"
+          },
+          "timestamp": {
+            "type": "string",
+            "title": "Timestamp"
+          },
+          "details": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Details"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status",
+          "timestamp"
+        ],
+        "title": "HealthStatus",
+        "description": "Health status response model."
+      },
+      "LearningProgressResponse": {
+        "properties": {
+          "schema_version": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Schema Version"
+          },
+          "progress_id": {
+            "type": "string",
+            "title": "Progress Id",
+            "description": "Learning progress identifier"
+          },
+          "user_id": {
+            "type": "string",
+            "title": "User Id",
+            "description": "Owner of the learning progress entry"
+          },
+          "module_key": {
+            "type": "string",
+            "title": "Module Key",
+            "description": "Stable module key"
+          },
+          "progress_percent": {
+            "type": "integer",
+            "maximum": 100.0,
+            "minimum": 0.0,
+            "title": "Progress Percent"
+          },
+          "last_interaction_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Interaction At"
+          },
+          "completed_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Completed At"
+          },
+          "metadata": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Metadata"
+          },
+          "created_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created At"
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "schema_version",
+          "progress_id",
+          "user_id",
+          "module_key",
+          "progress_percent"
+        ],
+        "title": "LearningProgressResponse",
+        "description": "API response envelope for a learning progress record."
+      },
+      "LearningProgressUpdateRequest": {
+        "properties": {
+          "schema_version": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Schema Version",
+            "default": 1
+          },
+          "progress_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Progress Id",
+            "description": "Existing progress identifier to update"
+          },
+          "progress_percent": {
+            "type": "integer",
+            "maximum": 100.0,
+            "minimum": 0.0,
+            "title": "Progress Percent"
+          },
+          "metadata": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Metadata"
+          },
+          "last_interaction_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Interaction At"
+          },
+          "completed_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Completed At"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "progress_percent"
+        ],
+        "title": "LearningProgressUpdateRequest",
+        "description": "Request payload for creating or updating learning progress."
+      },
+      "PaginatedResponse_FilingResponse_": {
+        "properties": {
+          "schema_version": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Schema Version",
+            "description": "Schema version for the application DTO",
+            "default": 1
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/FilingResponse"
+            },
+            "type": "array",
+            "title": "Items",
+            "description": "Items for this page"
+          },
+          "pagination": {
+            "$ref": "#/components/schemas/PaginationMetadata",
+            "description": "Pagination metadata"
+          },
+          "query_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Query Id",
+            "description": "ID of the query that generated this response"
+          },
+          "filters_applied": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Filters Applied",
+            "description": "Summary of filters that were applied"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "pagination"
+        ],
+        "title": "PaginatedResponse[FilingResponse]"
+      },
+      "PaginatedResponse_FilingSearchResult_": {
+        "properties": {
+          "schema_version": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Schema Version",
+            "description": "Schema version for the application DTO",
+            "default": 1
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/FilingSearchResult"
+            },
+            "type": "array",
+            "title": "Items",
+            "description": "Items for this page"
+          },
+          "pagination": {
+            "$ref": "#/components/schemas/PaginationMetadata",
+            "description": "Pagination metadata"
+          },
+          "query_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Query Id",
+            "description": "ID of the query that generated this response"
+          },
+          "filters_applied": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Filters Applied",
+            "description": "Summary of filters that were applied"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "pagination"
+        ],
+        "title": "PaginatedResponse[FilingSearchResult]"
+      },
+      "PaginationMetadata": {
+        "properties": {
+          "schema_version": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Schema Version",
+            "description": "Schema version for the application DTO",
+            "default": 1
+          },
+          "page": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Page",
+            "description": "Current page number (1-based)"
+          },
+          "page_size": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Page Size",
+            "description": "Number of items per page"
+          },
+          "total_items": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Total Items",
+            "description": "Total number of items"
+          },
+          "total_pages": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Total Pages",
+            "description": "Total number of pages"
+          },
+          "has_next": {
+            "type": "boolean",
+            "title": "Has Next",
+            "description": "Whether there is a next page"
+          },
+          "has_previous": {
+            "type": "boolean",
+            "title": "Has Previous",
+            "description": "Whether there is a previous page"
+          },
+          "next_page": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Page",
+            "description": "Next page number if available"
+          },
+          "previous_page": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Previous Page",
+            "description": "Previous page number if available"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "page",
+          "page_size",
+          "total_items",
+          "total_pages",
+          "has_next",
+          "has_previous"
+        ],
+        "title": "PaginationMetadata",
+        "description": "Metadata for pagination information.\n\nAttributes:\n    page: Current page number (1-based)\n    page_size: Number of items per page\n    total_items: Total number of items across all pages\n    total_pages: Total number of pages\n    has_next: Whether there is a next page\n    has_previous: Whether there is a previous page\n    next_page: Next page number (if available)\n    previous_page: Previous page number (if available)"
+      },
+      "ProcessingStatus": {
+        "type": "string",
+        "enum": [
+          "pending",
+          "processing",
+          "completed",
+          "failed",
+          "cancelled"
+        ],
+        "title": "ProcessingStatus",
+        "description": "Mirror of the historical ProcessingStatus enum with helper methods."
+      },
+      "QuizAttemptCreateRequest": {
+        "properties": {
+          "schema_version": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Schema Version",
+            "default": 1
+          },
+          "attempt_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Attempt Id",
+            "description": "Optional identifier for the attempt"
+          },
+          "quiz_id": {
+            "type": "string",
+            "title": "Quiz Id",
+            "description": "Quiz identifier"
+          },
+          "question_count": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Question Count"
+          },
+          "correct_count": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Correct Count"
+          },
+          "score_percent": {
+            "type": "number",
+            "maximum": 100.0,
+            "minimum": 0.0,
+            "title": "Score Percent"
+          },
+          "passed": {
+            "type": "boolean",
+            "title": "Passed",
+            "default": false
+          },
+          "attempted_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Attempted At"
+          },
+          "responses": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Responses"
+          },
+          "metadata": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Metadata"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "quiz_id",
+          "question_count",
+          "correct_count",
+          "score_percent"
+        ],
+        "title": "QuizAttemptCreateRequest",
+        "description": "Request payload for recording a quiz attempt."
+      },
+      "QuizAttemptResponse": {
+        "properties": {
+          "schema_version": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Schema Version"
+          },
+          "attempt_id": {
+            "type": "string",
+            "title": "Attempt Id",
+            "description": "Quiz attempt identifier"
+          },
+          "user_id": {
+            "type": "string",
+            "title": "User Id",
+            "description": "Owner of the quiz attempt"
+          },
+          "quiz_id": {
+            "type": "string",
+            "title": "Quiz Id",
+            "description": "Quiz identifier"
+          },
+          "question_count": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Question Count"
+          },
+          "correct_count": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Correct Count"
+          },
+          "score_percent": {
+            "type": "number",
+            "maximum": 100.0,
+            "minimum": 0.0,
+            "title": "Score Percent"
+          },
+          "passed": {
+            "type": "boolean",
+            "title": "Passed"
+          },
+          "attempted_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Attempted At"
+          },
+          "metadata": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Metadata"
+          },
+          "created_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created At"
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "schema_version",
+          "attempt_id",
+          "user_id",
+          "quiz_id",
+          "question_count",
+          "correct_count",
+          "score_percent",
+          "passed",
+          "attempted_at"
+        ],
+        "title": "QuizAttemptResponse",
+        "description": "API response envelope for a quiz attempt."
+      },
+      "SentimentSectionScore": {
+        "properties": {
+          "section": {
+            "type": "string",
+            "title": "Section",
+            "description": "Section label"
+          },
+          "score": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Score",
+            "description": "Sentiment score for section"
+          }
+        },
+        "type": "object",
+        "required": [
+          "section"
+        ],
+        "title": "SentimentSectionScore",
+        "description": "Sentiment score for an analysed filing section."
+      },
+      "SentimentWeakestSection": {
+        "properties": {
+          "section": {
+            "type": "string",
+            "title": "Section",
+            "description": "Section name"
+          },
+          "score": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Score",
+            "description": "Sentiment score for the weakest section"
+          }
+        },
+        "type": "object",
+        "required": [
+          "section"
+        ],
+        "title": "SentimentWeakestSection",
+        "description": "Descriptor for the weakest sentiment section."
+      },
+      "SortDirection": {
+        "type": "string",
+        "enum": [
+          "asc",
+          "desc"
+        ],
+        "title": "SortDirection",
+        "description": "Sort direction options acknowledged by the API."
+      },
+      "SummaryCompany": {
+        "properties": {
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name",
+            "description": "Company legal name"
+          },
+          "cik": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cik",
+            "description": "Company CIK identifier"
+          },
+          "ticker": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ticker",
+            "description": "Exchange ticker symbol"
+          }
+        },
+        "type": "object",
+        "title": "SummaryCompany",
+        "description": "Company descriptor embedded in the analysis summary."
+      },
+      "SummaryConfidence": {
+        "properties": {
+          "score": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 1.0,
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Score",
+            "description": "Confidence score scaled 0..1"
+          },
+          "bucket": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bucket",
+            "description": "Qualitative confidence bucket (low|medium|high)"
+          }
+        },
+        "type": "object",
+        "title": "SummaryConfidence",
+        "description": "Confidence signal for an analysis."
+      },
+      "SummaryFiling": {
+        "properties": {
+          "type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Type",
+            "description": "SEC filing type (e.g. 10-Q)"
+          },
+          "date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Date",
+            "description": "Filing date"
+          },
+          "analysis_template": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Analysis Template",
+            "description": "Template that drove the analysis pipeline"
+          },
+          "accession_number": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Accession Number",
+            "description": "EDGAR accession number for the analysed filing"
+          }
+        },
+        "type": "object",
+        "title": "SummaryFiling",
+        "description": "Filing metadata embedded in the analysis summary."
+      },
+      "SummaryHeadlineMetric": {
+        "properties": {
+          "id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Id",
+            "description": "Stable identifier for the headline metric"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name",
+            "description": "Display name for the metric"
+          },
+          "category": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Category",
+            "description": "Metric grouping (liquidity, growth, etc.)"
+          },
+          "unit": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unit",
+            "description": "Unit associated with values"
+          },
+          "current_value": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Current Value",
+            "description": "Current numeric value when available"
+          },
+          "previous_value": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Previous Value",
+            "description": "Previous numeric value when available"
+          },
+          "delta_value": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Delta Value",
+            "description": "Numeric delta between current and previous values when available"
+          },
+          "display": {
+            "$ref": "#/components/schemas/SummaryHeadlineMetricDisplay",
+            "description": "Human-friendly representations of the metric values"
+          },
+          "confidence": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 1.0,
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Confidence",
+            "description": "Confidence score for the metric if provided by the LLM"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "title": "SummaryHeadlineMetric",
+        "description": "Hero metric surfaced in the summary."
+      },
+      "SummaryHeadlineMetricDisplay": {
+        "properties": {
+          "current": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Current",
+            "description": "Formatted representation of the current value"
+          },
+          "previous": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Previous",
+            "description": "Formatted representation of the prior value"
+          },
+          "delta": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Delta",
+            "description": "Formatted representation of the change"
+          },
+          "delta_text": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Delta Text",
+            "description": "Narrative description of the change"
+          }
+        },
+        "type": "object",
+        "title": "SummaryHeadlineMetricDisplay",
+        "description": "Display formatting for a headline metric."
+      },
+      "SummaryInsightCounts": {
+        "properties": {
+          "key_insights": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Key Insights",
+            "description": "Number of key insights"
+          },
+          "opportunities": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Opportunities",
+            "description": "Number of opportunities"
+          },
+          "critical_findings": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Critical Findings",
+            "description": "Number of critical findings"
+          },
+          "sections_analyzed": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sections Analyzed",
+            "description": "Number of filing sections analysed"
+          }
+        },
+        "type": "object",
+        "title": "SummaryInsightCounts",
+        "description": "Insight counters extracted from the analysis summary."
+      },
+      "SummaryProcessing": {
+        "properties": {
+          "duration_seconds": {
+            "anyOf": [
+              {
+                "type": "number",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Duration Seconds",
+            "description": "Seconds spent generating the analysis"
+          },
+          "completed_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Completed At",
+            "description": "Completion timestamp for the analysis run"
+          }
+        },
+        "type": "object",
+        "title": "SummaryProcessing",
+        "description": "Processing metadata for the analysis run."
+      },
+      "SummaryRiskHighlight": {
+        "properties": {
+          "id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Id",
+            "description": "Stable identifier for the risk highlight"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title",
+            "description": "Title describing the risk or action"
+          },
+          "severity": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Severity",
+            "description": "Severity level reported by the LLM"
+          },
+          "probability": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Probability",
+            "description": "Probability tier reported by the LLM"
+          },
+          "summary": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Summary",
+            "description": "Short narrative describing the highlight"
+          },
+          "recommended_action": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Recommended Action",
+            "description": "Recommended action or mitigation steps"
+          },
+          "related_sections": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Related Sections",
+            "description": "Filing sections that informed this highlight"
+          }
+        },
+        "type": "object",
+        "required": [
+          "title"
+        ],
+        "title": "SummaryRiskHighlight",
+        "description": "Curated risk highlight for the summary."
+      },
+      "SummaryRiskHighlights": {
+        "properties": {
+          "critical_actions": {
+            "items": {
+              "$ref": "#/components/schemas/SummaryRiskHighlight"
+            },
+            "type": "array",
+            "title": "Critical Actions",
+            "description": "High severity items requiring action"
+          },
+          "signals_to_monitor": {
+            "items": {
+              "$ref": "#/components/schemas/SummaryRiskHighlight"
+            },
+            "type": "array",
+            "title": "Signals To Monitor",
+            "description": "Medium/low severity items to monitor"
+          }
+        },
+        "type": "object",
+        "title": "SummaryRiskHighlights",
+        "description": "Collection of curated risk highlights."
+      },
+      "SummarySentiment": {
+        "properties": {
+          "average": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Average",
+            "description": "Overall sentiment score"
+          },
+          "sections": {
+            "items": {
+              "$ref": "#/components/schemas/SentimentSectionScore"
+            },
+            "type": "array",
+            "title": "Sections",
+            "description": "Per-section sentiment breakdown"
+          }
+        },
+        "type": "object",
+        "title": "SummarySentiment",
+        "description": "Aggregate sentiment metrics for an analysis."
+      },
+      "SummarySentimentRollup": {
+        "properties": {
+          "overall": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Overall",
+            "description": "Weighted sentiment across all sections"
+          },
+          "weakest_section": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SentimentWeakestSection"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Weakest scoring section information"
+          },
+          "previous_overall": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Previous Overall",
+            "description": "Previous overall sentiment for comparison"
+          },
+          "prior_analysis_delta": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Prior Analysis Delta",
+            "description": "Delta vs previous overall sentiment if known"
+          },
+          "trend": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Trend",
+            "description": "Trend direction compared to previous analysis (up|down|flat)"
+          },
+          "confidence_band": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Confidence Band",
+            "description": "Confidence band for the aggregated sentiment"
+          }
+        },
+        "type": "object",
+        "title": "SummarySentimentRollup",
+        "description": "Enhanced sentiment rollup data for UI widgets."
+      },
+      "SummaryTimelineEvent": {
+        "properties": {
+          "id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Id",
+            "description": "Stable identifier for the event"
+          },
+          "occurred_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Occurred At",
+            "description": "Timestamp associated with the event"
+          },
+          "type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Type",
+            "description": "Event type classification (metric|risk|milestone, etc.)"
+          },
+          "severity": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Severity",
+            "description": "Optional severity tier for the event"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title",
+            "description": "Short title describing the event"
+          },
+          "summary": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Summary",
+            "description": "Narrative summary of the timeline event"
+          },
+          "source_section": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Section",
+            "description": "Section that produced the timeline entry"
+          },
+          "related_metrics": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Related Metrics",
+            "description": "Metric identifiers linked to the event"
+          },
+          "actions": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Actions",
+            "description": "Follow-up actions linked to the event"
+          }
+        },
+        "type": "object",
+        "title": "SummaryTimelineEvent",
+        "description": "Timeline event extracted from structured analysis data."
+      },
+      "TaskResponse": {
+        "properties": {
+          "schema_version": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Schema Version",
+            "description": "Schema version for the application DTO",
+            "default": 1
+          },
+          "task_id": {
+            "type": "string",
+            "title": "Task Id",
+            "description": "Unique identifier for the background task"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status",
+            "description": "Current status of the task"
+          },
+          "result": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Result",
+            "description": "Task result data if completed"
+          },
+          "error_message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Message",
+            "description": "Error message if task failed"
+          },
+          "started_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Started At",
+            "description": "Timestamp when the task started"
+          },
+          "completed_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Completed At",
+            "description": "Timestamp when the task completed"
+          },
+          "progress_percent": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Progress Percent",
+            "description": "Progress percentage (0-100)"
+          },
+          "current_step": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Current Step",
+            "description": "Current step description"
+          },
+          "analysis_stage": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Analysis Stage",
+            "description": "Structured analysis stage for backward compatibility"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "task_id",
+          "status"
+        ],
+        "title": "TaskResponse",
+        "description": "Simple response DTO for background task information.\n\nAttributes:\n    task_id: Unique identifier for the background task\n    status: Current status of the task\n    result: Task result data (if completed)\n    error_message: Error message (if task failed)\n    started_at: When the task was started (optional)\n    completed_at: When the task completed (optional)\n    progress_percent: Progress percentage (0-100)\n    current_step: Current step description\n    analysis_stage: Structured analysis stage (new field for frontend)"
+      },
+      "TemplatesResponse": {
+        "properties": {
+          "schema_version": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Schema Version",
+            "description": "Schema version for the application DTO",
+            "default": 1
+          },
+          "templates": {
+            "additionalProperties": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "object",
+            "title": "Templates",
+            "description": "Mapping of template identifiers to metadata"
+          },
+          "total_count": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Total Count",
+            "description": "Total number of templates"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "templates",
+          "total_count"
+        ],
+        "title": "TemplatesResponse",
+        "description": "Response containing analysis template information.\n\nProvides metadata about all available analysis templates including their\ndescriptions, associated schemas, and configuration details."
+      },
+      "ValidationError": {
+        "properties": {
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Location"
+          },
+          "msg": {
+            "type": "string",
+            "title": "Message"
+          },
+          "type": {
+            "type": "string",
+            "title": "Error Type"
+          }
+        },
+        "type": "object",
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError"
+      },
+      "src__application__handlers__schemas__responses__analysis_response__AnalysisSummary": {
+        "properties": {
+          "company": {
+            "$ref": "#/components/schemas/SummaryCompany",
+            "description": "Company metadata extracted from the filing"
+          },
+          "filing": {
+            "$ref": "#/components/schemas/SummaryFiling",
+            "description": "Filing metadata used during analysis"
+          },
+          "confidence": {
+            "$ref": "#/components/schemas/SummaryConfidence",
+            "description": "Confidence metrics generated by the pipeline"
+          },
+          "sentiment": {
+            "$ref": "#/components/schemas/SummarySentiment",
+            "description": "Sentiment scores calculated from the filing"
+          },
+          "insight_counts": {
+            "$ref": "#/components/schemas/SummaryInsightCounts",
+            "description": "Key insight counters summarising the analysis"
+          },
+          "processing": {
+            "$ref": "#/components/schemas/SummaryProcessing",
+            "description": "Analyst pipeline processing metadata"
+          },
+          "filing_summary": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Filing Summary",
+            "description": "Canonical filing summary narrative"
+          },
+          "key_insights": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Key Insights",
+            "description": "Curated key insight bullet points for the filing"
+          },
+          "opportunities": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Opportunities",
+            "description": "Identified opportunities extracted from the analysis"
+          },
+          "critical_findings": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Critical Findings",
+            "description": "Critical findings requiring attention"
+          },
+          "headline_metrics": {
+            "items": {
+              "$ref": "#/components/schemas/SummaryHeadlineMetric"
+            },
+            "type": "array",
+            "title": "Headline Metrics",
+            "description": "Headline metrics for quick reference"
+          },
+          "risk_highlights": {
+            "$ref": "#/components/schemas/SummaryRiskHighlights",
+            "description": "Grouped risk highlight collections"
+          },
+          "insight_timeline": {
+            "items": {
+              "$ref": "#/components/schemas/SummaryTimelineEvent"
+            },
+            "type": "array",
+            "title": "Insight Timeline",
+            "description": "Ordered narrative of significant filing events"
+          },
+          "sentiment_rollup": {
+            "$ref": "#/components/schemas/SummarySentimentRollup",
+            "description": "Enhanced sentiment aggregation for the filing"
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "title": "AnalysisSummary",
+        "description": "Structured summary exposed on `/api/analyses` list responses."
+      },
+      "src__application__handlers__schemas__responses__company_response__AnalysisSummary": {
+        "properties": {
+          "analysis_id": {
+            "type": "string",
+            "title": "Analysis Id"
+          },
+          "analysis_type": {
+            "type": "string",
+            "title": "Analysis Type"
+          },
+          "created_at": {
+            "type": "string",
+            "title": "Created At"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          }
+        },
+        "type": "object",
+        "required": [
+          "analysis_id",
+          "analysis_type",
+          "created_at",
+          "status"
+        ],
+        "title": "AnalysisSummary",
+        "description": "Minimal analysis summary for company responses."
+      }
+    }
+  }
+}
