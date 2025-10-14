@@ -140,7 +140,9 @@ describe('FilingDetailPage', () => {
     await user.click(explainToggle)
 
     await user.click(screen.getByRole('tab', { name: /Sentiment/i }))
-    expect(await screen.findByText(/Focused on Management Discussion & Analysis/i)).toBeInTheDocument()
+    expect(
+      await screen.findByText(/Focused on Management Discussion & Analysis/i)
+    ).toBeInTheDocument()
     expect(screen.getByText(/Average sentiment/i)).toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: /Clear focus/i }))

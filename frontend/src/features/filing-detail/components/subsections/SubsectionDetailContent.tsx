@@ -56,12 +56,16 @@ export function SubsectionDetailContent({ analysis }: SubsectionDetailContentPro
     case 'CashFlowAnalysisSection':
       return renderFinancialDetail(analysis)
     default:
-      return (
-        <DetailGroup title="Structured details">
-          <FallbackDetail payload={analysis.data} />
-        </DetailGroup>
-      )
+      return renderFallbackDetail(analysis)
   }
+}
+
+function renderFallbackDetail(analysis: ParsedSubsection) {
+  return (
+    <DetailGroup title="Structured details">
+      <FallbackDetail payload={analysis.data} />
+    </DetailGroup>
+  )
 }
 
 interface FallbackDetailProps {

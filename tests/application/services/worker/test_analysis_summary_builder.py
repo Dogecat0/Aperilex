@@ -220,6 +220,29 @@ def test_summary_builder_curates_structured_artifacts() -> None:
     assert timeline_entry["occurred_at"] == "2024-09-30"
     assert "data-privacy-penalties" in timeline_entry["id"]
 
+    # Summary sections expose featured metrics for the UI cards
+    summary_sections = summary["summary_sections"]
+    assert [segment["id"] for segment in summary_sections] == [
+        "overview-primer",
+        "section-deep-dive",
+        "metric-scan",
+        "sentiment-check",
+    ]
+    overview_segment = summary_sections[0]
+    assert overview_segment["featured_metric"]["label"] == "Current Ratio"
+
+    sections_segment = summary_sections[1]
+    assert sections_segment["featured_metric"] == {
+        "id": "critical-actions",
+        "label": "Critical actions",
+        "current": "1",
+        "delta": None,
+        "trend": "flat",
+    }
+
+    sentiment_segment = summary_sections[-1]
+    assert sentiment_segment["featured_metric"]["id"] == "sentiment-overall"
+
 
 @pytest.mark.unit
 def test_summary_builder_caps_critical_findings_at_five() -> None:

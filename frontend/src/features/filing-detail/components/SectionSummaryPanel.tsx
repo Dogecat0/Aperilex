@@ -855,7 +855,6 @@ export function SectionSummaryPanel({
           ) : null}
         </section>
       ) : null}
-
     </article>
   )
 }

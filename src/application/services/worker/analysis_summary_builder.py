@@ -676,10 +676,19 @@ class AnalysisSummaryBuilder:
 
         segments: list[dict[str, Any]] = []
 
+        primary_metric = self._select_headline_metric(headline_metrics)
+        overview_metric = self._select_headline_metric(
+            headline_metrics,
+            require_delta_text=True,
+        )
+        if overview_metric is None:
+            overview_metric = primary_metric
+
         overview_segment = self._build_overview_segment(
             filing_summary,
             key_insights,
             opportunities,
+            overview_metric,
         )
         if overview_segment:
             segments.append(overview_segment)
@@ -688,11 +697,15 @@ class AnalysisSummaryBuilder:
             risk_highlights,
             critical_findings,
             sentiment_sections,
+            headline_metrics,
         )
         if sections_segment:
             segments.append(sections_segment)
 
-        metrics_segment = self._build_metrics_segment(headline_metrics)
+        metrics_segment = self._build_metrics_segment(
+            headline_metrics,
+            primary_metric,
+        )
         if metrics_segment:
             segments.append(metrics_segment)
 
@@ -710,6 +723,7 @@ class AnalysisSummaryBuilder:
         filing_summary: str | None,
         key_insights: list[str],
         opportunities: list[str],
+        featured_source: dict[str, Any] | None,
     ) -> dict[str, Any] | None:
         """Construct the overview segment derived from filing summary narratives."""
 
@@ -727,12 +741,15 @@ class AnalysisSummaryBuilder:
             for item in collection:
                 append_unique(points, item, limit=3)
 
+        featured_metric = self._build_featured_metric_from_headline(featured_source)
+
         return {
             "id": "overview-primer",
             "title": "What to know first",
             "anchor": "overview",
             "summary": summary_text,
             "supporting_points": points,
+            "featured_metric": featured_metric,
         }
 
     def _build_sections_segment(
@@ -740,6 +757,7 @@ class AnalysisSummaryBuilder:
         risk_highlights: dict[str, Any],
         critical_findings: list[str],
         sentiment_sections: list[dict[str, Any]],
+        headline_metrics: list[dict[str, Any]],
     ) -> dict[str, Any] | None:
         """Construct the section deep-dive segment from risk highlights."""
 
@@ -782,34 +800,45 @@ class AnalysisSummaryBuilder:
             )
             append_unique(points, sentiment_point, limit=3)
 
+        featured_metric = self._build_sections_featured_metric(
+            risk_highlights,
+            sentiment_sections,
+            headline_metrics,
+        )
+
         return {
             "id": "section-deep-dive",
             "title": "Where to dive deeper",
             "anchor": "sections",
             "summary": summary_text,
             "supporting_points": points,
+            "featured_metric": featured_metric,
             "cta_label": "Open sections tab",
         }
 
     def _build_metrics_segment(
         self,
         headline_metrics: list[dict[str, Any]],
+        primary_metric: dict[str, Any] | None,
     ) -> dict[str, Any] | None:
         """Construct the metrics segment from headline metric payloads."""
 
         if not isinstance(headline_metrics, list) or not headline_metrics:
             return None
 
-        primary_metric: dict[str, Any] | None = None
-        for candidate in headline_metrics:
-            if isinstance(candidate, dict):
-                primary_metric = candidate
-                break
+        metric_to_use: dict[str, Any] | None = (
+            primary_metric if isinstance(primary_metric, dict) else None
+        )
+        if metric_to_use is None:
+            for candidate in headline_metrics:
+                if isinstance(candidate, dict):
+                    metric_to_use = candidate
+                    break
 
-        if not primary_metric:
+        if not metric_to_use:
             return None
 
-        display_block = primary_metric.get("display")
+        display_block = metric_to_use.get("display")
         if not isinstance(display_block, dict):
             display_block = {}
 
@@ -818,15 +847,15 @@ class AnalysisSummaryBuilder:
         )
         if summary_text is None:
             summary_text = clip_summary_text(
-                clean_text(primary_metric.get("summary"))
-                or clean_text(primary_metric.get("name"))
+                clean_text(metric_to_use.get("summary"))
+                or clean_text(metric_to_use.get("name"))
             )
 
         if summary_text is None:
             return None
 
         points: list[str] = []
-        metric_name = clean_text(primary_metric.get("name"))
+        metric_name = clean_text(metric_to_use.get("name"))
         current_display = clean_text(display_block.get("current"))
         delta_display = clean_text(display_block.get("delta"))
         previous_display = clean_text(display_block.get("previous"))
@@ -849,7 +878,7 @@ class AnalysisSummaryBuilder:
         for candidate in headline_metrics:
             if len(points) >= 3:
                 break
-            if candidate is primary_metric or not isinstance(candidate, dict):
+            if candidate is metric_to_use or not isinstance(candidate, dict):
                 continue
             candidate_name = clean_text(candidate.get("name"))
             candidate_display = candidate.get("display")
@@ -877,6 +906,7 @@ class AnalysisSummaryBuilder:
             "anchor": "numbers",
             "summary": summary_text,
             "supporting_points": points,
+            "featured_metric": self._build_featured_metric_from_headline(metric_to_use),
         }
 
     def _build_sentiment_segment(
@@ -961,21 +991,215 @@ class AnalysisSummaryBuilder:
                 limit=3,
             )
 
+        featured_metric = self._build_sentiment_featured_metric(
+            sentiment_rollup,
+            sentiment_sections,
+        )
+
         return {
             "id": "sentiment-check",
             "title": "Sentiment pulse",
             "anchor": "sentiment",
             "summary": summary_text,
             "supporting_points": points,
+            "featured_metric": featured_metric,
         }
 
-    def _describe_notable_sentiment_section(
+    def _select_headline_metric(
+        self,
+        headline_metrics: list[dict[str, Any]],
+        *,
+        require_delta_text: bool = False,
+    ) -> dict[str, Any] | None:
+        """Pick a primary headline metric candidate."""
+
+        if not isinstance(headline_metrics, list):
+            return None
+
+        for metric in headline_metrics:
+            if not isinstance(metric, dict):
+                continue
+
+            display_block = metric.get("display")
+            if not isinstance(display_block, dict):
+                display_block = {}
+
+            if require_delta_text and not clean_text(display_block.get("delta_text")):
+                continue
+
+            if clean_text(metric.get("name")) or clean_text(metric.get("id")):
+                return metric
+
+        return None
+
+    def _build_featured_metric_from_headline(
+        self,
+        metric: dict[str, Any] | None,
+    ) -> dict[str, Any] | None:
+        """Convert a headline metric into a featured metric payload."""
+
+        if not isinstance(metric, dict):
+            return None
+
+        metric_id = clean_text(metric.get("id"))
+        metric_name = clean_text(metric.get("name"))
+        display_block = metric.get("display")
+        if not isinstance(display_block, dict):
+            display_block = {}
+
+        current_display = clean_text(display_block.get("current"))
+        delta_display = clean_text(display_block.get("delta"))
+        delta_value = coerce_float(metric.get("delta_value"))
+
+        slug_source = metric_id or metric_name
+        slug = slugify_identifier(slug_source) if slug_source else ""
+        if not slug and metric_name:
+            slug = slugify_identifier(metric_name)
+        if not slug:
+            return None
+
+        label = metric_name or metric_id or slug
+        trend = self._resolve_metric_trend(delta_value, delta_display)
+
+        return {
+            "id": slug,
+            "label": label,
+            "current": current_display,
+            "delta": delta_display,
+            "trend": trend,
+        }
+
+    def _build_sections_featured_metric(
+        self,
+        risk_highlights: dict[str, Any],
+        sentiment_sections: list[dict[str, Any]],
+        headline_metrics: list[dict[str, Any]],
+    ) -> dict[str, Any] | None:
+        """Derive a featured metric for the sections segment."""
+
+        if isinstance(risk_highlights, dict):
+            critical_actions_raw = risk_highlights.get("critical_actions")
+            signals_raw = risk_highlights.get("signals_to_monitor")
+        else:
+            critical_actions_raw = None
+            signals_raw = None
+
+        critical_count = (
+            sum(1 for item in critical_actions_raw if isinstance(item, dict))
+            if isinstance(critical_actions_raw, list)
+            else 0
+        )
+        signals_count = (
+            sum(1 for item in signals_raw if isinstance(item, dict))
+            if isinstance(signals_raw, list)
+            else 0
+        )
+
+        if critical_count:
+            return {
+                "id": "critical-actions",
+                "label": "Critical actions",
+                "current": str(critical_count),
+                "delta": None,
+                "trend": "flat",
+            }
+
+        if signals_count:
+            return {
+                "id": "signals-to-monitor",
+                "label": "Signals to monitor",
+                "current": str(signals_count),
+                "delta": None,
+                "trend": "flat",
+            }
+
+        weakest = self._select_notable_sentiment_section(
+            sentiment_sections,
+            strongest=False,
+        )
+        if weakest:
+            section_name, section_score = weakest
+            return {
+                "id": slugify_identifier(section_name),
+                "label": section_name,
+                "current": (
+                    f"{section_score:.2f}" if section_score is not None else None
+                ),
+                "delta": None,
+                "trend": "down" if section_score is not None and section_score < 0 else "flat",
+            }
+
+        fallback_metric = self._select_headline_metric(headline_metrics)
+        return self._build_featured_metric_from_headline(fallback_metric)
+
+    def _build_sentiment_featured_metric(
+        self,
+        sentiment_rollup: dict[str, Any],
+        sentiment_sections: list[dict[str, Any]],
+    ) -> dict[str, Any] | None:
+        """Compose the featured metric block for sentiment segments."""
+
+        if not isinstance(sentiment_rollup, dict):
+            return None
+
+        overall = coerce_float(sentiment_rollup.get("overall"))
+        if overall is None:
+            return None
+
+        delta_value = coerce_float(sentiment_rollup.get("prior_analysis_delta"))
+        delta_display = f"{delta_value:+.2f}" if delta_value is not None else None
+
+        explicit_trend = clean_text(sentiment_rollup.get("trend"))
+        if explicit_trend not in {"up", "down", "flat"}:
+            explicit_trend = None
+
+        trend = explicit_trend or self._resolve_metric_trend(delta_value, delta_display)
+
+        weakest_selection = self._select_notable_sentiment_section(
+            sentiment_sections,
+            strongest=False,
+        )
+        weakest_section_label = weakest_selection[0] if weakest_selection else None
+
+        return {
+            "id": "sentiment-overall",
+            "label": weakest_section_label or "Overall sentiment",
+            "current": f"{overall:.2f}",
+            "delta": delta_display,
+            "trend": trend,
+        }
+
+    @staticmethod
+    def _resolve_metric_trend(
+        delta_value: float | None,
+        delta_display: str | None,
+    ) -> str | None:
+        """Resolve the qualitative trend direction from delta data."""
+
+        if delta_value is not None:
+            if delta_value > 0:
+                return "up"
+            if delta_value < 0:
+                return "down"
+            return "flat"
+
+        display = clean_text(delta_display)
+        if display:
+            candidate = display.lstrip()
+            if candidate.startswith("+"):
+                return "up"
+            if candidate.startswith("-") or candidate.startswith("("):
+                return "down"
+
+        return None
+
+    def _select_notable_sentiment_section(
         self,
         sentiment_sections: list[dict[str, Any]],
         *,
         strongest: bool,
-    ) -> str | None:
-        """Describe the strongest or weakest sentiment section."""
+    ) -> tuple[str, float | None] | None:
+        """Select the strongest or weakest sentiment section and return its data."""
 
         selected_section: dict[str, Any] | None = None
         selected_score: float | None = None
@@ -1005,9 +1229,28 @@ class AnalysisSummaryBuilder:
         if not section_name:
             return None
 
-        if selected_score is not None:
+        return section_name, selected_score
+
+    def _describe_notable_sentiment_section(
+        self,
+        sentiment_sections: list[dict[str, Any]],
+        *,
+        strongest: bool,
+    ) -> str | None:
+        """Describe the strongest or weakest sentiment section."""
+
+        selection = self._select_notable_sentiment_section(
+            sentiment_sections,
+            strongest=strongest,
+        )
+        if not selection:
+            return None
+
+        section_name, section_score = selection
+
+        if section_score is not None:
             qualifier = "Strongest" if strongest else "Weakest"
-            return f"{qualifier} section: {section_name} ({selected_score:.2f})"
+            return f"{qualifier} section: {section_name} ({section_score:.2f})"
 
         qualifier = "Strongest" if strongest else "Weakest"
         return f"{qualifier} section: {section_name}"

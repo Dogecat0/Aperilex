@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import date as summary_date
 from datetime import datetime
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Literal
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -133,9 +133,34 @@ class SummarySectionSegment(BaseModel):
         default_factory=list,
         description="Supporting highlights reinforcing the segment narrative",
     )
+    featured_metric: SummarySegmentFeaturedMetric | None = Field(
+        default=None,
+        description="Optional quantitative metric to feature within the segment",
+    )
     cta_label: str | None = Field(
         default=None,
         description="Optional call-to-action label overriding default button copy",
+    )
+
+    model_config = ConfigDict(extra="ignore", frozen=True)
+
+
+class SummarySegmentFeaturedMetric(BaseModel):
+    """Quantitative highlight rendered within a summary segment."""
+
+    id: str = Field(description="Stable identifier for the metric")
+    label: str = Field(description="Human readable metric label")
+    current: str | None = Field(
+        default=None,
+        description="Formatted representation of the current value",
+    )
+    delta: str | None = Field(
+        default=None,
+        description="Formatted representation of the change versus prior period",
+    )
+    trend: Literal["up", "down", "flat"] | None = Field(
+        default=None,
+        description="Directional trend derived from the metric delta",
     )
 
     model_config = ConfigDict(extra="ignore", frozen=True)
@@ -462,4 +487,5 @@ __all__ = [
     "SummaryProcessing",
     "SummarySentiment",
     "SentimentSectionScore",
+    "SummarySegmentFeaturedMetric",
 ]

@@ -30,6 +30,7 @@ import {
   type ParsedSubsection,
 } from '@/lib/types/analysisSchemas'
 import type { SentimentTone, SubsectionPanelData } from './types'
+import type { ThemeTokens } from '@/styles/tokens'
 
 const TAB_KEYS = ['overview', 'sections', 'numbers', 'sentiment'] as const
 type TabKey = (typeof TAB_KEYS)[number]
@@ -246,7 +247,9 @@ function extractSubsectionSynopsis(
   subsection: SubsectionAnalysis,
   parsed: ParsedSubsection | null
 ): string | null {
-  const directSummary = pickDisplayString(subsection.section_summary ?? null)
+  const directSummary = pickDisplayString(
+    typeof subsection.section_summary === 'string' ? subsection.section_summary : null
+  )
   if (directSummary) {
     return directSummary
   }
@@ -398,6 +401,80 @@ function sanitizeSummaryPoints(points: SummarySection['supporting_points']): str
     }
   }
   return cleaned
+}
+
+type SummarySegmentTrend = 'up' | 'down' | 'flat'
+
+interface NormalizedSegmentMetric {
+  id: string
+  label: string
+  current?: string
+  delta?: string
+  trend: SummarySegmentTrend | null
+}
+
+function normalizeSegmentFeaturedMetric(
+  metric: SummarySection['featured_metric']
+): NormalizedSegmentMetric | null {
+  if (!metric) {
+    return null
+  }
+
+  const id = pickDisplayString(metric.id)
+  const label = pickDisplayString(metric.label)
+  const normalizedLabel = label ?? id
+  if (!normalizedLabel) {
+    return null
+  }
+
+  const labelKey = normalizeSectionKey(normalizedLabel)
+  const sanitizedKey = labelKey.replace(/[^a-z0-9-]/gi, '')
+  const normalizedId = id ?? `segment-metric-${sanitizedKey || 'metric'}`
+  const current = pickDisplayString(metric.current)
+  const delta = pickDisplayString(metric.delta)
+  const trend =
+    metric.trend === 'up' || metric.trend === 'down' || metric.trend === 'flat'
+      ? metric.trend
+      : null
+
+  return {
+    id: normalizedId,
+    label: normalizedLabel,
+    current,
+    delta,
+    trend,
+  }
+}
+
+function formatSegmentMetricDelta(metric: NormalizedSegmentMetric): string | null {
+  if (!metric.delta) {
+    return null
+  }
+
+  const trendSymbol =
+    metric.trend === 'up' ? '▲' : metric.trend === 'down' ? '▼' : metric.trend === 'flat' ? '▬' : ''
+  const trimmedDelta = metric.delta.trim()
+  if (!trendSymbol) {
+    return trimmedDelta || null
+  }
+
+  return `${trendSymbol} ${trimmedDelta}`
+}
+
+function resolveSegmentMetricTrendColor(
+  trend: NormalizedSegmentMetric['trend'],
+  tokens: ThemeTokens
+) {
+  if (trend === 'up') {
+    return tokens.status.positive
+  }
+  if (trend === 'down') {
+    return tokens.status.negative
+  }
+  if (trend === 'flat') {
+    return tokens.status.neutral
+  }
+  return 'var(--text-secondary)'
 }
 
 const SUMMARY_CTA_DEFAULTS: Partial<Record<TabKey, string>> = {
@@ -968,6 +1045,12 @@ export function FilingDetailPage() {
                         const ctaLabel =
                           pickDisplayString(segment.cta_label) ??
                           (targetTab ? SUMMARY_CTA_DEFAULTS[targetTab] : undefined)
+                        const featuredMetric = normalizeSegmentFeaturedMetric(
+                          segment.featured_metric
+                        )
+                        const featuredDelta = featuredMetric
+                          ? formatSegmentMetricDelta(featuredMetric)
+                          : null
 
                         return (
                           <article
@@ -1005,6 +1088,45 @@ export function FilingDetailPage() {
                                 </Button>
                               ) : null}
                             </div>
+                            {featuredMetric ? (
+                              <div
+                                className="flex flex-col gap-2 rounded-2xl border p-3"
+                                style={{
+                                  borderColor: 'var(--lines-subtle)',
+                                  background: 'var(--surfaces-base)',
+                                }}
+                              >
+                                <span className="text-xs font-semibold uppercase tracking-wide text-[var(--text-muted)]">
+                                  Metric highlight
+                                </span>
+                                <div className="flex flex-wrap items-baseline justify-between gap-3">
+                                  <div className="flex flex-col">
+                                    <span className="text-sm font-semibold text-[var(--text-primary)]">
+                                      {featuredMetric.label}
+                                    </span>
+                                    {featuredMetric.current ? (
+                                      <span className="text-lg font-semibold text-[var(--text-primary)]">
+                                        {featuredMetric.current}
+                                      </span>
+                                    ) : null}
+                                  </div>
+                                  {featuredDelta ? (
+                                    <span
+                                      className="rounded-full px-3 py-1 text-xs font-semibold"
+                                      style={{
+                                        background: 'var(--surfaces-muted)',
+                                        color: resolveSegmentMetricTrendColor(
+                                          featuredMetric.trend,
+                                          tokens
+                                        ),
+                                      }}
+                                    >
+                                      {featuredDelta}
+                                    </span>
+                                  ) : null}
+                                </div>
+                              </div>
+                            ) : null}
                             {points.length > 0 ? (
                               <ul className="flex list-disc flex-col gap-2 pl-5 text-sm text-[var(--text-secondary)]">
                                 {points.map((point) => (
@@ -1410,7 +1532,6 @@ export function FilingDetailPage() {
                 </div>
               </section>
             ) : null}
-
           </div>
         </section>
 
