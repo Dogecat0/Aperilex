@@ -1,5 +1,5 @@
 {
-  "schema_version": 3,
+  "schema_version": 4,
   "analysis_id": "dc3a738f-d9b8-434b-9a68-ba9d22c3db42",
   "filing_id": "27ae64e6-c4cb-5f6c-9d84-aabd05a7a4f6",
   "analysis_type": "COMPREHENSIVE",
@@ -75,53 +75,6 @@
           "delta_text": "Operating cash now covers debt obligations 0.09× more than last quarter."
         },
         "confidence": 0.7
-      }
-    ],
-    "risk_highlights": {
-      "critical_actions": [
-        {
-          "id": "net_income_collapse",
-          "title": "Profitability under pressure",
-          "severity": "high",
-          "probability": "medium",
-          "summary": "Net income dropped 55% YoY while traffic acquisition costs climbed.",
-          "recommended_action": "Review cost structure, adjust FY guidance, and outline mitigation in MD&A.",
-          "related_sections": ["Income Statement", "Risk Factors"]
-        }
-      ],
-      "signals_to_monitor": [
-        {
-          "id": "cloud_margin_trend",
-          "title": "Cloud margin variability",
-          "severity": "medium",
-          "probability": "medium",
-          "summary": "Cloud margins dipped quarter-over-quarter as deal incentives increased.",
-          "recommended_action": "Track pipeline mix and deal profitability through Q3 earnings.",
-          "related_sections": ["Management Discussion & Analysis"]
-        }
-      ]
-    },
-    "insight_timeline": [
-      {
-        "id": "2025-07-24-revenue",
-        "occurred_at": "2025-07-24T00:00:00Z",
-        "type": "metric",
-        "severity": "medium",
-        "title": "Revenue up 14% YoY",
-        "summary": "Alphabet’s top-line acceleration beat consensus and reflects strength in Google Services and Cloud.",
-        "source_section": "Income Statement",
-        "related_metrics": ["revenue_yoy"]
-      },
-      {
-        "id": "2025-07-24-risk",
-        "occurred_at": "2025-07-24T00:00:00Z",
-        "type": "risk",
-        "severity": "high",
-        "title": "Net income compression",
-        "summary": "Operating cost growth offset revenue gains, driving profit contraction.",
-        "source_section": "Risk Factors",
-        "related_metrics": ["net_income_margin"],
-        "actions": ["Initiate cost containment review"]
       }
     ],
     "sentiment_rollup": {

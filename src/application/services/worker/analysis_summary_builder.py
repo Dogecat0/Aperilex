@@ -88,9 +88,6 @@ class AnalysisSummaryBuilder:
         filing_summary = self._resolve_filing_summary(structured_data, result)
 
         headline_metrics = self._collect_headline_metrics(structured_data, sections)
-        risk_highlights = self._collect_risk_highlights(sections)
-        insight_timeline = self._collect_insight_timeline(structured_data, sections)
-
         sentiment_rollup_payload = self._build_sentiment_rollup_payload(
             weighted_sentiment,
             weakest_section_label,
@@ -105,7 +102,6 @@ class AnalysisSummaryBuilder:
             opportunities,
             critical_findings_list,
             headline_metrics,
-            risk_highlights,
             sentiment_rollup_payload,
             sentiment_sections,
         )
@@ -154,8 +150,6 @@ class AnalysisSummaryBuilder:
             "opportunities": opportunities,
             "critical_findings": critical_findings_list,
             "headline_metrics": headline_metrics,
-            "risk_highlights": risk_highlights,
-            "insight_timeline": insight_timeline,
         }
 
     @staticmethod
@@ -394,273 +388,6 @@ class AnalysisSummaryBuilder:
             "confidence": confidence,
         }
 
-    def _collect_risk_highlights(
-        self,
-        sections: list[dict[str, Any]],
-    ) -> dict[str, Any]:
-        """Materialise grouped risk highlights from structured sections."""
-
-        critical_actions: list[dict[str, Any]] = []
-        signals_to_monitor: list[dict[str, Any]] = []
-        seen_ids: set[str] = set()
-
-        for section in sections:
-            parent_section = self._resolve_section_name(section)
-            sub_sections = section.get("sub_sections")
-            if not isinstance(sub_sections, list):
-                continue
-            for sub_section in sub_sections:
-                if not isinstance(sub_section, dict):
-                    continue
-                schema_type = str(sub_section.get("schema_type") or "").lower()
-                if "risk" not in schema_type:
-                    continue
-                analysis = sub_section.get("analysis")
-                if not isinstance(analysis, dict):
-                    continue
-                title = clean_text(
-                    analysis.get("risk_name")
-                    or analysis.get("title")
-                    or analysis.get("headline")
-                )
-                if not title:
-                    continue
-                highlight_id_raw = clean_text(
-                    analysis.get("risk_id") or analysis.get("id")
-                )
-                highlight_id = (
-                    slugify_identifier(highlight_id_raw)
-                    if highlight_id_raw
-                    else slugify_identifier(title)
-                )
-                if highlight_id and highlight_id in seen_ids:
-                    continue
-                severity_raw = clean_text(analysis.get("severity"))
-                probability_raw = clean_text(analysis.get("probability"))
-                summary = clean_text(
-                    analysis.get("potential_impact") or analysis.get("description")
-                )
-                mitigation = analysis.get("mitigation_measures")
-                recommended_action = None
-                if isinstance(mitigation, list):
-                    mitigation_parts = [
-                        part.strip()
-                        for part in mitigation
-                        if isinstance(part, str) and part.strip()
-                    ]
-                    if mitigation_parts:
-                        recommended_action = "; ".join(mitigation_parts)
-                elif isinstance(mitigation, str):
-                    mitigation_text = mitigation.strip()
-                    if mitigation_text:
-                        recommended_action = mitigation_text
-                related_sections: list[str] = []
-                subsection_name = clean_text(sub_section.get("sub_section_name"))
-                if parent_section:
-                    related_sections.append(parent_section)
-                if subsection_name and subsection_name not in related_sections:
-                    related_sections.append(subsection_name)
-
-                highlight = {
-                    "id": highlight_id or None,
-                    "title": title,
-                    "severity": severity_raw.lower() if severity_raw else None,
-                    "probability": probability_raw.lower() if probability_raw else None,
-                    "summary": summary,
-                    "recommended_action": recommended_action,
-                    "related_sections": related_sections,
-                }
-                if highlight_id:
-                    seen_ids.add(highlight_id)
-                if severity_raw and severity_raw.lower() in {"high", "critical"}:
-                    critical_actions.append(highlight)
-                else:
-                    signals_to_monitor.append(highlight)
-
-        return {
-            "critical_actions": critical_actions,
-            "signals_to_monitor": signals_to_monitor,
-        }
-
-    def _collect_insight_timeline(
-        self,
-        structured_data: dict[str, Any],
-        sections: list[dict[str, Any]],
-    ) -> list[dict[str, Any]]:
-        """Construct a timeline of notable insights."""
-
-        timeline: list[dict[str, Any]] = []
-        seen_ids: set[str] = set()
-
-        existing_timeline = structured_data.get("insight_timeline")
-        if isinstance(existing_timeline, list):
-            for entry in existing_timeline:
-                normalized_entry = self._normalize_timeline_dict(entry)
-                if not normalized_entry:
-                    continue
-                entry_id = normalized_entry.get("id")
-                if entry_id:
-                    seen_ids.add(entry_id)
-                timeline.append(normalized_entry)
-
-        for section in sections:
-            parent_section = self._resolve_section_name(section)
-            sub_sections = section.get("sub_sections")
-            if not isinstance(sub_sections, list):
-                continue
-            for sub_section in sub_sections:
-                if not isinstance(sub_section, dict):
-                    continue
-                analysis = sub_section.get("analysis")
-                if not isinstance(analysis, dict):
-                    continue
-                timeline_entries = analysis.get("timeline")
-                if not isinstance(timeline_entries, list):
-                    continue
-                for entry in timeline_entries:
-                    normalized_entry = self._normalize_timeline_entry(
-                        entry,
-                        analysis,
-                        sub_section,
-                        parent_section,
-                    )
-                    if not normalized_entry:
-                        continue
-                    event_id = normalized_entry.get("id")
-                    if event_id:
-                        if event_id in seen_ids:
-                            continue
-                        seen_ids.add(event_id)
-                    timeline.append(normalized_entry)
-
-        return timeline
-
-    def _normalize_timeline_dict(self, entry: Any) -> dict[str, Any] | None:
-        """Normalise explicit timeline entries bundled in structured data."""
-
-        if not isinstance(entry, dict):
-            return None
-
-        severity = clean_text(entry.get("severity"))
-        related_metrics_raw = entry.get("related_metrics")
-        related_metrics: list[str] = []
-        if isinstance(related_metrics_raw, list):
-            for item in related_metrics_raw:
-                if isinstance(item, str):
-                    text = item.strip()
-                    if text:
-                        related_metrics.append(text)
-        actions_raw = entry.get("actions")
-        actions: list[str] = []
-        if isinstance(actions_raw, list):
-            for item in actions_raw:
-                if isinstance(item, str):
-                    text = item.strip()
-                    if text:
-                        actions.append(text)
-        elif isinstance(actions_raw, str):
-            action_text = actions_raw.strip()
-            if action_text:
-                actions.append(action_text)
-
-        return {
-            "id": clean_text(entry.get("id")),
-            "occurred_at": entry.get("occurred_at"),
-            "type": clean_text(entry.get("type")),
-            "severity": severity.lower() if severity else None,
-            "title": clean_text(entry.get("title")),
-            "summary": clean_text(entry.get("summary")),
-            "source_section": clean_text(entry.get("source_section")),
-            "related_metrics": related_metrics,
-            "actions": actions,
-        }
-
-    def _normalize_timeline_entry(
-        self,
-        entry: Any,
-        analysis: dict[str, Any],
-        sub_section: dict[str, Any],
-        parent_section: str,
-    ) -> dict[str, Any] | None:
-        """Derive a timeline entry from subsection timeline structures."""
-
-        if not isinstance(entry, dict):
-            return None
-
-        occurred_at = clean_text(
-            entry.get("occurred_at") or entry.get("date") or entry.get("timestamp")
-        )
-        title = clean_text(
-            entry.get("title")
-            or entry.get("label")
-            or analysis.get("risk_name")
-            or analysis.get("metric_name")
-            or analysis.get("ratio_name")
-        )
-        summary = clean_text(
-            entry.get("summary")
-            or entry.get("narrative")
-            or analysis.get("interpretation")
-            or analysis.get("description")
-        )
-        severity = clean_text(entry.get("severity") or analysis.get("severity"))
-        schema_type = str(sub_section.get("schema_type") or "").lower()
-        event_type = "risk" if "risk" in schema_type else "metric"
-
-        mitigation = analysis.get("mitigation_measures")
-        actions: list[str] = []
-        if isinstance(mitigation, list):
-            actions = [
-                item.strip()
-                for item in mitigation
-                if isinstance(item, str) and item.strip()
-            ]
-        elif isinstance(mitigation, str):
-            mitigation_text = mitigation.strip()
-            if mitigation_text:
-                actions = [mitigation_text]
-
-        metric_name = clean_text(
-            analysis.get("metric_name")
-            or analysis.get("ratio_name")
-            or analysis.get("risk_name")
-        )
-        related_metrics: list[str] = []
-        if metric_name:
-            metric_slug = slugify_identifier(metric_name)
-            if metric_slug:
-                related_metrics.append(metric_slug)
-
-        event_id = clean_text(entry.get("id"))
-        if not event_id:
-            base_identifier = "|".join(
-                filter(
-                    None,
-                    [
-                        occurred_at,
-                        title,
-                        metric_name,
-                        parent_section,
-                    ],
-                )
-            )
-            event_id = slugify_identifier(base_identifier)
-
-        if not any([occurred_at, title, summary]):
-            return None
-
-        return {
-            "id": event_id or None,
-            "occurred_at": occurred_at,
-            "type": event_type,
-            "severity": severity.lower() if severity else None,
-            "title": title,
-            "summary": summary,
-            "source_section": parent_section,
-            "related_metrics": related_metrics,
-            "actions": actions,
-        }
-
     def _compose_summary_sections(
         self,
         filing_summary: str | None,
@@ -668,7 +395,6 @@ class AnalysisSummaryBuilder:
         opportunities: list[str],
         critical_findings: list[str],
         headline_metrics: list[dict[str, Any]],
-        risk_highlights: dict[str, Any],
         sentiment_rollup: dict[str, Any],
         sentiment_sections: list[dict[str, Any]],
     ) -> list[dict[str, Any]]:
@@ -694,7 +420,6 @@ class AnalysisSummaryBuilder:
             segments.append(overview_segment)
 
         sections_segment = self._build_sections_segment(
-            risk_highlights,
             critical_findings,
             sentiment_sections,
             headline_metrics,
@@ -754,54 +479,43 @@ class AnalysisSummaryBuilder:
 
     def _build_sections_segment(
         self,
-        risk_highlights: dict[str, Any],
         critical_findings: list[str],
         sentiment_sections: list[dict[str, Any]],
         headline_metrics: list[dict[str, Any]],
     ) -> dict[str, Any] | None:
-        """Construct the section deep-dive segment from risk highlights."""
+        """Construct the section deep-dive segment from findings and sentiment."""
 
-        highlight = self._select_primary_highlight(risk_highlights)
         summary_text = None
         points: list[str] = []
-        related_sections: list[str] = []
 
-        if highlight:
-            summary_text = clip_summary_text(
-                clean_text(highlight.get("summary"))
-                or clean_text(highlight.get("title"))
-            )
-            append_unique(points, highlight.get("title"), limit=3)
-            append_unique(points, highlight.get("recommended_action"), limit=3)
-            related_sections_raw = highlight.get("related_sections")
-            if isinstance(related_sections_raw, list):
-                related_sections = [
-                    item for item in related_sections_raw if isinstance(item, str)
-                ]
-
-        if summary_text is None and critical_findings:
+        if critical_findings:
             summary_text = clip_summary_text(critical_findings[0])
+            for finding in critical_findings:
+                append_unique(points, finding, limit=3)
+                if len(points) >= 3:
+                    break
+
+        if summary_text is None:
+            sentiment_description = self._describe_notable_sentiment_section(
+                sentiment_sections,
+                strongest=False,
+            )
+            if sentiment_description:
+                summary_text = clip_summary_text(sentiment_description)
+                append_unique(points, sentiment_description, limit=3)
 
         if summary_text is None:
             return None
 
-        related_text = self._format_related_sections_summary(related_sections)
-        append_unique(points, related_text, limit=3)
-
-        for finding in critical_findings:
-            append_unique(points, finding, limit=3)
-            if len(points) >= 3:
-                break
-
-        if not points:
-            sentiment_point = self._describe_notable_sentiment_section(
+        if len(points) < 3:
+            strongest_sentiment = self._describe_notable_sentiment_section(
                 sentiment_sections,
-                strongest=False,
+                strongest=True,
             )
-            append_unique(points, sentiment_point, limit=3)
+            append_unique(points, strongest_sentiment, limit=3)
 
         featured_metric = self._build_sections_featured_metric(
-            risk_highlights,
+            critical_findings,
             sentiment_sections,
             headline_metrics,
         )
@@ -1071,44 +785,17 @@ class AnalysisSummaryBuilder:
 
     def _build_sections_featured_metric(
         self,
-        risk_highlights: dict[str, Any],
+        critical_findings: list[str],
         sentiment_sections: list[dict[str, Any]],
         headline_metrics: list[dict[str, Any]],
     ) -> dict[str, Any] | None:
         """Derive a featured metric for the sections segment."""
 
-        if isinstance(risk_highlights, dict):
-            critical_actions_raw = risk_highlights.get("critical_actions")
-            signals_raw = risk_highlights.get("signals_to_monitor")
-        else:
-            critical_actions_raw = None
-            signals_raw = None
-
-        critical_count = (
-            sum(1 for item in critical_actions_raw if isinstance(item, dict))
-            if isinstance(critical_actions_raw, list)
-            else 0
-        )
-        signals_count = (
-            sum(1 for item in signals_raw if isinstance(item, dict))
-            if isinstance(signals_raw, list)
-            else 0
-        )
-
-        if critical_count:
+        if critical_findings:
             return {
-                "id": "critical-actions",
-                "label": "Critical actions",
-                "current": str(critical_count),
-                "delta": None,
-                "trend": "flat",
-            }
-
-        if signals_count:
-            return {
-                "id": "signals-to-monitor",
-                "label": "Signals to monitor",
-                "current": str(signals_count),
+                "id": "critical-findings",
+                "label": "Critical findings",
+                "current": str(len(critical_findings)),
                 "delta": None,
                 "trend": "flat",
             }
@@ -1126,7 +813,9 @@ class AnalysisSummaryBuilder:
                     f"{section_score:.2f}" if section_score is not None else None
                 ),
                 "delta": None,
-                "trend": "down" if section_score is not None and section_score < 0 else "flat",
+                "trend": "down"
+                if section_score is not None and section_score < 0
+                else "flat",
             }
 
         fallback_metric = self._select_headline_metric(headline_metrics)
@@ -1312,49 +1001,6 @@ class AnalysisSummaryBuilder:
             "trend": trend,
             "confidence_band": confidence_band,
         }
-
-    @staticmethod
-    def _select_primary_highlight(
-        risk_highlights: dict[str, Any],
-    ) -> dict[str, Any] | None:
-        """Select the leading highlight used to anchor section guidance."""
-
-        if not isinstance(risk_highlights, dict):
-            return None
-
-        for collection_name in ("critical_actions", "signals_to_monitor"):
-            entries = risk_highlights.get(collection_name)
-            if not isinstance(entries, list):
-                continue
-            for entry in entries:
-                if not isinstance(entry, dict):
-                    continue
-                if clean_text(entry.get("summary")) or clean_text(entry.get("title")):
-                    return entry
-        return None
-
-    @staticmethod
-    def _format_related_sections_summary(
-        related_sections: list[str],
-    ) -> str | None:
-        """Summarise related sections into a concise supporting point."""
-
-        if not related_sections:
-            return None
-
-        names: list[str] = []
-        for section in related_sections:
-            cleaned = clean_text(section)
-            if cleaned and cleaned not in names:
-                names.append(cleaned)
-            if len(names) == 3:
-                break
-
-        if not names:
-            return None
-
-        joined = ", ".join(names)
-        return f"Anchored in {joined}."
 
     @staticmethod
     def _derive_metric_category(

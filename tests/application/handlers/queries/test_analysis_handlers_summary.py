@@ -1,4 +1,4 @@
-"""Regression coverage for analysis query handlers consuming the v3 summary payload."""
+"""Regression coverage for analysis query handlers consuming the v4 summary payload."""
 
 from __future__ import annotations
 
@@ -23,7 +23,7 @@ from src.shared.types import AnalysisId, FilingId, UserId
 
 
 def _make_summary_payload() -> dict[str, object]:
-    """Craft a curated summary payload representative of schema v3."""
+    """Craft a curated summary payload representative of schema v4."""
 
     return {
         "company": {"name": "Aperilex Labs", "cik": "0000123456", "ticker": "APLX"},
@@ -58,42 +58,6 @@ def _make_summary_payload() -> dict[str, object]:
                     "delta_text": "Revenue growth accelerated five points versus prior quarter.",
                 },
                 "confidence": 0.82,
-            }
-        ],
-        "risk_highlights": {
-            "critical_actions": [
-                {
-                    "id": "net_income_collapse",
-                    "title": "Profitability under pressure",
-                    "severity": "high",
-                    "probability": "medium",
-                    "summary": "Net income dropped 55% YoY while acquisition costs climbed.",
-                    "recommended_action": "Review cost structure and adjust FY guidance.",
-                    "related_sections": ["Income Statement", "Risk Factors"],
-                }
-            ],
-            "signals_to_monitor": [
-                {
-                    "id": "cloud_margin_trend",
-                    "title": "Cloud margin variability",
-                    "severity": "medium",
-                    "probability": "medium",
-                    "summary": "Cloud margins dipped quarter-over-quarter.",
-                    "recommended_action": "Track pipeline mix and deal profitability.",
-                    "related_sections": ["MD&A"],
-                }
-            ],
-        },
-        "insight_timeline": [
-            {
-                "id": "2024-09-30-revenue",
-                "occurred_at": "2024-09-30T00:00:00Z",
-                "type": "metric",
-                "severity": "medium",
-                "title": "Revenue up 14% YoY",
-                "summary": "Top-line acceleration beat consensus on broad-based strength.",
-                "source_section": "Income Statement",
-                "related_metrics": ["revenue_yoy"],
             }
         ],
         "filing_summary": "Overall filing outlook remains constructive despite margin pressure.",
@@ -174,11 +138,9 @@ async def test_get_analysis_handler_surfaces_curated_summary() -> None:
     metric = response.summary.headline_metrics[0]
     assert metric.name == "Revenue YoY Growth"
     assert metric.display.delta_text.startswith("Revenue growth accelerated")
-    assert response.summary.risk_highlights.critical_actions[0].title == (
-        "Profitability under pressure"
-    )
-    assert response.summary.insight_timeline[0].title == "Revenue up 14% YoY"
     assert response.summary.sentiment_rollup.overall == 0.18
+    assert "risk_highlights" not in response.summary.model_dump()
+    assert "insight_timeline" not in response.summary.model_dump()
     assert response.full_results is None
 
 
@@ -214,7 +176,7 @@ async def test_get_analysis_handler_unwraps_storage_envelope() -> None:
         },
     }
     storage_payload = {
-        "schema_version": 3,
+        "schema_version": 4,
         "analysis_id": str(analysis.id),
         "filing_id": str(analysis.filing_id),
         "analysis_type": analysis.analysis_type,
@@ -260,8 +222,7 @@ async def test_list_analyses_handler_includes_summary_widgets() -> None:
     assert len(response.items) == 1
     item = response.items[0]
     assert item.summary.headline_metrics[0].id == "revenue_yoy"
-    assert item.summary.risk_highlights.critical_actions[0].recommended_action.startswith(
-        "Review cost structure"
-    )
     assert item.summary.sentiment_rollup.weakest_section.section == "Risk Factors"
-    assert item.summary.insight_timeline[0].related_metrics == ["revenue_yoy"]
+    summary_dump = item.summary.model_dump()
+    assert "risk_highlights" not in summary_dump
+    assert "insight_timeline" not in summary_dump

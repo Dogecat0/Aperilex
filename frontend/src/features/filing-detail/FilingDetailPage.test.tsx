@@ -78,7 +78,7 @@ describe('FilingDetailPage', () => {
     vi.restoreAllMocks()
   })
 
-  it('renders overview stats, summary, and timeline data', async () => {
+  it('renders overview stats and curated summary cards', async () => {
     renderWithRouter([`/filing/${DETAIL_ID}`])
 
     expect(await screen.findByText('Filing summary')).toBeInTheDocument()
@@ -89,11 +89,13 @@ describe('FilingDetailPage', () => {
     expect(screen.getByText('Coverage')).toBeInTheDocument()
     expect(screen.getByText('3 sections')).toBeInTheDocument()
 
-    expect(screen.getByText(/Watch for regional FX headwinds/i)).toBeInTheDocument()
-    expect(
-      screen.getByText(/No recommended actions captured for this insight/i)
-    ).toBeInTheDocument()
-    expect(screen.getByText(/Refresh hedging strategy/i)).toBeInTheDocument()
+    expect(screen.getByText('Key insights')).toBeInTheDocument()
+    expect(screen.getByText(/Services revenue accelerated/i)).toBeInTheDocument()
+    expect(screen.getByText('Critical findings')).toBeInTheDocument()
+    expect(screen.getByText(/FX volatility/i)).toBeInTheDocument()
+    expect(screen.getByText('Opportunities')).toBeInTheDocument()
+    expect(screen.queryByText(/Risk highlights/i)).not.toBeInTheDocument()
+    expect(screen.queryByText(/Insight timeline/i)).not.toBeInTheDocument()
 
     await waitFor(() => {
       expect(apiClient.get).toHaveBeenCalledWith(

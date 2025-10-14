@@ -2323,7 +2323,7 @@
             "type": "integer",
             "minimum": 1.0,
             "title": "Schema Version",
-            "default": 3
+            "default": 4
           },
           "items": {
             "items": {
@@ -2352,7 +2352,7 @@
             "type": "integer",
             "minimum": 1.0,
             "title": "Schema Version",
-            "default": 3
+            "default": 4
           },
           "analysis_id": {
             "type": "string",
@@ -4031,112 +4031,6 @@
         "title": "SummaryProcessing",
         "description": "Processing metadata for the analysis run."
       },
-      "SummaryRiskHighlight": {
-        "properties": {
-          "id": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Id",
-            "description": "Stable identifier for the risk highlight"
-          },
-          "title": {
-            "type": "string",
-            "title": "Title",
-            "description": "Title describing the risk or action"
-          },
-          "severity": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Severity",
-            "description": "Severity level reported by the LLM"
-          },
-          "probability": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Probability",
-            "description": "Probability tier reported by the LLM"
-          },
-          "summary": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Summary",
-            "description": "Short narrative describing the highlight"
-          },
-          "recommended_action": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Recommended Action",
-            "description": "Recommended action or mitigation steps"
-          },
-          "related_sections": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array",
-            "title": "Related Sections",
-            "description": "Filing sections that informed this highlight"
-          }
-        },
-        "type": "object",
-        "required": [
-          "title"
-        ],
-        "title": "SummaryRiskHighlight",
-        "description": "Curated risk highlight for the summary."
-      },
-      "SummaryRiskHighlights": {
-        "properties": {
-          "critical_actions": {
-            "items": {
-              "$ref": "#/components/schemas/SummaryRiskHighlight"
-            },
-            "type": "array",
-            "title": "Critical Actions",
-            "description": "High severity items requiring action"
-          },
-          "signals_to_monitor": {
-            "items": {
-              "$ref": "#/components/schemas/SummaryRiskHighlight"
-            },
-            "type": "array",
-            "title": "Signals To Monitor",
-            "description": "Medium/low severity items to monitor"
-          }
-        },
-        "type": "object",
-        "title": "SummaryRiskHighlights",
-        "description": "Collection of curated risk highlights."
-      },
       "SummarySentiment": {
         "properties": {
           "average": {
@@ -4241,114 +4135,6 @@
         "type": "object",
         "title": "SummarySentimentRollup",
         "description": "Enhanced sentiment rollup data for UI widgets."
-      },
-      "SummaryTimelineEvent": {
-        "properties": {
-          "id": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Id",
-            "description": "Stable identifier for the event"
-          },
-          "occurred_at": {
-            "anyOf": [
-              {
-                "type": "string",
-                "format": "date-time"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Occurred At",
-            "description": "Timestamp associated with the event"
-          },
-          "type": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Type",
-            "description": "Event type classification (metric|risk|milestone, etc.)"
-          },
-          "severity": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Severity",
-            "description": "Optional severity tier for the event"
-          },
-          "title": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Title",
-            "description": "Short title describing the event"
-          },
-          "summary": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Summary",
-            "description": "Narrative summary of the timeline event"
-          },
-          "source_section": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Source Section",
-            "description": "Section that produced the timeline entry"
-          },
-          "related_metrics": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array",
-            "title": "Related Metrics",
-            "description": "Metric identifiers linked to the event"
-          },
-          "actions": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array",
-            "title": "Actions",
-            "description": "Follow-up actions linked to the event"
-          }
-        },
-        "type": "object",
-        "title": "SummaryTimelineEvent",
-        "description": "Timeline event extracted from structured analysis data."
       },
       "TaskResponse": {
         "properties": {
@@ -4602,18 +4388,6 @@
             "type": "array",
             "title": "Headline Metrics",
             "description": "Headline metrics for quick reference"
-          },
-          "risk_highlights": {
-            "$ref": "#/components/schemas/SummaryRiskHighlights",
-            "description": "Grouped risk highlight collections"
-          },
-          "insight_timeline": {
-            "items": {
-              "$ref": "#/components/schemas/SummaryTimelineEvent"
-            },
-            "type": "array",
-            "title": "Insight Timeline",
-            "description": "Ordered narrative of significant filing events"
           },
           "sentiment_rollup": {
             "$ref": "#/components/schemas/SummarySentimentRollup",

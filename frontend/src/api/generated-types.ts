@@ -1534,63 +1534,6 @@ export interface components {
       completed_at?: string | null
     }
     /**
-     * SummaryRiskHighlight
-     * @description Curated risk highlight for the summary.
-     */
-    SummaryRiskHighlight: {
-      /**
-       * Id
-       * @description Stable identifier for the risk highlight
-       */
-      id?: string | null
-      /**
-       * Title
-       * @description Title describing the risk or action
-       */
-      title: string
-      /**
-       * Severity
-       * @description Severity level reported by the LLM
-       */
-      severity?: string | null
-      /**
-       * Probability
-       * @description Probability tier reported by the LLM
-       */
-      probability?: string | null
-      /**
-       * Summary
-       * @description Short narrative describing the highlight
-       */
-      summary?: string | null
-      /**
-       * Recommended Action
-       * @description Recommended action or mitigation steps
-       */
-      recommended_action?: string | null
-      /**
-       * Related Sections
-       * @description Filing sections that informed this highlight
-       */
-      related_sections?: string[]
-    }
-    /**
-     * SummaryRiskHighlights
-     * @description Collection of curated risk highlights.
-     */
-    SummaryRiskHighlights: {
-      /**
-       * Critical Actions
-       * @description High severity items requiring action
-       */
-      critical_actions?: components['schemas']['SummaryRiskHighlight'][]
-      /**
-       * Signals To Monitor
-       * @description Medium/low severity items to monitor
-       */
-      signals_to_monitor?: components['schemas']['SummaryRiskHighlight'][]
-    }
-    /**
      * SummarySentiment
      * @description Aggregate sentiment metrics for an analysis.
      */
@@ -1638,57 +1581,6 @@ export interface components {
        * @description Confidence band for the aggregated sentiment
        */
       confidence_band?: string | null
-    }
-    /**
-     * SummaryTimelineEvent
-     * @description Timeline event extracted from structured analysis data.
-     */
-    SummaryTimelineEvent: {
-      /**
-       * Id
-       * @description Stable identifier for the event
-       */
-      id?: string | null
-      /**
-       * Occurred At
-       * @description Timestamp associated with the event
-       */
-      occurred_at?: string | null
-      /**
-       * Type
-       * @description Event type classification (metric|risk|milestone, etc.)
-       */
-      type?: string | null
-      /**
-       * Severity
-       * @description Optional severity tier for the event
-       */
-      severity?: string | null
-      /**
-       * Title
-       * @description Short title describing the event
-       */
-      title?: string | null
-      /**
-       * Summary
-       * @description Narrative summary of the timeline event
-       */
-      summary?: string | null
-      /**
-       * Source Section
-       * @description Section that produced the timeline entry
-       */
-      source_section?: string | null
-      /**
-       * Related Metrics
-       * @description Metric identifiers linked to the event
-       */
-      related_metrics?: string[]
-      /**
-       * Actions
-       * @description Follow-up actions linked to the event
-       */
-      actions?: string[]
     }
     /**
      * TaskResponse
@@ -1840,13 +1732,6 @@ export interface components {
        * @description Headline metrics for quick reference
        */
       headline_metrics?: components['schemas']['SummaryHeadlineMetric'][]
-      /** @description Grouped risk highlight collections */
-      risk_highlights?: components['schemas']['SummaryRiskHighlights']
-      /**
-       * Insight Timeline
-       * @description Ordered narrative of significant filing events
-       */
-      insight_timeline?: components['schemas']['SummaryTimelineEvent'][]
       /** @description Enhanced sentiment aggregation for the filing */
       sentiment_rollup?: components['schemas']['SummarySentimentRollup']
     } & {

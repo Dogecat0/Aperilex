@@ -273,7 +273,7 @@ class AnalysisPersistenceService:
             full_results["narrative"]["citations"] = result.citations
 
         payload: dict[str, Any] = {
-            "schema_version": 3,
+            "schema_version": 4,
             "analysis_id": str(result.analysis_id),
             "filing_id": str(result.filing_id),
             "analysis_type": result.analysis_type.value,

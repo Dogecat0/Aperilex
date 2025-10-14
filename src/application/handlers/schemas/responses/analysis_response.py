@@ -220,48 +220,6 @@ class SummaryHeadlineMetric(BaseModel):
     model_config = ConfigDict(extra="ignore", frozen=True)
 
 
-class SummaryRiskHighlight(BaseModel):
-    """Curated risk highlight for the summary."""
-
-    id: str | None = Field(
-        default=None, description="Stable identifier for the risk highlight"
-    )
-    title: str = Field(description="Title describing the risk or action")
-    severity: str | None = Field(
-        default=None, description="Severity level reported by the LLM"
-    )
-    probability: str | None = Field(
-        default=None, description="Probability tier reported by the LLM"
-    )
-    summary: str | None = Field(
-        default=None, description="Short narrative describing the highlight"
-    )
-    recommended_action: str | None = Field(
-        default=None, description="Recommended action or mitigation steps"
-    )
-    related_sections: list[str] = Field(
-        default_factory=list,
-        description="Filing sections that informed this highlight",
-    )
-
-    model_config = ConfigDict(extra="ignore", frozen=True)
-
-
-class SummaryRiskHighlights(BaseModel):
-    """Collection of curated risk highlights."""
-
-    critical_actions: list[SummaryRiskHighlight] = Field(
-        default_factory=list,
-        description="High severity items requiring action",
-    )
-    signals_to_monitor: list[SummaryRiskHighlight] = Field(
-        default_factory=list,
-        description="Medium/low severity items to monitor",
-    )
-
-    model_config = ConfigDict(extra="ignore", frozen=True)
-
-
 class SentimentWeakestSection(BaseModel):
     """Descriptor for the weakest sentiment section."""
 
@@ -294,40 +252,6 @@ class SummarySentimentRollup(BaseModel):
     )
     confidence_band: str | None = Field(
         default=None, description="Confidence band for the aggregated sentiment"
-    )
-
-    model_config = ConfigDict(extra="ignore", frozen=True)
-
-
-class SummaryTimelineEvent(BaseModel):
-    """Timeline event extracted from structured analysis data."""
-
-    id: str | None = Field(default=None, description="Stable identifier for the event")
-    occurred_at: datetime | None = Field(
-        default=None, description="Timestamp associated with the event"
-    )
-    type: str | None = Field(
-        default=None,
-        description="Event type classification (metric|risk|milestone, etc.)",
-    )
-    severity: str | None = Field(
-        default=None, description="Optional severity tier for the event"
-    )
-    title: str | None = Field(
-        default=None, description="Short title describing the event"
-    )
-    summary: str | None = Field(
-        default=None, description="Narrative summary of the timeline event"
-    )
-    source_section: str | None = Field(
-        default=None, description="Section that produced the timeline entry"
-    )
-    related_metrics: list[str] = Field(
-        default_factory=list,
-        description="Metric identifiers linked to the event",
-    )
-    actions: list[str] = Field(
-        default_factory=list, description="Follow-up actions linked to the event"
     )
 
     model_config = ConfigDict(extra="ignore", frozen=True)
@@ -383,14 +307,6 @@ class AnalysisSummary(BaseModel):
         default_factory=list,
         description="Headline metrics for quick reference",
     )
-    risk_highlights: SummaryRiskHighlights = Field(
-        default_factory=SummaryRiskHighlights,
-        description="Grouped risk highlight collections",
-    )
-    insight_timeline: list[SummaryTimelineEvent] = Field(
-        default_factory=list,
-        description="Ordered narrative of significant filing events",
-    )
     sentiment_rollup: SummarySentimentRollup = Field(
         default_factory=SummarySentimentRollup,
         description="Enhanced sentiment aggregation for the filing",
@@ -409,7 +325,7 @@ class AnalysisSummary(BaseModel):
 class AnalysisResponse(SchemaVersionedModel):
     """Response DTO returned by both list and detail analysis endpoints."""
 
-    schema_version: int = Field(default=3, ge=1)
+    schema_version: int = Field(default=4, ge=1)
     analysis_id: UUID = Field(description="Analysis identifier")
     filing_id: UUID = Field(description="Associated filing identifier")
     analysis_type: AnalysisType = Field(description="Type of analysis performed")
@@ -464,7 +380,7 @@ class AnalysisResponse(SchemaVersionedModel):
 class AnalysesListResponse(SchemaVersionedModel):
     """Envelope returned by the `/api/analyses` list endpoint."""
 
-    schema_version: int = Field(default=3, ge=1)
+    schema_version: int = Field(default=4, ge=1)
     items: list[AnalysisResponse] = Field(
         default_factory=list,
         description="Analyses for the requested page",

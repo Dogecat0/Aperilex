@@ -106,51 +106,6 @@ const listSummary: AnalysisResponse['summary'] = {
       confidence: 0.9,
     },
   ],
-  risk_highlights: {
-    critical_actions: [
-      {
-        id: 'fx-headwinds',
-        title: 'Currency volatility threatens guidance',
-        severity: 'high',
-        probability: 'medium',
-        summary: 'Regional FX swings could compress near-term revenue targets.',
-        recommended_action: 'Refresh hedging program before Q4 close.',
-        related_sections: ['Management Discussion & Analysis'],
-      },
-    ],
-    signals_to_monitor: [
-      {
-        id: 'app-store-scrutiny',
-        title: 'App Store policy scrutiny persists',
-        severity: 'medium',
-        probability: 'medium',
-        summary: 'Global regulators continue to review App Store economics.',
-        recommended_action: 'Maintain regulator touchpoints and update compliance roadmap.',
-        related_sections: ['Risk Factors'],
-      },
-    ],
-  },
-  insight_timeline: [
-    {
-      id: 'timeline-revenue',
-      occurred_at: '2025-06-10T00:00:00Z',
-      type: 'metric',
-      severity: 'medium',
-      title: 'Revenue up 5.4% YoY',
-      summary: 'Services momentum accelerated total revenue expansion.',
-      source_section: 'Management Discussion & Analysis',
-      related_metrics: ['total_revenue'],
-    },
-    {
-      id: 'timeline-fx',
-      occurred_at: '2025-06-10T00:05:00Z',
-      type: 'risk',
-      severity: 'high',
-      title: 'FX headwinds risk surfaces',
-      summary: 'Currency volatility may pressure upcoming guidance.',
-      source_section: 'Risk Factors',
-    },
-  ],
   sentiment_rollup: {
     overall: 0.12,
     weakest_section: { section: 'Risk Factors', score: -0.18 },
@@ -162,10 +117,10 @@ const listSummary: AnalysisResponse['summary'] = {
 }
 
 export const mockPaginatedAnalysesResponse: PaginatedAnalysesResponse = {
-  schema_version: 3,
+  schema_version: 4,
   items: [
     {
-      schema_version: 3,
+      schema_version: 4,
       analysis_id: '11111111-1111-1111-1111-111111111111',
       filing_id: '22222222-2222-2222-2222-222222222222',
       analysis_type: 'COMPREHENSIVE',
@@ -314,52 +269,6 @@ const detailSummary: AnalysisResponse['summary'] = {
       confidence: 0.88,
     },
   ],
-  risk_highlights: {
-    critical_actions: [
-      {
-        id: 'fx-headwinds',
-        title: 'FX headwinds threaten guidance',
-        severity: 'high',
-        probability: 'medium',
-        summary: 'Currency volatility could compress guidance in the next quarter.',
-        recommended_action: 'Refresh hedging program and update guidance sensitivity.',
-        related_sections: ['Management Discussion & Analysis', 'Risk Factors'],
-      },
-    ],
-    signals_to_monitor: [
-      {
-        id: 'app-store-compliance',
-        title: 'App Store compliance scrutiny',
-        severity: 'medium',
-        probability: 'medium',
-        summary: 'Global regulators continue to evaluate App Store economics and fees.',
-        recommended_action: 'Maintain regulator touchpoints and scenario plans.',
-        related_sections: ['Risk Factors'],
-      },
-    ],
-  },
-  insight_timeline: [
-    {
-      id: 'timeline-revenue',
-      occurred_at: '2025-06-10T00:00:00Z',
-      type: 'metric',
-      severity: 'medium',
-      title: 'Revenue up 5.4% YoY',
-      summary: 'Services momentum accelerated total revenue expansion.',
-      source_section: 'Management Discussion & Analysis',
-      related_metrics: ['total_revenue'],
-    },
-    {
-      id: 'timeline-risk',
-      occurred_at: '2025-06-10T00:05:00Z',
-      type: 'risk',
-      severity: 'high',
-      title: 'FX headwinds risk surfaces',
-      summary: 'Currency volatility may pressure upcoming guidance without hedging adjustments.',
-      source_section: 'Risk Factors',
-      actions: ['Refresh hedging strategy'],
-    },
-  ],
   sentiment_rollup: {
     overall: 0.14,
     weakest_section: { section: 'Risk Factors', score: -0.12 },
@@ -371,7 +280,7 @@ const detailSummary: AnalysisResponse['summary'] = {
 }
 
 export const mockAnalysisDetail: AnalysisResponse = {
-  schema_version: 3,
+  schema_version: 4,
   analysis_id: '44444444-4444-4444-4444-444444444444',
   filing_id: '55555555-5555-5555-5555-555555555555',
   analysis_type: 'COMPREHENSIVE',

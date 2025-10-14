@@ -86,43 +86,6 @@ def test_from_data_surfaces_curated_summary_artifacts() -> None:
                 "confidence": 0.8,
             }
         ],
-        "risk_highlights": {
-            "critical_actions": [
-                {
-                    "id": "privacy-1",
-                    "title": "Data Privacy Enforcement",
-                    "severity": "high",
-                    "probability": "medium",
-                    "summary": "Regulator escalated investigations across EU subsidiaries.",
-                    "recommended_action": "Fund incremental compliance audits.",
-                    "related_sections": ["Risk Factors"],
-                }
-            ],
-            "signals_to_monitor": [
-                {
-                    "id": "ops-2",
-                    "title": "Supply Chain Volatility",
-                    "severity": "medium",
-                    "probability": "medium",
-                    "summary": "Suppliers signalling tighter capacity for 2025.",
-                    "recommended_action": None,
-                    "related_sections": ["MD&A"],
-                }
-            ],
-        },
-        "insight_timeline": [
-            {
-                "id": "event-1",
-                "occurred_at": "2024-09-15T00:00:00+00:00",
-                "type": "metric",
-                "severity": "medium",
-                "title": "Launched enterprise AI product",
-                "summary": "New AI automation suite launched to top customers.",
-                "source_section": "Key Developments",
-                "related_metrics": ["revenue-growth"],
-                "actions": ["R&D review", "Customer advisory board"],
-            }
-        ],
     }
 
     analysis = _make_analysis(summary_payload)
@@ -130,10 +93,11 @@ def test_from_data_surfaces_curated_summary_artifacts() -> None:
     response = AnalysisResponse.from_data(analysis)
 
     assert response.summary.headline_metrics[0].name == "Revenue Growth"
-    assert response.summary.risk_highlights.critical_actions[0].title == "Data Privacy Enforcement"
     assert response.summary.sentiment_rollup.overall == 0.2
-    assert response.summary.insight_timeline[0].title == "Launched enterprise AI product"
     assert response.summary.filing_summary == "Filing remains stable with improving liquidity."
+    assert "risk_highlights" not in response.summary.model_dump()
+    assert "insight_timeline" not in response.summary.model_dump()
+    assert response.schema_version == 4
     assert response.full_results is None
 
 

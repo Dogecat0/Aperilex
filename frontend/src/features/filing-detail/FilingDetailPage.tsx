@@ -1,10 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useLocation, useParams } from 'react-router-dom'
 import { GlossarySidebar } from './components/GlossarySidebar'
-import {
-  InsightTimeline,
-  type InsightTimelineEvent as TimelineViewEvent,
-} from './components/InsightTimeline'
 import { MetricsGrid, type MetricDatum } from './components/MetricsGrid'
 import { SectionSummaryPanel } from './components/SectionSummaryPanel'
 import { SubsectionDetailDrawer } from './components/SubsectionDetailDrawer'
@@ -16,8 +12,6 @@ import { useFilingDetail } from '@/lib/hooks'
 import type {
   AnalysisResponse,
   HeadlineMetric,
-  InsightTimelineEvent as SummaryTimelineEvent,
-  RiskHighlight,
   SentimentRollup,
   SummarySection,
   StructuredAnalysisData,
@@ -556,91 +550,6 @@ interface SentimentOverview {
   distribution: Record<SentimentTone, number>
 }
 
-type HighlightBuckets = {
-  critical: string[]
-  signals: string[]
-  labels: string[]
-}
-
-function highlightTextFromSummary(highlight: RiskHighlight): string {
-  const fragments: string[] = []
-  if (highlight.title) {
-    fragments.push(highlight.title)
-  }
-
-  if (highlight.summary) {
-    fragments.push(highlight.summary)
-  }
-
-  if (fragments.length === 0) {
-    return 'Highlight detail pending.'
-  }
-
-  return fragments.join(' — ')
-}
-
-function ensureBuckets(map: Map<string, HighlightBuckets>, sectionKey: string) {
-  const existing = map.get(sectionKey)
-  if (existing) {
-    return existing
-  }
-  const buckets: HighlightBuckets = { critical: [], signals: [], labels: [] }
-  map.set(sectionKey, buckets)
-  return buckets
-}
-
-function appendUnique(target: string[], value: string) {
-  if (!target.includes(value)) {
-    target.push(value)
-  }
-}
-
-function collectHighlightsBySection(
-  highlights: AnalysisResponse['summary']['risk_highlights'] | undefined
-): Map<string, HighlightBuckets> {
-  const map = new Map<string, HighlightBuckets>()
-
-  if (!highlights) {
-    return map
-  }
-
-  const assignHighlights = (
-    items: RiskHighlight[] | undefined,
-    bucketKey: keyof HighlightBuckets
-  ) => {
-    if (!items) {
-      return
-    }
-
-    for (const item of items) {
-      const relatedSections = item.related_sections ?? []
-      if (relatedSections.length === 0) {
-        continue
-      }
-
-      const text = highlightTextFromSummary(item)
-      for (const section of relatedSections) {
-        const normalizedKey = normalizeSectionKey(section)
-        if (!normalizedKey) {
-          continue
-        }
-
-        const buckets = ensureBuckets(map, normalizedKey)
-        const label = pickDisplayString(section)
-        if (label) {
-          appendUnique(buckets.labels, label)
-        }
-        appendUnique(buckets[bucketKey], text)
-      }
-    }
-  }
-
-  assignHighlights(highlights.critical_actions, 'critical')
-  assignHighlights(highlights.signals_to_monitor, 'signals')
-
-  return map
-}
-
 function buildStructuredSectionLookup(structured?: StructuredAnalysisData | null) {
   const map = new Map<string, SectionAnalysis>()
 
@@ -664,7 +573,6 @@ function buildSentimentOverviewFromSummary(
   summary?: AnalysisResponse['summary'],
   structured?: StructuredAnalysisData | null
 ): SentimentOverview {
-  const highlightLookup = collectHighlightsBySection(summary?.risk_highlights)
   const structuredLookup = buildStructuredSectionLookup(structured)
   const sections: SectionPanelData[] = []
   const seenKeys = new Set<string>()
@@ -679,7 +587,6 @@ function buildSentimentOverviewFromSummary(
 
     seenKeys.add(key)
     const structuredSection = structuredLookup.get(key)
-    const highlights = highlightLookup.get(key)
     const subsections = buildSubsectionPanels(structuredSection, key)
 
     const sentimentScore =
@@ -697,11 +604,8 @@ function buildSentimentOverviewFromSummary(
       sentiment: sentimentScore,
       tone,
       summary: pickDisplayString(summaryText) ?? null,
-      insights: mergeUniqueStrings(structuredSection?.consolidated_insights, highlights?.signals),
-      criticalFindings: mergeUniqueStrings(
-        structuredSection?.critical_findings,
-        highlights?.critical
-      ),
+      insights: mergeUniqueStrings(structuredSection?.consolidated_insights),
+      criticalFindings: mergeUniqueStrings(structuredSection?.critical_findings),
       subsections,
     })
   }
@@ -712,44 +616,22 @@ function buildSentimentOverviewFromSummary(
     }
 
     seenKeys.add(key)
-    const highlights = highlightLookup.get(key)
     const subsections = buildSubsectionPanels(structuredSection, key)
     const sentimentScore =
       typeof structuredSection.overall_sentiment === 'number'
         ? structuredSection.overall_sentiment
         : null
 
-    const sectionName = structuredSection.section_name ?? highlights?.labels[0] ?? 'Section insight'
+    const sectionName = structuredSection.section_name ?? 'Section insight'
 
     sections.push({
       sectionName,
       sentiment: sentimentScore,
       tone: toneFromScore(sentimentScore),
       summary: pickDisplayString(structuredSection.section_summary) ?? null,
-      insights: mergeUniqueStrings(structuredSection.consolidated_insights, highlights?.signals),
-      criticalFindings: mergeUniqueStrings(
-        structuredSection.critical_findings,
-        highlights?.critical
-      ),
+      insights: mergeUniqueStrings(structuredSection.consolidated_insights),
+      criticalFindings: mergeUniqueStrings(structuredSection.critical_findings),
       subsections,
-    })
-  }
-
-  for (const [key, highlights] of highlightLookup.entries()) {
-    if (seenKeys.has(key)) {
-      continue
-    }
-
-    seenKeys.add(key)
-    const sectionName = highlights.labels[0] ?? 'Section highlight'
-    sections.push({
-      sectionName,
-      sentiment: null,
-      tone: 'neutral',
-      summary: null,
-      insights: mergeUniqueStrings(highlights.signals),
-      criticalFindings: mergeUniqueStrings(highlights.critical),
-      subsections: [],
     })
   }
 
@@ -772,44 +654,6 @@ function buildSentimentOverviewFromSummary(
     average,
     distribution,
   }
-}
-
-function timelineToneFromSeverity(severity?: string | null) {
-  if (!severity) {
-    return 'neutral'
-  }
-
-  const normalized = severity.toLowerCase()
-  if (normalized.includes('high') || normalized.includes('critical')) {
-    return 'negative'
-  }
-  if (normalized.includes('low')) {
-    return 'positive'
-  }
-  return 'neutral'
-}
-
-function buildTimelineEventsFromSummary(
-  events: SummaryTimelineEvent[] | undefined
-): TimelineViewEvent[] {
-  if (!events || events.length === 0) {
-    return []
-  }
-
-  return events.map((event, index) => {
-    const tone = timelineToneFromSeverity(event.severity)
-
-    return {
-      id: event.id ?? `summary-event-${index}`,
-      sectionName: event.source_section ?? event.type ?? 'Summary',
-      title: event.title ?? 'Insight update',
-      description: event.summary ?? 'Insight captured during analysis.',
-      timestamp: event.occurred_at ?? null,
-      actions: event.actions ?? [],
-      relatedMetrics: event.related_metrics ?? [],
-      tone,
-    }
-  })
 }
 
 function combineConfidence(analysis?: AnalysisResponse | null) {
@@ -859,11 +703,6 @@ export function FilingDetailPage() {
     () => buildHeadlineMetricData(analysis?.summary?.headline_metrics),
     [analysis?.summary?.headline_metrics]
   )
-  const timelineEvents = useMemo(
-    () => buildTimelineEventsFromSummary(analysis?.summary?.insight_timeline),
-    [analysis?.summary?.insight_timeline]
-  )
-
   if (!id) {
     return (
       <div
@@ -937,9 +776,6 @@ export function FilingDetailPage() {
   const keyInsights = summary.key_insights ?? []
   const criticalFindings = summary.critical_findings ?? []
   const opportunities = summary.opportunities ?? []
-  const riskHighlights = summary.risk_highlights ?? null
-  const criticalActions = riskHighlights?.critical_actions ?? []
-  const monitorSignals = riskHighlights?.signals_to_monitor ?? []
   const sentimentRollup: SentimentRollup | null = summary.sentiment_rollup ?? null
   const tabs: { key: TabKey; label: string }[] = [
     { key: 'overview', label: 'Overview' },
@@ -1229,104 +1065,6 @@ export function FilingDetailPage() {
                   </article>
                 </div>
 
-                <section className="flex flex-col gap-3">
-                  <h3 className="text-sm font-semibold text-[var(--text-primary)]">
-                    Risk highlights
-                  </h3>
-                  {criticalActions.length === 0 && monitorSignals.length === 0 ? (
-                    <div
-                      className="rounded-3xl border p-6 text-sm text-[var(--text-muted)]"
-                      style={{
-                        borderColor: 'var(--lines-subtle)',
-                        background: 'var(--surfaces-muted)',
-                      }}
-                    >
-                      Risk highlights will appear once the analysis identifies critical actions or
-                      monitoring signals.
-                    </div>
-                  ) : (
-                    <div className="grid gap-4 lg:grid-cols-2">
-                      {criticalActions.length > 0 ? (
-                        <article
-                          className="flex flex-col gap-3 rounded-3xl border p-5"
-                          style={{
-                            borderColor: 'var(--lines-subtle)',
-                            background: 'var(--surfaces-muted)',
-                            boxShadow: tokens.shadows.soft,
-                          }}
-                        >
-                          <h4 className="text-sm font-semibold uppercase tracking-wide text-[var(--text-secondary)]">
-                            Critical actions
-                          </h4>
-                          <ul className="flex flex-col gap-3 text-sm text-[var(--text-secondary)]">
-                            {criticalActions.map((highlight) => (
-                              <li key={highlight.id ?? highlight.title}>
-                                <p className="font-semibold text-[var(--text-primary)]">
-                                  {highlight.title}
-                                </p>
-                                {highlight.summary ? (
-                                  <p className="mt-1 leading-relaxed">{highlight.summary}</p>
-                                ) : null}
-                                <p className="mt-2 text-xs uppercase tracking-wide text-[var(--text-muted)]">
-                                  Severity: {highlight.severity ?? 'n/a'} • Probability:{' '}
-                                  {highlight.probability ?? 'n/a'}
-                                </p>
-                                {highlight.recommended_action ? (
-                                  <p className="mt-1 text-xs text-[var(--text-secondary)]">
-                                    Recommended action: {highlight.recommended_action}
-                                  </p>
-                                ) : null}
-                              </li>
-                            ))}
-                          </ul>
-                        </article>
-                      ) : null}
-
-                      {monitorSignals.length > 0 ? (
-                        <article
-                          className="flex flex-col gap-3 rounded-3xl border p-5"
-                          style={{
-                            borderColor: 'var(--lines-subtle)',
-                            background: 'var(--surfaces-muted)',
-                            boxShadow: tokens.shadows.soft,
-                          }}
-                        >
-                          <h4 className="text-sm font-semibold uppercase tracking-wide text-[var(--text-secondary)]">
-                            Signals to monitor
-                          </h4>
-                          <ul className="flex flex-col gap-3 text-sm text-[var(--text-secondary)]">
-                            {monitorSignals.map((highlight) => (
-                              <li key={highlight.id ?? highlight.title}>
-                                <p className="font-semibold text-[var(--text-primary)]">
-                                  {highlight.title}
-                                </p>
-                                {highlight.summary ? (
-                                  <p className="mt-1 leading-relaxed">{highlight.summary}</p>
-                                ) : null}
-                                <p className="mt-2 text-xs uppercase tracking-wide text-[var(--text-muted)]">
-                                  Severity: {highlight.severity ?? 'n/a'} • Probability:{' '}
-                                  {highlight.probability ?? 'n/a'}
-                                </p>
-                                {highlight.recommended_action ? (
-                                  <p className="mt-1 text-xs text-[var(--text-secondary)]">
-                                    Next step: {highlight.recommended_action}
-                                  </p>
-                                ) : null}
-                              </li>
-                            ))}
-                          </ul>
-                        </article>
-                      ) : null}
-                    </div>
-                  )}
-                </section>
-
-                <section className="flex flex-col gap-3">
-                  <h3 className="text-sm font-semibold text-[var(--text-primary)]">
-                    Insight timeline
-                  </h3>
-                  <InsightTimeline events={timelineEvents} />
-                </section>
               </div>
             ) : null}
 

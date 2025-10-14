@@ -27,7 +27,7 @@ from src.shared.types import UserId
 
 
 def _summary_payload() -> dict[str, Any]:
-    """Craft a representative summary payload matching schema v3."""
+    """Craft a representative summary payload matching schema v4."""
 
     return {
         "company": {
@@ -95,47 +95,6 @@ def _summary_payload() -> dict[str, Any]:
                     ),
                 },
                 "confidence": 0.82,
-            }
-        ],
-        "risk_highlights": {
-            "critical_actions": [
-                {
-                    "id": "operating_loss",
-                    "title": "Operating leverage pressure",
-                    "severity": "high",
-                    "probability": "medium",
-                    "summary": "Elevated R&D spend widened operating losses.",
-                    "recommended_action": (
-                        "Outline a path to operating break-even before FY close."
-                    ),
-                    "related_sections": ["Income Statement", "Risk Factors"],
-                }
-            ],
-            "signals_to_monitor": [
-                {
-                    "id": "cloud_margin_trend",
-                    "title": "Cloud gross margin volatility",
-                    "severity": "medium",
-                    "probability": "medium",
-                    "summary": "Gross margin slipped 90 bps as incentives increased.",
-                    "recommended_action": "Track cohort profitability through Q4.",
-                    "related_sections": ["MD&A"],
-                }
-            ],
-        },
-        "insight_timeline": [
-            {
-                "id": "2024-09-30-revenue",
-                "occurred_at": "2024-09-30T00:00:00Z",
-                "type": "metric",
-                "severity": "medium",
-                "title": "Revenue up 18% YoY",
-                "summary": (
-                    "Top-line acceleration driven by enterprise AI platform deals."
-                ),
-                "source_section": "Income Statement",
-                "related_metrics": ["revenue_yoy"],
-                "actions": ["Share growth strategy in investor call"],
             }
         ],
         "sentiment_rollup": {
@@ -223,7 +182,7 @@ def test_list_analyses_surfaces_summary_payload(
 
     assert response.status_code == 200
     body = response.json()
-    assert body["schema_version"] == 3
+    assert body["schema_version"] == 4
     assert body["pagination"]["total_items"] == 1
     item = body["items"][0]
     metric = item["summary"]["headline_metrics"][0]
@@ -250,10 +209,8 @@ def test_get_analysis_returns_curated_summary(
     assert body["analysis_id"] == str(analysis_id)
     summary = body["summary"]
     assert summary["filing_summary"].startswith("Aperilex Labs sustained")
-    assert summary["risk_highlights"]["critical_actions"][0]["title"] == (
-        "Operating leverage pressure"
-    )
-    assert summary["insight_timeline"][0]["title"] == "Revenue up 18% YoY"
+    assert "risk_highlights" not in summary
+    assert "insight_timeline" not in summary
     assert summary["key_insights"][0].startswith("AI platform revenue climbed")
 
     recorded = service.executed_queries[-1]
