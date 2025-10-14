@@ -24,9 +24,8 @@ import {
   type ParsedSubsection,
 } from '@/lib/types/analysisSchemas'
 import type { SentimentTone, SubsectionPanelData } from './types'
-import type { ThemeTokens } from '@/styles/tokens'
 
-const TAB_KEYS = ['overview', 'sections', 'numbers', 'sentiment'] as const
+const TAB_KEYS = ['overview', 'sentiment', 'numbers', 'sections'] as const
 type TabKey = (typeof TAB_KEYS)[number]
 
 interface FilingDetailLocationState {
@@ -397,85 +396,96 @@ function sanitizeSummaryPoints(points: SummarySection['supporting_points']): str
   return cleaned
 }
 
-type SummarySegmentTrend = 'up' | 'down' | 'flat'
-
-interface NormalizedSegmentMetric {
+interface SummaryPointHighlight {
   id: string
   label: string
-  current?: string
-  delta?: string
-  trend: SummarySegmentTrend | null
+  value: string
+  helper?: string | null
 }
 
-function normalizeSegmentFeaturedMetric(
-  metric: SummarySection['featured_metric']
-): NormalizedSegmentMetric | null {
-  if (!metric) {
-    return null
+function splitHighlightValue(text: string): { value: string; helper: string | null } {
+  const trimmed = text.trim()
+  const separators = ['. ', '; ', ' • ', ' - ']
+
+  for (const separator of separators) {
+    const index = trimmed.indexOf(separator)
+    if (index >= 0) {
+      const rawValue = trimmed.slice(0, index).trim().replace(/[.,;•-]+$/, '')
+      const helper = trimmed.slice(index + separator.length).trim()
+      return {
+        value: rawValue.length > 0 ? rawValue : trimmed,
+        helper: helper.length > 0 ? helper : null,
+      }
+    }
   }
 
-  const id = pickDisplayString(metric.id)
-  const label = pickDisplayString(metric.label)
-  const normalizedLabel = label ?? id
-  if (!normalizedLabel) {
-    return null
-  }
-
-  const labelKey = normalizeSectionKey(normalizedLabel)
-  const sanitizedKey = labelKey.replace(/[^a-z0-9-]/gi, '')
-  const normalizedId = id ?? `segment-metric-${sanitizedKey || 'metric'}`
-  const current = pickDisplayString(metric.current)
-  const delta = pickDisplayString(metric.delta)
-  const trend =
-    metric.trend === 'up' || metric.trend === 'down' || metric.trend === 'flat'
-      ? metric.trend
-      : null
-
-  return {
-    id: normalizedId,
-    label: normalizedLabel,
-    current,
-    delta,
-    trend,
-  }
+  return { value: trimmed, helper: null }
 }
 
-function formatSegmentMetricDelta(metric: NormalizedSegmentMetric): string | null {
-  if (!metric.delta) {
-    return null
-  }
+const SUMMARY_POINT_NUMBER_REGEX =
+  /[$€£¥]?[+-]?\d[\d,]*(?:\.\d+)?(?:\s?(?:%|percent|pts?|points?|bps|million|billion|thousand|x|×))?/i
 
-  const trendSymbol =
-    metric.trend === 'up' ? '▲' : metric.trend === 'down' ? '▼' : metric.trend === 'flat' ? '▬' : ''
-  const trimmedDelta = metric.delta.trim()
-  if (!trendSymbol) {
-    return trimmedDelta || null
+function normalizeHighlightLabel(label: string | null, fallbackIndex: number): string {
+  const trimmed = label?.trim() ?? ''
+  if (trimmed.length > 0) {
+    return trimmed.replace(/[:–—-]+$/, '').trim() || `Highlight ${fallbackIndex + 1}`
   }
-
-  return `${trendSymbol} ${trimmedDelta}`
+  return `Highlight ${fallbackIndex + 1}`
 }
 
-function resolveSegmentMetricTrendColor(
-  trend: NormalizedSegmentMetric['trend'],
-  tokens: ThemeTokens
-) {
-  if (trend === 'up') {
-    return tokens.status.positive
-  }
-  if (trend === 'down') {
-    return tokens.status.negative
-  }
-  if (trend === 'flat') {
-    return tokens.status.neutral
-  }
-  return 'var(--text-secondary)'
-}
+function buildSummaryPointHighlights(
+  points: string[],
+  segmentId: string
+): { highlights: SummaryPointHighlight[]; remaining: string[] } {
+  const highlights: SummaryPointHighlight[] = []
+  const remaining: string[] = []
 
-const SUMMARY_CTA_DEFAULTS: Partial<Record<TabKey, string>> = {
-  overview: 'Review overview',
-  sections: 'Go to sections',
-  numbers: 'Inspect metrics',
-  sentiment: 'View sentiment',
+  points.forEach((rawPoint, index) => {
+    const colonIndex = rawPoint.indexOf(':')
+
+    if (colonIndex > 0) {
+      const label = normalizeHighlightLabel(rawPoint.slice(0, colonIndex), index)
+      const remainder = rawPoint.slice(colonIndex + 1).trim()
+      if (remainder.length === 0) {
+        remaining.push(rawPoint)
+        return
+      }
+
+      const { value, helper } = splitHighlightValue(remainder)
+      if (value.length === 0) {
+        remaining.push(rawPoint)
+        return
+      }
+
+      highlights.push({
+        id: `${segmentId}-highlight-${index}`,
+        label,
+        value,
+        helper,
+      })
+      return
+    }
+
+    const numericMatch = rawPoint.match(SUMMARY_POINT_NUMBER_REGEX)
+    if (!numericMatch || numericMatch.index === undefined) {
+      remaining.push(rawPoint)
+      return
+    }
+
+    const matchIndex = numericMatch.index
+    const prefix = rawPoint.slice(0, matchIndex).trim()
+    const remainder = rawPoint.slice(matchIndex).trim()
+    const { value, helper } = splitHighlightValue(remainder)
+
+    highlights.push({
+      id: `${segmentId}-highlight-${index}`,
+      label: normalizeHighlightLabel(prefix, index),
+      value,
+      helper,
+    })
+  })
+
+  return { highlights, remaining }
 }
 
 function determineMetricTrendFromHeadline(
@@ -779,9 +789,9 @@ export function FilingDetailPage() {
   const sentimentRollup: SentimentRollup | null = summary.sentiment_rollup ?? null
   const tabs: { key: TabKey; label: string }[] = [
     { key: 'overview', label: 'Overview' },
-    { key: 'sections', label: 'Sections' },
-    { key: 'numbers', label: 'Numbers' },
     { key: 'sentiment', label: 'Sentiment' },
+    { key: 'numbers', label: 'Numbers' },
+    { key: 'sections', label: 'Sections' },
   ]
 
   function handleSelectSubsection(sectionName: string, subsection: SubsectionPanelData) {
@@ -868,9 +878,6 @@ export function FilingDetailPage() {
             {activeTab === 'overview' ? (
               <div className="flex flex-col gap-6">
                 <section className="flex flex-col gap-4">
-                  <h2 className="text-base font-semibold text-[var(--text-primary)]">
-                    Filing summary
-                  </h2>
                   {summarySections.length > 0 ? (
                     <div className="grid gap-4 lg:grid-cols-2">
                       {summarySections.map((segment, index) => {
@@ -878,15 +885,10 @@ export function FilingDetailPage() {
                         const synopsis = pickDisplayString(segment.summary)
                         const points = sanitizeSummaryPoints(segment.supporting_points)
                         const targetTab = resolveTabKeyFromAnchor(segment.anchor)
-                        const ctaLabel =
-                          pickDisplayString(segment.cta_label) ??
-                          (targetTab ? SUMMARY_CTA_DEFAULTS[targetTab] : undefined)
-                        const featuredMetric = normalizeSegmentFeaturedMetric(
-                          segment.featured_metric
+                        const { highlights, remaining } = buildSummaryPointHighlights(
+                          points,
+                          key
                         )
-                        const featuredDelta = featuredMetric
-                          ? formatSegmentMetricDelta(featuredMetric)
-                          : null
 
                         return (
                           <article
@@ -900,11 +902,11 @@ export function FilingDetailPage() {
                           >
                             <div className="flex items-start justify-between gap-4">
                               <div className="flex flex-col gap-2">
-                                <h3 className="text-sm font-semibold text-[var(--text-primary)]">
+                                <h3 className="text-2xl font-semibold text-[var(--text-primary)]">
                                   {segment.title}
                                 </h3>
                                 {synopsis ? (
-                                  <p className="text-sm leading-relaxed text-[var(--text-secondary)]">
+                                  <p className="text-sm leading-relaxed text-[var(--text-muted)]">
                                     {synopsis}
                                   </p>
                                 ) : (
@@ -920,52 +922,39 @@ export function FilingDetailPage() {
                                   variant="secondary"
                                   onClick={() => setActiveTab(targetTab)}
                                 >
-                                  {ctaLabel ?? 'View details'}
+                                  More
                                 </Button>
                               ) : null}
                             </div>
-                            {featuredMetric ? (
-                              <div
-                                className="flex flex-col gap-2 rounded-2xl border p-3"
-                                style={{
-                                  borderColor: 'var(--lines-subtle)',
-                                  background: 'var(--surfaces-base)',
-                                }}
-                              >
-                                <span className="text-xs font-semibold uppercase tracking-wide text-[var(--text-muted)]">
-                                  Metric highlight
-                                </span>
-                                <div className="flex flex-wrap items-baseline justify-between gap-3">
-                                  <div className="flex flex-col">
-                                    <span className="text-sm font-semibold text-[var(--text-primary)]">
-                                      {featuredMetric.label}
+                            {highlights.length > 0 ? (
+                              <div className="flex flex-col gap-4">
+                                {highlights.map((highlight) => (
+                                  <div
+                                    key={highlight.id}
+                                    className="flex flex-col gap-2 rounded-2xl border p-4"
+                                    style={{
+                                      borderColor: 'var(--lines-subtle)',
+                                      background: 'var(--surfaces-base)',
+                                    }}
+                                  >
+                                    <span className="text-xs uppercase tracking-wide text-[var(--text-muted)]">
+                                      {highlight.label}
                                     </span>
-                                    {featuredMetric.current ? (
-                                      <span className="text-lg font-semibold text-[var(--text-primary)]">
-                                        {featuredMetric.current}
+                                    <span className="text-xl  text-[var(--text-primary)]">
+                                      {highlight.value}
+                                    </span>
+                                    {highlight.helper ? (
+                                      <span className="text-xs text-[var(--text-secondary)]">
+                                        {highlight.helper}
                                       </span>
                                     ) : null}
                                   </div>
-                                  {featuredDelta ? (
-                                    <span
-                                      className="rounded-full px-3 py-1 text-xs font-semibold"
-                                      style={{
-                                        background: 'var(--surfaces-muted)',
-                                        color: resolveSegmentMetricTrendColor(
-                                          featuredMetric.trend,
-                                          tokens
-                                        ),
-                                      }}
-                                    >
-                                      {featuredDelta}
-                                    </span>
-                                  ) : null}
-                                </div>
+                                ))}
                               </div>
                             ) : null}
-                            {points.length > 0 ? (
+                            {remaining.length > 0 ? (
                               <ul className="flex list-disc flex-col gap-2 pl-5 text-sm text-[var(--text-secondary)]">
-                                {points.map((point) => (
+                                {remaining.map((point) => (
                                   <li key={point}>{point}</li>
                                 ))}
                               </ul>
@@ -999,7 +988,7 @@ export function FilingDetailPage() {
                       boxShadow: tokens.shadows.soft,
                     }}
                   >
-                    <h3 className="text-sm font-semibold text-[var(--text-primary)]">
+                    <h3 className="text-2xl font-semibold text-[var(--text-primary)]">
                       Key insights
                     </h3>
                     {keyInsights.length > 0 ? (
@@ -1023,7 +1012,7 @@ export function FilingDetailPage() {
                       boxShadow: tokens.shadows.soft,
                     }}
                   >
-                    <h3 className="text-sm font-semibold text-[var(--text-primary)]">
+                    <h3 className="text-2xl font-semibold text-[var(--text-primary)]">
                       Critical findings
                     </h3>
                     {criticalFindings.length > 0 ? (
@@ -1047,7 +1036,7 @@ export function FilingDetailPage() {
                       boxShadow: tokens.shadows.soft,
                     }}
                   >
-                    <h3 className="text-sm font-semibold text-[var(--text-primary)]">
+                    <h3 className="text-2xl font-semibold text-[var(--text-primary)]">
                       Opportunities
                     </h3>
                     {opportunities.length > 0 ? (
@@ -1102,9 +1091,6 @@ export function FilingDetailPage() {
 
             {activeTab === 'numbers' ? (
               <section className="flex flex-col gap-3">
-                <h3 className="text-sm font-semibold text-[var(--text-primary)]">
-                  Quantitative signals
-                </h3>
                 <MetricsGrid metrics={metrics} />
               </section>
             ) : null}

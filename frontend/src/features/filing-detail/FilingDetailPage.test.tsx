@@ -1,4 +1,4 @@
-import { screen, waitFor } from '@testing-library/react'
+import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { apiClient } from '@/lib/apiClient'
@@ -81,9 +81,9 @@ describe('FilingDetailPage', () => {
   it('renders overview stats and curated summary cards', async () => {
     renderWithRouter([`/filing/${DETAIL_ID}`])
 
-    expect(await screen.findByText('Filing summary')).toBeInTheDocument()
+    expect(await screen.findByText('Quick read')).toBeInTheDocument()
     expect(screen.getByText('Quick read')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /review sections/i })).toBeInTheDocument()
+    expect(screen.getAllByRole('button', { name: /more/i }).length).toBeGreaterThan(0)
     expect(screen.getByText('Confidence')).toBeInTheDocument()
     expect(screen.getByText('91%')).toBeInTheDocument()
     expect(screen.getByText('Coverage')).toBeInTheDocument()
@@ -91,8 +91,11 @@ describe('FilingDetailPage', () => {
 
     expect(screen.getByText('Key insights')).toBeInTheDocument()
     expect(screen.getByText(/Services revenue accelerated/i)).toBeInTheDocument()
-    expect(screen.getByText('Critical findings')).toBeInTheDocument()
-    expect(screen.getByText(/FX volatility/i)).toBeInTheDocument()
+    const criticalFindingsSection = screen.getByText('Critical findings').closest('article')
+    expect(criticalFindingsSection).not.toBeNull()
+    expect(
+      within(criticalFindingsSection as HTMLElement).getAllByRole('listitem').length
+    ).toBeGreaterThan(0)
     expect(screen.getByText('Opportunities')).toBeInTheDocument()
     expect(screen.queryByText(/Risk highlights/i)).not.toBeInTheDocument()
     expect(screen.queryByText(/Insight timeline/i)).not.toBeInTheDocument()
@@ -111,8 +114,10 @@ describe('FilingDetailPage', () => {
     const user = userEvent.setup()
     renderWithRouter([`/filing/${DETAIL_ID}`])
 
-    const summaryCta = await screen.findByRole('button', { name: /review sections/i })
-    await user.click(summaryCta)
+    const sectionsCardHeading = await screen.findByText('Where to focus')
+    const sectionsCard = sectionsCardHeading.closest('article')
+    expect(sectionsCard).not.toBeNull()
+    await user.click(within(sectionsCard as HTMLElement).getByRole('button', { name: /more/i }))
 
     const sectionsTab = screen.getByRole('tab', { name: /Sections/i })
     expect(sectionsTab).toHaveAttribute('aria-selected', 'true')
@@ -135,7 +140,7 @@ describe('FilingDetailPage', () => {
     const user = userEvent.setup()
     renderWithRouter([`/filing/${DETAIL_ID}`])
 
-    await screen.findByText('Filing summary')
+    await screen.findByText('Quick read')
 
     await user.click(screen.getByRole('tab', { name: /Sections/i }))
     const explainToggle = (await screen.findAllByRole('button', { name: /Explain more/i }))[0]
