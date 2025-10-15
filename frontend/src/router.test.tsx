@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { renderWithRouter } from '@/test/utils'
 import type { AuthSession, AuthStatus } from '@/state/authStore'
 import { apiClient } from '@/lib/apiClient'
+import { landingCopy } from '@/copy/landing'
 import { mockAnalysisDetail, mockPaginatedAnalysesResponse } from '@/test/fixtures/analyses'
 
 vi.mock('@/hooks/useAuth', () => ({
@@ -71,14 +72,35 @@ afterEach(() => {
 })
 
 describe('App routing', () => {
-  it('redirects root to dashboard for authenticated users', async () => {
+  it('keeps landing accessible for authenticated users and CTA enters the app', async () => {
     useAuthMock.mockReturnValue(buildAuthState())
+
+    const user = userEvent.setup()
 
     const { router } = renderWithRouter(['/'])
 
-    await screen.findByText('Filing intelligence at a glance')
+    await screen.findByRole('heading', { name: landingCopy.heroHeadline })
+    expect(router.state.location.pathname).toBe('/')
+
+    const cta = await screen.findAllByRole('button', { name: 'Continue to dashboard' })
+    await user.click(cta[0])
 
     expect(router.state.location.pathname).toBe('/dashboard')
+  })
+
+  it('shows the marketing landing page for anonymous visitors at root', async () => {
+    useAuthMock.mockReturnValue(
+      buildAuthState({
+        status: 'unauthenticated',
+        isAuthenticated: false,
+        session: null,
+      })
+    )
+
+    const { router } = renderWithRouter(['/'])
+
+    await screen.findByRole('heading', { name: landingCopy.heroHeadline })
+    expect(router.state.location.pathname).toBe('/')
   })
 
   it('redirects anonymous visitors to the login route', async () => {

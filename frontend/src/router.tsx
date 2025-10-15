@@ -12,16 +12,17 @@ import { LearningHubPage } from '@/features/learning'
 import { SavedItemsPage } from '@/features/saved'
 import { AnalyzeFilingsPage } from '@/features/filings'
 import { LoginPage, GoogleCallbackPage } from '@/features/auth'
+import { LandingPage } from '@/features/landing'
 
 export const routes: RouteObject[] = [
   {
     path: '/',
+    element: <LandingPage />,
+  },
+  {
+    path: '/',
     element: <AppShell />,
     children: [
-      {
-        index: true,
-        element: <Navigate to="/dashboard" replace />,
-      },
       {
         element: <ProtectedRoute />,
         children: [
