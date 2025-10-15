@@ -107,7 +107,7 @@ class _StubStorageProvider:
 
     def __init__(self, payload: dict[str, object] | None = None) -> None:
         if payload is None:
-            payload = {"structured_data": {"schema_version": 2}}
+            payload = {"structured_data": {"schema_version": 3}}
         self._storage_object = SimpleNamespace(
             data=json.dumps(payload).encode("utf-8")
         )
@@ -158,7 +158,7 @@ async def test_get_analysis_handler_unwraps_storage_envelope() -> None:
     storage_summary["filing_summary"] = "Storage-built summary"
 
     full_results_payload = {
-        "schema_version": 2,
+        "schema_version": 3,
         "structured_data": {"filing_summary": "Deep artifact"},
         "provider": {
             "name": "OPENAI",

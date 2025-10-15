@@ -225,9 +225,10 @@ class AnalysisPersistenceService:
     ) -> dict[str, Any]:
         """Produce the versioned analysis artifact stored in blob storage."""
 
-        structured_data = (
-            result.structured_data if isinstance(result.structured_data, dict) else {}
-        )
+        if result.structured_data is None:
+            structured_data: dict[str, Any] = {}
+        else:
+            structured_data = result.structured_data.model_dump(mode="json")
 
         provider: dict[str, Any] = {
             "name": result.llm_provider.value,

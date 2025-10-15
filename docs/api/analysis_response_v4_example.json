@@ -90,9 +90,9 @@
     }
   },
   "full_results": {
-    "schema_version": 2,
+    "schema_version": 3,
     "structured_data": {
-      "schema_version": 2,
+      "schema_version": 3,
       "analysis_timestamp": "2025-10-01T22:14:23.230538Z",
       "confidence_score": 0.85,
       "total_sections_analyzed": 5,

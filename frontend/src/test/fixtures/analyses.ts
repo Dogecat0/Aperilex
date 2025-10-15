@@ -289,9 +289,9 @@ export const mockAnalysisDetail: AnalysisResponse = {
   created_by: 'analyst@aperilex.ai',
   summary: detailSummary,
   full_results: {
-    schema_version: 2,
+    schema_version: 3,
     structured_data: {
-      schema_version: 2,
+      schema_version: 3,
       filing_summary:
         'Apple Inc. delivered steady revenue growth with resilient margins driven by premium services uptake.',
       key_insights: [
@@ -411,6 +411,118 @@ export const mockAnalysisDetail: AnalysisResponse = {
         ticker: 'AAPL',
         filing_date: '2025-06-10',
         segment: 'Consumer Electronics',
+      },
+      section_walkthroughs: {
+        'Item 7 - Management Discussion & Analysis': {
+          id: 'walkthrough-mda',
+          section_key: 'Item 7 - Management Discussion & Analysis',
+          title: 'MD&A Guided Review',
+          display_order: 0,
+          learning_module_key: 'mda_foundations',
+          module_stage: 'walkthrough',
+          guidance: {
+            focus: 'Connect commentary to margin movements.',
+            why_it_matters:
+              'Seeing how management frames margin changes sharpens your ability to explain the trend to stakeholders.',
+          },
+          highlights: [
+            {
+              id: 'highlight-mda-services',
+              title: 'Services pacing profit growth',
+              summary:
+                'Management credits recurring services for absorbing hardware volatility and protecting margins.',
+              display_order: 0,
+              source_reference: 'Item 7 - Management Discussion & Analysis ¶4',
+              confidence: 0.9,
+              severity: null,
+              lesson_reference: {
+                lesson_id: 'lesson-mda-primer',
+                learning_module_key: 'mda_foundations',
+                module_stage: 'walkthrough',
+                title: 'Breaking down MD&A narratives',
+              },
+              quote:
+                'Services delivered double-digit growth with expanding contribution margins, stabilising total operating profit.',
+              tags: ['md&a', 'margin'],
+            },
+          ],
+          comprehension_checks: [
+            {
+              id: 'check-mda-margin-driver',
+              question: 'Which factor most supported Apple’s margin resilience?',
+              display_order: 0,
+              correct_answer: 'Recurring services growth offsetting hardware softness.',
+              distractors: [
+                'The launch of a one-time licensing settlement.',
+                'Reduced R&D spending compared to last year.',
+              ],
+              explanation:
+                'The filing repeatedly cites services growth and disciplined costs as the reasons margins held up.',
+              lesson_reference: {
+                lesson_id: 'lesson-mda-margin-detection',
+                learning_module_key: 'mda_foundations',
+                module_stage: 'reinforce',
+                title: 'Linking MD&A commentary to margins',
+              },
+            },
+          ],
+          estimated_duration_minutes: 9,
+        },
+        'Item 1A - Risk Factors': {
+          id: 'walkthrough-risk',
+          section_key: 'Item 1A - Risk Factors',
+          title: 'Risk Factors Deep Dive',
+          display_order: 1,
+          learning_module_key: 'risk_mastery',
+          module_stage: 'walkthrough',
+          guidance: {
+            focus: 'Track which risks carry high severity and what mitigations exist.',
+            why_it_matters:
+              'Separating high-severity items helps you prioritise diligence follow-ups and talk tracks.',
+          },
+          highlights: [
+            {
+              id: 'highlight-risk-regulation',
+              title: 'Regulation pressure remains elevated',
+              summary:
+                'Regulators continue probing App Store policies, which Apple labels high severity given potential monetisation shifts.',
+              display_order: 0,
+              source_reference: 'Item 1A - Risk Factors ¶5',
+              confidence: 0.84,
+              severity: 'High',
+              lesson_reference: {
+                lesson_id: 'lesson-risk-regulation',
+                learning_module_key: 'risk_mastery',
+                module_stage: 'walkthrough',
+                title: 'Interpreting regulatory risk language',
+              },
+              quote:
+                'Regulatory changes could require materially different App Store economics or distribution terms.',
+              tags: ['risk', 'regulation'],
+            },
+          ],
+          comprehension_checks: [
+            {
+              id: 'check-risk-severity',
+              question: 'What outcome does Apple tie to the high severity rating?',
+              display_order: 0,
+              correct_answer: 'Potential changes to App Store economics that impact profitability.',
+              distractors: [
+                'Immediate shutdown of its supply chain partners.',
+                'A mandatory split of the company into separate entities.',
+              ],
+              explanation:
+                'Apple emphasises that enforcement could force less favourable App Store terms, reducing margins.',
+              lesson_reference: {
+                lesson_id: 'lesson-risk-severity',
+                learning_module_key: 'risk_mastery',
+                module_stage: 'reinforce',
+                title: 'Evaluating severity levels in filings',
+              },
+            },
+          ],
+          estimated_duration_minutes: 7,
+        },
       },
     },
     provider: {

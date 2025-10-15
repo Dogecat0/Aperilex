@@ -3,11 +3,20 @@ Models module for Pydantic models and metadata types.
 """
 
 from .analysis import (
+    STRUCTURED_ANALYSIS_SCHEMA_VERSION,
     AnalysisRequest,
     AnalysisResult,
     AnalysisType,
+    ComprehensionCheck,
+    HighlightCallout,
+    LessonReference,
     ModelTier,
+    SectionWalkthrough,
+    StructuredAnalysisData,
     TokenUsage,
+    WalkthroughGuidance,
+    build_default_section_walkthrough,
+    build_default_walkthrough_map,
 )
 from .base import MetadataDict, MetadataValue
 from .learning import (
@@ -48,7 +57,16 @@ __all__ = [
     "AnalysisRequest",
     "AnalysisResult",
     "AnalysisType",
+    "ComprehensionCheck",
+    "build_default_section_walkthrough",
+    "build_default_walkthrough_map",
+    "HighlightCallout",
+    "LessonReference",
     "ModelTier",
+    "SectionWalkthrough",
+    "StructuredAnalysisData",
+    "WalkthroughGuidance",
+    "STRUCTURED_ANALYSIS_SCHEMA_VERSION",
     "TokenUsage",
     # Task data models
     "TaskData",

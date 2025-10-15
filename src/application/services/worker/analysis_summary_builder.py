@@ -35,9 +35,10 @@ class AnalysisSummaryBuilder:
         """Construct the compact summary payload persisted alongside the analysis."""
 
         task_metadata = dict(task_data.metadata)
-        structured_data = (
-            result.structured_data if isinstance(result.structured_data, dict) else {}
-        )
+        if result.structured_data is None:
+            structured_data: dict[str, Any] = {}
+        else:
+            structured_data = result.structured_data.model_dump(mode="json")
 
         sections = self._extract_structured_sections(structured_data)
 
