@@ -14,7 +14,7 @@ Frontend UX now depends on curated backend artifacts (critical risks, hero metri
 
 - **Blocking – Missing Curated Summary Payload** (`worker_service.py:1236-1334`)
 
-  - ✅ Addressed with schema v3 upgrade (`src/application/handlers/schemas/responses/analysis_response.py`, `_build_summary_payload` at `src/application/services/worker_service.py:1306-2140`).
+- ✅ Addressed with schema v4 upgrade (`src/application/handlers/schemas/responses/analysis_response.py`, `_build_summary_payload` at `src/application/services/worker_service.py:1306-2140`).
   - The persisted summary now carries curated collections, metrics, risks, timeline, and enhanced sentiment.
   - **Next**: follow-on clean-up (see Execution Plan step 3) to remove redundant top-level fields from stored analysis blobs.
 
@@ -31,13 +31,13 @@ Frontend UX now depends on curated backend artifacts (critical risks, hero metri
 
 - **Blocking – Severity & Action Signals Missing** (`llm/schemas/risk_factors.py:40-118`)
 
-  - ✅ Risk highlights now aggregate severity/probability, mitigation copy, and section context for both critical actions and monitor signals.
-  - **Follow-up**: ensure presentation layer consumes `risk_highlights` instead of mining `structured_data`.
+  - ✅ (Deprecated) Risk highlights previously aggregated severity/probability, mitigation copy, and section context for critical actions and monitoring signals; this surface has been removed in schema v4.
+  - **Follow-up**: ensure presentation layer relies on curated summary segments (`summary.summary_sections`) instead of mining `structured_data`.
 
 - **High – Timeline/Event Extraction Absent**
 
-  - ✅ Structured timelines are now normalised into `insight_timeline`, capturing IDs, timestamps, severity, and related metrics.
-  - **Follow-up**: add integration coverage once response cleanup lands.
+  - ✅ Structured timelines were normalised into `insight_timeline`, but the module was retired with summary schema v4 to simplify the detail surface.
+  - **Follow-up**: none — future event storytelling will route through dedicated benchmarking surfaces instead of filing detail payloads.
 
 - **High – Sentiment Rollups Are Naive** (`worker_service.py:1306-2140`)
 
@@ -61,7 +61,7 @@ Frontend UX now depends on curated backend artifacts (critical risks, hero metri
 
    - ✅ Extended `AnalysisSummary` DTO to include curated lists, hero metrics, risk highlights, insight timeline, sentiment rollup, and filing summary while bumping schema version to 3 (`src/application/handlers/schemas/responses/analysis_response.py`).
    - ✅ Rebuilt `_build_summary_payload` with helper mappers that harvest ratios, risks, timelines, and weighted sentiment directly from structured sections (`src/application/services/worker_service.py:1306-2140`).
-   - ✅ Added targeted regression coverage for the new payload (`tests/application/services/test_worker_service_summary.py`) and refreshed the JSON contract example (`docs/api/analysis_response_v3_example.json`).
+   - ✅ Added targeted regression coverage for the new payload (`tests/application/services/test_worker_service_summary.py`) and refreshed the JSON contract example (`docs/api/analysis_response_v4_example.json`).
   - ✅ Backend adoption: `GetAnalysisQueryHandler`, `ListAnalysesQueryHandler`,
     `analysis_data_to_domain`, and the `AnalysisRepository` filter/sort paths now rely
     exclusively on the curated summary DTO. Added regression coverage to assert that hero metrics,
@@ -82,7 +82,7 @@ Frontend UX now depends on curated backend artifacts (critical risks, hero metri
     Followed with `npm run test`, `npm run typecheck`, and `npm run lint` (lint surfaced pre-existing
     hook dependency warnings). `poetry run mypy src`/`poetry run ruff check src` still fail inside the
     container because the image lacks those binaries. Exercised `/api/analyses` via a FastAPI
-    `TestClient` override to confirm the schema v3 summary payload; the detail endpoint returns the
+    `TestClient` override to confirm the schema v4 summary payload; the detail endpoint returns the
     documented storage-miss 500 for the synthetic record since no blob is present.
   - ✅ Summary schema adoption checklist:
     - ✅ Backend queries and repositories: `GetAnalysisQueryHandler`,
@@ -97,8 +97,8 @@ Frontend UX now depends on curated backend artifacts (critical risks, hero metri
       `frontend/src/test/fixtures/analyses.ts`.
     - ✅ Persistence verification: stored an analysis through the provider and validated with
       `docker compose exec postgres psql -U aperilex -d aperilex -c "select id, meta_data->>'summary_schema_version', json_typeof(summary) from analyses order by created_at desc limit 5;"`
-      that new rows land with `summary_schema_version = 3` and JSON payloads (legacy rows remain at v2).
-    - ✅ Contract documentation & clients: documented the v3 contract in
+      that new rows land with `summary_schema_version = 4` and JSON payloads (legacy rows remain at v2).
+    - ✅ Contract documentation & clients: documented the v4 contract in
       `docs/backend/analysis-contract.md` (clients still need regeneration alongside repository
       cleanup).
     - ✅ Validation & QA: added FastAPI router regression coverage for list/detail endpoints in
@@ -108,13 +108,13 @@ Frontend UX now depends on curated backend artifacts (critical risks, hero metri
 
 3. **Response Serialization Cleanup**
 
-   - ✅ Worker now persists a schema v3 envelope that wraps curated `summary` alongside the trimmed `full_results` artifact (`src/application/services/worker_service.py`). New analyses land with `analysis_schema_version = 3` and nested `full_results_schema_version` metadata so downstream services can branch if needed.
+   - ✅ Worker now persists a schema v4 envelope that wraps curated `summary` alongside the trimmed `full_results` artifact (`src/application/services/worker_service.py`). New analyses land with `analysis_schema_version = 4` and nested `full_results_schema_version` metadata so downstream services can branch if needed.
    - 🔜 Run a follow-up migrator/backfill to re-encode historical blobs and prune v1/v2 leftovers once retention requirements are confirmed.
-   - ✅ Refreshed repository serializers, DTOs, and docs to reflect the envelope contract (`docs/backend/analysis-contract.md`, `docs/api/analysis_response_v3_example.json`).
+   - ✅ Refreshed repository serializers, DTOs, and docs to reflect the envelope contract (`docs/backend/analysis-contract.md`, `docs/api/analysis_response_v4_example.json`).
 
 4. **Structured Data Projection**
 
-   - ✅ Implemented mapper utilities for metrics, risks, timelines, and sentiment rollups inside the worker summary builder (`src/application/services/worker_service.py`).
+   - ✅ Implemented mapper utilities for metrics and sentiment rollups inside the worker summary builder (`src/application/services/worker_service.py`).
    - ✅ Normalised metric payloads (numeric/delta/display) so both summary and downstream consumers avoid string parsing.
    - ✅ Added unit coverage validating the curated projections (`tests/application/services/test_worker_service_summary.py`).
    - ✅ Ensured `structured_data` remains the canonical deep artifact now that response cleanup removed duplicate top-level fields.
@@ -143,6 +143,6 @@ Frontend UX now depends on curated backend artifacts (critical risks, hero metri
 ## Next Focus
 
 - **Response Serialization Cleanup (Plan step 3)**: Strip redundant narrative fields from persisted blobs and run a backfill/migration.
-- **Repository/Client Updates (Plan step 5)**: Point query handlers and regenerated frontend clients at schema v3 payloads, removing legacy fallbacks.
+- **Repository/Client Updates (Plan step 5)**: Point query handlers and regenerated frontend clients at schema v4 payloads, removing legacy fallbacks.
 - **Telemetry Enhancements (Plan step 6)**: Persist provider token usage/cost in metadata while keeping the public API redacted.
 - **Historical Backfill Strategy**: Decide on reprocessing vs. compatibility tooling for legacy analyses once cleanup migrators are ready.

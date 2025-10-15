@@ -30,7 +30,7 @@
 
 ### 2.4 Summary & Narrative Builders
 
-- Methods: `_build_summary_payload`, `_extract_structured_sections`, `_resolve_section_name`, `_collect_headline_metrics`, `_map_subsection_to_headline_metric`, `_collect_risk_highlights`, `_collect_insight_timeline`, `_normalize_timeline_entry`, `_compose_summary_sections`, `_build_overview_segment`, `_build_sections_segment`, `_build_metrics_segment`, `_build_sentiment_segment`, `_build_sentiment_rollup_payload`, `_derive_metric_category`, `_slugify_identifier`, `_build_completion_metadata`, `_confidence_bucket`, `_format_metric_delta`, helper cleaners.
+- Methods: `_build_summary_payload`, `_extract_structured_sections`, `_resolve_section_name`, `_collect_headline_metrics`, `_map_subsection_to_headline_metric`, `_compose_summary_sections`, `_build_overview_segment`, `_build_sections_segment`, `_build_metrics_segment`, `_build_sentiment_segment`, `_build_sentiment_rollup_payload`, `_derive_metric_category`, `_slugify_identifier`, `_build_completion_metadata`, `_confidence_bucket`, `_format_metric_delta`, helper cleaners.
 - Deliverable: `AnalysisSummaryBuilder` pure component that shapes `AnalysisResult` + structured data into summary dict aligned with frontend contracts (`filing-analysis-review.md`, `backend-alignment-notes.md`).
 - Notes: Preserve existing schema field names to avoid fallback adapters; supplement with new unit tests covering risk timeline, metrics, sentiment rollups.
 
@@ -54,7 +54,7 @@
 
 ### 2.8 Utility Helpers
 
-- Methods: `_resolve_company_name`, `_resolve_analysis_focus`, `_append_unique`, `_clip_summary_text`, `_normalize_metric_value`, `_coerce_float`, `_ensure_string_list`, `_collect_critical_findings`, `_section_weight`, `_resolve_filing_summary`, `_format_related_sections_summary`, `_select_primary_highlight`, `_describe_notable_sentiment_section`, `_clean_text`.
+- Methods: `_resolve_company_name`, `_resolve_analysis_focus`, `_append_unique`, `_clip_summary_text`, `_normalize_metric_value`, `_coerce_float`, `_ensure_string_list`, `_collect_critical_findings`, `_section_weight`, `_resolve_filing_summary`, `_describe_notable_sentiment_section`, `_clean_text`.
 - Deliverable: Move into dedicated modules (`summary_utils.py`, `metrics_utils.py`) or internal helpers within the Summary builder to trim WorkerService surface area.
 
 ## 3. Target End State

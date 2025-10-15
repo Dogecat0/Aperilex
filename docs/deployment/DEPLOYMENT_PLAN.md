@@ -28,6 +28,177 @@ Domain:            .com domain via Route 53 Domains
 
 **Upgrade Path**: Add Application Load Balancer when scaling to multiple instances
 
+### Local Docker Runtime Baseline (Stage 5.0.2)
+
+To keep Stage 5 development aligned with the production secret flow, all local
+workloads run through Docker with secrets supplied by the mounted `.secrets`
+directory. Follow this checklist whenever provisioning a new workstation or
+rotating credentials:
+
+1. **Generate/rotate JWT keys**
+   ```bash
+   docker compose run --rm app python scripts/generate_jwt_keys.py --force
+   ```
+   The command writes `JWT_PRIVATE_KEY` and `JWT_PUBLIC_KEY` to `.secrets/` and
+   appends an entry to `.secrets/JWT_KEY_ROTATION.log`.
+
+2. **Sync Google OAuth client credentials**
+   - Place the issued values in `.secrets/GOOGLE_CLIENT_ID` and
+     `.secrets/GOOGLE_CLIENT_SECRET`.
+   - Ensure file permissions are `0600` (`chmod 600 .secrets/GOOGLE_CLIENT_*`).
+
+   **Optional (required for local analysis)**: add API provider keys.
+   - Store the OpenAI key in `.secrets/openai_api_key`.
+   - Store the Google API key in `.secrets/google_api_key`.
+   - Apply `chmod 600` to both files so Docker mounts them read-only.
+
+3. **Verify secrets are mounted in containers**
+   ```bash
+   docker compose run --rm app bash -lc "ls -1 /run/secrets"
+   ```
+   Expect to see `postgres_password`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`,
+   `JWT_PRIVATE_KEY`, and `JWT_PUBLIC_KEY`.
+
+4. **Confirm database connectivity through Docker only**
+   ```bash
+   docker compose exec postgres psql -U aperilex -c '\l'
+   ```
+   Local Postgres installations are intentionally unsupported during Stage 5.
+
+5. **Check service health probes**
+   ```bash
+   docker compose up -d app worker
+   docker compose ps --format json | jq '.[].Health'
+   docker compose logs app --tail=20
+   ```
+   The entrypoint now fails fast when required secrets are missing, preventing
+   partial startups with mock authentication paths.
+
+### Structured Analysis Schema Refresh (2025-10)
+
+- Deploy worker images that include the ranked insight schema (`ProductHighlight`,
+  `RiskRegisterEntry`, updated financial statements) before promoting API changes.
+- Pause ingestion briefly, run the migration to translate existing
+  `structured_data` blobs to the new field names (`top_products`, `risk_register`,
+  `financial_metric_rankings`, etc.), and backfill historical rows.
+- Coordinate frontend rollout after confirming the API responses return the new
+  contract; legacy clients must be decommissioned because the old keys are no longer emitted.
+
+### OAuth Authentication Flow (Stage 5.5)
+
+Stage 5 ships the Google OAuth provider with PKCE, short-lived Aperilex access
+tokens, and refresh-token backed sessions. The diagrams and runbook below are
+the single source of truth for how the stack authenticates users and how we
+rotate the related secrets.
+
+#### Authorization Code + PKCE Flow
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant UserBrowser as Browser
+    participant Frontend as React App
+    participant API as FastAPI /auth
+    participant Secrets as Secret Manager
+    participant Google as Google OAuth
+    UserBrowser->>Frontend: Click "Continue with Google"
+    Frontend->>API: GET /api/auth/google/login?redirectTo=...
+    API->>Secrets: Read GOOGLE_CLIENT_ID
+    API-->>Frontend: 307 redirect (state + PKCE challenge)
+    Frontend->>Google: Authorization request w/ code_challenge
+    Google-->>UserBrowser: Consent + auth code + state
+    UserBrowser->>Frontend: Redirect to /auth/google/callback
+    Frontend->>API: POST /api/auth/google/callback (code, state, redirectUri)
+    API->>Secrets: Read GOOGLE_CLIENT_SECRET + JWT keys
+    API->>Google: Exchange code for tokens
+    Google-->>API: id_token + refresh_token
+    API-->>Frontend: AuthSessionResponse + Set-Cookie (refresh)
+    Frontend->>UserBrowser: Persist session in auth store & redirect
+```
+
+Key guarantees:
+
+- The FastAPI router enforces state + verifier cookies before exchanging the
+  auth code, eliminating replay attacks.
+- The configured redirect URI must be registered in the Google Cloud Console;
+  the React client only ever uses redirects from the allow-list enforced by
+  the `redirectTo` cookie.
+- Access tokens are issued with the `authentication.jwt_*` configuration so
+  SSE connections, REST calls, and the task stream all reuse a consistent JWT
+  contract.
+
+#### Refresh + Token Rotation Flow
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant Frontend as React App
+    participant API as FastAPI /auth
+    participant Repo as Postgres Sessions
+    participant Secrets as Secret Manager
+    Frontend->>API: POST /api/auth/refresh (Authorization: Bearer <access>)
+    API->>Repo: Rate limit + session lookup
+    API->>Secrets: Read JWT_PRIVATE_KEY (current kid)
+    API-->>Frontend: 200 AuthSessionResponse (rotated access token)
+    API->>Repo: Persist rotated refresh expiry + audit record
+    Note over API,Secrets: When kid changes, deploy new public key before rotation
+```
+
+Operational guidance:
+
+- Access tokens default to 15 minutes (`authentication.access_token_ttl_seconds`)
+  and refresh tokens to 14 days (`authentication.refresh_token_ttl_seconds`).
+- The `authentication.jwt_key_id` value travels in the JWT header; bump it to a
+  new identifier whenever rotating signing keys so clients can distinguish
+  active keys during overlap windows.
+- Refresh requests are backed by the `auth_sessions` table; stale sessions are
+  pruned by the worker cron job and revoked refresh tokens are ignored.
+
+#### Redirect URI Matrix
+
+| Environment | User-facing redirect | Config key | Notes |
+|-------------|----------------------|------------|-------|
+| Local Docker | `http://localhost:3000/auth/google/callback` | `APERILEX_AUTHENTICATION__GOOGLE__REDIRECT_URI` | Default shipped with repo; use when developing against docker compose |
+| Local (loopback) | `http://127.0.0.1:3000/auth/google/callback` | `APERILEX_AUTHENTICATION__GOOGLE__REDIRECT_URI` (override) | Temporarily switch the env var when running the frontend on loopback |
+| Staging | `https://staging.aperilex.app/auth/google/callback` | `APERILEX_AUTHENTICATION__GOOGLE__REDIRECT_URI` | Must be registered in Google console under the staging OAuth client |
+| Production | `https://app.aperilex.com/auth/google/callback` | `APERILEX_AUTHENTICATION__GOOGLE__REDIRECT_URI` | Primary redirect for the live app; include analytics login CTA deep-links in the Google allow-list |
+
+All public redirect URIs must also be reflected in
+`frontend/src/hooks/useAuth.ts` (the login redirect builder) so the React client
+points to the same endpoint when constructing the `/api/auth/google/login`
+request.
+
+#### Secret Rotation Playbook
+
+1. **Rotate JWT signing keys**
+   ```bash
+   docker compose run --rm app python scripts/generate_jwt_keys.py --force
+   ```
+   - The script writes fresh keys to `.secrets/JWT_PRIVATE_KEY` and
+     `.secrets/JWT_PUBLIC_KEY` and appends to `JWT_KEY_ROTATION.log`.
+   - Update `APERILEX_AUTHENTICATION__JWT_KEY_ID` in `.env`/environment to the
+     new key identifier before restarting the stack.
+
+2. **Rotate Google OAuth credentials**
+   - Obtain the new OAuth client ID/secret from the Google Cloud Console.
+   - Replace `.secrets/GOOGLE_CLIENT_ID` and `.secrets/GOOGLE_CLIENT_SECRET`,
+     keeping file permissions at `0600`.
+   - For staging/production, replicate the secrets in AWS Secrets Manager and
+     redeploy the infra stack so `SecretManager` surfaces the updated values.
+
+3. **Deploy with overlap window**
+   - Update application configuration (`APERILEX_AUTHENTICATION__JWT_ISSUER`,
+     `...__JWT_AUDIENCE`, and redirect URIs) alongside the new key ID.
+   - Roll the API first so it serves tokens signed with the new key, then roll
+     workers (for token validation) and clear any cached public keys.
+
+4. **Housekeeping**
+   - Invalidate any remaining refresh sessions by running the
+     `scripts/auth/expire_refresh_tokens.py` helper when revoking compromised
+     credentials.
+   - Document the rotation in the security runbook with the new kid, operator,
+     and reason for audit readiness.
+
 ## Technical Interfaces & Abstractions
 
 ### Type System Overview

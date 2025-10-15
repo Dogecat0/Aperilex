@@ -92,7 +92,7 @@
 - **Worker persistence updates**: Teach the worker to synthesize the summary object on completion, persist it via the repository, and leave `full_results` in blob storage for deep dives.
 - **Detail endpoint alignment**: Keep `GetAnalysisQueryHandler` loading blobs but fall back to the precomputed summary instead of reconstructing counts at request time.
 - **Test & documentation sweep**: Update unit/integration tests, Vitest fixtures, and dev docs so frontend/backed remain in lock-step during the refactor.
-  - Companion example: see `docs/api/analysis_response_v3_example.json` for the end-to-end detail payload (summary + structured data) targeted by this refactor.
+  - Companion example: see `docs/api/analysis_response_v4_example.json` for the end-to-end detail payload (summary + structured data) targeted by this refactor.
 
 ### Proposed Summary Payload Example
 
@@ -156,31 +156,6 @@
           "delta_text": "Growth accelerated four points versus prior quarter."
         },
         "confidence": 0.75
-      }
-    ],
-    "risk_highlights": {
-      "critical_actions": [
-        {
-          "id": "margin_pressure",
-          "title": "Margin pressure from infrastructure spend",
-          "severity": "high",
-          "probability": "medium",
-          "summary": "Capital expenditures climbed 28% as cloud region build-out ramps.",
-          "recommended_action": "Publish capex ROI targets in the next earnings call."
-        }
-      ],
-      "signals_to_monitor": []
-    },
-    "insight_timeline": [
-      {
-        "id": "2025-09-10-growth",
-        "occurred_at": "2025-09-10T00:00:00Z",
-        "type": "metric",
-        "severity": "medium",
-        "title": "Revenue growth accelerates",
-        "summary": "Subscription renewals and seat expansion lifted revenue to $24.3B (+11% YoY).",
-        "source_section": "Income Statement",
-        "related_metrics": ["revenue_yoy"]
       }
     ],
     "sentiment_rollup": {
