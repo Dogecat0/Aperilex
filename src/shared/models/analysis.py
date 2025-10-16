@@ -361,6 +361,10 @@ class SectionWalkthrough(BaseModel):
         ge=1,
         description="Optional estimated completion time in minutes",
     )
+    previous_comparison: dict[str, Any] | None = Field(
+        default=None,
+        description="Diff metadata comparing against the previous analysis run",
+    )
 
     model_config = ConfigDict(extra="forbid", frozen=True)
 
@@ -513,7 +517,23 @@ _DEFAULT_SECTION_TEMPLATES: dict[str, _WalkthroughTemplate] = {
         why_it_matters="Prioritising risks helps direct diligence effort and spot red flags early.",
         estimated_duration_minutes=7,
     ),
+    "part ii item 1a - risk factors": _WalkthroughTemplate(
+        title="Risk Posture Review",
+        learning_module_key="risk_mastery",
+        module_stage="walkthrough",
+        focus="Identify high-severity themes, mitigations, and monitoring cues.",
+        why_it_matters="Prioritising risks helps direct diligence effort and spot red flags early.",
+        estimated_duration_minutes=7,
+    ),
     "item 7 - management discussion & analysis": _WalkthroughTemplate(
+        title="MD&A Performance Story",
+        learning_module_key="mda_foundations",
+        module_stage="walkthrough",
+        focus="Trace how management explains revenue, margin, and cash flow shifts.",
+        why_it_matters="Understanding the narrative behind the numbers improves forecasting and stakeholder communication.",
+        estimated_duration_minutes=9,
+    ),
+    "part i item 2 - management discussion & analysis": _WalkthroughTemplate(
         title="MD&A Performance Story",
         learning_module_key="mda_foundations",
         module_stage="walkthrough",
@@ -598,6 +618,8 @@ def build_default_walkthrough_map(
 def _migrate_structured_analysis_to_v3(
     payload: dict[str, Any],
 ) -> dict[str, Any]:
+    # TODO(guided-walkthrough-cutover): Remove once all persisted analyses have
+    # schema_version >= 3 and no longer require default walkthrough scaffolding.
     """Upgrade legacy structured analysis payloads to schema v3."""
 
     data = dict(payload)

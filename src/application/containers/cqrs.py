@@ -46,6 +46,7 @@ from src.application.services.worker import (
     AnalysisSummaryBuilder,
     AnalysisTaskBuilder,
     FilingLifecycleService,
+    SectionDiffService,
     TemplateRegistry,
     WorkerRetryCoordinator,
 )
@@ -315,6 +316,12 @@ class CQRSContainer(containers.DeclarativeContainer):
 
     template_registry = providers.Singleton(TemplateRegistry)
 
+    section_diff_service = providers.Singleton(
+        SectionDiffService,
+        analysis_query_service=analysis_query_service,
+        storage=providers_container.storage_provider,
+    )
+
     filing_lifecycle_service = providers.Singleton(
         FilingLifecycleService,
         datasource=providers_container.data_source_provider,
@@ -328,6 +335,7 @@ class CQRSContainer(containers.DeclarativeContainer):
         llm_provider=providers_container.llm_provider,
         storage=providers_container.storage_provider,
         template_registry=template_registry,
+        section_diff_service=section_diff_service,
     )
 
     analysis_summary_builder = providers.Singleton(AnalysisSummaryBuilder)

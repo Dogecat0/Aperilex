@@ -114,12 +114,14 @@ class GetAnalysisQueryHandler(QueryHandler[GetAnalysisQuery, AnalysisResponse]):
                     and schema_version >= 3
                     and isinstance(results.get("full_results"), dict)
                 ):
-                    full_results_payload = results["full_results"]
+                    full_results_payload = dict(results["full_results"])
+                    if "schema_version" in full_results_payload:
+                        full_results_payload["schema_version"] = 2
                     summary_candidate = results.get("summary")
                     if isinstance(summary_candidate, dict):
                         summary_payload = summary_candidate
-                else:
-                    full_results_payload = results
+            else:
+                full_results_payload = results
 
             # Convert to response DTO based on requested detail level
             response = AnalysisResponse.from_data(

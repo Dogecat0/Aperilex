@@ -12,6 +12,15 @@ import pytest
 from src.application.handlers.schemas.commands.analyze_filing import AnalysisTemplate
 from src.application.interfaces.llm import LLMResponse
 from src.application.services.worker import AnalysisExecutionService
+from src.infrastructure.providers.llm.base import (
+    ComprehensiveAnalysisResponse,
+    SectionAnalysisResponse,
+    SectionWalkthroughPayload,
+    WalkthroughComprehensionCheck,
+    WalkthroughGuidancePayload,
+    WalkthroughHighlight,
+    WalkthroughLessonReference,
+)
 from src.shared.enums import FilingType, TaskPriority, TaskStatus, UserTier
 from src.shared.enums.provider import LLMProvider
 from src.shared.models import AnalysisRequest, AnalysisType, ModelTier, TaskData
@@ -169,39 +178,119 @@ async def test_perform_llm_analysis_with_sections_translates_response() -> None:
     assert result.estimated_cost == 2.75
 
 
-class _FakeStructuredResponse:
-    """Minimal fake for structured comprehensive responses."""
+def _make_comprehensive_response() -> ComprehensiveAnalysisResponse:
+    walkthrough = SectionWalkthroughPayload(
+        guidance=WalkthroughGuidancePayload(
+            focus="Prioritise the highest severity risks and how management plans to respond.",
+            why_it_matters="Focusing on severity shifts ensures diligence workstreams focus on real exposure.",
+        ),
+        highlights=[
+            WalkthroughHighlight(
+                id="highlight-regulator-focus",
+                title="Regulators intensify enforcement",
+                summary="Multiple jurisdictions expanded probes into platform economics this quarter.",
+                source_reference="Item 1A - Risk Factors ¶4",
+                confidence=0.81,
+                severity="High",
+                lesson_reference=WalkthroughLessonReference(
+                    lesson_id="lesson-risk-regulator-overview",
+                    learning_module_key="risk_mastery",
+                    module_stage="walkthrough",
+                    title="Spotting regulatory escalation",
+                ),
+                quote="Regulators in the EU and US continue to evaluate our platform policies and may impose new operating constraints.",
+                tags=["regulatory", "risk"],
+            )
+        ],
+        comprehension_checks=[
+            WalkthroughComprehensionCheck(
+                id="check-risk-driver",
+                question="Which risk driver does management flag as most severe?",
+                correct_answer="Expanded regulatory investigations into platform economics.",
+                distractors=[
+                    "Significant loss of manufacturing capacity.",
+                    "Immediate decline in recurring revenue.",
+                ],
+                explanation="The section emphasises regulators broadening active reviews across multiple regions.",
+                lesson_reference=WalkthroughLessonReference(
+                    lesson_id="lesson-risk-driver",
+                    learning_module_key="risk_mastery",
+                    module_stage="reinforce",
+                    title="Connecting severity to root drivers",
+                ),
+            ),
+            WalkthroughComprehensionCheck(
+                id="check-risk-mitigation",
+                question="What mitigation does management highlight?",
+                correct_answer="Ongoing engagement with regulators and iterative policy updates.",
+                distractors=[
+                    "Immediate divestiture of the platform business.",
+                    "Accelerated price increases across all customer segments.",
+                ],
+                explanation="Management references proactive dialogue and policy revisions as the mitigation path.",
+                lesson_reference=WalkthroughLessonReference(
+                    lesson_id="lesson-risk-mitigation",
+                    learning_module_key="risk_mastery",
+                    module_stage="reinforce",
+                    title="Interpreting mitigation language",
+                ),
+            ),
+            WalkthroughComprehensionCheck(
+                id="check-risk-outcome",
+                question="What outcome does management worry about?",
+                correct_answer="Potentially stricter platform economics that compress profitability.",
+                distractors=[
+                    "Immediate shutdown of primary suppliers.",
+                    "Forced divestiture of the consumer hardware segment.",
+                ],
+                explanation="The filing notes that enforcement could constrain platform monetisation and margins.",
+                lesson_reference=WalkthroughLessonReference(
+                    lesson_id="lesson-risk-outcome",
+                    learning_module_key="risk_mastery",
+                    module_stage="reinforce",
+                    title="Linking severity to financial outcomes",
+                ),
+            ),
+        ],
+        learning_module_key="risk_mastery",
+        module_stage="walkthrough",
+        estimated_duration_minutes=7,
+        citations=["Item 1A - Risk Factors ¶4"],
+    )
 
-    def __init__(self) -> None:
-        self.total_processing_time_ms = 1200
-        self.total_sections_analyzed = 2
-        self.total_sub_sections_analyzed = 4
-        self.confidence_score = 0.82
-        self.filing_summary = "Overall positive outlook."
-        self.key_insights = ["Insight A"]
-        self.opportunities = ["Opportunity X"]
+    section = SectionAnalysisResponse(
+        section_name="Item 1A - Risk Factors",
+        section_summary="Risk summary.",
+        consolidated_insights=["Mitigation roadmap"],
+        overall_sentiment=-0.1,
+        critical_findings=["Finding 1", "Finding 2", "Finding 3"],
+        sub_sections=[],
+        citations=["Item 1A - Risk Factors ¶4"],
+        walkthrough=walkthrough,
+        processing_time_ms=600,
+        sub_section_count=0,
+    )
 
-    def model_dump(self, *, mode: str) -> dict[str, Any]:  # noqa: D401 - parity helper
-        """Return structured payload in worker-compatible format."""
-
-        return {
-            "section_analyses": [
-                {
-                    "section_name": "Risk Factors",
-                    "section_summary": "Risk summary.",
-                    "consolidated_insights": ["Mitigation roadmap"],
-                    "overall_sentiment": -0.1,
-                    "critical_findings": ["Finding 1", "Finding 2", "Finding 3"],
-                }
-            ]
-        }
+    return ComprehensiveAnalysisResponse(
+        filing_summary="Overall positive outlook.",
+        key_insights=["Insight A"],
+        opportunities=["Opportunity X"],
+        confidence_score=0.82,
+        section_analyses=[section],
+        total_sections_analyzed=1,
+        total_sub_sections_analyzed=0,
+        total_processing_time_ms=1200,
+        filing_type=FilingType.FORM_10K.value,
+        company_name="Acme Corp",
+        analysis_timestamp=datetime.now(UTC).isoformat(),
+    )
 
 
 @pytest.mark.unit
 @pytest.mark.asyncio
 async def test_perform_structured_comprehensive_analysis_shapes_result() -> None:
-    async def fake_analyze_sections(**_: Any) -> _FakeStructuredResponse:
-        return _FakeStructuredResponse()
+    async def fake_analyze_sections(**_: Any) -> ComprehensiveAnalysisResponse:
+        return _make_comprehensive_response()
 
     async def fake_model_info() -> SimpleNamespace:
         return SimpleNamespace(model_name="gpt-4-structured")
@@ -223,22 +312,30 @@ async def test_perform_structured_comprehensive_analysis_shapes_result() -> None
         company_name="Acme Corp",
         template=AnalysisTemplate.COMPREHENSIVE,
         metadata=task_data.metadata,
+        task_data=task_data,
     )
 
     assert result.analysis_id == request.analysis_id
     assert result.filing_id == task_data.filing_id
     assert result.summary == "Overall positive outlook."
-    assert result.structured_data["section_analyses"][0]["section_summary"] == "Risk summary."
+    structured_dump = result.structured_data.model_dump()
+    assert structured_dump["section_analyses"][0]["section_summary"] == "Risk summary."
     assert result.quality_metrics["confidence_score"] == 0.82
     assert result.model_name == "gpt-4-structured"
     assert result.analysis_type == AnalysisType.COMPREHENSIVE
+    walkthroughs = structured_dump["section_walkthroughs"]
+    assert "Item 1A - Risk Factors" in walkthroughs
+    assert (
+        walkthroughs["Item 1A - Risk Factors"]["learning_module_key"]
+        == "risk_mastery"
+    )
 
 
 @pytest.mark.unit
 @pytest.mark.asyncio
 async def test_structured_analysis_attaches_focus_metadata() -> None:
-    async def fake_analyze_sections(**_: Any) -> _FakeStructuredResponse:
-        return _FakeStructuredResponse()
+    async def fake_analyze_sections(**_: Any) -> ComprehensiveAnalysisResponse:
+        return _make_comprehensive_response()
 
     async def fake_model_info() -> SimpleNamespace:
         return SimpleNamespace(model_name="gpt-4-structured")
@@ -263,6 +360,7 @@ async def test_structured_analysis_attaches_focus_metadata() -> None:
         company_name="Acme Corp",
         template=AnalysisTemplate.FINANCIAL_FOCUSED,
         metadata=task_data.metadata,
+        task_data=task_data,
     )
 
     assert result.metadata["analysis_focus"] == "Financial performance,Capital allocation"

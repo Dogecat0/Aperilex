@@ -351,6 +351,8 @@ class GoogleLLMProvider(BaseLLMProvider):
                 overall_sentiment=summary.overall_sentiment,
                 critical_findings=summary.critical_findings,
                 sub_sections=sub_sections,
+                citations=list(summary.citations),
+                walkthrough=summary.walkthrough,
                 processing_time_ms=processing_time_ms,
                 sub_section_count=len(sub_sections),
             )
@@ -365,6 +367,8 @@ class GoogleLLMProvider(BaseLLMProvider):
                 overall_sentiment=0.0,
                 critical_findings=[],
                 sub_sections=sub_sections,
+                citations=[],
+                walkthrough=None,
                 processing_time_ms=int((time.time() - start_time) * 1000),
                 sub_section_count=len(sub_sections),
             )

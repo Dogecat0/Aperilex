@@ -987,6 +987,10 @@ class AnalysisSummaryBuilder:
         if confidence_band is None:
             confidence_band = self._confidence_bucket(confidence_score)
 
+        pro_tip = clean_text(existing_rollup.get("pro_tip"))
+        if pro_tip is None:
+            pro_tip = self._extract_diff_pro_tip(structured_data)
+
         weakest_section_payload = None
         if weakest_section_label is not None:
             weakest_section_payload = {
@@ -1001,7 +1005,28 @@ class AnalysisSummaryBuilder:
             "prior_analysis_delta": prior_delta,
             "trend": trend,
             "confidence_band": confidence_band,
+            "pro_tip": pro_tip,
         }
+
+    @staticmethod
+    def _extract_diff_pro_tip(structured_data: dict[str, Any]) -> str | None:
+        """Extract pro-tip text from section diff metadata if available."""
+
+        walkthroughs = structured_data.get("section_walkthroughs")
+        if not isinstance(walkthroughs, dict):
+            return None
+
+        for entry in walkthroughs.values():
+            if not isinstance(entry, dict):
+                continue
+            previous_comparison = entry.get("previous_comparison")
+            if not isinstance(previous_comparison, dict):
+                continue
+            pro_tip = clean_text(previous_comparison.get("pro_tip"))
+            if pro_tip:
+                return pro_tip
+
+        return None
 
     @staticmethod
     def _derive_metric_category(

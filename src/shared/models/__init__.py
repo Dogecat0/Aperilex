@@ -15,8 +15,6 @@ from .analysis import (
     StructuredAnalysisData,
     TokenUsage,
     WalkthroughGuidance,
-    build_default_section_walkthrough,
-    build_default_walkthrough_map,
 )
 from .base import MetadataDict, MetadataValue
 from .learning import (
@@ -58,8 +56,6 @@ __all__ = [
     "AnalysisResult",
     "AnalysisType",
     "ComprehensionCheck",
-    "build_default_section_walkthrough",
-    "build_default_walkthrough_map",
     "HighlightCallout",
     "LessonReference",
     "ModelTier",

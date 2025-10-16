@@ -25,7 +25,8 @@ from .filing_lifecycle_service import (
     FilingLifecycleServiceError,
     StorageError,
 )
-from .template_registry import TemplateRegistry
+from .section_diff_service import SectionDiffService
+from .template_registry import TemplateRegistry, WalkthroughConstructionError
 from .worker_retry_coordinator import RetryPolicy, WorkerRetryCoordinator
 
 __all__ = [
@@ -41,7 +42,9 @@ __all__ = [
     "FilingLifecycleService",
     "FilingLifecycleServiceError",
     "StorageError",
+    "SectionDiffService",
     "RetryPolicy",
     "TemplateRegistry",
+    "WalkthroughConstructionError",
     "WorkerRetryCoordinator",
 ]

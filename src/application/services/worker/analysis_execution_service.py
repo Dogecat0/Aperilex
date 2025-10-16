@@ -8,9 +8,9 @@ orchestrator can delegate LLM-specific concerns to a dedicated component.
 from __future__ import annotations
 
 import uuid
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Sequence
 from datetime import UTC, datetime
-from typing import Any, Final, cast
+from typing import TYPE_CHECKING, Any, Final, cast
 
 from src.application.handlers.schemas.commands.analyze_filing import AnalysisTemplate
 from src.application.interfaces.llm import ILLMProvider, LLMRequest, LLMResponse
@@ -25,9 +25,16 @@ from src.shared.models import (
     TokenUsage,
 )
 from src.shared.types import AnalysisId, FilingId
+from src.shared.utils.logging import get_logger
 
-from .template_registry import TemplateRegistry
+from .section_diff_service import SectionDiffServiceError
+from .template_registry import TemplateRegistry, WalkthroughConstructionError
 
+if TYPE_CHECKING:
+    from .section_diff_service import SectionDiffService
+
+
+logger = get_logger(__name__)
 
 class AnalysisExecutionServiceError(Exception):
     """Base exception for analysis execution operations."""
@@ -44,10 +51,12 @@ class AnalysisExecutionService:
         llm_provider: ILLMProvider | None = None,
         storage: IStorageProvider | None = None,
         template_registry: TemplateRegistry | None = None,
+        section_diff_service: SectionDiffService | None = None,
     ) -> None:
         self.llm = llm_provider
         self.storage = storage
         self.template_registry = template_registry or TemplateRegistry()
+        self.section_diff_service = section_diff_service
 
     def create_analysis_request(self, task_data: TaskData) -> AnalysisRequest:
         """Build an `AnalysisRequest` mirroring WorkerService semantics."""
@@ -203,6 +212,7 @@ class AnalysisExecutionService:
         company_name: str,
         template: AnalysisTemplate,
         metadata: dict[str, str] | None,
+        task_data: TaskData,
     ) -> AnalysisResult:
         """Run the hierarchical LLM workflow for comprehensive filings."""
 
@@ -236,6 +246,7 @@ class AnalysisExecutionService:
             company_name=company_name,
             analysis_focus=analysis_focus,
         )
+        self._validate_walkthrough_payloads(comprehensive_response)
 
         try:
             model_info = await self.llm.get_model_info()
@@ -248,8 +259,6 @@ class AnalysisExecutionService:
         )
 
         structured_payload = comprehensive_response.model_dump(mode="json")
-        for deprecated in ("executive_summary", "financial_highlights", "risk_factors"):
-            structured_payload.pop(deprecated, None)
 
         sections = structured_payload.get("section_analyses") or []
         for section in sections:
@@ -271,7 +280,57 @@ class AnalysisExecutionService:
                 findings if isinstance(findings, list) else []
             )
 
+            citations = section.get("citations")
+            if isinstance(citations, list):
+                cleaned_citations = []
+                for citation in citations:
+                    text = str(citation).strip()
+                    if text:
+                        cleaned_citations.append(text)
+                section["citations"] = cleaned_citations
+            else:
+                section["citations"] = []
+
+            walkthrough_payload = section.get("walkthrough")
+            if isinstance(walkthrough_payload, dict):
+                raw_citations = walkthrough_payload.get("citations")
+                if isinstance(raw_citations, list):
+                    cleaned = [
+                        str(entry).strip()
+                        for entry in raw_citations
+                        if str(entry).strip()
+                    ]
+                    walkthrough_payload["citations"] = cleaned
+                else:
+                    walkthrough_payload["citations"] = []
+
         structured_payload["section_analyses"] = sections
+        structured_payload["section_walkthroughs"] = self._build_section_walkthroughs(
+            getattr(comprehensive_response, "section_analyses", []),
+        )
+
+        if structured_payload["section_walkthroughs"] and self.section_diff_service:
+            try:
+                diff_results = await self.section_diff_service.compute_diffs(
+                    task_data=task_data,
+                    structured_payload=structured_payload,
+                )
+            except SectionDiffServiceError as exc:
+                logger.warning(
+                    "Section diff computation failed",
+                    extra={
+                        "filing_id": str(filing_id),
+                        "error": str(exc),
+                    },
+                )
+                diff_results = {}
+            if diff_results:
+                for section_key, diff_payload in diff_results.items():
+                    walkthrough_entry = structured_payload["section_walkthroughs"].get(
+                        section_key
+                    )
+                    if isinstance(walkthrough_entry, dict):
+                        walkthrough_entry["previous_comparison"] = diff_payload
 
         narrative_parts: list[str] = []
         summary_text = (comprehensive_response.filing_summary or "").strip()
@@ -333,6 +392,213 @@ class AnalysisExecutionService:
             completed_at=datetime.now(UTC),
             metadata=focus_metadata,
         )
+
+    def _validate_walkthrough_payloads(self, comprehensive_response: Any) -> None:
+        """Ensure guided walkthrough payloads satisfy required constraints."""
+
+        sections = getattr(comprehensive_response, "section_analyses", None)
+        if not isinstance(sections, list):
+            raise AnalysisExecutionServiceError(
+                "Structured analysis response is missing section_analyses"
+            )
+
+        for section in sections:
+            section_name = str(getattr(section, "section_name", "") or "").strip() or "Unknown"
+
+            walkthrough = getattr(section, "walkthrough", None)
+            if walkthrough is None:
+                raise AnalysisExecutionServiceError(
+                    f"Guided walkthrough payload missing for section '{section_name}'"
+                )
+
+            guidance = getattr(walkthrough, "guidance", None)
+            if guidance is None:
+                raise AnalysisExecutionServiceError(
+                    f"Walkthrough guidance missing for section '{section_name}'"
+                )
+            focus = str(getattr(guidance, "focus", "")).strip()
+            why_it_matters = str(getattr(guidance, "why_it_matters", "")).strip()
+            if not focus or not why_it_matters:
+                raise AnalysisExecutionServiceError(
+                    f"Walkthrough guidance for section '{section_name}' must include focus and why_it_matters text"
+                )
+
+            module_key = str(getattr(walkthrough, "learning_module_key", "")).strip()
+            module_stage = str(getattr(walkthrough, "module_stage", "")).strip()
+            if not module_key or not module_stage:
+                raise AnalysisExecutionServiceError(
+                    f"Walkthrough for section '{section_name}' must include learning_module_key and module_stage"
+                )
+
+            highlights = list(getattr(walkthrough, "highlights", []))
+            if not highlights:
+                raise AnalysisExecutionServiceError(
+                    f"Walkthrough for section '{section_name}' must expose at least one highlight"
+                )
+            if len(highlights) > 3:
+                raise AnalysisExecutionServiceError(
+                    f"Walkthrough for section '{section_name}' returned {len(highlights)} highlights; maximum allowed is 3"
+                )
+
+            for highlight in highlights:
+                highlight_id = str(getattr(highlight, "id", "")).strip()
+                title = str(getattr(highlight, "title", "")).strip()
+                summary = str(getattr(highlight, "summary", "")).strip()
+                source_reference = str(getattr(highlight, "source_reference", "")).strip()
+                if not highlight_id or not title or not summary or not source_reference:
+                    raise AnalysisExecutionServiceError(
+                        f"Highlight metadata incomplete for section '{section_name}'"
+                    )
+
+                lesson_reference = getattr(highlight, "lesson_reference", None)
+                if lesson_reference is None:
+                    raise AnalysisExecutionServiceError(
+                        f"Highlight '{highlight_id}' for section '{section_name}' is missing lesson_reference"
+                    )
+
+                lr_module_key = str(getattr(lesson_reference, "learning_module_key", "")).strip()
+                lr_module_stage = str(getattr(lesson_reference, "module_stage", "")).strip()
+                lr_lesson_id = str(getattr(lesson_reference, "lesson_id", "")).strip()
+                if not lr_module_key or not lr_module_stage or not lr_lesson_id:
+                    raise AnalysisExecutionServiceError(
+                        f"Lesson reference metadata incomplete for highlight '{highlight_id}' in section '{section_name}'"
+                    )
+
+            comprehension_checks = list(getattr(walkthrough, "comprehension_checks", []))
+            if len(comprehension_checks) < 3:
+                raise AnalysisExecutionServiceError(
+                    f"Walkthrough for section '{section_name}' must include at least 3 comprehension checks"
+                )
+
+            for check in comprehension_checks:
+                check_id = str(getattr(check, "id", "")).strip()
+                question = str(getattr(check, "question", "")).strip()
+                correct_answer = str(getattr(check, "correct_answer", "")).strip()
+                explanation = str(getattr(check, "explanation", "")).strip()
+                distractors = getattr(check, "distractors", [])
+
+                if not check_id or not question or not correct_answer or not explanation:
+                    raise AnalysisExecutionServiceError(
+                        f"Comprehension check metadata incomplete for section '{section_name}'"
+                    )
+
+                if not isinstance(distractors, list) or len(distractors) < 2:
+                    raise AnalysisExecutionServiceError(
+                        f"Comprehension check '{check_id}' in section '{section_name}' must provide at least two distractors"
+                    )
+
+                lesson_reference = getattr(check, "lesson_reference", None)
+                if lesson_reference is None:
+                    raise AnalysisExecutionServiceError(
+                        f"Comprehension check '{check_id}' for section '{section_name}' is missing lesson_reference"
+                    )
+
+                lr_module_key = str(getattr(lesson_reference, "learning_module_key", "")).strip()
+                lr_module_stage = str(getattr(lesson_reference, "module_stage", "")).strip()
+                lr_lesson_id = str(getattr(lesson_reference, "lesson_id", "")).strip()
+                if not lr_module_key or not lr_module_stage or not lr_lesson_id:
+                    raise AnalysisExecutionServiceError(
+                        f"Lesson reference metadata incomplete for comprehension check '{check_id}' in section '{section_name}'"
+                    )
+
+            walkthrough_citations = getattr(walkthrough, "citations", [])
+            if not isinstance(walkthrough_citations, list):
+                raise AnalysisExecutionServiceError(
+                    f"Walkthrough citations malformed for section '{section_name}'"
+                )
+
+            cleaned_walkthrough_citations = [
+                str(entry).strip()
+                for entry in walkthrough_citations
+                if str(entry).strip()
+            ]
+            if len(cleaned_walkthrough_citations) != len(highlights):
+                raise AnalysisExecutionServiceError(
+                    f"Walkthrough for section '{section_name}' must surface exactly one citation per highlight"
+                )
+
+            section_citations = getattr(section, "citations", [])
+            if not isinstance(section_citations, list):
+                raise AnalysisExecutionServiceError(
+                    f"Section citations malformed for section '{section_name}'"
+                )
+
+            cleaned_section_citations = [
+                str(entry).strip()
+                for entry in section_citations
+                if str(entry).strip()
+            ]
+            if len(cleaned_section_citations) != len(highlights):
+                raise AnalysisExecutionServiceError(
+                    f"Section '{section_name}' must publish exactly one citation per highlight"
+                )
+
+            if set(cleaned_section_citations) != set(cleaned_walkthrough_citations):
+                raise AnalysisExecutionServiceError(
+                    f"Citations for section '{section_name}' must align between the walkthrough payload and section metadata"
+                )
+
+    def _build_section_walkthroughs(
+        self,
+        section_results: Sequence[Any],
+    ) -> dict[str, dict[str, Any]]:
+        """Convert structured walkthrough payloads into canonical section walkthroughs."""
+
+        walkthroughs: dict[str, dict[str, Any]] = {}
+
+        for index, section in enumerate(section_results):
+            walkthrough = getattr(section, "walkthrough", None)
+            if walkthrough is None:
+                continue
+
+            guidance_payload = getattr(walkthrough, "guidance", None)
+            if guidance_payload is None:
+                raise AnalysisExecutionServiceError(
+                    f"Walkthrough guidance missing for section '{getattr(section, 'section_name', 'Unknown')}'"
+                )
+
+            guidance_dict = {
+                "focus": str(getattr(guidance_payload, "focus", "")).strip(),
+                "why_it_matters": str(
+                    getattr(guidance_payload, "why_it_matters", "")
+                ).strip(),
+            }
+            module_key = str(getattr(walkthrough, "learning_module_key", "")).strip()
+            module_stage = str(getattr(walkthrough, "module_stage", "")).strip()
+            if not module_key or not module_stage:
+                raise AnalysisExecutionServiceError(
+                    f"Walkthrough module metadata missing for section '{getattr(section, 'section_name', 'Unknown')}'"
+                )
+
+            highlight_payloads = []
+            for highlight in getattr(walkthrough, "highlights", []):
+                highlight_payloads.append(highlight.model_dump(mode="json"))
+
+            comprehension_payloads = []
+            for check in getattr(walkthrough, "comprehension_checks", []):
+                comprehension_payloads.append(check.model_dump(mode="json"))
+
+            try:
+                walkthrough_model = self.template_registry.build_walkthrough(
+                    section_name=getattr(section, "section_name", f"Section {index + 1}"),
+                    guidance=guidance_dict,
+                    highlights=highlight_payloads,
+                    comprehension_checks=comprehension_payloads,
+                    display_order=index,
+                    learning_module_key=module_key,
+                    module_stage=module_stage,
+                    estimated_duration_minutes=getattr(
+                        walkthrough, "estimated_duration_minutes", None
+                    ),
+                )
+            except WalkthroughConstructionError as exc:
+                raise AnalysisExecutionServiceError(str(exc)) from exc
+
+            walkthroughs[walkthrough_model.section_key] = walkthrough_model.model_dump(
+                mode="json"
+            )
+
+        return walkthroughs
 
     async def perform_llm_analysis_with_sections(
         self,

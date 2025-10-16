@@ -5,6 +5,8 @@ import json
 import re
 from abc import ABC, abstractmethod
 from collections.abc import Callable, Sequence
+from dataclasses import dataclass
+from functools import cache
 from typing import TYPE_CHECKING, Any, ClassVar, Union, cast, get_args, get_origin
 
 from pydantic import BaseModel, ConfigDict, Field, conlist
@@ -21,6 +23,7 @@ from src.application.interfaces.llm import (
 from src.shared.config.providers import LLMConfig
 from src.shared.enums import FilingType
 from src.shared.models import LLMModelInfo
+from src.shared.models.analysis import build_default_section_walkthrough
 
 from . import schemas
 
@@ -147,6 +150,174 @@ else:
     CriticalFindings = conlist(str, min_length=3, max_length=5)
 
 
+@dataclass(frozen=True)
+class WalkthroughPromptContext:
+    """Prompt scaffolding for generating guided walkthrough artifacts."""
+
+    section_key: str
+    title: str
+    learning_module_key: str
+    module_stage: str
+    focus: str
+    why_it_matters: str
+    estimated_duration_minutes: int | None
+
+
+class WalkthroughLessonReference(BaseModel):
+    """Lesson linkage emitted alongside walkthrough artifacts."""
+
+    model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid")
+
+    lesson_id: str = Field(..., description="Stable identifier for the lesson")
+    learning_module_key: str = Field(
+        ..., description="Module key aligned with the learning curriculum"
+    )
+    module_stage: str = Field(
+        ..., description="Module stage (e.g. orientation, walkthrough, reinforce)"
+    )
+    title: str | None = Field(
+        default=None, description="Optional learner-facing lesson title"
+    )
+
+
+class WalkthroughHighlight(BaseModel):
+    """Highlight payload expected from guided walkthrough generation."""
+
+    model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid")
+
+    id: str = Field(..., description="Stable identifier for the highlight")
+    title: str = Field(..., description="Short headline describing the highlight")
+    summary: str = Field(..., description="Narrative summary for the highlight")
+    source_reference: str = Field(
+        ..., description="Precise citation (section header plus paragraph indicator)"
+    )
+    confidence: float | None = Field(
+        default=None,
+        ge=0.0,
+        le=1.0,
+        description="Confidence score between 0 and 1",
+    )
+    severity: str | None = Field(
+        default=None,
+        description="Optional severity label (reuse existing risk taxonomy values)",
+    )
+    lesson_reference: WalkthroughLessonReference = Field(
+        ..., description="Lesson linkage powering downstream learning flows"
+    )
+    quote: str | None = Field(
+        default=None,
+        description="Optional supporting quote surfaced from the filing",
+    )
+    tags: list[str] = Field(
+        default_factory=list,
+        description="Optional taxonomy tags associated with the highlight",
+    )
+
+
+class WalkthroughComprehensionCheck(BaseModel):
+    """Comprehension check emitted as part of the walkthrough."""
+
+    model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid")
+
+    id: str = Field(..., description="Stable identifier for the comprehension check")
+    question: str = Field(..., description="Learner-facing question text")
+    correct_answer: str = Field(..., description="Correct answer to the question")
+    distractors: list[str] = Field(
+        ..., min_length=2, description="Incorrect yet plausible answer choices"
+    )
+    explanation: str = Field(
+        ..., description="Explanation reinforcing why the correct answer is right"
+    )
+    lesson_reference: WalkthroughLessonReference = Field(
+        ..., description="Lesson linkage for remediation or deeper study"
+    )
+
+
+class WalkthroughGuidancePayload(BaseModel):
+    """Guidance copy framing the walkthrough focus."""
+
+    model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid")
+
+    focus: str = Field(..., description="Primary focus area for the walkthrough")
+    why_it_matters: str = Field(
+        ..., description="Explanation of why the focus matters to the learner"
+    )
+
+
+class SectionWalkthroughPayload(BaseModel):
+    """Structured walkthrough payload emitted by the LLM."""
+
+    model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid")
+
+    guidance: WalkthroughGuidancePayload = Field(
+        ..., description="Guidance copy anchoring the learner"
+    )
+    highlights: list[WalkthroughHighlight] = Field(
+        ..., min_length=1, description="Highlights surfaced during the walkthrough"
+    )
+    comprehension_checks: list[WalkthroughComprehensionCheck] = Field(
+        ...,
+        min_length=3,
+        description="Comprehension checks validating retention",
+    )
+    learning_module_key: str = Field(
+        ..., description="Learning module key associated with this walkthrough"
+    )
+    module_stage: str = Field(
+        ..., description="Learning module stage associated with this walkthrough"
+    )
+    estimated_duration_minutes: int | None = Field(
+        default=None,
+        ge=1,
+        description="Optional estimated completion time in minutes",
+    )
+    citations: list[str] = Field(
+        default_factory=list,
+        description="Citations corresponding to surfaced highlights",
+    )
+
+
+@cache
+def _walkthrough_prompt_contexts() -> dict[str, WalkthroughPromptContext]:
+    """Cache default walkthrough prompt contexts keyed by canonical section names."""
+
+    contexts: dict[str, WalkthroughPromptContext] = {}
+    for section_name in SECTION_SCHEMAS.keys():
+        template = build_default_section_walkthrough(section_name, 0)
+        if template is None:
+            continue
+
+        canonical = _canonical_section_key(section_name)
+        if canonical in contexts:
+            continue
+
+        contexts[canonical] = WalkthroughPromptContext(
+            section_key=template.section_key,
+            title=template.title,
+            learning_module_key=template.learning_module_key,
+            module_stage=template.module_stage,
+            focus=template.guidance.focus,
+            why_it_matters=template.guidance.why_it_matters,
+            estimated_duration_minutes=template.estimated_duration_minutes,
+        )
+    return contexts
+
+
+def _resolve_walkthrough_prompt_context(
+    section_name: str,
+) -> WalkthroughPromptContext | None:
+    """Resolve the prompt context for the provided section name."""
+
+    if not section_name:
+        return None
+
+    canonical = _canonical_section_key(section_name)
+    if not canonical:
+        return None
+
+    contexts = _walkthrough_prompt_contexts()
+    return contexts.get(canonical)
+
 class SectionSummaryResponse(BaseModel):
     """Section summary response without sub-sections (for OpenAI structured output)."""
 
@@ -164,6 +335,14 @@ class SectionSummaryResponse(BaseModel):
     )
     critical_findings: CriticalFindings = Field(
         ..., description="Critical findings that need attention"
+    )
+    citations: list[str] = Field(
+        default_factory=list,
+        description="Source citations supporting the section deliverables",
+    )
+    walkthrough: SectionWalkthroughPayload | None = Field(
+        default=None,
+        description="Guided walkthrough payload for the section",
     )
 
 
@@ -187,6 +366,14 @@ class SectionAnalysisResponse(BaseModel):
     )
     sub_sections: Sequence[SubSectionAnalysisResponse] = Field(
         ..., description="Detailed sub-section analyses"
+    )
+    citations: list[str] = Field(
+        default_factory=list,
+        description="Source citations aligned with walkthrough highlights",
+    )
+    walkthrough: SectionWalkthroughPayload | None = Field(
+        default=None,
+        description="Guided walkthrough payload generated for this section",
     )
     processing_time_ms: int | None = Field(
         None, description="Processing time in milliseconds"
@@ -973,18 +1160,22 @@ def create_section_summary_prompts(
         "- No structured sub-section analyses were generated."
     )
 
-    section_excerpt = ""
+    excerpt_block = ""
     if section_text:
         excerpt = section_text.strip()
         if excerpt:
             max_chars = 6000
             if len(excerpt) > max_chars:
                 excerpt = excerpt[:max_chars].rstrip() + "..."
-            section_excerpt = f"Relevant Section Text (excerpt):\n{excerpt}\n\n"
+            excerpt_block = f"Relevant Section Text (excerpt):\n{excerpt}"
+
+    walkthrough_context = _resolve_walkthrough_prompt_context(section_name)
 
     system_prompt = (
         "You are a financial analyst. Provide a consolidated summary of the section "
-        "using the evidence below. Quote actual figures and qualitative details when available."
+        "using the evidence below. Quote actual figures and qualitative details when available. "
+        "In addition to the summary, produce guided learning artifacts (guidance, highlights, comprehension checks) "
+        "that will coach a learner through this section."
     )
 
     deliverables_block = (
@@ -998,18 +1189,47 @@ def create_section_summary_prompts(
     guideline_block = (
         "Guidelines:\n"
         "- Deliver a cohesive narrative, cite specific metrics when they appear, and avoid placeholder language.\n"
-        "- If a data point is unavailable, explain the gap rather than inventing numbers."
+        "- If a data point is unavailable, explain the gap rather than inventing numbers.\n"
+        "- Do not invent citations or emit placeholders such as 'TBD'."
     )
 
-    user_prompt = (
+    walkthrough_block = ""
+    if walkthrough_context:
+        walkthrough_lines = [
+            "Guided Walkthrough Requirements:",
+            f"- Emit `walkthrough.learning_module_key` exactly as \"{walkthrough_context.learning_module_key}\" "
+            f"and `walkthrough.module_stage` exactly as \"{walkthrough_context.module_stage}\".",
+            "- Provide `walkthrough.guidance.focus` and `walkthrough.guidance.why_it_matters` as polished, filing-specific prose.",
+            "- Populate `walkthrough.highlights` with 1-3 entries; each entry must include `id`, `title`, `summary`, "
+            "`source_reference` (section header + paragraph indicator), `confidence` (0-1), optional `severity`, "
+            "`lesson_reference` (lesson_id, learning_module_key, module_stage, optional title), and optional `quote` and `tags`.",
+            "- Provide `walkthrough.comprehension_checks` with at least 3 entries; each entry must include `id`, `question`, "
+            "`correct_answer`, `distractors` (minimum two), `explanation`, and `lesson_reference` "
+            "(lesson_id, learning_module_key, module_stage, optional title).",
+            "- Produce a `citations` array listing every `source_reference` surfaced in the highlights (one citation per highlight).",
+            f"- Anchor the learner by covering the focus \"{walkthrough_context.focus}\" and explaining why it matters using "
+            f"\"{walkthrough_context.why_it_matters}\" as context.",
+            "- Use realistic kebab-case identifiers for highlights and checks; never emit placeholders.",
+        ]
+        if walkthrough_context.estimated_duration_minutes:
+            walkthrough_lines.append(
+                f"- Assume the walkthrough requires approximately "
+                f"{walkthrough_context.estimated_duration_minutes} minutes to complete."
+            )
+        walkthrough_block = "\n".join(walkthrough_lines)
+
+    prompt_fragments = [
         f"Based on the following sub-section analyses for the {section_name} section of "
         f"{company_name}'s {filing_type.value} filing, provide a comprehensive section summary that "
-        f"integrates quantitative and qualitative signals.\n\n"
-        f"Sub-section Analyses:\n{sub_sections_summary}\n\n"
-        f"{section_excerpt}"
-        f"{deliverables_block}"
-        f"{guideline_block}"
-    )
+        f"integrates quantitative and qualitative signals.",
+        f"Sub-section Analyses:\n{sub_sections_summary}",
+        excerpt_block,
+        deliverables_block.strip(),
+        guideline_block,
+        walkthrough_block,
+    ]
+
+    user_prompt = "\n\n".join(fragment for fragment in prompt_fragments if fragment)
 
     return system_prompt, user_prompt
 

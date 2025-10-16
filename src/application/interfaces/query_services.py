@@ -317,6 +317,28 @@ class IAnalysisQueryService(Protocol):
         """
         ...
 
+    @abstractmethod
+    async def get_latest_completed(
+        self,
+        cik: str,
+        filing_type: FilingType,
+        before_date: datetime,
+    ) -> AnalysisQueryResult | None:
+        """Fetch the latest completed analysis for a company before the provided date.
+
+        Args:
+            cik: Company CIK identifier
+            filing_type: Filing type to filter on
+            before_date: Only consider analyses created before this datetime
+
+        Returns:
+            Most recent completed analysis query result, if available
+
+        Raises:
+            QueryServiceError: If the lookup operation fails
+        """
+        ...
+
 
 @runtime_checkable
 class ICompanyQueryService(Protocol):

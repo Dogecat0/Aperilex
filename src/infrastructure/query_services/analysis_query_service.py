@@ -5,6 +5,7 @@ Handles complex analysis queries including filtering by status, user, filing, et
 """
 
 import logging
+from datetime import datetime
 
 from sqlalchemy import and_, desc, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -15,8 +16,9 @@ from src.application.interfaces.query_services import (
     QueryServiceError,
 )
 from src.infrastructure.database.models import Analysis as AnalysisModel
+from src.infrastructure.database.models import Company as CompanyModel
 from src.infrastructure.database.models import Filing as FilingModel
-from src.shared.enums import AnalysisStatus
+from src.shared.enums import AnalysisStatus, FilingType
 from src.shared.types import AnalysisId, CompanyId, FilingId, UserId
 
 logger = logging.getLogger(__name__)
@@ -255,4 +257,59 @@ class AnalysisQueryService(IAnalysisQueryService):
             )
             raise QueryServiceError(
                 f"Failed to find recent completed analyses: {e}"
+            ) from e
+
+    async def get_latest_completed(
+        self,
+        cik: str,
+        filing_type: FilingType,
+        before_date: datetime,
+    ) -> AnalysisQueryResult | None:
+        """Fetch the most recent completed analysis for the company before the cutoff."""
+
+        try:
+            filing_cutoff = before_date.date()
+
+            stmt = (
+                select(AnalysisModel)
+                .join(FilingModel, AnalysisModel.filing_id == FilingModel.id)
+                .join(CompanyModel, FilingModel.company_id == CompanyModel.id)
+                .where(
+                    CompanyModel.cik == cik,
+                    FilingModel.filing_type == filing_type.value,
+                    FilingModel.filing_date < filing_cutoff,
+                    AnalysisModel.status == AnalysisStatus.COMPLETED.value,
+                )
+                .order_by(desc(FilingModel.filing_date), desc(AnalysisModel.created_at))
+                .limit(1)
+            )
+
+            result = await self.session.execute(stmt)
+            analysis = result.scalars().first()
+            if analysis is None:
+                return None
+
+            return AnalysisQueryResult(
+                analysis_id=AnalysisId(analysis.id),
+                filing_id=FilingId(analysis.filing_id),
+                user_id=UserId(analysis.user_id),
+                status=AnalysisStatus(analysis.status),
+                analysis_type=analysis.analysis_type,
+                created_at=analysis.created_at,
+                updated_at=analysis.updated_at,
+            )
+
+        except Exception as e:  # noqa: BLE001
+            logger.error(
+                "Failed to fetch latest completed analysis",
+                extra={
+                    "cik": cik,
+                    "filing_type": filing_type.value,
+                    "before_date": before_date.isoformat(),
+                    "error": str(e),
+                },
+                exc_info=True,
+            )
+            raise QueryServiceError(
+                f"Failed to fetch latest completed analysis: {e}"
             ) from e

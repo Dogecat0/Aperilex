@@ -442,6 +442,7 @@ class WorkerService:
                         company_name=company_name,
                         template=template,
                         metadata=task_data.metadata,
+                        task_data=task_data,
                     )
                 )
             else:

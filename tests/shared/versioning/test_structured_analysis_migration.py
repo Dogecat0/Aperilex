@@ -4,10 +4,8 @@ from __future__ import annotations
 
 from copy import deepcopy
 
-from src.shared.models import (
-    STRUCTURED_ANALYSIS_SCHEMA_VERSION,
-    build_default_section_walkthrough,
-)
+from src.shared.models import STRUCTURED_ANALYSIS_SCHEMA_VERSION
+from src.shared.models.analysis import build_default_section_walkthrough
 from src.shared.versioning import schema_migrator
 
 
