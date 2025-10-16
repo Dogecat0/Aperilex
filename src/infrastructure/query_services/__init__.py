@@ -9,6 +9,9 @@ from .analysis_query_service import AnalysisQueryService
 from .company_query_service import CompanyQueryService
 from .filing_query_service import FilingQueryService
 from .learning_progress_query_service import LearningProgressQueryService
+from .learning_walkthrough_binding_query_service import (
+    LearningWalkthroughBindingQueryService,
+)
 from .quiz_attempt_query_service import QuizAttemptQueryService
 from .user_query_service import UserQueryService
 
@@ -18,5 +21,6 @@ __all__ = [
     "FilingQueryService",
     "UserQueryService",
     "LearningProgressQueryService",
+    "LearningWalkthroughBindingQueryService",
     "QuizAttemptQueryService",
 ]

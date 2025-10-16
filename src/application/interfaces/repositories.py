@@ -6,6 +6,7 @@ used for database interaction, following the Repository pattern.
 """
 
 from abc import abstractmethod
+from collections.abc import Sequence
 from datetime import datetime
 from typing import Any, Protocol, runtime_checkable
 
@@ -14,6 +15,8 @@ from pydantic import BaseModel, Field
 from src.shared.enums import (
     AnalysisStatus,
     FilingType,
+    LearningReviewStatus,
+    LearningWalkthroughArtifactType,
     TaskStatus,
     UserStatus,
     UserTier,
@@ -28,6 +31,7 @@ from src.shared.types import (
     Email,
     FilingId,
     LearningProgressId,
+    LearningWalkthroughBindingId,
     QuizAttemptId,
     Ticker,
     UserId,
@@ -213,6 +217,71 @@ class LearningProgressData(BaseModel):
     metadata: dict[str, Any] = Field(
         default_factory=dict,
         description="Supplemental metadata for the progress entry",
+    )
+    streak_count: int = Field(
+        default=0,
+        ge=0,
+        description="Current learning streak for the module",
+    )
+    pending_review_count: int = Field(
+        default=0,
+        ge=0,
+        description="Number of lessons pending review for the user",
+    )
+    last_reviewed_at: datetime | None = Field(
+        default=None,
+        description="Timestamp of the most recent review event",
+    )
+    is_unlocked: bool = Field(
+        default=False,
+        description="Whether the learner has unlocked the module",
+    )
+    unlocked_at: datetime | None = Field(
+        default=None,
+        description="When the module was unlocked for the learner",
+    )
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
+
+
+class LearningWalkthroughBindingData(BaseModel):
+    """Binding between walkthrough artifacts and lessons."""
+
+    schema_version: int = Field(
+        default=1,
+        ge=1,
+        description="Schema version for learning walkthrough binding data models",
+    )
+    id: LearningWalkthroughBindingId
+    walkthrough_section_id: str = Field(
+        description="Identifier for the walkthrough section emitting the artifact",
+    )
+    artifact_id: str = Field(
+        description="Identifier for the highlight or comprehension check artifact",
+    )
+    artifact_type: LearningWalkthroughArtifactType = Field(
+        description="Type of walkthrough artifact represented by this binding",
+    )
+    lesson_id: str = Field(
+        description="Identifier for the micro-lesson linked to the artifact",
+    )
+    learning_module_key: str = Field(
+        description="Module key aligned with the lesson binding",
+    )
+    module_stage: str = Field(
+        description="Module stage (e.g., orientation, fundamentals, mastery)",
+    )
+    lesson_title: str | None = Field(
+        default=None,
+        description="Optional curated title for the micro-lesson",
+    )
+    status: LearningReviewStatus = Field(
+        default=LearningReviewStatus.PENDING,
+        description="Human review status for the walkthrough binding",
+    )
+    last_reviewed_at: datetime | None = Field(
+        default=None,
+        description="Timestamp of the latest review decision",
     )
     created_at: datetime | None = None
     updated_at: datetime | None = None
@@ -1028,6 +1097,55 @@ class ILearningProgressRepository(Protocol):
 
 
 @runtime_checkable
+class ILearningWalkthroughBindingRepository(Protocol):
+    """Repository for walkthrough bindings that map artifacts to lessons."""
+
+    @abstractmethod
+    async def get_by_id(
+        self, binding_id: LearningWalkthroughBindingId
+    ) -> LearningWalkthroughBindingData | None:
+        """Fetch a binding by identifier."""
+
+    @abstractmethod
+    async def get_by_artifact(
+        self,
+        artifact_id: str,
+        artifact_type: LearningWalkthroughArtifactType,
+    ) -> LearningWalkthroughBindingData | None:
+        """Fetch a binding by its walkthrough artifact."""
+
+    @abstractmethod
+    async def upsert(
+        self, binding: LearningWalkthroughBindingData
+    ) -> LearningWalkthroughBindingData:
+        """Create or update a single binding entry."""
+
+    @abstractmethod
+    async def bulk_upsert(
+        self, bindings: Sequence[LearningWalkthroughBindingData]
+    ) -> list[LearningWalkthroughBindingData]:
+        """Create or update bindings in bulk."""
+
+    @abstractmethod
+    async def list_for_section(
+        self,
+        walkthrough_section_id: str,
+    ) -> list[LearningWalkthroughBindingData]:
+        """List bindings for the specified walkthrough section."""
+
+    @abstractmethod
+    async def list_for_module(
+        self,
+        learning_module_key: str,
+    ) -> list[LearningWalkthroughBindingData]:
+        """List bindings associated with a learning module."""
+
+    @abstractmethod
+    async def delete(self, binding_id: LearningWalkthroughBindingId) -> bool:
+        """Delete a binding entry."""
+
+
+@runtime_checkable
 class IQuizAttemptRepository(Protocol):
     """Repository for quiz attempt persistence."""
 
@@ -1233,6 +1351,12 @@ class IRepositoryFactory(Protocol):
     @abstractmethod
     async def get_learning_progress_repository(self) -> ILearningProgressRepository:
         """Get a LearningProgress repository instance."""
+
+    @abstractmethod
+    async def get_learning_walkthrough_binding_repository(
+        self,
+    ) -> ILearningWalkthroughBindingRepository:
+        """Get a LearningWalkthroughBinding repository instance."""
 
     @abstractmethod
     async def get_quiz_attempt_repository(self) -> IQuizAttemptRepository:

@@ -14,6 +14,7 @@ from .identity import (
     UserIdentity,
     UserProfile,
 )
+from .learning_walkthrough_binding import LearningWalkthroughBinding
 from .task import Task
 
 __all__ = [
@@ -29,4 +30,5 @@ __all__ = [
     "UserProfile",
     "LearningProgress",
     "QuizAttempt",
+    "LearningWalkthroughBinding",
 ]

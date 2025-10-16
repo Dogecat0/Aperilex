@@ -2,6 +2,7 @@
 
 from .analysis import AnalysisType
 from .filing import FilingType
+from .learning import LearningReviewStatus, LearningWalkthroughArtifactType
 from .provider import (
     AuthenticationProvider,
     DatabaseProvider,
@@ -32,4 +33,6 @@ __all__ = [
     "AnalysisType",
     "UserTier",
     "UserStatus",
+    "LearningReviewStatus",
+    "LearningWalkthroughArtifactType",
 ]

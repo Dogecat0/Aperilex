@@ -58,6 +58,11 @@ class LearningProgressResponse(BaseModel):
     progress_percent: int = Field(..., ge=0, le=100)
     last_interaction_at: datetime | None = Field(default=None)
     completed_at: datetime | None = Field(default=None)
+    streak_count: int = Field(default=0, ge=0)
+    pending_review_count: int = Field(default=0, ge=0)
+    last_reviewed_at: datetime | None = Field(default=None)
+    is_unlocked: bool = Field(default=False)
+    unlocked_at: datetime | None = Field(default=None)
     metadata: dict[str, Any] = Field(default_factory=dict)
     created_at: datetime | None = Field(default=None)
     updated_at: datetime | None = Field(default=None)
@@ -74,6 +79,11 @@ class LearningProgressResponse(BaseModel):
             progress_percent=progress.progress_percent,
             last_interaction_at=progress.last_interaction_at,
             completed_at=progress.completed_at,
+            streak_count=progress.streak_count,
+            pending_review_count=progress.pending_review_count,
+            last_reviewed_at=progress.last_reviewed_at,
+            is_unlocked=progress.is_unlocked,
+            unlocked_at=progress.unlocked_at,
             metadata=progress.metadata or {},
             created_at=progress.created_at,
             updated_at=progress.updated_at,
@@ -92,6 +102,29 @@ class LearningProgressUpdateRequest(BaseModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
     last_interaction_at: datetime | None = Field(default=None)
     completed_at: datetime | None = Field(default=None)
+
+    model_config = ConfigDict(extra="forbid")
+
+
+class WalkthroughCompletionRequest(BaseModel):
+    """Request payload for recording a walkthrough completion event."""
+
+    section_key: str | None = Field(
+        default=None,
+        description="Canonical section key for the walkthrough segment",
+    )
+    progress_percent: int = Field(..., ge=0, le=100)
+    completed_at: datetime | None = Field(default=None)
+
+    model_config = ConfigDict(extra="forbid")
+
+
+class ReviewScheduleRequest(BaseModel):
+    """Request payload for scheduling a review quiz."""
+
+    scheduled_for: datetime | None = Field(default=None)
+    pending_review_count: int = Field(..., ge=0)
+    notes: str | None = Field(default=None)
 
     model_config = ConfigDict(extra="forbid")
 
@@ -211,6 +244,57 @@ async def upsert_learning_progress(
 
     result = await learning_service.upsert_progress(upsert_payload)
     return LearningProgressResponse.from_model(result)
+
+
+@router.post(
+    "/progress/{module_key}/walkthrough-events",
+    response_model=LearningProgressResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Record a walkthrough completion event for the authenticated user",
+)
+async def record_walkthrough_event(
+    module_key: str,
+    payload: WalkthroughCompletionRequest,
+    auth_result: AuthenticationResult = Depends(get_current_user),
+    learning_service: LearningService = Depends(get_learning_service),
+) -> LearningProgressResponse:
+    """Record a walkthrough completion milestone and return updated progress."""
+
+    user_id = _require_user_id(auth_result)
+    event_time = payload.completed_at or _now()
+    progress = await learning_service.record_walkthrough_event(
+        user_id=user_id,
+        module_key=module_key,
+        section_key=payload.section_key,
+        progress_percent=payload.progress_percent,
+        completed_at=event_time,
+    )
+    return LearningProgressResponse.from_model(progress)
+
+
+@router.post(
+    "/progress/{module_key}/reviews/schedule",
+    response_model=LearningProgressResponse,
+    summary="Schedule a review quiz for the authenticated user",
+)
+async def schedule_module_review(
+    module_key: str,
+    payload: ReviewScheduleRequest,
+    auth_result: AuthenticationResult = Depends(get_current_user),
+    learning_service: LearningService = Depends(get_learning_service),
+) -> LearningProgressResponse:
+    """Schedule a review window and update pending review metadata."""
+
+    user_id = _require_user_id(auth_result)
+    scheduled_for = payload.scheduled_for or _now()
+    progress = await learning_service.schedule_review(
+        user_id=user_id,
+        module_key=module_key,
+        scheduled_for=scheduled_for,
+        pending_review_count=payload.pending_review_count,
+        notes=payload.notes,
+    )
+    return LearningProgressResponse.from_model(progress)
 
 
 @router.get(

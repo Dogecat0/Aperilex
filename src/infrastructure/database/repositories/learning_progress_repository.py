@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
+from datetime import datetime
 from typing import Any, cast
 
 from sqlalchemy import Select, and_, func, select
@@ -28,7 +29,60 @@ class LearningProgressRepository(ILearningProgressRepository):
         self.cache_manager = cache_manager
         self.cache_region = CacheRegionName.LEARNING
 
+    @staticmethod
+    def _parse_datetime(value: Any) -> datetime | None:
+        if isinstance(value, datetime):
+            return value
+        if isinstance(value, str):
+            try:
+                return datetime.fromisoformat(value)
+            except ValueError:
+                return None
+        return None
+
+    def _extract_fields(self, metadata: Mapping[str, Any]) -> dict[str, Any]:
+        streak_value = metadata.get("streak_count", 0)
+        pending_value = metadata.get("pending_review_count", 0)
+        streak_count = int(streak_value) if isinstance(streak_value, int | float) else 0
+        pending_review_count = (
+            int(pending_value) if isinstance(pending_value, int | float) else 0
+        )
+        last_reviewed_at = self._parse_datetime(metadata.get("last_reviewed_at"))
+        unlocked_at = self._parse_datetime(metadata.get("unlocked_at"))
+        is_unlocked = bool(metadata.get("is_unlocked", False))
+        return {
+            "streak_count": streak_count,
+            "pending_review_count": pending_review_count,
+            "last_reviewed_at": last_reviewed_at,
+            "is_unlocked": is_unlocked,
+            "unlocked_at": unlocked_at,
+        }
+
+    @staticmethod
+    def _build_metadata_payload(progress: LearningProgressData) -> dict[str, Any]:
+        metadata = dict(progress.metadata or {})
+        metadata.update(
+            {
+                "streak_count": progress.streak_count,
+                "pending_review_count": progress.pending_review_count,
+                "last_reviewed_at": (
+                    progress.last_reviewed_at.isoformat()
+                    if progress.last_reviewed_at
+                    else None
+                ),
+                "is_unlocked": progress.is_unlocked,
+                "unlocked_at": (
+                    progress.unlocked_at.isoformat()
+                    if progress.unlocked_at
+                    else None
+                ),
+            }
+        )
+        return {key: value for key, value in metadata.items() if value is not None}
+
     def _model_to_data(self, model: LearningProgressModel) -> LearningProgressData:
+        metadata = dict(model.metadata_payload or {})
+        extracted = self._extract_fields(metadata)
         return LearningProgressData(
             id=LearningProgressId(model.id),
             user_id=UserId(model.user_id),
@@ -36,13 +90,20 @@ class LearningProgressRepository(ILearningProgressRepository):
             progress_percent=model.progress_percent,
             last_interaction_at=model.last_interaction_at,
             completed_at=model.completed_at,
-            metadata=model.metadata_payload or {},
+            metadata=metadata,
             schema_version=model.schema_version,
+            streak_count=extracted["streak_count"],
+            pending_review_count=extracted["pending_review_count"],
+            last_reviewed_at=extracted["last_reviewed_at"],
+            is_unlocked=extracted["is_unlocked"],
+            unlocked_at=extracted["unlocked_at"],
             created_at=getattr(model, "created_at", None),
             updated_at=getattr(model, "updated_at", None),
         )
 
     def _row_to_data(self, row: Mapping[str, Any]) -> LearningProgressData:
+        metadata = dict(row.get("metadata") or {})
+        extracted = self._extract_fields(metadata)
         return LearningProgressData(
             id=LearningProgressId(row["id"]),
             user_id=UserId(row["user_id"]),
@@ -50,8 +111,13 @@ class LearningProgressRepository(ILearningProgressRepository):
             progress_percent=row["progress_percent"],
             last_interaction_at=row.get("last_interaction_at"),
             completed_at=row.get("completed_at"),
-            metadata=row.get("metadata") or {},
+            metadata=metadata,
             schema_version=row["schema_version"],
+            streak_count=extracted["streak_count"],
+            pending_review_count=extracted["pending_review_count"],
+            last_reviewed_at=extracted["last_reviewed_at"],
+            is_unlocked=extracted["is_unlocked"],
+            unlocked_at=extracted["unlocked_at"],
             created_at=row.get("created_at"),
             updated_at=row.get("updated_at"),
         )
@@ -115,6 +181,8 @@ class LearningProgressRepository(ILearningProgressRepository):
         return await self._get_cached(cache_key, stmt)
 
     async def upsert(self, progress: LearningProgressData) -> LearningProgressData:
+        metadata_payload = self._build_metadata_payload(progress)
+
         insert_stmt = pg_insert(LearningProgressModel).values(
             id=progress.id,
             schema_version=progress.schema_version,
@@ -123,7 +191,7 @@ class LearningProgressRepository(ILearningProgressRepository):
             progress_percent=progress.progress_percent,
             last_interaction_at=progress.last_interaction_at,
             completed_at=progress.completed_at,
-            metadata_payload=progress.metadata or {},
+            metadata_payload=metadata_payload,
         )
 
         update_values: dict[str, Any] = {
@@ -132,10 +200,8 @@ class LearningProgressRepository(ILearningProgressRepository):
             "last_interaction_at": progress.last_interaction_at,
             "completed_at": progress.completed_at,
             "updated_at": func.now(),
+            "metadata_payload": metadata_payload,
         }
-
-        if progress.metadata:
-            update_values["metadata"] = progress.metadata
 
         stmt = insert_stmt.on_conflict_do_update(
             index_elements=[

@@ -6,7 +6,7 @@ from datetime import UTC, datetime
 from uuid import uuid4
 
 import pytest
-from fastapi import FastAPI
+from fastapi import FastAPI, status
 from httpx import ASGITransport, AsyncClient
 
 from src.application.interfaces.authentication import AuthenticationResult
@@ -35,6 +35,10 @@ class FakeLearningService:
         self.best_attempt_calls = 0
         self.last_upsert_payload = None
         self.last_attempt_payload = None
+        self.walkthrough_event_calls = 0
+        self.review_schedule_calls = 0
+        self.last_walkthrough_payload = None
+        self.last_review_schedule_payload = None
 
     async def list_user_progress(self, user_id: UserId) -> list[LearningProgress]:
         assert user_id == self.user_id
@@ -107,6 +111,41 @@ class FakeLearningService:
         )
         self.quiz_attempts.insert(0, attempt)
         return attempt
+
+    async def record_walkthrough_event(self, *args, **kwargs):  # type: ignore[no-untyped-def]
+        self.walkthrough_event_calls += 1
+        self.last_walkthrough_payload = (args, kwargs)
+        progress = LearningProgress(
+            schema_version=1,
+            progress_id=LearningProgressId(uuid4()),
+            user_id=kwargs.get("user_id") or self.user_id,
+            module_key=kwargs.get("module_key", "module"),
+            progress_percent=kwargs.get("progress_percent", 0),
+            last_interaction_at=kwargs.get("completed_at"),
+            completed_at=kwargs.get("completed_at"),
+            metadata={},
+            created_at=kwargs.get("completed_at"),
+            updated_at=kwargs.get("completed_at"),
+        )
+        self.progress_records.append(progress)
+        return progress
+
+    async def schedule_review(self, *args, **kwargs):  # type: ignore[no-untyped-def]
+        self.review_schedule_calls += 1
+        self.last_review_schedule_payload = (args, kwargs)
+        progress = LearningProgress(
+            schema_version=1,
+            progress_id=LearningProgressId(uuid4()),
+            user_id=kwargs.get("user_id") or self.user_id,
+            module_key=kwargs.get("module_key", "module"),
+            progress_percent=0,
+            pending_review_count=kwargs.get("pending_review_count", 0),
+            metadata={},
+            created_at=kwargs.get("scheduled_for"),
+            updated_at=kwargs.get("scheduled_for"),
+        )
+        self.progress_records.append(progress)
+        return progress
 
     async def get_best_quiz_attempt(
         self,
@@ -244,6 +283,38 @@ async def test_upsert_learning_progress_updates_existing_entry(
     assert fake_learning_service.last_upsert_payload is not None
     assert fake_learning_service.last_upsert_payload.module_key == "mda-101"
     assert fake_learning_service.last_upsert_payload.progress_percent == 100
+
+
+@pytest.mark.asyncio
+async def test_record_walkthrough_event_endpoint(
+    api_client: AsyncClient,
+    fake_learning_service: FakeLearningService,
+) -> None:
+    response = await api_client.post(
+        "/api/learning/progress/module-a/walkthrough-events",
+        json={"section_key": "section-1", "progress_percent": 100},
+    )
+
+    assert response.status_code == status.HTTP_201_CREATED
+    payload = response.json()
+    assert payload["progress_percent"] == 100
+    assert fake_learning_service.walkthrough_event_calls == 1
+
+
+@pytest.mark.asyncio
+async def test_schedule_review_endpoint(
+    api_client: AsyncClient,
+    fake_learning_service: FakeLearningService,
+) -> None:
+    response = await api_client.post(
+        "/api/learning/progress/module-a/reviews/schedule",
+        json={"pending_review_count": 2},
+    )
+
+    assert response.status_code == status.HTTP_200_OK
+    payload = response.json()
+    assert payload["pending_review_count"] == 2
+    assert fake_learning_service.review_schedule_calls == 1
 
 
 @pytest.mark.asyncio

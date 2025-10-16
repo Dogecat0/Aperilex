@@ -6,6 +6,9 @@ from .auth_session_repository import AuthSessionRepository
 from .company_repository import CompanyRepository
 from .filing_repository import FilingRepository
 from .learning_progress_repository import LearningProgressRepository
+from .learning_walkthrough_binding_repository import (
+    LearningWalkthroughBindingRepository,
+)
 from .quiz_attempt_repository import QuizAttemptRepository
 from .user_identity_repository import UserIdentityRepository
 from .user_profile_repository import UserProfileRepository
@@ -19,6 +22,7 @@ __all__ = [
     "UserIdentityRepository",
     "UserProfileRepository",
     "LearningProgressRepository",
+    "LearningWalkthroughBindingRepository",
     "QuizAttemptRepository",
     "AuthSessionRepository",
     "AuthRateLimitRepository",

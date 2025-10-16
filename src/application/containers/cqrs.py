@@ -24,6 +24,7 @@ from src.application.interfaces.query_services import (
     ICompanyQueryService,
     IFilingQueryService,
     ILearningProgressQueryService,
+    ILearningWalkthroughBindingQueryService,
     IQuizAttemptQueryService,
     IUserQueryService,
 )
@@ -78,6 +79,9 @@ class HandlerFactory:
         learning_progress_query_service_provider: (
             Provider[ILearningProgressQueryService] | None
         ) = None,
+        learning_walkthrough_binding_query_service_provider: (
+            Provider[ILearningWalkthroughBindingQueryService] | None
+        ) = None,
         quiz_attempt_query_service_provider: (
             Provider[IQuizAttemptQueryService] | None
         ) = None,
@@ -109,6 +113,9 @@ class HandlerFactory:
         self.learning_progress_query_service_provider = (
             learning_progress_query_service_provider
         )
+        self.learning_walkthrough_binding_query_service_provider = (
+            learning_walkthrough_binding_query_service_provider
+        )
         self.quiz_attempt_query_service_provider = quiz_attempt_query_service_provider
 
     async def get_dependencies(self) -> dict[str, Any]:
@@ -128,6 +135,9 @@ class HandlerFactory:
         user_profile_repo = await self.repository_factory.get_user_profile_repository()
         learning_progress_repo = (
             await self.repository_factory.get_learning_progress_repository()
+        )
+        learning_walkthrough_binding_repo = (
+            await self.repository_factory.get_learning_walkthrough_binding_repository()
         )
         quiz_attempt_repo = await self.repository_factory.get_quiz_attempt_repository()
 
@@ -163,6 +173,11 @@ class HandlerFactory:
         learning_progress_query_service: ILearningProgressQueryService | None = (
             _resolve_dependency(self.learning_progress_query_service_provider)
         )
+        learning_walkthrough_binding_query_service: (
+            ILearningWalkthroughBindingQueryService | None
+        ) = _resolve_dependency(
+            self.learning_walkthrough_binding_query_service_provider
+        )
         quiz_attempt_query_service: IQuizAttemptQueryService | None = (
             _resolve_dependency(self.quiz_attempt_query_service_provider)
         )
@@ -177,6 +192,7 @@ class HandlerFactory:
             "user_identity_repository": user_identity_repo,
             "user_profile_repository": user_profile_repo,
             "learning_progress_repository": learning_progress_repo,
+            "learning_walkthrough_binding_repository": learning_walkthrough_binding_repo,
             "quiz_attempt_repository": quiz_attempt_repo,
             "event_publisher": self.event_publisher,
             "priority_queue": self.priority_queue,
@@ -196,6 +212,10 @@ class HandlerFactory:
         if learning_progress_query_service is not None:
             dependencies["learning_progress_query_service"] = (
                 learning_progress_query_service
+            )
+        if learning_walkthrough_binding_query_service is not None:
+            dependencies["learning_walkthrough_binding_query_service"] = (
+                learning_walkthrough_binding_query_service
             )
         if quiz_attempt_query_service is not None:
             dependencies["quiz_attempt_query_service"] = quiz_attempt_query_service
@@ -302,6 +322,9 @@ class CQRSContainer(containers.DeclarativeContainer):
     learning_progress_query_service: Dependency[ILearningProgressQueryService] = (
         providers.Dependency()
     )
+    learning_walkthrough_binding_query_service: Dependency[
+        ILearningWalkthroughBindingQueryService
+    ] = providers.Dependency()
     quiz_attempt_query_service: Dependency[IQuizAttemptQueryService] = (
         providers.Dependency()
     )
@@ -406,6 +429,8 @@ class CQRSContainer(containers.DeclarativeContainer):
         filing_query_service_provider=filing_query_service,
         user_query_service_provider=user_query_service,
         learning_progress_query_service_provider=learning_progress_query_service,
+        learning_walkthrough_binding_query_service_provider=
+        learning_walkthrough_binding_query_service,
         quiz_attempt_query_service_provider=quiz_attempt_query_service,
     )
 
