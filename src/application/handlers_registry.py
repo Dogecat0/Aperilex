@@ -9,6 +9,15 @@ from src.application.handlers.commands.analyze_filing_handler import (
 from src.application.handlers.commands.import_filings_handler import (
     ImportFilingsCommandHandler,
 )
+from src.application.handlers.commands.kpi_extract_handler import (
+    KPIExtractCommandHandler,
+)
+from src.application.handlers.commands.mda_quiz_handler import (
+    MdaQuizCommandHandler,
+)
+from src.application.handlers.commands.risk_delta_handler import (
+    RiskDeltaCommandHandler,
+)
 from src.application.handlers.queries.get_analysis_handler import (
     GetAnalysisQueryHandler,
 )
@@ -47,6 +56,9 @@ def register_handlers(dispatcher: Dispatcher) -> None:
     logger.info("Registering command handlers")
     dispatcher.register_command_handler(AnalyzeFilingCommandHandler)
     dispatcher.register_command_handler(ImportFilingsCommandHandler)
+    dispatcher.register_command_handler(KPIExtractCommandHandler)
+    dispatcher.register_command_handler(RiskDeltaCommandHandler)
+    dispatcher.register_command_handler(MdaQuizCommandHandler)
 
     # Register query handlers
     logger.info("Registering query handlers")

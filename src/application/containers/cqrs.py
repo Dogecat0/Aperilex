@@ -253,6 +253,9 @@ class HandlerRegistrar:
         from src.application.handlers.commands import (
             AnalyzeFilingCommandHandler,
             ImportFilingsCommandHandler,
+            KPIExtractCommandHandler,
+            MdaQuizCommandHandler,
+            RiskDeltaCommandHandler,
         )
         from src.application.handlers.queries import (
             GetAnalysisQueryHandler,
@@ -268,6 +271,9 @@ class HandlerRegistrar:
         command_handlers: Sequence[type[CommandHandler[Any, Any]]] = (
             AnalyzeFilingCommandHandler,
             ImportFilingsCommandHandler,
+            KPIExtractCommandHandler,
+            RiskDeltaCommandHandler,
+            MdaQuizCommandHandler,
         )
 
         for command_handler_class in command_handlers:

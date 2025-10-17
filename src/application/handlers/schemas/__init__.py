@@ -16,6 +16,11 @@ while maintaining clear separation from HTTP-specific presentation concerns.
 
 # Re-export the main schema categories for convenience
 from src.application.handlers.schemas.commands import *  # noqa: F403, F401
+from src.application.handlers.schemas.commands import (
+    KPIExtractCommand,
+    MdaQuizCommand,
+    RiskDeltaCommand,
+)
 
 # Also export specific key classes for direct import
 from src.application.handlers.schemas.commands.analyze_filing import (
@@ -55,6 +60,9 @@ __all__ = [
     # Commands
     "AnalyzeFilingCommand",
     "AnalysisTemplate",
+    "KPIExtractCommand",
+    "RiskDeltaCommand",
+    "MdaQuizCommand",
     # Queries
     "GetFilingQuery",
     "GetAnalysisQuery",

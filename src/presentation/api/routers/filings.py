@@ -11,6 +11,13 @@ from src.application.base.exceptions import ResourceNotFoundError
 from src.application.handlers.schemas.commands.analyze_filing import (
     AnalyzeFilingCommand,
 )
+from src.application.handlers.schemas.commands.kpi_extract import (
+    KPIExtractCommand,
+)
+from src.application.handlers.schemas.commands.mda_quiz import MdaQuizCommand
+from src.application.handlers.schemas.commands.risk_delta import (
+    RiskDeltaCommand,
+)
 from src.application.handlers.schemas.queries.get_company import GetCompanyQuery
 from src.application.handlers.schemas.queries.get_filing import GetFilingQuery
 from src.application.handlers.schemas.queries.list_company_filings import (
@@ -73,6 +80,38 @@ else:
 AccessionNumberPath = Annotated[str, Path(description="SEC filing accession number")]
 FilingIdPath = Annotated[UUID, Path(description="Filing UUID identifier")]
 AuthenticatedUserDep = Annotated[AuthenticationResult, Depends(get_current_user)]
+
+
+async def _resolve_practice_context(
+    filing_id: UUID,
+    *,
+    application_service: ApplicationService,
+    current_user: AuthenticationResult,
+) -> tuple[FilingResponse, CompanyResponse, AccessionNumber, CIK]:
+    """Resolve filing and company context required for practice commands."""
+    filing_query = GetFilingQuery(
+        filing_id=filing_id,
+        user_id=user_id_str(current_user),
+    )
+    filing_result = await application_service.execute_query(filing_query)
+    if not isinstance(filing_result, FilingResponse):
+        raise ValueError(
+            "Unexpected response when resolving filing for practice command"
+        )
+
+    company_query = GetCompanyQuery(
+        company_id=filing_result.company_id,
+        user_id=user_id_str(current_user),
+    )
+    company_result = await application_service.execute_query(company_query)
+    if not isinstance(company_result, CompanyResponse):
+        raise ValueError(
+            "Unexpected response when resolving company for practice command"
+        )
+
+    accession_number = AccessionNumber(value=filing_result.accession_number)
+    company_cik = CIK(value=company_result.cik)
+    return filing_result, company_result, accession_number, company_cik
 
 
 @router.get(
@@ -406,6 +445,390 @@ async def analyze_filing_by_id(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to initiate filing analysis",
+        ) from None
+
+
+@router.post(
+    "/by-id/{filing_id}/practice/kpi-extract",
+    response_model=TaskResponse,
+    summary="Queue KPI extract walkthrough",
+    description="Trigger a KPI-focused guided analysis run for the selected filing.",
+)
+async def trigger_kpi_extract_practice(
+    filing_id: FilingIdPath,
+    application_service: ApplicationServiceDep,
+    current_user: AuthenticatedUserDep,
+    force_reprocess: Annotated[
+        bool,
+        Query(
+            description=(
+                "Force regeneration even if a recent practice task already exists"
+            ),
+        ),
+    ] = False,
+) -> TaskResponse:
+    """Queue a KPI-focused guided walkthrough for the provided filing."""
+    logger.info(
+        "Starting KPI extract practice command",
+        extra={
+            "filing_id": str(filing_id),
+            "user_id": user_id_str(current_user),
+            "force_reprocess": force_reprocess,
+        },
+    )
+
+    try:
+        filing, _, accession_number, company_cik = await _resolve_practice_context(
+            filing_id,
+            application_service=application_service,
+            current_user=current_user,
+        )
+
+        from src.shared.config.settings import Settings
+
+        settings = Settings()
+        if not settings.analysis_enabled:
+            logger.info(
+                "Analysis disabled in demo mode",
+                extra={"filing_id": str(filing_id)},
+            )
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=(
+                    "Analysis is disabled for demonstration purposes. "
+                    "Try to view one of the complete analysis reports."
+                ),
+            )
+
+        if current_user.user_email is None:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail={
+                    "code": "auth.user.missing_email",
+                    "message": "Authenticated user is missing an email address",
+                },
+            )
+
+        tier_value = None
+        if current_user.user_tier:
+            try:
+                tier_value = UserTier(current_user.user_tier)
+            except ValueError:
+                logger.warning(
+                    "Received unknown user tier from authentication result",
+                    extra={"user_tier": current_user.user_tier},
+                )
+
+        command = KPIExtractCommand(
+            company_cik=company_cik,
+            accession_number=accession_number,
+            force_reprocess=force_reprocess,
+            user_id=user_id_str(current_user),
+            user_email=current_user.user_email,
+            user_tier=tier_value,
+        )
+
+        result = cast(
+            TaskResponse,
+            await application_service.execute_command(command),
+        )
+
+        logger.info(
+            "KPI extract practice command queued",
+            extra={
+                "filing_id": str(filing_id),
+                "accession_number": filing.accession_number,
+                "task_id": result.task_id,
+            },
+        )
+
+        return result
+
+    except ResourceNotFoundError as exc:
+        logger.info(
+            "Filing not found for KPI extract practice command",
+            extra={"filing_id": str(filing_id), "error": str(exc)},
+        )
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Filing with ID {filing_id} not found",
+        ) from exc
+    except ValueError as exc:
+        logger.warning(
+            "Invalid KPI extract practice request",
+            extra={"filing_id": str(filing_id), "error": str(exc)},
+        )
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=str(exc),
+        ) from exc
+    except HTTPException:
+        raise
+    except Exception:
+        logger.error(
+            "Failed to queue KPI extract practice command",
+            extra={"filing_id": str(filing_id)},
+            exc_info=True,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to queue KPI extract practice task",
+        ) from None
+
+
+@router.post(
+    "/by-id/{filing_id}/practice/risk-delta",
+    response_model=TaskResponse,
+    summary="Queue risk delta walkthrough",
+    description="Trigger a risk-focused guided analysis run for the selected filing.",
+)
+async def trigger_risk_delta_practice(
+    filing_id: FilingIdPath,
+    application_service: ApplicationServiceDep,
+    current_user: AuthenticatedUserDep,
+    force_reprocess: Annotated[
+        bool,
+        Query(
+            description=(
+                "Force regeneration even if a recent practice task already exists"
+            ),
+        ),
+    ] = False,
+) -> TaskResponse:
+    """Queue a risk delta guided walkthrough for the provided filing."""
+    logger.info(
+        "Starting risk delta practice command",
+        extra={
+            "filing_id": str(filing_id),
+            "user_id": user_id_str(current_user),
+            "force_reprocess": force_reprocess,
+        },
+    )
+
+    try:
+        filing, _, accession_number, company_cik = await _resolve_practice_context(
+            filing_id,
+            application_service=application_service,
+            current_user=current_user,
+        )
+
+        from src.shared.config.settings import Settings
+
+        settings = Settings()
+        if not settings.analysis_enabled:
+            logger.info(
+                "Analysis disabled in demo mode",
+                extra={"filing_id": str(filing_id)},
+            )
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=(
+                    "Analysis is disabled for demonstration purposes. "
+                    "Try to view one of the complete analysis reports."
+                ),
+            )
+
+        if current_user.user_email is None:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail={
+                    "code": "auth.user.missing_email",
+                    "message": "Authenticated user is missing an email address",
+                },
+            )
+
+        tier_value = None
+        if current_user.user_tier:
+            try:
+                tier_value = UserTier(current_user.user_tier)
+            except ValueError:
+                logger.warning(
+                    "Received unknown user tier from authentication result",
+                    extra={"user_tier": current_user.user_tier},
+                )
+
+        command = RiskDeltaCommand(
+            company_cik=company_cik,
+            accession_number=accession_number,
+            force_reprocess=force_reprocess,
+            user_id=user_id_str(current_user),
+            user_email=current_user.user_email,
+            user_tier=tier_value,
+        )
+
+        result = cast(
+            TaskResponse,
+            await application_service.execute_command(command),
+        )
+
+        logger.info(
+            "Risk delta practice command queued",
+            extra={
+                "filing_id": str(filing_id),
+                "accession_number": filing.accession_number,
+                "task_id": result.task_id,
+            },
+        )
+
+        return result
+
+    except ResourceNotFoundError as exc:
+        logger.info(
+            "Filing not found for risk delta practice command",
+            extra={"filing_id": str(filing_id), "error": str(exc)},
+        )
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Filing with ID {filing_id} not found",
+        ) from exc
+    except ValueError as exc:
+        logger.warning(
+            "Invalid risk delta practice request",
+            extra={"filing_id": str(filing_id), "error": str(exc)},
+        )
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=str(exc),
+        ) from exc
+    except HTTPException:
+        raise
+    except Exception:
+        logger.error(
+            "Failed to queue risk delta practice command",
+            extra={"filing_id": str(filing_id)},
+            exc_info=True,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to queue risk delta practice task",
+        ) from None
+
+
+@router.post(
+    "/by-id/{filing_id}/practice/mda-quiz",
+    response_model=TaskResponse,
+    summary="Queue MD&A quiz walkthrough",
+    description="Trigger an MD&A-focused guided analysis run for the selected filing.",
+)
+async def trigger_mda_quiz_practice(
+    filing_id: FilingIdPath,
+    application_service: ApplicationServiceDep,
+    current_user: AuthenticatedUserDep,
+    force_reprocess: Annotated[
+        bool,
+        Query(
+            description=(
+                "Force regeneration even if a recent practice task already exists"
+            ),
+        ),
+    ] = False,
+) -> TaskResponse:
+    """Queue an MD&A comprehension walkthrough for the provided filing."""
+    logger.info(
+        "Starting MD&A quiz practice command",
+        extra={
+            "filing_id": str(filing_id),
+            "user_id": user_id_str(current_user),
+            "force_reprocess": force_reprocess,
+        },
+    )
+
+    try:
+        filing, _, accession_number, company_cik = await _resolve_practice_context(
+            filing_id,
+            application_service=application_service,
+            current_user=current_user,
+        )
+
+        from src.shared.config.settings import Settings
+
+        settings = Settings()
+        if not settings.analysis_enabled:
+            logger.info(
+                "Analysis disabled in demo mode",
+                extra={"filing_id": str(filing_id)},
+            )
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=(
+                    "Analysis is disabled for demonstration purposes. "
+                    "Try to view one of the complete analysis reports."
+                ),
+            )
+
+        if current_user.user_email is None:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail={
+                    "code": "auth.user.missing_email",
+                    "message": "Authenticated user is missing an email address",
+                },
+            )
+
+        tier_value = None
+        if current_user.user_tier:
+            try:
+                tier_value = UserTier(current_user.user_tier)
+            except ValueError:
+                logger.warning(
+                    "Received unknown user tier from authentication result",
+                    extra={"user_tier": current_user.user_tier},
+                )
+
+        command = MdaQuizCommand(
+            company_cik=company_cik,
+            accession_number=accession_number,
+            force_reprocess=force_reprocess,
+            user_id=user_id_str(current_user),
+            user_email=current_user.user_email,
+            user_tier=tier_value,
+        )
+
+        result = cast(
+            TaskResponse,
+            await application_service.execute_command(command),
+        )
+
+        logger.info(
+            "MD&A quiz practice command queued",
+            extra={
+                "filing_id": str(filing_id),
+                "accession_number": filing.accession_number,
+                "task_id": result.task_id,
+            },
+        )
+
+        return result
+
+    except ResourceNotFoundError as exc:
+        logger.info(
+            "Filing not found for MD&A quiz practice command",
+            extra={"filing_id": str(filing_id), "error": str(exc)},
+        )
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Filing with ID {filing_id} not found",
+        ) from exc
+    except ValueError as exc:
+        logger.warning(
+            "Invalid MD&A quiz practice request",
+            extra={"filing_id": str(filing_id), "error": str(exc)},
+        )
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=str(exc),
+        ) from exc
+    except HTTPException:
+        raise
+    except Exception:
+        logger.error(
+            "Failed to queue MD&A quiz practice command",
+            extra={"filing_id": str(filing_id)},
+            exc_info=True,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to queue MD&A quiz practice task",
         ) from None
 
 
