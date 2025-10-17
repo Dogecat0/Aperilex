@@ -410,7 +410,10 @@ function splitHighlightValue(text: string): { value: string; helper: string | nu
   for (const separator of separators) {
     const index = trimmed.indexOf(separator)
     if (index >= 0) {
-      const rawValue = trimmed.slice(0, index).trim().replace(/[.,;•-]+$/, '')
+      const rawValue = trimmed
+        .slice(0, index)
+        .trim()
+        .replace(/[.,;•-]+$/, '')
       const helper = trimmed.slice(index + separator.length).trim()
       return {
         value: rawValue.length > 0 ? rawValue : trimmed,
@@ -702,8 +705,9 @@ export function FilingDetailPage() {
   }, [focusTabFromLocation, focusSectionFromLocation, hasFocusSection, id])
 
   const detailQuery = useFilingDetail(id)
-  const analysis = detailQuery.data
-  const structured = analysis?.full_results?.structured_data
+  const detail = detailQuery.data
+  const analysis = detail?.analysis
+  const structured = detail?.structured ?? analysis?.full_results?.structured_data ?? null
 
   const sentimentOverview = useMemo(
     () => buildSentimentOverviewFromSummary(analysis?.summary, structured ?? null),
@@ -885,10 +889,7 @@ export function FilingDetailPage() {
                         const synopsis = pickDisplayString(segment.summary)
                         const points = sanitizeSummaryPoints(segment.supporting_points)
                         const targetTab = resolveTabKeyFromAnchor(segment.anchor)
-                        const { highlights, remaining } = buildSummaryPointHighlights(
-                          points,
-                          key
-                        )
+                        const { highlights, remaining } = buildSummaryPointHighlights(points, key)
 
                         return (
                           <article
@@ -1053,7 +1054,6 @@ export function FilingDetailPage() {
                     )}
                   </article>
                 </div>
-
               </div>
             ) : null}
 

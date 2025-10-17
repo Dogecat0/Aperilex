@@ -522,6 +522,32 @@ export const mockAnalysisDetail: AnalysisResponse = {
             },
           ],
           estimated_duration_minutes: 7,
+          previous_comparison: {
+            previous_analysis_id: '99999999-8888-7777-6666-555555555555',
+            previous_filing_id: 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee',
+            previous_sentiment: -0.05,
+            current_sentiment: -0.12,
+            sentiment_delta: -0.07,
+            new_highlights: [
+              {
+                id: 'highlight-risk-regulation',
+                title: 'Regulation pressure remains elevated',
+                summary:
+                  'Regulators continue probing App Store policies, which Apple labels high severity given potential monetisation shifts.',
+                severity: 'High',
+                source_reference: 'Item 1A - Risk Factors ¶5',
+                confidence: 0.84,
+                lesson_reference: {
+                  lesson_id: 'lesson-risk-regulation',
+                  learning_module_key: 'risk_mastery',
+                  module_stage: 'walkthrough',
+                },
+              },
+            ],
+            dropped_highlights: [],
+            pro_tip:
+              'New high-severity highlight detected: Regulation pressure remains elevated.',
+          },
         },
       },
     },

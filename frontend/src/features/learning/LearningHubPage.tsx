@@ -421,6 +421,13 @@ export function LearningHubPage() {
                     background: 'rgba(255, 244, 222, 0.65)',
                   }}
                 >
+                  {context.walkthrough?.title && (
+                    <span
+                      className="text-xs font-semibold uppercase tracking-wide text-[var(--text-secondary)]"
+                    >
+                      {context.walkthrough.title}
+                    </span>
+                  )}
                   {context.highlight && (
                     <p
                       className="text-sm"
@@ -430,6 +437,17 @@ export function LearningHubPage() {
                       }}
                     >
                       {context.highlight}
+                    </p>
+                  )}
+                  {context.previousComparison?.pro_tip && (
+                    <p className="text-xs text-[var(--text-secondary)]">
+                      Pro tip: {context.previousComparison.pro_tip}
+                    </p>
+                  )}
+                  {context.lessonBindings.length > 0 && (
+                    <p className="text-xs text-[var(--text-secondary)]">
+                      {context.lessonBindings.length}{' '}
+                      {context.lessonBindings.length === 1 ? 'linked lesson' : 'linked lessons'} ready
                     </p>
                   )}
                   <div className="flex flex-wrap items-center gap-2 text-xs text-[var(--text-secondary)]">
