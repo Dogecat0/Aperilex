@@ -257,6 +257,51 @@ async def test_list_user_progress_computes_unlock(repository_factory: AsyncMock)
     assert results[0].last_reviewed_at == reviewed_attempt_time
     assert results[0].pending_review_count == 0
 
+
+@pytest.mark.asyncio
+async def test_schedule_review_preserves_pending_count(
+    repository_factory: AsyncMock,
+) -> None:
+    learning_repo = AsyncMock()
+    repository_factory.get_learning_progress_repository.return_value = learning_repo
+    learning_repo.get_for_user_module.return_value = None
+
+    quiz_repo = AsyncMock()
+    repository_factory.get_quiz_attempt_repository.return_value = quiz_repo
+    quiz_repo.get_best_attempt.return_value = None
+
+    scheduled_for = datetime.now(UTC)
+    user_id = UserId(uuid4())
+    module_key = "module-a"
+
+    saved_progress = LearningProgressData(
+        id=LearningProgressId(uuid4()),
+        user_id=user_id,
+        module_key=module_key,
+        progress_percent=0,
+        last_interaction_at=scheduled_for,
+        completed_at=None,
+        metadata={"next_review_at": scheduled_for.isoformat()},
+        schema_version=1,
+        streak_count=0,
+        pending_review_count=3,
+        last_reviewed_at=None,
+        is_unlocked=False,
+        unlocked_at=None,
+    )
+    learning_repo.upsert.return_value = saved_progress
+
+    service = LearningService(repository_factory)
+    result = await service.schedule_review(
+        user_id,
+        module_key,
+        scheduled_for=scheduled_for,
+        pending_review_count=3,
+    )
+
+    assert result.pending_review_count == 3
+    repository_factory.get_learning_walkthrough_binding_repository.assert_not_called()
+
 @pytest.mark.asyncio
 async def test_get_best_quiz_attempt(repository_factory: AsyncMock) -> None:
     quiz_repo = AsyncMock()

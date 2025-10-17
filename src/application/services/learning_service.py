@@ -129,23 +129,26 @@ class LearningService:
         *,
         quiz_id: str | None = None,
         persist: bool,
+        update_pending_reviews: bool = True,
         quiz_repository: IQuizAttemptRepository | None = None,
         binding_repository: ILearningWalkthroughBindingRepository | None = None,
         learning_repository: ILearningProgressRepository | None = None,
     ) -> LearningProgress:
         if quiz_repository is None:
             quiz_repository = await self._repository_factory.get_quiz_attempt_repository()
-        if binding_repository is None:
-            binding_repository = (
-                await self._repository_factory.get_learning_walkthrough_binding_repository()
-            )
         if learning_repository is None:
             learning_repository = (
                 await self._repository_factory.get_learning_progress_repository()
             )
 
-        module_bindings = await binding_repository.list_for_module(progress.module_key)
-        pending_reviews = self._pending_review_count(module_bindings)
+        pending_reviews = progress.pending_review_count
+        if update_pending_reviews:
+            if binding_repository is None:
+                binding_repository = (
+                    await self._repository_factory.get_learning_walkthrough_binding_repository()
+                )
+            module_bindings = await binding_repository.list_for_module(progress.module_key)
+            pending_reviews = self._pending_review_count(module_bindings)
 
         effective_quiz_id = quiz_id or progress.module_key
         best_attempt = await quiz_repository.get_best_attempt(
@@ -177,7 +180,7 @@ class LearningService:
                 unlocked_at = best_attempt.attempted_at
 
         updates: dict[str, Any] = {}
-        if progress.pending_review_count != pending_reviews:
+        if update_pending_reviews and progress.pending_review_count != pending_reviews:
             updates["pending_review_count"] = pending_reviews
         if progress.last_reviewed_at != last_reviewed_at:
             updates["last_reviewed_at"] = last_reviewed_at
@@ -367,6 +370,7 @@ class LearningService:
         return await self._refresh_module_progress(
             saved,
             persist=True,
+            update_pending_reviews=False,
             learning_repository=learning_repository,
         )
 
