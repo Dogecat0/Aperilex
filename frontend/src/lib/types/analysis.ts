@@ -113,6 +113,7 @@ export const diffLessonReferenceSchema = z
     lesson_id: z.string().nullable().optional(),
     learning_module_key: z.string().nullable().optional(),
     module_stage: z.string().nullable().optional(),
+    title: z.string().nullable().optional(),
   })
   .strict()
 

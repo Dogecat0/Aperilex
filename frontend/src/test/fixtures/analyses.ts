@@ -541,6 +541,7 @@ export const mockAnalysisDetail: AnalysisResponse = {
                   lesson_id: 'lesson-risk-regulation',
                   learning_module_key: 'risk_mastery',
                   module_stage: 'walkthrough',
+                  title: 'Interpreting regulatory risk language',
                 },
               },
             ],

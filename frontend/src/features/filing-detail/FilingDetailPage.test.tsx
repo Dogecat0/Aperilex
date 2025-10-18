@@ -1,4 +1,4 @@
-import { screen, waitFor } from '@testing-library/react'
+import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { apiClient } from '@/lib/apiClient'
@@ -69,7 +69,31 @@ describe('FilingDetailPage', () => {
         return mockPaginatedAnalysesResponse as unknown
       }
 
+       if (path === '/learning/progress') {
+         return [] as unknown
+       }
+
       throw new Error(`Unexpected path: ${path}`)
+    })
+    vi.spyOn(apiClient, 'post').mockImplementation(async (path: string, config?: Record<string, any>) => {
+      if (path.startsWith('/learning/progress/')) {
+        const parts = path.split('/')
+        const moduleKey = parts[3] ?? 'unknown-module'
+        return {
+          schema_version: 1,
+          progress_id: `progress-${moduleKey}`,
+          user_id: 'user-1',
+          module_key: moduleKey,
+          progress_percent: config?.body?.progress_percent ?? 0,
+          last_interaction_at: new Date().toISOString(),
+          completed_at: config?.body?.progress_percent >= 100 ? new Date().toISOString() : null,
+          metadata: {},
+          created_at: null,
+          updated_at: null,
+        }
+      }
+
+      throw new Error(`Unexpected post path: ${path}`)
     })
   })
 
@@ -105,15 +129,15 @@ describe('FilingDetailPage', () => {
     const user = userEvent.setup()
     renderWithRouter([`/filing/${DETAIL_ID}`])
 
-    const nextButton = await screen.findByRole('button', { name: /Next section/i })
-    expect(nextButton).toBeDisabled()
+    const panelNextButton = await screen.findByRole('button', { name: /^Next section$/i })
+    expect(panelNextButton).toBeDisabled()
 
     const incorrectOption = await screen.findByRole('button', {
       name: /The launch of a one-time licensing settlement./i,
     })
     await user.click(incorrectOption)
     expect(await screen.findByText(/Not quite\. Select a different answer\./i)).toBeInTheDocument()
-    expect(nextButton).toBeDisabled()
+    expect(panelNextButton).toBeDisabled()
 
     const correctOption = await screen.findByRole('button', {
       name: /Recurring services growth offsetting hardware softness\./i,
@@ -123,10 +147,29 @@ describe('FilingDetailPage', () => {
     await waitFor(() => {
       expect(screen.getByText(/Explanation/i)).toBeInTheDocument()
       expect(screen.getByText(/1 of 2 sections completed/i)).toBeInTheDocument()
-      expect(nextButton).not.toBeDisabled()
+      expect(panelNextButton).not.toBeDisabled()
     })
 
-    await user.click(nextButton)
+    const celebrationDialog = await screen.findByRole('dialog', { name: /Nice work!/i })
+    expect(celebrationDialog).toBeInTheDocument()
+
+    await waitFor(() => {
+      expect(apiClient.post).toHaveBeenCalledWith(
+        '/learning/progress/mda_foundations/walkthrough-events',
+        expect.objectContaining({
+          body: expect.objectContaining({
+            progress_percent: 100,
+            section_key: 'Item 7 - Management Discussion & Analysis',
+          }),
+        })
+      )
+    })
+
+    const dialogNextButton = within(celebrationDialog).getByRole('button', {
+      name: /^Next section$/i,
+    })
+    expect(dialogNextButton).not.toBeDisabled()
+    await user.click(dialogNextButton)
 
     expect(
       await screen.findByRole('heading', { name: 'Risk Factors Deep Dive' })
@@ -136,6 +179,30 @@ describe('FilingDetailPage', () => {
         /Regulators continue probing App Store policies, which Apple labels high severity/i
       )
     ).toBeInTheDocument()
+
+    expect(
+      screen.getByText(
+        /Pro tip: New high-severity highlight detected: Regulation pressure remains elevated\./i
+      )
+    ).toBeInTheDocument()
+    const lessonLink = screen.getByRole('link', {
+      name: /Interpreting regulatory risk language/i,
+    })
+    expect(lessonLink).toHaveAttribute(
+      'href',
+      '/learning?module=risk_mastery&lesson=lesson-risk-regulation'
+    )
+
+    const viewChangesButton = screen.getByRole('button', { name: /View changes/i })
+    await user.click(viewChangesButton)
+
+    const diffDrawer = await screen.findByText(/Sentiment shift/i)
+    expect(diffDrawer).toBeInTheDocument()
+    expect(screen.getAllByText(/Regulation pressure remains elevated/i).length).toBeGreaterThan(1)
+
+    const closeDiffButton = screen.getByRole('button', { name: /^Close$/i })
+    await user.click(closeDiffButton)
+
     const finalNextButton = screen.getByRole('button', { name: /Finished/i })
     expect(finalNextButton).toBeDisabled()
 
@@ -147,6 +214,26 @@ describe('FilingDetailPage', () => {
     await waitFor(() => {
       expect(screen.getByText(/2 of 2 sections completed/i)).toBeInTheDocument()
     })
+    await waitFor(() => {
+      expect(apiClient.post).toHaveBeenCalledWith(
+        '/learning/progress/risk_mastery/walkthrough-events',
+        expect.objectContaining({
+          body: expect.objectContaining({
+            progress_percent: 100,
+            section_key: 'Item 1A - Risk Factors',
+          }),
+        })
+      )
+    })
+    const completionDialog = await screen.findByRole('dialog', { name: /Nice work!/i })
+    expect(completionDialog).toBeInTheDocument()
+    expect(
+      within(completionDialog).getByRole('button', { name: /^Finished$/i })
+    ).toBeDisabled()
+    const dismissButton = within(completionDialog).getByRole('button', { name: /^Close$/i })
+    await user.click(dismissButton)
+
+    expect(apiClient.post).toHaveBeenCalledTimes(2)
     expect(
       screen.getByText(/Walkthrough complete—return to dashboard when ready\./i)
     ).toBeInTheDocument()

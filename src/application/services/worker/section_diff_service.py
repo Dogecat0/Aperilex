@@ -311,11 +311,17 @@ class SectionDiffService:
         }
         lesson_reference = item.get("lesson_reference")
         if isinstance(lesson_reference, Mapping):
-            summary["lesson_reference"] = {
+            reference_payload: dict[str, Any] = {
                 "lesson_id": lesson_reference.get("lesson_id"),
                 "learning_module_key": lesson_reference.get("learning_module_key"),
                 "module_stage": lesson_reference.get("module_stage"),
             }
+            title = lesson_reference.get("title")
+            if isinstance(title, str):
+                cleaned_title = title.strip()
+                if cleaned_title:
+                    reference_payload["title"] = cleaned_title
+            summary["lesson_reference"] = reference_payload
         return summary
 
     @staticmethod

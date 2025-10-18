@@ -115,7 +115,7 @@ export function FilingDetailPage() {
           Guided walkthrough sections are still being prepared for this filing. Check back soon.
         </div>
       ) : (
-        <GuidedFilingStepper sections={guidedSections} />
+        <GuidedFilingStepper sections={guidedSections} diffsBySection={detail.diffsBySection} />
       )}
     </div>
   )

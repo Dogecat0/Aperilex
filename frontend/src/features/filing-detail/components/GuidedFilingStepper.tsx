@@ -1,19 +1,39 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Button } from '@/components/ui/Button'
 import { GuidedSectionPanel } from './GuidedSectionPanel'
+import { useLearningProgress } from '@/lib/hooks'
 import type { GuidedWalkthroughSection } from '@/lib/hooks/useFilingDetail'
+import type { WalkthroughPreviousComparison } from '@/lib/types/analysis'
 
 type CompletedChecksBySection = Record<string, Record<string, true>>
 
 interface GuidedFilingStepperProps {
   sections: GuidedWalkthroughSection[]
+  diffsBySection?: Record<string, WalkthroughPreviousComparison>
   onSectionComplete?: (section: GuidedWalkthroughSection) => void
 }
 
-export function GuidedFilingStepper({ sections, onSectionComplete }: GuidedFilingStepperProps) {
+export function GuidedFilingStepper({
+  sections,
+  diffsBySection = {},
+  onSectionComplete,
+}: GuidedFilingStepperProps) {
   const [activeIndex, setActiveIndex] = useState(0)
   const [completedChecks, setCompletedChecks] = useState<CompletedChecksBySection>({})
+  const [celebrationSection, setCelebrationSection] = useState<string | null>(null)
   const notifiedSectionsRef = useRef<Set<string>>(new Set())
+  const { recordWalkthroughEvent } = useLearningProgress()
+
+  const sectionsByModule = useMemo(() => {
+    const map: Record<string, GuidedWalkthroughSection[]> = {}
+    for (const section of sections) {
+      if (!map[section.learning_module_key]) {
+        map[section.learning_module_key] = []
+      }
+      map[section.learning_module_key].push(section)
+    }
+    return map
+  }, [sections])
 
   useEffect(() => {
     if (activeIndex >= sections.length) {
@@ -35,18 +55,49 @@ export function GuidedFilingStepper({ sections, onSectionComplete }: GuidedFilin
     [completedChecks]
   )
 
+  const emitSectionCompletion = useCallback(
+    async (section: GuidedWalkthroughSection) => {
+      const moduleSections = sectionsByModule[section.learning_module_key] ?? [section]
+      const completedWithinModule = moduleSections.reduce((count, moduleSection) => {
+        if (moduleSection.section_key === section.section_key) {
+          return count + 1
+        }
+        return isSectionComplete(moduleSection) ? count + 1 : count
+      }, 0)
+      const progressPercent =
+        moduleSections.length > 0
+          ? Math.min(100, Math.round((completedWithinModule / moduleSections.length) * 100))
+          : 100
+
+      try {
+        await recordWalkthroughEvent({
+          moduleKey: section.learning_module_key,
+          progressPercent,
+          sectionKey: section.section_key,
+        })
+      } catch {
+        // Hook surfaces the error state; no runtime fallback needed here.
+      }
+    },
+    [isSectionComplete, recordWalkthroughEvent, sectionsByModule]
+  )
+
   const notifySectionComplete = useCallback(
-    (section: GuidedWalkthroughSection) => {
+    (section: GuidedWalkthroughSection, options?: { celebrate?: boolean }) => {
       const key = section.section_key
       if (notifiedSectionsRef.current.has(key)) {
         return
       }
       notifiedSectionsRef.current.add(key)
+      void emitSectionCompletion(section)
+      if (options?.celebrate) {
+        setCelebrationSection(section.title)
+      }
       if (onSectionComplete) {
         onSectionComplete(section)
       }
     },
-    [onSectionComplete]
+    [emitSectionCompletion, onSectionComplete]
   )
 
   useEffect(() => {
@@ -66,6 +117,7 @@ export function GuidedFilingStepper({ sections, onSectionComplete }: GuidedFilin
   if (!activeSection) {
     return null
   }
+  const activeDiff = diffsBySection[activeSection.section_key] ?? null
 
   const completedCount = sections.reduce(
     (count, section) => (isSectionComplete(section) ? count + 1 : count),
@@ -136,7 +188,7 @@ export function GuidedFilingStepper({ sections, onSectionComplete }: GuidedFilin
     })
 
     if (shouldMarkComplete) {
-      notifySectionComplete(section)
+      notifySectionComplete(section, { celebrate: true })
     }
   }
 
@@ -207,6 +259,7 @@ export function GuidedFilingStepper({ sections, onSectionComplete }: GuidedFilin
           section={activeSection}
           completedChecks={activeSectionChecks}
           onCheckCompleted={(checkId) => handleCheckCompleted(activeSection, checkId)}
+          diff={activeDiff}
         />
 
         <div className="mt-6 flex flex-wrap items-center justify-between gap-3">
@@ -237,6 +290,50 @@ export function GuidedFilingStepper({ sections, onSectionComplete }: GuidedFilin
           </div>
         </div>
       </div>
+
+      {celebrationSection ? (
+        <div className="fixed inset-0 z-30 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm">
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="guided-celebration-title"
+            className="w-full max-w-sm rounded-3xl border border-slate-200 bg-white p-6 text-center shadow-2xl"
+          >
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+              Section complete
+            </p>
+            <h2
+              id="guided-celebration-title"
+              className="mt-2 text-xl font-semibold text-slate-900"
+            >
+              Nice work!
+            </h2>
+            <p className="mt-3 text-sm text-slate-600">
+              You just wrapped {celebrationSection}. Keep the momentum going with the next section.
+            </p>
+            <div className="mt-5 flex flex-wrap items-center justify-center gap-3">
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => setCelebrationSection(null)}
+              >
+                Close
+              </Button>
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={() => {
+                  setCelebrationSection(null)
+                  handleNext()
+                }}
+                disabled={atLastSection}
+              >
+                {atLastSection ? 'Finished' : 'Next section'}
+              </Button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   )
 }
