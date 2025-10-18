@@ -144,7 +144,7 @@ describe('App routing', () => {
 
     renderWithRouter(['/dashboard'])
 
-    await screen.findByText('Filing intelligence at a glance')
+    await screen.findByText('Learning-first progress snapshot')
 
     await user.click(await screen.findByRole('link', { name: 'Learning Hub' }))
     await screen.findByText('Build your filing fluency')

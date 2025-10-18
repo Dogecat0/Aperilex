@@ -66,10 +66,11 @@ describe('GlobalNav authentication controls', () => {
       </MemoryRouter>
     )
 
-    const loginButton = await screen.findByRole('button', { name: /sign in/i })
-    expect(loginButton).toBeInTheDocument()
+    const buttons = await screen.findAllByRole('button')
+    const loginButton = buttons.find((button) => /sign in/i.test(button.textContent ?? ''))
+    expect(loginButton).toBeTruthy()
 
-    await user.click(loginButton)
+    await user.click(loginButton as HTMLButtonElement)
     expect(loginMock).toHaveBeenCalledWith('/learn')
   })
 

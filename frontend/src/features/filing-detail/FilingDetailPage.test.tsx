@@ -69,32 +69,37 @@ describe('FilingDetailPage', () => {
         return mockPaginatedAnalysesResponse as unknown
       }
 
-       if (path === '/learning/progress') {
-         return [] as unknown
-       }
+      if (path === '/learning/progress') {
+        return [] as unknown
+      }
 
       throw new Error(`Unexpected path: ${path}`)
     })
-    vi.spyOn(apiClient, 'post').mockImplementation(async (path: string, config?: Record<string, any>) => {
-      if (path.startsWith('/learning/progress/')) {
-        const parts = path.split('/')
-        const moduleKey = parts[3] ?? 'unknown-module'
-        return {
-          schema_version: 1,
-          progress_id: `progress-${moduleKey}`,
-          user_id: 'user-1',
-          module_key: moduleKey,
-          progress_percent: config?.body?.progress_percent ?? 0,
-          last_interaction_at: new Date().toISOString(),
-          completed_at: config?.body?.progress_percent >= 100 ? new Date().toISOString() : null,
-          metadata: {},
-          created_at: null,
-          updated_at: null,
+    vi.spyOn(apiClient, 'post').mockImplementation(
+      async (path: string, config?: Record<string, unknown>) => {
+        if (path.startsWith('/learning/progress/')) {
+          const parts = path.split('/')
+          const moduleKey = parts[3] ?? 'unknown-module'
+          const body = (config?.body as { progress_percent?: number } | undefined) ?? {}
+          const progressPercent =
+            typeof body.progress_percent === 'number' ? body.progress_percent : 0
+          return {
+            schema_version: 1,
+            progress_id: `progress-${moduleKey}`,
+            user_id: 'user-1',
+            module_key: moduleKey,
+            progress_percent: progressPercent,
+            last_interaction_at: new Date().toISOString(),
+            completed_at: progressPercent >= 100 ? new Date().toISOString() : null,
+            metadata: {},
+            created_at: null,
+            updated_at: null,
+          }
         }
-      }
 
-      throw new Error(`Unexpected post path: ${path}`)
-    })
+        throw new Error(`Unexpected post path: ${path}`)
+      }
+    )
   })
 
   afterEach(() => {
@@ -227,9 +232,7 @@ describe('FilingDetailPage', () => {
     })
     const completionDialog = await screen.findByRole('dialog', { name: /Nice work!/i })
     expect(completionDialog).toBeInTheDocument()
-    expect(
-      within(completionDialog).getByRole('button', { name: /^Finished$/i })
-    ).toBeDisabled()
+    expect(within(completionDialog).getByRole('button', { name: /^Finished$/i })).toBeDisabled()
     const dismissButton = within(completionDialog).getByRole('button', { name: /^Close$/i })
     await user.click(dismissButton)
 

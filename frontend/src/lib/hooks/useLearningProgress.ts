@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { apiClient, ApiClientError } from '@/lib/apiClient'
+import { learningModuleCatalog } from '@/lib/learning/moduleCatalog'
 import {
   learningProgressListSchema,
   learningProgressSchema,
@@ -16,6 +17,11 @@ export interface LearningProgressRecord {
   progressPercent: number
   lastInteractionAt: string | null
   completedAt: string | null
+  streakCount: number
+  pendingReviewCount: number
+  lastReviewedAt: string | null
+  isUnlocked: boolean
+  unlockedAt: string | null
   metadata: Record<string, unknown>
   createdAt: string | null
   updatedAt: string | null
@@ -45,6 +51,43 @@ export interface ScheduleReviewInput {
   notes?: string | null
 }
 
+export type ModuleProgressStatus = 'queued' | 'in_progress' | 'completed'
+
+export interface ModuleWeakness {
+  moduleKey: string
+  title: string
+  progressPercent: number
+  pendingReviewCount: number
+  status: ModuleProgressStatus
+  isUnlocked: boolean
+  lastInteractionAt: string | null
+  lastReviewedAt: string | null
+}
+
+export interface NextLessonRecommendation {
+  moduleKey: string
+  title: string
+  summary: string
+  duration: string
+  progressPercent: number
+  isUnlocked: boolean
+  pendingReviewCount: number
+}
+
+export interface LearningDashboardHighlights {
+  streakDays: number
+  completion: {
+    total: number
+    completed: number
+    inProgress: number
+    queued: number
+    unlocked: number
+    locked: number
+  }
+  weakestTopics: ModuleWeakness[]
+  nextLesson: NextLessonRecommendation | null
+}
+
 interface MutationContext {
   previous: LearningProgressRecord[]
 }
@@ -57,6 +100,11 @@ function normalizeProgress(response: LearningProgressResponse): LearningProgress
     progressPercent: response.progress_percent,
     lastInteractionAt: response.last_interaction_at ?? null,
     completedAt: response.completed_at ?? null,
+    streakCount: response.streak_count,
+    pendingReviewCount: response.pending_review_count,
+    lastReviewedAt: response.last_reviewed_at ?? null,
+    isUnlocked: response.is_unlocked,
+    unlockedAt: response.unlocked_at ?? null,
     metadata: response.metadata ?? {},
     createdAt: response.created_at ?? null,
     updatedAt: response.updated_at ?? null,
@@ -106,6 +154,141 @@ function upsertRecord(
   return next
 }
 
+function toTimestamp(value: string | null | undefined): number {
+  if (!value) {
+    return Number.POSITIVE_INFINITY
+  }
+  const parsed = Date.parse(value)
+  return Number.isNaN(parsed) ? Number.POSITIVE_INFINITY : parsed
+}
+
+function computeDashboardHighlights(
+  progressMap: Record<string, LearningProgressRecord>
+): LearningDashboardHighlights {
+  const aggregates = learningModuleCatalog.map((meta) => {
+    const record = progressMap[meta.key]
+    const progressPercent = record?.progressPercent ?? 0
+    const pendingReviewCount = record?.pendingReviewCount ?? 0
+    const streakCount = record?.streakCount ?? 0
+    const isUnlocked = record?.isUnlocked ?? false
+    const status: ModuleProgressStatus =
+      progressPercent >= 100 ? 'completed' : progressPercent > 0 ? 'in_progress' : 'queued'
+
+    return {
+      meta,
+      record,
+      progressPercent,
+      pendingReviewCount,
+      streakCount,
+      isUnlocked,
+      status,
+    }
+  })
+
+  const total = aggregates.length
+  let completed = 0
+  let inProgress = 0
+  let unlocked = 0
+  let streakDays = 0
+
+  for (const aggregate of aggregates) {
+    if (aggregate.status === 'completed') {
+      completed += 1
+    } else if (aggregate.status === 'in_progress') {
+      inProgress += 1
+    }
+    if (aggregate.isUnlocked) {
+      unlocked += 1
+    }
+    streakDays = Math.max(streakDays, aggregate.streakCount)
+  }
+
+  const queued = Math.max(total - completed - inProgress, 0)
+  const locked = Math.max(total - unlocked, 0)
+
+  const weakestTopics = aggregates
+    .filter(
+      (aggregate) =>
+        aggregate.pendingReviewCount > 0 ||
+        aggregate.status !== 'completed' ||
+        !aggregate.isUnlocked
+    )
+    .sort((a, b) => {
+      if (a.isUnlocked !== b.isUnlocked) {
+        return Number(b.isUnlocked) - Number(a.isUnlocked)
+      }
+      if (b.pendingReviewCount !== a.pendingReviewCount) {
+        return b.pendingReviewCount - a.pendingReviewCount
+      }
+      if (a.progressPercent !== b.progressPercent) {
+        return a.progressPercent - b.progressPercent
+      }
+      const aTimestamp = toTimestamp(a.record?.lastInteractionAt)
+      const bTimestamp = toTimestamp(b.record?.lastInteractionAt)
+      if (aTimestamp !== bTimestamp) {
+        return aTimestamp - bTimestamp
+      }
+      return a.meta.title.localeCompare(b.meta.title)
+    })
+    .slice(0, 3)
+    .map((aggregate) => ({
+      moduleKey: aggregate.meta.key,
+      title: aggregate.meta.title,
+      progressPercent: aggregate.progressPercent,
+      pendingReviewCount: aggregate.pendingReviewCount,
+      status: aggregate.status,
+      isUnlocked: aggregate.isUnlocked,
+      lastInteractionAt: aggregate.record?.lastInteractionAt ?? null,
+      lastReviewedAt: aggregate.record?.lastReviewedAt ?? null,
+    }))
+
+  const nextLessonSource = aggregates
+    .filter((aggregate) => aggregate.status !== 'completed')
+    .sort((a, b) => {
+      if (a.isUnlocked !== b.isUnlocked) {
+        return Number(b.isUnlocked) - Number(a.isUnlocked)
+      }
+      if (a.progressPercent !== b.progressPercent) {
+        return a.progressPercent - b.progressPercent
+      }
+      if (b.pendingReviewCount !== a.pendingReviewCount) {
+        return b.pendingReviewCount - a.pendingReviewCount
+      }
+      const aTimestamp = toTimestamp(a.record?.lastInteractionAt)
+      const bTimestamp = toTimestamp(b.record?.lastInteractionAt)
+      if (aTimestamp !== bTimestamp) {
+        return aTimestamp - bTimestamp
+      }
+      return a.meta.title.localeCompare(b.meta.title)
+    })[0]
+
+  const nextLesson = nextLessonSource
+    ? {
+        moduleKey: nextLessonSource.meta.key,
+        title: nextLessonSource.meta.title,
+        summary: nextLessonSource.meta.summary,
+        duration: nextLessonSource.meta.duration,
+        progressPercent: nextLessonSource.progressPercent,
+        isUnlocked: nextLessonSource.isUnlocked,
+        pendingReviewCount: nextLessonSource.pendingReviewCount,
+      }
+    : null
+
+  return {
+    streakDays,
+    completion: {
+      total,
+      completed,
+      inProgress,
+      queued,
+      unlocked,
+      locked,
+    },
+    weakestTopics,
+    nextLesson,
+  }
+}
+
 export function useLearningProgress() {
   const queryClient = useQueryClient()
   const [error, setError] = useState<string | null>(null)
@@ -120,7 +303,7 @@ export function useLearningProgress() {
     },
   })
 
-  const progress = progressQuery.data ?? []
+  const progress = useMemo(() => progressQuery.data ?? [], [progressQuery.data])
 
   const progressByModule = useMemo(() => {
     const map: Record<string, LearningProgressRecord> = {}
@@ -129,6 +312,11 @@ export function useLearningProgress() {
     }
     return map
   }, [progress])
+
+  const dashboardHighlights = useMemo(
+    () => computeDashboardHighlights(progressByModule),
+    [progressByModule]
+  )
 
   const updateMutation = useMutation<
     LearningProgressRecord,
@@ -184,6 +372,11 @@ export function useLearningProgress() {
         progressPercent: input.progressPercent,
         lastInteractionAt: baseTimestamp,
         completedAt: completedAt ?? existing?.completedAt ?? null,
+        streakCount: existing?.streakCount ?? 0,
+        pendingReviewCount: existing?.pendingReviewCount ?? 0,
+        lastReviewedAt: existing?.lastReviewedAt ?? null,
+        isUnlocked: existing?.isUnlocked ?? false,
+        unlockedAt: existing?.unlockedAt ?? null,
         metadata: { ...(existing?.metadata ?? {}), ...(input.metadata ?? {}) },
         createdAt: existing?.createdAt ?? baseTimestamp,
         updatedAt: baseTimestamp,
@@ -290,6 +483,7 @@ export function useLearningProgress() {
   return {
     progress,
     progressByModule,
+    dashboardHighlights,
     isLoading: progressQuery.isLoading,
     isRefetching: progressQuery.isRefetching,
     isUpdating: updateMutation.isPending,

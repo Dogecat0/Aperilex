@@ -54,8 +54,13 @@ export {
   type UpdateProgressInput,
   type RecordWalkthroughEventInput,
   type ScheduleReviewInput,
+  type ModuleProgressStatus,
+  type ModuleWeakness,
+  type NextLessonRecommendation,
+  type LearningDashboardHighlights,
   type UseLearningProgressReturn,
 } from './useLearningProgress'
+export { usePracticeCommands, type UsePracticeCommandsReturn } from './usePracticeCommands'
 export {
   useQuizAttempts,
   type QuizAttemptRecord,

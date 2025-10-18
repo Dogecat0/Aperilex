@@ -302,21 +302,14 @@ export function GuidedFilingStepper({
             <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
               Section complete
             </p>
-            <h2
-              id="guided-celebration-title"
-              className="mt-2 text-xl font-semibold text-slate-900"
-            >
+            <h2 id="guided-celebration-title" className="mt-2 text-xl font-semibold text-slate-900">
               Nice work!
             </h2>
             <p className="mt-3 text-sm text-slate-600">
               You just wrapped {celebrationSection}. Keep the momentum going with the next section.
             </p>
             <div className="mt-5 flex flex-wrap items-center justify-center gap-3">
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={() => setCelebrationSection(null)}
-              >
+              <Button variant="secondary" size="sm" onClick={() => setCelebrationSection(null)}>
                 Close
               </Button>
               <Button

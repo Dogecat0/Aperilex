@@ -1,6 +1,11 @@
 import { useQuery } from '@tanstack/react-query'
 import { apiClient } from '@/lib/apiClient'
 import {
+  getLearningModuleMeta,
+  type LearningModuleMeta,
+  type ModuleFocusTab,
+} from '@/lib/learning/moduleCatalog'
+import {
   analysisResponseSchema,
   paginatedAnalysesSchema,
   type AnalysisResponse,
@@ -18,8 +23,6 @@ import {
 const DEFAULT_ANALYSIS_SAMPLE = 12
 const DEFAULT_STALE_TIME_MS = 5 * 60 * 1000
 const DEFAULT_GC_TIME_MS = 15 * 60 * 1000
-
-export type ModuleFocusTab = 'overview' | 'sections' | 'numbers' | 'sentiment' | 'raw'
 
 export interface LearningModuleContext {
   analysisId: string
@@ -46,13 +49,7 @@ export interface LearningModule {
   context?: LearningModuleContext
 }
 
-interface ModuleDefinition {
-  key: string
-  title: string
-  duration: string
-  fallbackSummary: string
-  focusTab: ModuleFocusTab
-  defaultFocusSection?: string
+interface ModuleDefinition extends LearningModuleMeta {
   derive: (detail: FilingDetailData) => DerivedModuleContext | null
 }
 
@@ -68,35 +65,25 @@ interface UseLearningModulesOptions {
   enabled?: boolean
 }
 
+function requireMeta(key: string): LearningModuleMeta {
+  const meta = getLearningModuleMeta(key)
+  if (!meta) {
+    throw new Error(`Missing learning module metadata for key: ${key}`)
+  }
+  return meta
+}
+
 const MODULE_DEFINITIONS: ModuleDefinition[] = [
   {
-    key: 'mda-101',
-    title: 'Decode MD&A narratives',
-    duration: '5 min guided read',
-    fallbackSummary:
-      'Run a fresh MD&A analysis to surface management tone shifts and confidence drivers backed by real filings.',
-    focusTab: 'sections',
-    defaultFocusSection: 'Management Discussion & Analysis',
+    ...requireMeta('mda-101'),
     derive: deriveMdaContext,
   },
   {
-    key: 'risk-signal',
-    title: 'Spot meaningful risk updates',
-    duration: '3 scenario prompts',
-    fallbackSummary:
-      'Track new and elevated risk disclosures by comparing recent filings once analyses complete.',
-    focusTab: 'sections',
-    defaultFocusSection: 'Risk Factors',
+    ...requireMeta('risk-signal'),
     derive: deriveRiskContext,
   },
   {
-    key: 'cashflow-insights',
-    title: 'Interpret cash flow swings',
-    duration: '4 metric walkthrough',
-    fallbackSummary:
-      'Investigate cash flow shifts and liquidity signals by launching an updated financial analysis.',
-    focusTab: 'numbers',
-    defaultFocusSection: 'Financial Statements',
+    ...requireMeta('cashflow-insights'),
     derive: deriveCashflowContext,
   },
 ]
@@ -206,7 +193,7 @@ function finalizeModule(
       key: definition.key,
       title: definition.title,
       duration: definition.duration,
-      summary: definition.fallbackSummary,
+      summary: definition.summary,
       focusTab: definition.focusTab,
       focusSection: definition.defaultFocusSection,
       context: undefined,

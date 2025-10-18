@@ -1,7 +1,4 @@
-import type {
-  WalkthroughDiffHighlight,
-  WalkthroughPreviousComparison,
-} from '@/lib/types/analysis'
+import type { WalkthroughDiffHighlight, WalkthroughPreviousComparison } from '@/lib/types/analysis'
 
 interface SectionDiffDrawerProps {
   isOpen: boolean
@@ -74,12 +71,7 @@ function DiffHighlightCard({
   )
 }
 
-export function SectionDiffDrawer({
-  isOpen,
-  sectionTitle,
-  diff,
-  onClose,
-}: SectionDiffDrawerProps) {
+export function SectionDiffDrawer({ isOpen, sectionTitle, diff, onClose }: SectionDiffDrawerProps) {
   if (!isOpen) {
     return null
   }

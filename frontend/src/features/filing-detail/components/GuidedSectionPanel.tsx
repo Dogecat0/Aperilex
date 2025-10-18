@@ -55,7 +55,9 @@ export function GuidedSectionPanel({
           <h2 className="mt-1 text-2xl font-semibold text-slate-900">{section.title}</h2>
           <dl className="mt-4 grid gap-4 md:grid-cols-2">
             <div>
-              <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">Focus</dt>
+              <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                Focus
+              </dt>
               <dd className="mt-1 text-sm text-slate-700">{section.guidance.focus}</dd>
             </div>
             <div>
