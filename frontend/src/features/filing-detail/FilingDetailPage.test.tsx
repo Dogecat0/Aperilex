@@ -1,4 +1,4 @@
-import { screen, waitFor, within } from '@testing-library/react'
+import { screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { apiClient } from '@/lib/apiClient'
@@ -78,27 +78,18 @@ describe('FilingDetailPage', () => {
     vi.restoreAllMocks()
   })
 
-  it('renders overview stats and curated summary cards', async () => {
+  it('renders the guided walkthrough header and first section', async () => {
     renderWithRouter([`/filing/${DETAIL_ID}`])
 
-    expect(await screen.findByText('Quick read')).toBeInTheDocument()
-    expect(screen.getByText('Quick read')).toBeInTheDocument()
-    expect(screen.getAllByRole('button', { name: /more/i }).length).toBeGreaterThan(0)
-    expect(screen.getByText('Confidence')).toBeInTheDocument()
-    expect(screen.getByText('91%')).toBeInTheDocument()
-    expect(screen.getByText('Coverage')).toBeInTheDocument()
-    expect(screen.getByText('3 sections')).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Apple Inc.' })).toBeInTheDocument()
+    expect(screen.getByText(/Guided Filing • 10-Q/i)).toBeInTheDocument()
+    expect(screen.getByText(/0 of 2 sections completed/i)).toBeInTheDocument()
 
-    expect(screen.getByText('Key insights')).toBeInTheDocument()
-    expect(screen.getByText(/Services revenue accelerated/i)).toBeInTheDocument()
-    const criticalFindingsSection = screen.getByText('Critical findings').closest('article')
-    expect(criticalFindingsSection).not.toBeNull()
+    expect(await screen.findByRole('heading', { name: 'MD&A Guided Review' })).toBeInTheDocument()
+    expect(screen.getByText('Services pacing profit growth')).toBeInTheDocument()
     expect(
-      within(criticalFindingsSection as HTMLElement).getAllByRole('listitem').length
-    ).toBeGreaterThan(0)
-    expect(screen.getByText('Opportunities')).toBeInTheDocument()
-    expect(screen.queryByText(/Risk highlights/i)).not.toBeInTheDocument()
-    expect(screen.queryByText(/Insight timeline/i)).not.toBeInTheDocument()
+      screen.getByText('Recurring services growth offsetting hardware softness.')
+    ).toBeInTheDocument()
 
     await waitFor(() => {
       expect(apiClient.get).toHaveBeenCalledWith(
@@ -110,51 +101,54 @@ describe('FilingDetailPage', () => {
     })
   })
 
-  it('supports tab navigation and section quick actions', async () => {
+  it('requires correct comprehension responses before advancing', async () => {
     const user = userEvent.setup()
     renderWithRouter([`/filing/${DETAIL_ID}`])
 
-    const sectionsCardHeading = await screen.findByText('Where to focus')
-    const sectionsCard = sectionsCardHeading.closest('article')
-    expect(sectionsCard).not.toBeNull()
-    await user.click(within(sectionsCard as HTMLElement).getByRole('button', { name: /more/i }))
+    const nextButton = await screen.findByRole('button', { name: /Next section/i })
+    expect(nextButton).toBeDisabled()
 
-    const sectionsTab = screen.getByRole('tab', { name: /Sections/i })
-    expect(sectionsTab).toHaveAttribute('aria-selected', 'true')
-
-    const explainToggle = (await screen.findAllByRole('button', { name: /Explain more/i }))[0]
-    await user.click(explainToggle)
-
-    expect(screen.getByRole('button', { name: /Hide details/i })).toBeInTheDocument()
-
-    const numbersTab = screen.getByRole('tab', { name: /Numbers/i })
-    await user.click(numbersTab)
-
-    expect(await screen.findByText(/Total Revenue/i)).toBeInTheDocument()
-    expect(screen.getByText('Operating Margin')).toBeInTheDocument()
-
-    expect(screen.queryByRole('tab', { name: /Raw/i })).not.toBeInTheDocument()
-  })
-
-  it('highlights sentiment cards and clears focus state', async () => {
-    const user = userEvent.setup()
-    renderWithRouter([`/filing/${DETAIL_ID}`])
-
-    await screen.findByText('Quick read')
-
-    await user.click(screen.getByRole('tab', { name: /Sections/i }))
-    const explainToggle = (await screen.findAllByRole('button', { name: /Explain more/i }))[0]
-    await user.click(explainToggle)
-
-    await user.click(screen.getByRole('tab', { name: /Sentiment/i }))
-    expect(
-      await screen.findByText(/Focused on Management Discussion & Analysis/i)
-    ).toBeInTheDocument()
-    expect(screen.getByText(/Average sentiment/i)).toBeInTheDocument()
-
-    await user.click(screen.getByRole('button', { name: /Clear focus/i }))
-    await waitFor(() => {
-      expect(screen.queryByText(/Focused on/i)).not.toBeInTheDocument()
+    const incorrectOption = await screen.findByRole('button', {
+      name: /The launch of a one-time licensing settlement./i,
     })
+    await user.click(incorrectOption)
+    expect(await screen.findByText(/Not quite\. Select a different answer\./i)).toBeInTheDocument()
+    expect(nextButton).toBeDisabled()
+
+    const correctOption = await screen.findByRole('button', {
+      name: /Recurring services growth offsetting hardware softness\./i,
+    })
+    await user.click(correctOption)
+
+    await waitFor(() => {
+      expect(screen.getByText(/Explanation/i)).toBeInTheDocument()
+      expect(screen.getByText(/1 of 2 sections completed/i)).toBeInTheDocument()
+      expect(nextButton).not.toBeDisabled()
+    })
+
+    await user.click(nextButton)
+
+    expect(
+      await screen.findByRole('heading', { name: 'Risk Factors Deep Dive' })
+    ).toBeInTheDocument()
+    expect(
+      screen.getByText(
+        /Regulators continue probing App Store policies, which Apple labels high severity/i
+      )
+    ).toBeInTheDocument()
+    const finalNextButton = screen.getByRole('button', { name: /Finished/i })
+    expect(finalNextButton).toBeDisabled()
+
+    const riskCorrectOption = await screen.findByRole('button', {
+      name: /Potential changes to App Store economics that impact profitability\./i,
+    })
+    await user.click(riskCorrectOption)
+
+    await waitFor(() => {
+      expect(screen.getByText(/2 of 2 sections completed/i)).toBeInTheDocument()
+    })
+    expect(
+      screen.getByText(/Walkthrough complete—return to dashboard when ready\./i)
+    ).toBeInTheDocument()
   })
 })
