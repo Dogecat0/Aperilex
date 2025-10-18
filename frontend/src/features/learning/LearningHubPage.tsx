@@ -422,9 +422,7 @@ export function LearningHubPage() {
                   }}
                 >
                   {context.walkthrough?.title && (
-                    <span
-                      className="text-xs font-semibold uppercase tracking-wide text-[var(--text-secondary)]"
-                    >
+                    <span className="text-xs font-semibold uppercase tracking-wide text-[var(--text-secondary)]">
                       {context.walkthrough.title}
                     </span>
                   )}
@@ -447,7 +445,8 @@ export function LearningHubPage() {
                   {context.lessonBindings.length > 0 && (
                     <p className="text-xs text-[var(--text-secondary)]">
                       {context.lessonBindings.length}{' '}
-                      {context.lessonBindings.length === 1 ? 'linked lesson' : 'linked lessons'} ready
+                      {context.lessonBindings.length === 1 ? 'linked lesson' : 'linked lessons'}{' '}
+                      ready
                     </p>
                   )}
                   <div className="flex flex-wrap items-center gap-2 text-xs text-[var(--text-secondary)]">

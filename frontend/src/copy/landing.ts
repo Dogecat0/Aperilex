@@ -57,11 +57,13 @@ export const landingCopy = {
     steps: [
       {
         title: 'Set your goal',
-        description: 'Tell Aperilex whether you are validating a thesis or learning the structure of a new filing.',
+        description:
+          'Tell Aperilex whether you are validating a thesis or learning the structure of a new filing.',
       },
       {
         title: 'Review instant insights',
-        description: 'See deltas, sentiment, and key risks—with confidence bands and sourced excerpts.',
+        description:
+          'See deltas, sentiment, and key risks—with confidence bands and sourced excerpts.',
       },
       {
         title: 'Drill deeper with guidance',
@@ -72,7 +74,8 @@ export const landingCopy = {
   },
   ctaBanner: {
     title: 'Ready to reimagine filing analysis?',
-    description: 'Join teams who learn faster and decide with conviction—start exploring Aperilex today.',
+    description:
+      'Join teams who learn faster and decide with conviction—start exploring Aperilex today.',
     action: 'Get started',
   },
 } as const

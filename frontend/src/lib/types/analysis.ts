@@ -181,11 +181,7 @@ export type SectionWalkthrough = z.infer<typeof sectionWalkthroughSchema>
 
 export const structuredAnalysisDataSchema = z
   .object({
-    schema_version: z
-      .number()
-      .int()
-      .min(1)
-      .default(STRUCTURED_ANALYSIS_SCHEMA_VERSION),
+    schema_version: z.number().int().min(1).default(STRUCTURED_ANALYSIS_SCHEMA_VERSION),
     filing_summary: z.string().optional(),
     key_insights: z.array(z.string()).optional(),
     opportunities: z.array(z.string()).optional(),
@@ -198,9 +194,7 @@ export const structuredAnalysisDataSchema = z
     company_name: z.string().optional(),
     analysis_timestamp: z.string().optional(),
     metadata: z.record(z.unknown()).optional(),
-    section_walkthroughs: z
-      .record(sectionWalkthroughSchema)
-      .default({}),
+    section_walkthroughs: z.record(sectionWalkthroughSchema).default({}),
   })
   .passthrough()
 
@@ -238,7 +232,7 @@ const narrativeArtifactSchema = z
 export const analysisFullResultsSchema = z
   .object({
     schema_version: z.number().int(),
-    structured_data: structuredAnalysisDataSchema.optional(),
+    structured_data: structuredAnalysisDataSchema.nullable().optional(),
     provider: providerMetadataSchema,
     narrative: narrativeArtifactSchema.optional(),
   })

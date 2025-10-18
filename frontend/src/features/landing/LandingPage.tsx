@@ -20,7 +20,6 @@ export function LandingPage() {
   const personas = useMemo(() => landingCopy.personas, [])
   const highlights = useMemo(() => landingCopy.highlights, [])
   const walkthroughSteps = useMemo(() => landingCopy.walkthrough.steps, [])
-  const primaryCtaLabel = isAuthenticated ? 'Continue to dashboard' : landingCopy.primaryCta
   const navActionLabel = isAuthenticated
     ? 'Dashboard'
     : isAuthenticating
@@ -108,7 +107,10 @@ export function LandingPage() {
       className="min-h-screen"
       style={{ background: 'var(--surfaces-base)', color: 'var(--text-primary)' }}
     >
-      <header className="border-b" style={{ background: headerBackground, borderColor: headerBorder }}>
+      <header
+        className="border-b"
+        style={{ background: headerBackground, borderColor: headerBorder }}
+      >
         <div
           className="mx-auto flex w-full max-w-7xl items-center justify-between gap-4 px-5 py-3 transition"
           style={{ color: headerText }}
@@ -176,9 +178,7 @@ export function LandingPage() {
               <h1 className="text-4xl font-semibold" style={{ lineHeight: '1.1' }}>
                 {landingCopy.heroHeadline}
               </h1>
-              <p className="text-base text-[rgba(245,247,255,0.82)]">
-                {landingCopy.heroSubhead}
-              </p>
+              <p className="text-base text-[rgba(245,247,255,0.82)]">{landingCopy.heroSubhead}</p>
               <div className="flex flex-col gap-4 pt-4 sm:flex-row">
                 <Button
                   type="button"
@@ -186,7 +186,11 @@ export function LandingPage() {
                   disabled={isAuthenticating}
                   className="w-full sm:w-auto"
                 >
-                  {isAuthenticated ? 'Continue to dashboard' : isAuthenticating ? 'Preparing workspace…' : landingCopy.primaryCta}
+                  {isAuthenticated
+                    ? 'Continue to dashboard'
+                    : isAuthenticating
+                      ? 'Preparing workspace…'
+                      : landingCopy.primaryCta}
                 </Button>
                 <Button
                   type="button"
@@ -210,12 +214,11 @@ export function LandingPage() {
               </div>
               <div className="space-y-4">
                 {highlights.map((item, index) => {
-                  const palette =
-                    highlightPalettes[index % highlightPalettes.length] ?? {
-                      background: tokens.surfaces.raised,
-                      border: tokens.lines.subtle,
-                      indicator: tokens.action.primary,
-                    }
+                  const palette = highlightPalettes[index % highlightPalettes.length] ?? {
+                    background: tokens.surfaces.raised,
+                    border: tokens.lines.subtle,
+                    indicator: tokens.action.primary,
+                  }
 
                   return (
                     <div
@@ -251,8 +254,9 @@ export function LandingPage() {
             </p>
             <h2 className="text-3xl font-semibold">Designed for how people actually read</h2>
             <p className="text-base text-[var(--text-muted)]">
-              The landing experience mirrors the two dominant behaviors from our chat-based research study:
-              quick validation and exploratory learning. Choose the path that matches today&apos;s workload.
+              The landing experience mirrors the two dominant behaviors from our chat-based research
+              study: quick validation and exploratory learning. Choose the path that matches
+              today&apos;s workload.
             </p>
           </div>
 
@@ -315,7 +319,8 @@ export function LandingPage() {
             </p>
             <h2 className="text-3xl font-semibold">Guided by outcomes from the first click</h2>
             <p className="text-base text-[var(--text-muted)]">
-              Aperilex removes guesswork by aligning onboarding, insights, and learning cues to your stated research intent.
+              Aperilex removes guesswork by aligning onboarding, insights, and learning cues to your
+              stated research intent.
             </p>
           </div>
 
@@ -345,14 +350,12 @@ export function LandingPage() {
             <p className="text-xs font-semibold uppercase tracking-[0.3em] text-[var(--text-muted)]">
               {landingCopy.ctaBanner.title}
             </p>
-            <p className="text-lg text-[var(--text-secondary)]">{landingCopy.ctaBanner.description}</p>
+            <p className="text-lg text-[var(--text-secondary)]">
+              {landingCopy.ctaBanner.description}
+            </p>
           </div>
           <div className="flex gap-3">
-            <Button
-              type="button"
-              onClick={handlePrimaryCta}
-              disabled={isAuthenticating}
-            >
+            <Button type="button" onClick={handlePrimaryCta} disabled={isAuthenticating}>
               {isAuthenticated ? 'Open dashboard' : landingCopy.ctaBanner.action}
             </Button>
             <Button type="button" variant="ghost" onClick={handleHeaderLogin}>

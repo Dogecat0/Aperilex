@@ -545,8 +545,7 @@ export const mockAnalysisDetail: AnalysisResponse = {
               },
             ],
             dropped_highlights: [],
-            pro_tip:
-              'New high-severity highlight detected: Regulation pressure remains elevated.',
+            pro_tip: 'New high-severity highlight detected: Regulation pressure remains elevated.',
           },
         },
       },

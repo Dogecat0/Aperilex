@@ -248,11 +248,7 @@ export function useLearningProgress() {
     },
   })
 
-  const reviewMutation = useMutation<
-    LearningProgressRecord,
-    unknown,
-    ScheduleReviewInput
-  >({
+  const reviewMutation = useMutation<LearningProgressRecord, unknown, ScheduleReviewInput>({
     mutationKey: ['learning-progress', 'schedule-review'],
     mutationFn: async (input) => {
       setError(null)

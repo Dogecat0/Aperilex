@@ -10,14 +10,8 @@ const putSpy = vi.spyOn(apiClient, 'put')
 const postSpy = vi.spyOn(apiClient, 'post')
 
 function ProgressProbe() {
-  const {
-    progress,
-    updateProgress,
-    recordWalkthroughEvent,
-    scheduleReview,
-    error,
-    clearError,
-  } = useLearningProgress()
+  const { progress, updateProgress, recordWalkthroughEvent, scheduleReview, error, clearError } =
+    useLearningProgress()
   const record = progress.find((item) => item.moduleKey === 'mda-101')
 
   return (
@@ -156,13 +150,15 @@ describe('useLearningProgress', () => {
 
     fireEvent.click(screen.getByText('walkthrough'))
 
-    await waitFor(() => expect(postSpy).toHaveBeenCalledWith(
-      '/learning/progress/mda-101/walkthrough-events',
-      expect.objectContaining({
-        body: expect.objectContaining({ progress_percent: 100, section_key: 'item-7' }),
-        schema: expect.anything(),
-      })
-    ))
+    await waitFor(() =>
+      expect(postSpy).toHaveBeenCalledWith(
+        '/learning/progress/mda-101/walkthrough-events',
+        expect.objectContaining({
+          body: expect.objectContaining({ progress_percent: 100, section_key: 'item-7' }),
+          schema: expect.anything(),
+        })
+      )
+    )
 
     await waitFor(() => expect(screen.getByTestId('progress-value').textContent).toBe('100'))
   })
@@ -182,17 +178,17 @@ describe('useLearningProgress', () => {
 
     fireEvent.click(screen.getByText('schedule'))
 
-    await waitFor(() => expect(postSpy).toHaveBeenCalledWith(
-      '/learning/progress/mda-101/reviews/schedule',
-      expect.objectContaining({
-        body: expect.objectContaining({ pending_review_count: 2 }),
-        schema: expect.anything(),
-      })
-    ))
-
     await waitFor(() =>
-      expect(postSpy).toHaveBeenCalledTimes(1)
+      expect(postSpy).toHaveBeenCalledWith(
+        '/learning/progress/mda-101/reviews/schedule',
+        expect.objectContaining({
+          body: expect.objectContaining({ pending_review_count: 2 }),
+          schema: expect.anything(),
+        })
+      )
     )
+
+    await waitFor(() => expect(postSpy).toHaveBeenCalledTimes(1))
 
     expect(screen.getByTestId('progress-value').textContent).toBe('60')
   })

@@ -110,9 +110,7 @@ function extractGuidedSections(
 
   const sections: GuidedWalkthroughSection[] = []
   for (const section of Object.values(walkthroughs)) {
-    const highlights = [...section.highlights].sort(
-      (a, b) => a.display_order - b.display_order
-    )
+    const highlights = [...section.highlights].sort((a, b) => a.display_order - b.display_order)
     const comprehensionChecks = [...section.comprehension_checks].sort(
       (a, b) => a.display_order - b.display_order
     )

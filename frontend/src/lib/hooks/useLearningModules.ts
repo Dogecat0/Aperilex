@@ -311,7 +311,11 @@ function deriveRiskContext(detail: FilingDetailData): DerivedModuleContext | nul
 }
 
 function deriveCashflowContext(detail: FilingDetailData): DerivedModuleContext | null {
-  const sectionContext = resolveSectionContext(detail, ['financial statements', 'liquidity', 'cash flow'])
+  const sectionContext = resolveSectionContext(detail, [
+    'financial statements',
+    'liquidity',
+    'cash flow',
+  ])
   if (!sectionContext) {
     return null
   }
@@ -348,7 +352,8 @@ function resolveSectionContext(
   detail: FilingDetailData,
   matchers: string[]
 ): { section: SectionAnalysis; walkthrough: GuidedWalkthroughSection | null } | null {
-  const structuredSections = detail.structured?.section_analyses ??
+  const structuredSections =
+    detail.structured?.section_analyses ??
     detail.analysis.full_results?.structured_data?.section_analyses ??
     []
 
