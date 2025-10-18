@@ -18,6 +18,12 @@ export default defineConfig({
   },
   test: {
     pool: 'threads',
+    poolOptions: {
+      threads: {
+        maxThreads: 1,
+        minThreads: 1,
+      },
+    },
     globals: true,
     environment: 'jsdom',
     setupFiles: ['./src/test/setup.ts'],

@@ -107,6 +107,7 @@ async def test_record_quiz_attempt_uses_repository(repository_factory: AsyncMock
         correct_count=4,
         score_percent=80.0,
         passed=True,
+        is_human_reviewed=False,
         responses={"q1": "A"},
         metadata={"topic": "mdna"},
         attempted_at=datetime.now(),
@@ -125,6 +126,7 @@ async def test_record_quiz_attempt_uses_repository(repository_factory: AsyncMock
         attempted_at=quiz_repo.record_attempt.return_value.attempted_at,
         responses={"q1": "A"},
         metadata={"topic": "mdna"},
+        is_human_reviewed=False,
     )
 
     result = await service.record_quiz_attempt(payload)
@@ -222,6 +224,7 @@ async def test_list_user_progress_computes_unlock(repository_factory: AsyncMock)
         correct_count=3,
         score_percent=100.0,
         passed=True,
+        is_human_reviewed=True,
         responses={"check-1": "A"},
         metadata={"review_status": LearningReviewStatus.APPROVED},
         attempted_at=reviewed_attempt_time,
@@ -315,6 +318,7 @@ async def test_get_best_quiz_attempt(repository_factory: AsyncMock) -> None:
         correct_count=9,
         score_percent=90.0,
         passed=True,
+        is_human_reviewed=True,
         responses={},
         metadata={},
         attempted_at=datetime.now(),

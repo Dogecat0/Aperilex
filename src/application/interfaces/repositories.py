@@ -318,6 +318,10 @@ class QuizAttemptData(BaseModel):
         default=False,
         description="Whether the attempt met the passing threshold",
     )
+    is_human_reviewed: bool = Field(
+        default=False,
+        description="Whether the attempt has been human-reviewed/approved",
+    )
     responses: dict[str, Any] | None = Field(
         default=None,
         description="Structured response payload for review",

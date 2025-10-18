@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { FeatureHero } from '@/components/layout/FeatureHero'
 import { FeatureHeroStat } from '@/components/layout/FeatureHeroStat'
@@ -6,6 +6,8 @@ import { Button } from '@/components/ui/Button'
 import { SectionIntro } from '@/components/ui/SectionIntro'
 import { useThemeTokens } from '@/components/ThemeProvider'
 import { useLearningModules, useLearningProgress, useQuizAttempts } from '@/lib/hooks'
+
+import { LearningModuleModal } from './components/LearningModuleModal'
 
 const MODULE_SKELETON_KEYS = ['module-a', 'module-b', 'module-c'] as const
 
@@ -84,7 +86,9 @@ export function LearningHubPage() {
     progressByModule,
     isLoading: progressLoading,
     isUpdating,
+    isSchedulingReview,
     updateProgress,
+    scheduleReview,
     error: progressError,
     clearError: clearProgressError,
   } = useLearningProgress()
@@ -98,6 +102,17 @@ export function LearningHubPage() {
     error: quizError,
     clearError: clearQuizError,
   } = useQuizAttempts({ limit: 5 })
+
+  const [activeModuleKey, setActiveModuleKey] = useState<string | null>(null)
+
+  const activeModule = useMemo(() => {
+    if (!activeModuleKey) {
+      return null
+    }
+    return learningModules.find((item) => item.key === activeModuleKey) ?? null
+  }, [activeModuleKey, learningModules])
+
+  const activeProgress = activeModuleKey ? progressByModule[activeModuleKey] : undefined
 
   const moduleErrorMessage = modulesError
     ? modulesErrorValue instanceof Error
@@ -187,7 +202,33 @@ export function LearningHubPage() {
     }
   }, [recordAttempt])
 
-  const busy = isUpdating || isRecording
+  const handleOpenModule = useCallback((moduleKey: string) => {
+    setActiveModuleKey(moduleKey)
+  }, [])
+
+  const handleCloseModule = useCallback(() => {
+    setActiveModuleKey(null)
+  }, [])
+
+  const handleScheduleModuleReview = useCallback(
+    async (
+      moduleKey: string,
+      params: { pendingReviewCount: number; scheduledFor?: string | null }
+    ) => {
+      try {
+        await scheduleReview({
+          moduleKey,
+          pendingReviewCount: params.pendingReviewCount,
+          scheduledFor: params.scheduledFor ?? null,
+        })
+      } catch {
+        // Errors surface through hook state; nothing additional here.
+      }
+    },
+    [scheduleReview]
+  )
+
+  const busy = isUpdating || isRecording || isSchedulingReview
   const streakHighlight = Math.max(0, Math.min(7, Math.round(streakDays)))
 
   const toastMessages = useMemo(
@@ -365,7 +406,7 @@ export function LearningHubPage() {
                 tokens
               )
             : null
-          const resumeDisabled = busy || !hasContext
+          const resumeDisabled = !hasContext
           const resumeLabel = progressPercent >= 100 ? 'Review module' : 'Resume module'
           const resumeTitle = !hasContext
             ? 'Launch a filing analysis to unlock contextual practice.'
@@ -516,7 +557,7 @@ export function LearningHubPage() {
                   type="button"
                   size="sm"
                   variant="primary"
-                  onClick={() => handleResumeModule(module.key)}
+                  onClick={() => handleOpenModule(module.key)}
                   disabled={resumeDisabled}
                   title={resumeTitle}
                   style={resumeDisabled ? { boxShadow: 'none' } : undefined}
@@ -653,10 +694,18 @@ export function LearningHubPage() {
                 <span
                   className="text-xs font-semibold uppercase tracking-[0.18em]"
                   style={{
-                    color: attempt.passed ? tokens.status.positive : tokens.status.negative,
+                    color: attempt.passed
+                      ? attempt.isHumanReviewed
+                        ? tokens.status.positive
+                        : tokens.text.onLearning
+                      : tokens.status.negative,
                   }}
                 >
-                  {attempt.passed ? 'Passed' : 'Retake'}
+                  {attempt.passed
+                    ? attempt.isHumanReviewed
+                      ? 'Passed'
+                      : 'Await review'
+                    : 'Retake'}
                 </span>
               </li>
             ))}
@@ -675,6 +724,23 @@ export function LearningHubPage() {
           Log practice attempt
         </Button>
       </section>
+
+      {activeModule ? (
+        <LearningModuleModal
+          module={activeModule}
+          progress={activeProgress}
+          onClose={handleCloseModule}
+          onResume={async () => {
+            try {
+              await handleResumeModule(activeModule.key)
+            } finally {
+              handleCloseModule()
+            }
+          }}
+          onScheduleReview={(params) => handleScheduleModuleReview(activeModule.key, params)}
+          isSchedulingReview={isSchedulingReview}
+        />
+      ) : null}
     </div>
   )
 }

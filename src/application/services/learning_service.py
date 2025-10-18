@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Sequence
 from datetime import datetime
 from typing import Any
 from uuid import uuid4
@@ -90,26 +90,13 @@ class LearningService:
             correct_count=data.correct_count,
             score_percent=data.score_percent,
             passed=data.passed,
+            is_human_reviewed=data.is_human_reviewed,
             attempted_at=data.attempted_at,
             metadata=data.metadata,
             schema_version=data.schema_version,
             created_at=data.created_at,
             updated_at=data.updated_at,
         )
-
-    @staticmethod
-    def _is_reviewed_attempt(metadata: Mapping[str, Any] | None) -> bool:
-        if not metadata:
-            return False
-        if bool(metadata.get("human_reviewed")):
-            return True
-        review_status = metadata.get("review_status")
-        if isinstance(review_status, LearningReviewStatus):
-            return review_status is LearningReviewStatus.APPROVED
-        if isinstance(review_status, str):
-            normalised_status = review_status.strip().upper()
-            return normalised_status in {"REVIEWED", "APPROVED"}
-        return False
 
     @staticmethod
     def _pending_review_count(
@@ -160,10 +147,9 @@ class LearningService:
         unlocked_at = progress.unlocked_at
         is_unlocked = progress.is_unlocked
 
-        if best_attempt is not None:
-            reviewed_attempt = self._is_reviewed_attempt(best_attempt.metadata)
-            if reviewed_attempt:
-                last_reviewed_at = best_attempt.attempted_at
+        if best_attempt is not None and best_attempt.is_human_reviewed:
+            reviewed_attempt = True
+            last_reviewed_at = best_attempt.attempted_at
 
         walkthrough_complete = (
             progress.progress_percent >= 100 or progress.completed_at is not None
@@ -397,6 +383,7 @@ class LearningService:
             correct_count=payload.correct_count,
             score_percent=payload.score_percent,
             passed=payload.passed,
+            is_human_reviewed=payload.is_human_reviewed,
             responses=payload.responses or {},
             metadata=payload.metadata,
             attempted_at=payload.attempted_at,

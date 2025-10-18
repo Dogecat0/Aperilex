@@ -74,3 +74,8 @@ export {
   type ModuleFocusTab,
   type UseLearningModulesReturn,
 } from './useLearningModules'
+export {
+  useLearningModuleBindings,
+  type LearningModuleBinding,
+  type UseLearningModuleBindingsReturn,
+} from './useLearningModuleBindings'

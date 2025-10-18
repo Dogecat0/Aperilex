@@ -10,9 +10,20 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, ConfigDict, Field
 
 from src.application.interfaces.authentication import AuthenticationResult
+from src.application.interfaces.query_services import (
+    ILearningWalkthroughBindingQueryService,
+    LearningWalkthroughBindingQueryResult,
+)
 from src.application.services.learning_service import LearningService
-from src.presentation.api.dependencies import get_learning_service
+from src.presentation.api.dependencies import (
+    get_learning_service,
+    get_learning_walkthrough_binding_query_service,
+)
 from src.presentation.api.security import get_current_user
+from src.shared.enums.learning import (
+    LearningReviewStatus,
+    LearningWalkthroughArtifactType,
+)
 from src.shared.models.learning import (
     LearningProgress,
     LearningProgressUpsert,
@@ -90,6 +101,46 @@ class LearningProgressResponse(BaseModel):
         )
 
 
+class LearningModuleBindingResponse(BaseModel):
+    """API response for a learning module binding record."""
+
+    schema_version: int = Field(default=1, ge=1)
+    binding_id: str = Field(..., description="Binding identifier")
+    walkthrough_section_id: str = Field(..., description="Source walkthrough section")
+    artifact_id: str = Field(..., description="Associated highlight/comprehension identifier")
+    artifact_type: LearningWalkthroughArtifactType = Field(
+        ..., description="Type of walkthrough artifact"
+    )
+    lesson_id: str = Field(..., description="Linked lesson identifier")
+    learning_module_key: str = Field(..., description="Module key aligned with the binding")
+    module_stage: str = Field(..., description="Module stage for the binding")
+    lesson_title: str | None = Field(default=None, description="Optional lesson title")
+    status: LearningReviewStatus = Field(..., description="Human review status")
+    last_reviewed_at: datetime | None = Field(default=None)
+    updated_at: datetime | None = Field(default=None)
+
+    model_config = ConfigDict(extra="ignore")
+
+    @classmethod
+    def from_result(
+        cls, result: LearningWalkthroughBindingQueryResult
+    ) -> LearningModuleBindingResponse:
+        return cls(
+            schema_version=result.schema_version,
+            binding_id=str(result.binding_id),
+            walkthrough_section_id=result.walkthrough_section_id,
+            artifact_id=result.artifact_id,
+            artifact_type=result.artifact_type,
+            lesson_id=result.lesson_id,
+            learning_module_key=result.learning_module_key,
+            module_stage=result.module_stage,
+            lesson_title=result.lesson_title,
+            status=result.status,
+            last_reviewed_at=result.last_reviewed_at,
+            updated_at=result.updated_at,
+        )
+
+
 class LearningProgressUpdateRequest(BaseModel):
     """Request payload for creating or updating learning progress."""
 
@@ -140,6 +191,7 @@ class QuizAttemptResponse(BaseModel):
     correct_count: int = Field(..., ge=0)
     score_percent: float = Field(..., ge=0.0, le=100.0)
     passed: bool = Field(...)
+    is_human_reviewed: bool = Field(default=False)
     attempted_at: datetime = Field(...)
     metadata: dict[str, Any] = Field(default_factory=dict)
     created_at: datetime | None = Field(default=None)
@@ -158,6 +210,7 @@ class QuizAttemptResponse(BaseModel):
             correct_count=attempt.correct_count,
             score_percent=attempt.score_percent,
             passed=attempt.passed,
+            is_human_reviewed=attempt.is_human_reviewed,
             attempted_at=attempt.attempted_at,
             metadata=attempt.metadata or {},
             created_at=attempt.created_at,
@@ -178,6 +231,7 @@ class QuizAttemptCreateRequest(BaseModel):
     correct_count: int = Field(..., ge=0)
     score_percent: float = Field(..., ge=0.0, le=100.0)
     passed: bool = Field(default=False)
+    is_human_reviewed: bool = Field(default=False)
     attempted_at: datetime | None = Field(default=None)
     responses: dict[str, Any] | None = Field(default=None)
     metadata: dict[str, Any] = Field(default_factory=dict)
@@ -298,6 +352,25 @@ async def schedule_module_review(
 
 
 @router.get(
+    "/modules/{module_key}/bindings",
+    response_model=list[LearningModuleBindingResponse],
+    summary="List walkthrough bindings for a learning module",
+)
+async def list_learning_module_bindings(
+    module_key: str,
+    auth_result: AuthenticationResult = Depends(get_current_user),
+    binding_query_service: ILearningWalkthroughBindingQueryService = Depends(
+        get_learning_walkthrough_binding_query_service
+    ),
+) -> list[LearningModuleBindingResponse]:
+    """Return walkthrough bindings (lessons + review status) for the module."""
+
+    _require_user_id(auth_result)
+    bindings = await binding_query_service.list_module_bindings(module_key)
+    return [LearningModuleBindingResponse.from_result(binding) for binding in bindings]
+
+
+@router.get(
     "/quiz-attempts",
     response_model=list[QuizAttemptResponse],
     summary="List recent quiz attempts for the authenticated user",
@@ -338,6 +411,7 @@ async def record_quiz_attempt(
         correct_count=payload.correct_count,
         score_percent=payload.score_percent,
         passed=payload.passed,
+        is_human_reviewed=payload.is_human_reviewed,
         attempted_at=payload.attempted_at or _now(),
         responses=payload.responses,
         metadata=payload.metadata,

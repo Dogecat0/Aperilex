@@ -3,6 +3,23 @@ import { describe, expect, it, beforeEach, afterEach, vi } from 'vitest'
 import { ApiClientError, apiClient } from '@/lib/apiClient'
 import { renderWithProviders } from '@/test/utils'
 import { learningProgressResponses, quizAttemptResponses } from '@/../tests/fixtures/learning'
+
+const moduleBindingsResponse = [
+  {
+    schema_version: 1,
+    binding_id: 'binding-1',
+    walkthrough_section_id: 'section-1',
+    artifact_id: 'artifact-1',
+    artifact_type: 'COMPREHENSION_CHECK',
+    lesson_id: 'lesson-1',
+    learning_module_key: 'mda-101',
+    module_stage: 'fundamentals',
+    lesson_title: 'Margin quiz',
+    status: 'APPROVED',
+    last_reviewed_at: '2025-01-05T12:00:00Z',
+    updated_at: '2025-01-05T12:00:00Z',
+  },
+]
 import { mockPaginatedAnalysesResponse, mockAnalysisDetail } from '@/test/fixtures/analyses'
 import { LearningHubPage } from './LearningHubPage'
 
@@ -12,7 +29,9 @@ const postSpy = vi.spyOn(apiClient, 'post')
 const latestAnalysisId = mockPaginatedAnalysesResponse.items[0].analysis_id
 
 beforeEach(() => {
-  vi.clearAllMocks()
+  getSpy.mockReset()
+  putSpy.mockReset()
+  postSpy.mockReset()
   getSpy.mockImplementation(async (path: string) => {
     if (path === '/learning/progress') {
       return learningProgressResponses
@@ -30,6 +49,9 @@ beforeEach(() => {
         filing_id: mockPaginatedAnalysesResponse.items[0].filing_id,
       }
     }
+    if (path === '/learning/modules/mda-101/bindings') {
+      return moduleBindingsResponse
+    }
     throw new Error(`Unexpected GET path: ${path}`)
   })
 
@@ -40,7 +62,25 @@ beforeEach(() => {
     last_interaction_at: '2025-01-06T12:00:00Z',
   })
 
-  postSpy.mockResolvedValue(quizAttemptResponses[0])
+  postSpy.mockImplementation(async (path: string, options?: { body?: Record<string, unknown> }) => {
+    if (path === '/learning/quiz-attempts') {
+      return quizAttemptResponses[0]
+    }
+    if (path === '/learning/progress/mda-101/reviews/schedule') {
+      const pendingCount = options?.body?.pending_review_count ?? 1
+      const scheduledFor = options?.body?.scheduled_for ?? '2025-01-07T09:00:00Z'
+      return {
+        ...learningProgressResponses[0],
+        pending_review_count: pendingCount,
+        last_reviewed_at: scheduledFor,
+        metadata: {
+          ...learningProgressResponses[0].metadata,
+          next_review_at: scheduledFor,
+        },
+      }
+    }
+    throw new Error(`Unexpected POST path: ${path}`)
+  })
 })
 
 afterEach(() => {
@@ -141,6 +181,31 @@ describe('LearningHubPage', () => {
     const dismissButtons = screen.getAllByText('Dismiss')
     fireEvent.click(dismissButtons[0])
     await waitFor(() => expect(screen.queryByRole('status')).toBeNull())
+  })
+
+  it('opens the module modal and schedules a review', async () => {
+    renderWithProviders(<LearningHubPage />)
+
+    const resumeButtons = await screen.findAllByRole('button', { name: /Resume module/i })
+    fireEvent.click(resumeButtons[0])
+
+    const dialog = await screen.findByRole('dialog')
+    expect(dialog).toBeInTheDocument()
+    expect(screen.getByText(/Micro-lessons & review queue/i)).toBeInTheDocument()
+
+    const reviewInput = screen.getByLabelText(/Review date/i)
+    fireEvent.change(reviewInput, { target: { value: '2025-01-09' } })
+
+    fireEvent.click(screen.getByRole('button', { name: /Schedule review/i }))
+
+    await waitFor(() =>
+      expect(postSpy).toHaveBeenCalledWith(
+        '/learning/progress/mda-101/reviews/schedule',
+        expect.objectContaining({
+          body: expect.objectContaining({ pending_review_count: 2 }),
+        })
+      )
+    )
   })
 
   it('records a practice attempt through the CTA', async () => {

@@ -284,6 +284,12 @@ class QuizAttempt(Base):
         default=False,
         server_default=text("false"),
     )
+    is_human_reviewed: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=False,
+        server_default=text("false"),
+    )
     responses: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
     metadata_payload: Mapped[dict[str, Any] | None] = mapped_column(
         "metadata",

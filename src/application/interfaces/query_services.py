@@ -163,6 +163,7 @@ class QuizAttemptQueryResult(BaseModel):
     quiz_id: str
     score_percent: float
     passed: bool
+    is_human_reviewed: bool = False
     attempted_at: datetime
 
 

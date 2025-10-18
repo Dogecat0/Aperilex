@@ -41,6 +41,7 @@ class QuizAttemptQueryService(IQuizAttemptQueryService):
             quiz_id=model.quiz_id,
             score_percent=QuizAttemptQueryService._score_to_float(model.score_percent),
             passed=bool(model.passed),
+            is_human_reviewed=bool(model.is_human_reviewed),
             attempted_at=model.attempted_at,
         )
 

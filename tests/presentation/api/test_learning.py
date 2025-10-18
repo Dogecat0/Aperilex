@@ -10,12 +10,23 @@ from fastapi import FastAPI, status
 from httpx import ASGITransport, AsyncClient
 
 from src.application.interfaces.authentication import AuthenticationResult
-from src.presentation.api.dependencies import get_learning_service
+from src.application.interfaces.query_services import (
+    LearningWalkthroughBindingQueryResult,
+)
+from src.presentation.api.dependencies import (
+    get_learning_service,
+    get_learning_walkthrough_binding_query_service,
+)
 from src.presentation.api.routers import learning
 from src.presentation.api.security import get_current_user
+from src.shared.enums.learning import (
+    LearningReviewStatus,
+    LearningWalkthroughArtifactType,
+)
 from src.shared.models.learning import LearningProgress, QuizAttempt
 from src.shared.types import (
     LearningProgressId,
+    LearningWalkthroughBindingId,
     QuizAttemptId,
     UserId,
 )
@@ -104,6 +115,7 @@ class FakeLearningService:
             correct_count=payload.correct_count,
             score_percent=payload.score_percent,
             passed=payload.passed,
+            is_human_reviewed=payload.is_human_reviewed,
             attempted_at=payload.attempted_at,
             metadata=payload.metadata or {},
             created_at=payload.attempted_at,
@@ -160,6 +172,23 @@ class FakeLearningService:
         return max(relevant, key=lambda attempt: attempt.score_percent)
 
 
+class FakeBindingQueryService:
+    """Stub of the walkthrough binding query service."""
+
+    def __init__(self) -> None:
+        self.bindings: list[LearningWalkthroughBindingQueryResult] = []
+        self.list_calls = 0
+
+    async def list_module_bindings(
+        self, learning_module_key: str
+    ) -> list[LearningWalkthroughBindingQueryResult]:
+        self.list_calls += 1
+        return [
+            binding
+            for binding in self.bindings
+            if binding.learning_module_key == learning_module_key
+        ]
+
 @pytest.fixture
 def user_id() -> UserId:
     return UserId(uuid4())
@@ -192,6 +221,7 @@ def fake_learning_service(user_id: UserId) -> FakeLearningService:
         correct_count=2,
         score_percent=66.67,
         passed=False,
+        is_human_reviewed=False,
         attempted_at=now,
         metadata={"duration_seconds": 45},
         created_at=now,
@@ -207,6 +237,7 @@ def fake_learning_service(user_id: UserId) -> FakeLearningService:
         correct_count=3,
         score_percent=100.0,
         passed=True,
+        is_human_reviewed=True,
         attempted_at=now,
         metadata={"duration_seconds": 30},
         created_at=now,
@@ -219,7 +250,48 @@ def fake_learning_service(user_id: UserId) -> FakeLearningService:
 
 
 @pytest.fixture
-def learning_app(fake_learning_service: FakeLearningService, user_id: UserId) -> FastAPI:
+def fake_binding_query_service() -> FakeBindingQueryService:
+    service = FakeBindingQueryService()
+    now = datetime.now(UTC)
+
+    service.bindings = [
+        LearningWalkthroughBindingQueryResult(
+            binding_id=LearningWalkthroughBindingId(uuid4()),
+            walkthrough_section_id="section-1",
+            artifact_id="artifact-1",
+            artifact_type=LearningWalkthroughArtifactType.COMPREHENSION_CHECK,
+            lesson_id="lesson-1",
+            learning_module_key="mda-101",
+            module_stage="fundamentals",
+            lesson_title="Liquidity quiz",
+            status=LearningReviewStatus.APPROVED,
+            last_reviewed_at=now,
+            updated_at=now,
+        ),
+        LearningWalkthroughBindingQueryResult(
+            binding_id=LearningWalkthroughBindingId(uuid4()),
+            walkthrough_section_id="section-2",
+            artifact_id="artifact-2",
+            artifact_type=LearningWalkthroughArtifactType.HIGHLIGHT,
+            lesson_id="lesson-2",
+            learning_module_key="risk-signal",
+            module_stage="orientation",
+            lesson_title="Risk overview",
+            status=LearningReviewStatus.PENDING,
+            last_reviewed_at=None,
+            updated_at=now,
+        ),
+    ]
+
+    return service
+
+
+@pytest.fixture
+def learning_app(
+    fake_learning_service: FakeLearningService,
+    fake_binding_query_service: FakeBindingQueryService,
+    user_id: UserId,
+) -> FastAPI:
     app = FastAPI()
     app.include_router(learning.router, prefix="/api")
 
@@ -235,8 +307,14 @@ def learning_app(fake_learning_service: FakeLearningService, user_id: UserId) ->
     async def override_learning_service():  # type: ignore[no-untyped-def]
         return fake_learning_service
 
+    async def override_binding_query_service():  # type: ignore[no-untyped-def]
+        return fake_binding_query_service
+
     app.dependency_overrides[get_current_user] = override_current_user
     app.dependency_overrides[get_learning_service] = override_learning_service
+    app.dependency_overrides[
+        get_learning_walkthrough_binding_query_service
+    ] = override_binding_query_service
 
     yield app
 
@@ -315,6 +393,22 @@ async def test_schedule_review_endpoint(
     payload = response.json()
     assert payload["pending_review_count"] == 2
     assert fake_learning_service.review_schedule_calls == 1
+
+
+@pytest.mark.asyncio
+async def test_list_module_bindings_returns_records(
+    api_client: AsyncClient,
+    fake_binding_query_service: FakeBindingQueryService,
+) -> None:
+    response = await api_client.get("/api/learning/modules/mda-101/bindings")
+
+    assert response.status_code == status.HTTP_200_OK
+    payload = response.json()
+    assert isinstance(payload, list)
+    assert len(payload) == 1
+    assert payload[0]["lesson_id"] == "lesson-1"
+    assert payload[0]["status"] == LearningReviewStatus.APPROVED.value
+    assert fake_binding_query_service.list_calls == 1
 
 
 @pytest.mark.asyncio

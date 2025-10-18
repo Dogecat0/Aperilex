@@ -440,6 +440,7 @@ class AnalysisExecutionService:
                     f"Walkthrough for section '{section_name}' returned {len(highlights)} highlights; maximum allowed is 3"
                 )
 
+            highlight_citations: list[str] = []
             for highlight in highlights:
                 highlight_id = str(getattr(highlight, "id", "")).strip()
                 title = str(getattr(highlight, "title", "")).strip()
@@ -463,6 +464,8 @@ class AnalysisExecutionService:
                     raise AnalysisExecutionServiceError(
                         f"Lesson reference metadata incomplete for highlight '{highlight_id}' in section '{section_name}'"
                     )
+
+                highlight_citations.append(source_reference)
 
             comprehension_checks = list(getattr(walkthrough, "comprehension_checks", []))
             if len(comprehension_checks) < 3:
@@ -501,21 +504,31 @@ class AnalysisExecutionService:
                         f"Lesson reference metadata incomplete for comprehension check '{check_id}' in section '{section_name}'"
                     )
 
-            walkthrough_citations = getattr(walkthrough, "citations", [])
-            if not isinstance(walkthrough_citations, list):
+            raw_walkthrough_citations = getattr(walkthrough, "citations", None)
+            cleaned_walkthrough_citations: list[str] = []
+            if raw_walkthrough_citations is not None and not isinstance(
+                raw_walkthrough_citations, list
+            ):
                 raise AnalysisExecutionServiceError(
                     f"Walkthrough citations malformed for section '{section_name}'"
                 )
 
-            cleaned_walkthrough_citations = [
-                str(entry).strip()
-                for entry in walkthrough_citations
-                if str(entry).strip()
-            ]
-            if len(cleaned_walkthrough_citations) != len(highlights):
-                raise AnalysisExecutionServiceError(
-                    f"Walkthrough for section '{section_name}' must surface exactly one citation per highlight"
-                )
+            if isinstance(raw_walkthrough_citations, list):
+                cleaned_walkthrough_citations = [
+                    str(entry).strip()
+                    for entry in raw_walkthrough_citations
+                    if str(entry).strip()
+                ]
+                if cleaned_walkthrough_citations:
+                    if len(cleaned_walkthrough_citations) != len(highlights):
+                        raise AnalysisExecutionServiceError(
+                            f"Walkthrough for section '{section_name}' must surface exactly one citation per highlight"
+                        )
+
+                    if set(cleaned_walkthrough_citations) != set(highlight_citations):
+                        raise AnalysisExecutionServiceError(
+                            f"Citations for section '{section_name}' must align between the walkthrough payload and highlight references"
+                        )
 
             section_citations = getattr(section, "citations", [])
             if not isinstance(section_citations, list):
@@ -528,14 +541,19 @@ class AnalysisExecutionService:
                 for entry in section_citations
                 if str(entry).strip()
             ]
-            if len(cleaned_section_citations) != len(highlights):
+            if len(cleaned_section_citations) < len(highlights):
                 raise AnalysisExecutionServiceError(
-                    f"Section '{section_name}' must publish exactly one citation per highlight"
+                    f"Section '{section_name}' must publish at least one citation per highlight"
                 )
 
-            if set(cleaned_section_citations) != set(cleaned_walkthrough_citations):
+            missing_section_citations = [
+                citation
+                for citation in highlight_citations
+                if citation not in cleaned_section_citations
+            ]
+            if missing_section_citations:
                 raise AnalysisExecutionServiceError(
-                    f"Citations for section '{section_name}' must align between the walkthrough payload and section metadata"
+                    f"Section '{section_name}' is missing citations for one or more highlights"
                 )
 
     def _build_section_walkthroughs(

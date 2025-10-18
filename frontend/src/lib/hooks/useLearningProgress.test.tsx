@@ -66,11 +66,13 @@ function ProgressProbe() {
 }
 
 describe('useLearningProgress', () => {
-  beforeEach(() => {
-    vi.clearAllMocks()
-    getSpy.mockResolvedValue(learningProgressResponses)
-    putSpy.mockResolvedValue(learningProgressResponses[0])
-    postSpy.mockResolvedValue(learningProgressResponses[0])
+beforeEach(() => {
+  getSpy.mockReset()
+  putSpy.mockReset()
+  postSpy.mockReset()
+  getSpy.mockResolvedValue(learningProgressResponses)
+  putSpy.mockResolvedValue(learningProgressResponses[0])
+  postSpy.mockResolvedValue(learningProgressResponses[0])
   })
 
   afterEach(() => {

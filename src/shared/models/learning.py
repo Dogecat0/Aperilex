@@ -130,6 +130,10 @@ class QuizAttempt(BaseModel):
         description="Score represented as a percentage",
     )
     passed: bool = Field(description="Whether the attempt met the passing criteria")
+    is_human_reviewed: bool = Field(
+        default=False,
+        description="Whether the attempt has been human-reviewed and approved",
+    )
     attempted_at: datetime = Field(description="Timestamp when the attempt occurred")
     metadata: dict[str, Any] = Field(default_factory=dict)
     created_at: datetime | None = None
@@ -156,6 +160,7 @@ class QuizAttemptCreate(BaseModel):
     correct_count: int = Field(ge=0)
     score_percent: float = Field(ge=0.0, le=100.0)
     passed: bool = False
+    is_human_reviewed: bool = False
     attempted_at: datetime
     responses: dict[str, Any] | None = None
     metadata: dict[str, Any] = Field(default_factory=dict)
