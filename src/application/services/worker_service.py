@@ -226,7 +226,7 @@ class WorkerService:
         if not task_data.correlation_id:
             task_data.correlation_id = correlation_value
 
-        self.worker_retry_coordinator.apply_policy(task_data)
+        task_data.max_retries = 1
 
         visibility_timeout = (
             self.priority_queue.config.default_visibility_timeout
@@ -326,7 +326,7 @@ class WorkerService:
         try:
             # Step 1: Version check and schema migration
             task_data = await self._validate_and_migrate_schema(message.task_data)
-            self.worker_retry_coordinator.apply_policy(task_data)
+            task_data.max_retries = 1
             context.max_retries = task_data.max_retries
             analysis_request = self.analysis_execution_service.create_analysis_request(
                 task_data
@@ -537,15 +537,11 @@ class WorkerService:
 
         except Exception as e:
             if isinstance(e, FilingFetchError) and task_data is not None:
-                # Limit retries for structural filing issues so they escalate quickly.
-                self.worker_retry_coordinator.override_max_attempts(task_data, 1)
                 logger.warning(
-                    "Structured filing issue detected; limiting retries",
+                    "Structured filing issue detected; failing without retry",
                     extra={
                         "task_id": str(task_data.task_id),
                         "filing_id": str(task_data.filing_id),
-                        "retry_count": task_data.retry_count,
-                        "max_retries": task_data.max_retries,
                     },
                 )
 
@@ -560,14 +556,6 @@ class WorkerService:
                 },
             )
 
-            # Handle retries with exponential backoff
-            if task_data and task_data.should_retry:
-                return await self.worker_retry_coordinator.handle_retry(
-                    task_data,
-                    context,
-                    error_text,
-                )
-
             # Persist failure state
             if analysis_request is not None:
                 await self.analysis_persistence_service.persist_analysis_failed(
@@ -575,6 +563,7 @@ class WorkerService:
                 )
 
             if task_data:
+                task_data.max_retries = 1
                 task_data.mark_failed()
                 await self.analysis_persistence_service.update_task_status(
                     task_data.task_id,
@@ -587,9 +576,10 @@ class WorkerService:
                         ),
                         "error": error_text,
                     },
-            )
+                )
 
             # Move to dead letter queue if max retries exceeded
+            message.max_receive_count = max(message.receive_count, 1)
             if message.should_move_to_dlq:
                 await self.worker_retry_coordinator.move_to_dead_letter(
                     message,

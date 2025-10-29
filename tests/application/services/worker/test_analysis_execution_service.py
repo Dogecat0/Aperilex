@@ -405,4 +405,52 @@ async def test_structured_analysis_handles_missing_walkthrough_citations() -> No
         task_data=task_data,
     )
 
-    assert result.structured_data.section_walkthroughs
+    structured_dump = result.structured_data.model_dump()
+    assert structured_dump["section_walkthroughs"]
+    assert structured_dump["section_analyses"][0]["citations"] == [
+        "Item 1A - Risk Factors ¶4"
+    ]
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+async def test_structured_analysis_realigns_mismatched_citations() -> None:
+    async def fake_analyze_sections(**_: Any) -> ComprehensiveAnalysisResponse:
+        response = _make_comprehensive_response()
+        section = response.section_analyses[0]
+        if section.walkthrough is not None:
+            section.walkthrough.citations = [
+                "Item 1A - Risk Factors ¶1",
+                "Item 1A - Risk Factors ¶99",
+            ]
+        section.citations = ["Item 1A - Risk Factors ¶9"]
+        response.section_analyses = [section]
+        return response
+
+    async def fake_model_info() -> SimpleNamespace:
+        return SimpleNamespace(model_name="gpt-4-structured")
+
+    llm_provider = SimpleNamespace(
+        analyze_filing_sections=fake_analyze_sections,
+        get_model_info=fake_model_info,
+    )
+
+    service = AnalysisExecutionService(llm_provider=llm_provider)
+
+    task_data = _make_task_data()
+    request = service.create_analysis_request(task_data)
+
+    result = await service.perform_structured_comprehensive_analysis(
+        request=request,
+        filing_id=task_data.filing_id,
+        filing_type=task_data.filing_type,
+        filing_sections={"Risk Factors": "Section text"},
+        company_name="Acme Corp",
+        template=AnalysisTemplate.COMPREHENSIVE,
+        metadata=task_data.metadata,
+        task_data=task_data,
+    )
+
+    structured_dump = result.structured_data.model_dump()
+    expected_citations = ["Item 1A - Risk Factors ¶4"]
+    assert structured_dump["section_analyses"][0]["citations"] == expected_citations

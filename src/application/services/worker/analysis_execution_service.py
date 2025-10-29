@@ -300,9 +300,33 @@ class AnalysisExecutionService:
                         for entry in raw_citations
                         if str(entry).strip()
                     ]
-                    walkthrough_payload["citations"] = cleaned
                 else:
-                    walkthrough_payload["citations"] = []
+                    cleaned = []
+
+                highlights = walkthrough_payload.get("highlights")
+                derived_citations: list[str] = []
+                if isinstance(highlights, list):
+                    for highlight in highlights:
+                        if not isinstance(highlight, dict):
+                            continue
+                        reference = str(highlight.get("source_reference") or "").strip()
+                        if reference:
+                            derived_citations.append(reference)
+
+                if derived_citations:
+                    if cleaned and len(cleaned) != len(derived_citations):
+                        logger.warning(
+                            "Walkthrough citations count mismatch; overriding with highlight references",
+                            extra={
+                                "section_name": str(section.get("section_name") or ""),
+                                "highlight_count": len(derived_citations),
+                                "citation_count": len(cleaned),
+                            },
+                        )
+                    section["citations"] = list(derived_citations)
+                    walkthrough_payload["citations"] = list(derived_citations)
+                else:
+                    walkthrough_payload["citations"] = cleaned
 
         structured_payload["section_analyses"] = sections
         structured_payload["section_walkthroughs"] = self._build_section_walkthroughs(
@@ -504,8 +528,9 @@ class AnalysisExecutionService:
                         f"Lesson reference metadata incomplete for comprehension check '{check_id}' in section '{section_name}'"
                     )
 
+            expected_citations = list(highlight_citations)
+
             raw_walkthrough_citations = getattr(walkthrough, "citations", None)
-            cleaned_walkthrough_citations: list[str] = []
             if raw_walkthrough_citations is not None and not isinstance(
                 raw_walkthrough_citations, list
             ):
@@ -513,48 +538,72 @@ class AnalysisExecutionService:
                     f"Walkthrough citations malformed for section '{section_name}'"
                 )
 
+            cleaned_walkthrough_citations: list[str] = []
             if isinstance(raw_walkthrough_citations, list):
                 cleaned_walkthrough_citations = [
                     str(entry).strip()
                     for entry in raw_walkthrough_citations
                     if str(entry).strip()
                 ]
-                if cleaned_walkthrough_citations:
-                    if len(cleaned_walkthrough_citations) != len(highlights):
-                        raise AnalysisExecutionServiceError(
-                            f"Walkthrough for section '{section_name}' must surface exactly one citation per highlight"
-                        )
 
-                    if set(cleaned_walkthrough_citations) != set(highlight_citations):
-                        raise AnalysisExecutionServiceError(
-                            f"Citations for section '{section_name}' must align between the walkthrough payload and highlight references"
-                        )
+            if cleaned_walkthrough_citations and cleaned_walkthrough_citations != expected_citations:
+                logger.warning(
+                    "Walkthrough citations misaligned with highlights; normalising output",
+                    extra={
+                        "section_name": section_name,
+                        "highlight_citations": expected_citations,
+                        "walkthrough_citations": cleaned_walkthrough_citations,
+                    },
+                )
+            elif not cleaned_walkthrough_citations:
+                logger.warning(
+                    "Walkthrough citations missing; injecting highlight references",
+                    extra={
+                        "section_name": section_name,
+                        "highlight_citations": expected_citations,
+                    },
+                )
 
-            section_citations = getattr(section, "citations", [])
-            if not isinstance(section_citations, list):
+            walkthrough.citations = list(expected_citations)
+
+            section_citations = getattr(section, "citations", None)
+            if section_citations is not None and not isinstance(
+                section_citations, list
+            ):
                 raise AnalysisExecutionServiceError(
                     f"Section citations malformed for section '{section_name}'"
                 )
 
-            cleaned_section_citations = [
-                str(entry).strip()
-                for entry in section_citations
-                if str(entry).strip()
-            ]
-            if len(cleaned_section_citations) < len(highlights):
-                raise AnalysisExecutionServiceError(
-                    f"Section '{section_name}' must publish at least one citation per highlight"
+            cleaned_section_citations = (
+                [
+                    str(entry).strip()
+                    for entry in section_citations
+                    if str(entry).strip()
+                ]
+                if isinstance(section_citations, list)
+                else []
+            )
+
+            if cleaned_section_citations and cleaned_section_citations != expected_citations:
+                logger.warning(
+                    "Section citations misaligned with highlights; normalising output",
+                    extra={
+                        "section_name": section_name,
+                        "highlight_citations": expected_citations,
+                        "section_citations": cleaned_section_citations,
+                    },
+                )
+            elif len(cleaned_section_citations) < len(expected_citations):
+                logger.warning(
+                    "Section citations incomplete; copying highlight references",
+                    extra={
+                        "section_name": section_name,
+                        "highlight_citations": expected_citations,
+                        "section_citations": cleaned_section_citations,
+                    },
                 )
 
-            missing_section_citations = [
-                citation
-                for citation in highlight_citations
-                if citation not in cleaned_section_citations
-            ]
-            if missing_section_citations:
-                raise AnalysisExecutionServiceError(
-                    f"Section '{section_name}' is missing citations for one or more highlights"
-                )
+            section.citations = list(expected_citations)
 
     def _build_section_walkthroughs(
         self,
