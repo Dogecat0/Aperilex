@@ -7,6 +7,19 @@ import type { WalkthroughPreviousComparison } from '@/lib/types/analysis'
 
 type CompletedChecksBySection = Record<string, Record<string, true>>
 
+function extractCompletedSections(metadata: Record<string, unknown> | undefined): string[] {
+  if (!metadata) {
+    return []
+  }
+
+  const raw = metadata['completed_sections']
+  if (!Array.isArray(raw)) {
+    return []
+  }
+
+  return raw.filter((item): item is string => typeof item === 'string')
+}
+
 interface GuidedFilingStepperProps {
   sections: GuidedWalkthroughSection[]
   diffsBySection?: Record<string, WalkthroughPreviousComparison>
@@ -22,7 +35,45 @@ export function GuidedFilingStepper({
   const [completedChecks, setCompletedChecks] = useState<CompletedChecksBySection>({})
   const [celebrationSection, setCelebrationSection] = useState<string | null>(null)
   const notifiedSectionsRef = useRef<Set<string>>(new Set())
-  const { recordWalkthroughEvent } = useLearningProgress()
+  const hasUserNavigatedRef = useRef(false)
+  const { progressByModule, recordWalkthroughEvent } = useLearningProgress()
+
+  const persistedSectionKeys = useMemo(() => {
+    const keys = new Set<string>()
+    for (const section of sections) {
+      const moduleProgress = progressByModule[section.learning_module_key]
+      if (!moduleProgress) {
+        continue
+      }
+
+      const completedSections = extractCompletedSections(moduleProgress.metadata)
+      for (const key of completedSections) {
+        keys.add(key)
+      }
+    }
+    return Array.from(keys)
+  }, [sections, progressByModule])
+
+  const persistedSectionSet = useMemo(
+    () => new Set<string>(persistedSectionKeys),
+    [persistedSectionKeys]
+  )
+
+  const persistedChecksBySection = useMemo(() => {
+    const map: CompletedChecksBySection = {}
+    for (const section of sections) {
+      if (!persistedSectionSet.has(section.section_key)) {
+        continue
+      }
+
+      const checks: Record<string, true> = {}
+      for (const check of section.comprehension_checks) {
+        checks[check.id] = true
+      }
+      map[section.section_key] = checks
+    }
+    return map
+  }, [sections, persistedSectionSet])
 
   const sectionsByModule = useMemo(() => {
     const map: Record<string, GuidedWalkthroughSection[]> = {}
@@ -36,24 +87,63 @@ export function GuidedFilingStepper({
   }, [sections])
 
   useEffect(() => {
+    for (const key of persistedSectionKeys) {
+      notifiedSectionsRef.current.add(key)
+    }
+  }, [persistedSectionKeys])
+
+  useEffect(() => {
     if (activeIndex >= sections.length) {
       setActiveIndex(0)
     }
   }, [activeIndex, sections.length])
 
-  const isSectionComplete = useCallback(
-    (section: GuidedWalkthroughSection) => {
+  const completeBySection = useMemo(() => {
+    const map: Record<string, boolean> = {}
+    for (const section of sections) {
+      if (persistedSectionSet.has(section.section_key)) {
+        map[section.section_key] = true
+        continue
+      }
       if (section.comprehension_checks.length === 0) {
-        return true
+        map[section.section_key] = true
+        continue
       }
       const checks = completedChecks[section.section_key]
       if (!checks) {
-        return false
+        map[section.section_key] = false
+        continue
       }
-      return section.comprehension_checks.every((check) => Boolean(checks[check.id]))
+      map[section.section_key] = section.comprehension_checks.every((check) =>
+        Boolean(checks[check.id])
+      )
+    }
+    return map
+  }, [sections, persistedSectionSet, completedChecks])
+
+  const isSectionComplete = useCallback(
+    (section: GuidedWalkthroughSection) => {
+      return Boolean(completeBySection[section.section_key])
     },
-    [completedChecks]
+    [completeBySection]
   )
+
+  useEffect(() => {
+    if (sections.length === 0) {
+      return
+    }
+    if (hasUserNavigatedRef.current) {
+      return
+    }
+
+    const firstIncompleteIndex = sections.findIndex((section) => !isSectionComplete(section))
+    const targetIndex =
+      firstIncompleteIndex === -1 ? Math.max(0, sections.length - 1) : firstIncompleteIndex
+
+    if (targetIndex !== activeIndex) {
+      setActiveIndex(targetIndex)
+    }
+  }, [sections, isSectionComplete, activeIndex])
 
   const emitSectionCompletion = useCallback(
     async (section: GuidedWalkthroughSection) => {
@@ -85,7 +175,7 @@ export function GuidedFilingStepper({
   const notifySectionComplete = useCallback(
     (section: GuidedWalkthroughSection, options?: { celebrate?: boolean }) => {
       const key = section.section_key
-      if (notifiedSectionsRef.current.has(key)) {
+      if (notifiedSectionsRef.current.has(key) || persistedSectionSet.has(key)) {
         return
       }
       notifiedSectionsRef.current.add(key)
@@ -97,27 +187,48 @@ export function GuidedFilingStepper({
         onSectionComplete(section)
       }
     },
-    [emitSectionCompletion, onSectionComplete]
+    [emitSectionCompletion, onSectionComplete, persistedSectionSet]
   )
 
   useEffect(() => {
     for (const section of sections) {
       if (section.comprehension_checks.length === 0) {
+        if (!persistedSectionSet.has(section.section_key)) {
+          notifySectionComplete(section)
+        } else {
+          notifiedSectionsRef.current.add(section.section_key)
+        }
+        continue
+      }
+
+      if (isSectionComplete(section)) {
         notifySectionComplete(section)
         continue
       }
 
-      if (!isSectionComplete(section)) {
+      if (!persistedSectionSet.has(section.section_key)) {
         notifiedSectionsRef.current.delete(section.section_key)
       }
     }
-  }, [sections, completedChecks, notifySectionComplete, isSectionComplete])
+  }, [
+    sections,
+    completedChecks,
+    notifySectionComplete,
+    isSectionComplete,
+    persistedSectionSet,
+  ])
 
   const activeSection = sections[activeIndex]
   if (!activeSection) {
     return null
   }
   const activeDiff = diffsBySection[activeSection.section_key] ?? null
+  const persistedChecks = persistedChecksBySection[activeSection.section_key] ?? {}
+  const localChecks = completedChecks[activeSection.section_key] ?? {}
+  const activeSectionChecks: Record<string, true> = {
+    ...persistedChecks,
+    ...localChecks,
+  }
 
   const completedCount = sections.reduce(
     (count, section) => (isSectionComplete(section) ? count + 1 : count),
@@ -143,6 +254,7 @@ export function GuidedFilingStepper({
     if (!isSectionUnlocked(index)) {
       return
     }
+    hasUserNavigatedRef.current = true
     setActiveIndex(index)
   }
 
@@ -150,6 +262,7 @@ export function GuidedFilingStepper({
     if (activeIndex === 0) {
       return
     }
+    hasUserNavigatedRef.current = true
     setActiveIndex((index) => Math.max(index - 1, 0))
   }
 
@@ -161,6 +274,7 @@ export function GuidedFilingStepper({
     if (!isSectionComplete(section)) {
       return
     }
+    hasUserNavigatedRef.current = true
     setActiveIndex((index) => Math.min(index + 1, sections.length - 1))
   }
 
@@ -188,11 +302,14 @@ export function GuidedFilingStepper({
     })
 
     if (shouldMarkComplete) {
-      notifySectionComplete(section, { celebrate: true })
+      if (persistedSectionSet.has(sectionKey)) {
+        notifiedSectionsRef.current.add(sectionKey)
+      } else {
+        notifySectionComplete(section, { celebrate: true })
+      }
     }
   }
 
-  const activeSectionChecks = completedChecks[activeSection.section_key] ?? {}
   const activeSectionComplete = isSectionComplete(activeSection)
   const atLastSection = activeIndex === sections.length - 1
   const progressLabel = `${completedCount} of ${sections.length} section${

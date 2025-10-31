@@ -9,6 +9,7 @@ from typing import Any, cast
 from sqlalchemy import Select, and_, func, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.sql.schema import Table
 
 from src.application.interfaces.repositories import (
     ILearningProgressRepository,
@@ -183,7 +184,9 @@ class LearningProgressRepository(ILearningProgressRepository):
     async def upsert(self, progress: LearningProgressData) -> LearningProgressData:
         metadata_payload = self._build_metadata_payload(progress)
 
-        insert_stmt = pg_insert(LearningProgressModel).values(
+        table = cast(Table, LearningProgressModel.__table__)
+
+        insert_stmt = pg_insert(table).values(
             id=progress.id,
             schema_version=progress.schema_version,
             user_id=progress.user_id,
@@ -191,7 +194,7 @@ class LearningProgressRepository(ILearningProgressRepository):
             progress_percent=progress.progress_percent,
             last_interaction_at=progress.last_interaction_at,
             completed_at=progress.completed_at,
-            metadata_payload=metadata_payload,
+            metadata=metadata_payload,
         )
 
         update_values: dict[str, Any] = {
@@ -200,16 +203,16 @@ class LearningProgressRepository(ILearningProgressRepository):
             "last_interaction_at": progress.last_interaction_at,
             "completed_at": progress.completed_at,
             "updated_at": func.now(),
-            "metadata_payload": metadata_payload,
+            "metadata": metadata_payload,
         }
 
         stmt = insert_stmt.on_conflict_do_update(
             index_elements=[
-                LearningProgressModel.user_id,
-                LearningProgressModel.module_key,
+                table.c.user_id,
+                table.c.module_key,
             ],
             set_=update_values,
-        ).returning(*LearningProgressModel.__table__.c)
+        ).returning(*table.c)
 
         result = await self.session.execute(stmt)
         row = result.mappings().one()
