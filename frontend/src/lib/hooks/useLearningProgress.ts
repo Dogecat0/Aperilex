@@ -38,6 +38,7 @@ export interface UpdateProgressInput {
 }
 
 export interface RecordWalkthroughEventInput {
+  analysisId: string
   moduleKey: string
   progressPercent: number
   sectionKey?: string | null
@@ -410,6 +411,7 @@ export function useLearningProgress() {
       setError(null)
 
       const body: Record<string, unknown> = {
+        analysis_id: input.analysisId,
         progress_percent: input.progressPercent,
       }
 

@@ -9,17 +9,21 @@ from src.application.handlers.schemas.commands.analyze_filing import (
 )
 from src.application.handlers.schemas.responses.task_response import TaskResponse
 from src.application.interfaces.events import IEventPublisher, TaskQueuedEvent
-from src.application.interfaces.repositories import CompanyData, FilingData
+from src.application.interfaces.repositories import (
+    AnalysisData,
+    CompanyData,
+    FilingData,
+)
 from src.application.interfaces.worker import IWorkerProvider, WorkerTaskStatus
 from src.application.services.priority_queue_service import (
     DuplicationError,
     PriorityQueueService,
 )
 from src.application.services.worker_service import WorkerService
-from src.shared.enums import TaskStatus, UserTier
+from src.shared.enums import AnalysisStatus, TaskStatus, UserTier
 from src.shared.models import TaskData
 from src.shared.models.queue import TaskMessage
-from src.shared.types import Email, TaskId, UserId
+from src.shared.types import Email, FilingId, TaskId, UserId
 from src.shared.types.identifiers import QueueMessageId
 from src.shared.utils.logging import get_logger
 from src.shared.utils.task_status_store import TaskStatusStore
@@ -98,6 +102,28 @@ class BackgroundTaskCoordinator:
                 source="API",
             )
 
+            if not command.force_reprocess:
+                existing_analysis = await self._find_existing_analysis(
+                    filing_id=task_data.filing_id,
+                    template_key=command.analysis_template.value,
+                    user_id=task_data.user_id,
+                )
+                if existing_analysis is not None:
+                    logger.info(
+                        "Duplicate analysis request suppressed",
+                        extra={
+                            "filing_id": str(task_data.filing_id),
+                            "analysis_template": command.analysis_template.value,
+                            "analysis_id": str(existing_analysis.id),
+                            "analysis_status": existing_analysis.status.value,
+                        },
+                    )
+                    return self._build_duplicate_response(
+                        task_data=task_data,
+                        existing_analysis=existing_analysis,
+                        analysis_template=command.analysis_template.value,
+                    )
+
             if self.use_background:
                 message_id = await self._send_to_queue(task_data)
 
@@ -153,6 +179,105 @@ class BackgroundTaskCoordinator:
                 status="failed",
                 error_message=f"Failed to queue analysis: {exc}",
             )
+
+    async def _find_existing_analysis(
+        self,
+        *,
+        filing_id: FilingId,
+        template_key: str,
+        user_id: UserId,
+    ) -> AnalysisData | None:
+        """Locate the most recent analysis for the filing/template/user trio."""
+
+        try:
+            repository = await self.worker_service.repository_factory.get_analysis_repository()
+        except Exception:
+            logger.debug(
+                "Unable to resolve analysis repository for duplicate detection",
+                exc_info=True,
+            )
+            return None
+
+        try:
+            analyses = await repository.get_by_filing_id(filing_id)
+        except Exception:
+            logger.debug(
+                "Failed to fetch analyses for duplicate detection",
+                extra={"filing_id": str(filing_id)},
+                exc_info=True,
+            )
+            return None
+
+        candidate: AnalysisData | None = None
+        for analysis in analyses:
+            if analysis.user_id != user_id:
+                continue
+            template_hint = analysis.metadata.get("analysis_template")
+            if not isinstance(template_hint, str):
+                continue
+            if template_hint != template_key:
+                continue
+            if analysis.status in {AnalysisStatus.ERROR, AnalysisStatus.EXPIRED}:
+                continue
+            if candidate is None or self._analysis_is_newer(analysis, candidate):
+                candidate = analysis
+
+        return candidate
+
+    @staticmethod
+    def _analysis_is_newer(
+        current: AnalysisData,
+        existing: AnalysisData,
+    ) -> bool:
+        """Return True when ``current`` is newer than ``existing``."""
+
+        def _timestamp(value: AnalysisData) -> datetime:
+            for candidate in (value.completed_at, value.updated_at, value.created_at):
+                if isinstance(candidate, datetime):
+                    return candidate
+            return datetime.min.replace(tzinfo=UTC)
+
+        return _timestamp(current) > _timestamp(existing)
+
+    def _build_duplicate_response(
+        self,
+        *,
+        task_data: TaskData,
+        existing_analysis: AnalysisData,
+        analysis_template: str,
+    ) -> TaskResponse:
+        """Construct a duplicate task response with existing analysis context."""
+
+        completed_at = (
+            existing_analysis.completed_at.isoformat()
+            if isinstance(existing_analysis.completed_at, datetime)
+            else None
+        )
+        created_at = (
+            existing_analysis.created_at.isoformat()
+            if isinstance(existing_analysis.created_at, datetime)
+            else None
+        )
+
+        result_payload: Mapping[str, object] = {
+            "message": (
+                "An analysis for this filing and template already exists. "
+                "Reuse the existing walkthrough or force a re-run to regenerate."
+            ),
+            "analysis_id": str(existing_analysis.id),
+            "analysis_status": existing_analysis.status.value,
+            "analysis_template": analysis_template,
+            "analysis_completed_at": completed_at,
+            "analysis_created_at": created_at,
+            "force_reprocess_available": True,
+        }
+
+        return TaskResponse(
+            task_id=str(task_data.task_id),
+            status="duplicate",
+            result=result_payload,
+            current_step="Analysis previously generated",
+        )
 
     async def _send_to_queue(self, task_data: TaskData) -> QueueMessageId | None:
         try:

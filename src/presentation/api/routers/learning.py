@@ -30,7 +30,7 @@ from src.shared.models.learning import (
     QuizAttempt,
     QuizAttemptCreate,
 )
-from src.shared.types import LearningProgressId, QuizAttemptId, UserId
+from src.shared.types import AnalysisId, LearningProgressId, QuizAttemptId, UserId
 
 router = APIRouter(prefix="/learning", tags=["learning"])
 
@@ -160,6 +160,9 @@ class LearningProgressUpdateRequest(BaseModel):
 class WalkthroughCompletionRequest(BaseModel):
     """Request payload for recording a walkthrough completion event."""
 
+    analysis_id: UUID = Field(
+        description="Analysis identifier that emitted the walkthrough event",
+    )
     section_key: str | None = Field(
         default=None,
         description="Canonical section key for the walkthrough segment",
@@ -319,6 +322,7 @@ async def record_walkthrough_event(
     progress = await learning_service.record_walkthrough_event(
         user_id=user_id,
         module_key=module_key,
+        analysis_id=AnalysisId(payload.analysis_id),
         section_key=payload.section_key,
         progress_percent=payload.progress_percent,
         completed_at=event_time,

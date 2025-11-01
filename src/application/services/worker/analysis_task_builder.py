@@ -71,6 +71,7 @@ class AnalysisTaskBuilder:
         )
         metadata["user_tier"] = task_user_tier.value
 
+        template_key = command.analysis_template.value
         task_priority = priority or self.DEFAULT_PRIORITY
 
         return TaskData(
@@ -84,7 +85,7 @@ class AnalysisTaskBuilder:
             priority=task_priority,
             status=TaskStatus.PENDING,
             metadata=metadata,
-            deduplication_id=f"{target_filing_id}:{resolved_email.value}",
+            deduplication_id=f"{target_filing_id}:{template_key}:{resolved_email.value}",
             correlation_id=task_correlation_id,
             source=source,
             parent_task_id=parent_task_id,

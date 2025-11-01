@@ -94,7 +94,15 @@ class TaskData(BaseModel):
     def _ensure_deduplication_id(self) -> "TaskData":
         """Ensure deduplication identifier follows filing/email convention."""
         if not self.deduplication_id:
-            self.deduplication_id = f"{self.filing_id}_{self.email.value}"
+            template_hint = self.metadata.get("analysis_template")
+            template_segment = (
+                template_hint.strip().lower()
+                if isinstance(template_hint, str) and template_hint.strip()
+                else "default"
+            )
+            self.deduplication_id = (
+                f"{self.filing_id}_{template_segment}_{self.email.value}"
+            )
         return self
 
     @field_validator("email", mode="before")

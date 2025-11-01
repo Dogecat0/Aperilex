@@ -3,6 +3,7 @@ import { FeatureHero } from '@/components/layout/FeatureHero'
 import { FeatureHeroStat } from '@/components/layout/FeatureHeroStat'
 import { useNavigate } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
+import { Button } from '@/components/ui/Button'
 import {
   useFilingSearch,
   useFilingById,
@@ -20,6 +21,71 @@ import { ExistingAnalysesCallout } from './components/ExistingAnalysesCallout'
 
 interface SearchState extends FilingSearchFormValues {
   page: number
+}
+
+interface DuplicateInfo {
+  analysisId: string | null
+  analysisTemplate: string | null
+  analysisStatus: string | null
+  analysisCreatedAt: string | null
+  analysisCompletedAt: string | null
+  message: string
+}
+
+function isDuplicateStatus(status: string | null | undefined) {
+  return typeof status === 'string' && status.toUpperCase() === 'DUPLICATE'
+}
+
+function extractDuplicateInfo(task: TaskResponse): DuplicateInfo {
+  const result = task.result
+  const payload =
+    result && typeof result === 'object' && result !== null ? (result as Record<string, unknown>) : {}
+
+  const message =
+    typeof payload.message === 'string'
+      ? payload.message
+      : 'This analysis template has already been generated for this filing.'
+
+  const analysisId =
+    typeof payload.analysis_id === 'string' && payload.analysis_id.length > 0
+      ? payload.analysis_id
+      : null
+  const analysisTemplate =
+    typeof payload.analysis_template === 'string' ? payload.analysis_template : null
+  const analysisStatus =
+    typeof payload.analysis_status === 'string' ? payload.analysis_status : null
+  const analysisCompletedAt =
+    typeof payload.analysis_completed_at === 'string' ? payload.analysis_completed_at : null
+  const analysisCreatedAt =
+    typeof payload.analysis_created_at === 'string' ? payload.analysis_created_at : null
+
+  return {
+    analysisId,
+    analysisTemplate,
+    analysisStatus,
+    analysisCreatedAt,
+    analysisCompletedAt,
+    message,
+  }
+}
+
+function formatTimestamp(value: string | null): string | null {
+  if (!value) {
+    return null
+  }
+
+  const parsed = new Date(value)
+  if (Number.isNaN(parsed.getTime())) {
+    return value
+  }
+
+  return parsed.toLocaleString(undefined, {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  })
 }
 
 function buildSearchParams(state: SearchState): FilingSearchParams {
@@ -97,6 +163,7 @@ export function AnalyzeFilingsPage() {
   const [searchParams, setSearchParams] = useState<FilingSearchParams | undefined>(undefined)
   const [selectedResult, setSelectedResult] = useState<FilingSearchResult | null>(null)
   const [taskStatus, setTaskStatus] = useState<TaskResponse | null>(null)
+  const [duplicateInfo, setDuplicateInfo] = useState<DuplicateInfo | null>(null)
   const [pollError, setPollError] = useState<string | null>(null)
   const [pollingTaskId, setPollingTaskId] = useState<string | null>(null)
 
@@ -117,6 +184,10 @@ export function AnalyzeFilingsPage() {
   const analyzeMutation = useAnalyzeFiling()
 
   const results = filingSearch.data?.items ?? []
+
+  useEffect(() => {
+    setDuplicateInfo(null)
+  }, [selectedResult?.filing_id])
 
   useEffect(() => {
     if (!searchParams?.ticker) {
@@ -212,7 +283,7 @@ export function AnalyzeFilingsPage() {
     abortControllerRef.current = null
   }
 
-  const handleAnalyze = async () => {
+  const handleAnalyze = async (options?: { force?: boolean }) => {
     if (!selectedResult?.filing_id) {
       setPollError('This filing is still syncing. Try again once it appears in the database.')
       return
@@ -221,14 +292,22 @@ export function AnalyzeFilingsPage() {
     resetPollingState()
     setPollError(null)
     setTaskStatus(null)
+    setDuplicateInfo(null)
     analyzeMutation.reset()
 
     try {
       const task = await analyzeMutation.mutateAsync({
         filingId: selectedResult.filing_id,
+        forceReprocess: options?.force ?? false,
       })
 
       setTaskStatus(task)
+      if (isDuplicateStatus(task.status)) {
+        setDuplicateInfo(extractDuplicateInfo(task))
+        return
+      }
+
+      setDuplicateInfo(null)
       setPollingTaskId(task.task_id)
 
       const controller = new AbortController()
@@ -361,6 +440,43 @@ export function AnalyzeFilingsPage() {
       </FeatureHero>
 
       <ExistingAnalysesCallout />
+
+      {duplicateInfo ? (
+        <div className="rounded-3xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+          <p className="font-medium">{duplicateInfo.message}</p>
+          <div className="mt-2 space-y-1 text-xs sm:text-sm">
+            {duplicateInfo.analysisTemplate ? (
+              <p>
+                Template: <span className="font-medium">{duplicateInfo.analysisTemplate}</span>
+              </p>
+            ) : null}
+            {duplicateInfo.analysisStatus ? (
+              <p>Status: {duplicateInfo.analysisStatus}</p>
+            ) : null}
+            {duplicateInfo.analysisCompletedAt || duplicateInfo.analysisCreatedAt ? (
+              <p>
+                Generated:{' '}
+                {formatTimestamp(duplicateInfo.analysisCompletedAt) ??
+                  formatTimestamp(duplicateInfo.analysisCreatedAt) ??
+                  'Unknown'}
+              </p>
+            ) : null}
+          </div>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {duplicateInfo.analysisId ? (
+              <Button
+                variant="secondary"
+                onClick={() => navigate(`/filing/${duplicateInfo.analysisId}`)}
+              >
+                View existing analysis
+              </Button>
+            ) : null}
+            <Button disabled={isAnalyzing} onClick={() => void handleAnalyze({ force: true })}>
+              Run again anyway
+            </Button>
+          </div>
+        </div>
+      ) : null}
 
       <FilingSearchForm
         values={searchValues}

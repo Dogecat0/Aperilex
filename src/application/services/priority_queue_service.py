@@ -552,8 +552,14 @@ class PriorityQueueService:
         Returns:
             Deduplication ID string
         """
-        # Key: filing_id + user_email as specified in requirements
-        dedup_key = f"{task_data.filing_id}_{task_data.email.value}"
+        # Key: filing_id + analysis template + user_email
+        template_hint = task_data.metadata.get("analysis_template", "default")
+        template_segment = (
+            template_hint.strip().lower()
+            if isinstance(template_hint, str) and template_hint.strip()
+            else "default"
+        )
+        dedup_key = f"{task_data.filing_id}_{template_segment}_{task_data.email.value}"
 
         # Hash for consistent length
         return hashlib.sha256(dedup_key.encode()).hexdigest()[:16]

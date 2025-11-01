@@ -135,7 +135,16 @@ class FakeLearningService:
             progress_percent=kwargs.get("progress_percent", 0),
             last_interaction_at=kwargs.get("completed_at"),
             completed_at=kwargs.get("completed_at"),
-            metadata={},
+            metadata={
+                "analysis_walkthroughs": {
+                    str(kwargs.get("analysis_id", uuid4())): {
+                        "completed_sections": (
+                            [kwargs["section_key"]] if kwargs.get("section_key") else []
+                        ),
+                        "progress_percent": kwargs.get("progress_percent", 0),
+                    }
+                }
+            },
             created_at=kwargs.get("completed_at"),
             updated_at=kwargs.get("completed_at"),
         )
@@ -368,9 +377,14 @@ async def test_record_walkthrough_event_endpoint(
     api_client: AsyncClient,
     fake_learning_service: FakeLearningService,
 ) -> None:
+    analysis_id = str(uuid4())
     response = await api_client.post(
         "/api/learning/progress/module-a/walkthrough-events",
-        json={"section_key": "section-1", "progress_percent": 100},
+        json={
+            "analysis_id": analysis_id,
+            "section_key": "section-1",
+            "progress_percent": 100,
+        },
     )
 
     assert response.status_code == status.HTTP_201_CREATED

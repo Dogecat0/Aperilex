@@ -7,12 +7,37 @@ import type { WalkthroughPreviousComparison } from '@/lib/types/analysis'
 
 type CompletedChecksBySection = Record<string, Record<string, true>>
 
-function extractCompletedSections(metadata: Record<string, unknown> | undefined): string[] {
+function extractAnalysisRun(
+  metadata: Record<string, unknown> | undefined,
+  analysisId: string
+): Record<string, unknown> | null {
   if (!metadata) {
+    return null
+  }
+
+  const runs = metadata['analysis_walkthroughs']
+  if (!runs || typeof runs !== 'object' || runs === null) {
+    return null
+  }
+
+  const run = (runs as Record<string, unknown>)[analysisId]
+  if (!run || typeof run !== 'object' || run === null) {
+    return null
+  }
+
+  return run as Record<string, unknown>
+}
+
+function extractCompletedSectionsForAnalysis(
+  metadata: Record<string, unknown> | undefined,
+  analysisId: string
+): string[] {
+  const run = extractAnalysisRun(metadata, analysisId)
+  if (!run) {
     return []
   }
 
-  const raw = metadata['completed_sections']
+  const raw = run['completed_sections']
   if (!Array.isArray(raw)) {
     return []
   }
@@ -21,12 +46,14 @@ function extractCompletedSections(metadata: Record<string, unknown> | undefined)
 }
 
 interface GuidedFilingStepperProps {
+  analysisId: string
   sections: GuidedWalkthroughSection[]
   diffsBySection?: Record<string, WalkthroughPreviousComparison>
   onSectionComplete?: (section: GuidedWalkthroughSection) => void
 }
 
 export function GuidedFilingStepper({
+  analysisId,
   sections,
   diffsBySection = {},
   onSectionComplete,
@@ -46,13 +73,16 @@ export function GuidedFilingStepper({
         continue
       }
 
-      const completedSections = extractCompletedSections(moduleProgress.metadata)
+      const completedSections = extractCompletedSectionsForAnalysis(
+        moduleProgress.metadata,
+        analysisId
+      )
       for (const key of completedSections) {
         keys.add(key)
       }
     }
     return Array.from(keys)
-  }, [sections, progressByModule])
+  }, [sections, progressByModule, analysisId])
 
   const persistedSectionSet = useMemo(
     () => new Set<string>(persistedSectionKeys),
@@ -85,6 +115,14 @@ export function GuidedFilingStepper({
     }
     return map
   }, [sections])
+
+  useEffect(() => {
+    notifiedSectionsRef.current = new Set()
+    setCompletedChecks({})
+    setCelebrationSection(null)
+    hasUserNavigatedRef.current = false
+    setActiveIndex(0)
+  }, [analysisId])
 
   useEffect(() => {
     for (const key of persistedSectionKeys) {
@@ -161,6 +199,7 @@ export function GuidedFilingStepper({
 
       try {
         await recordWalkthroughEvent({
+          analysisId,
           moduleKey: section.learning_module_key,
           progressPercent,
           sectionKey: section.section_key,
@@ -169,7 +208,7 @@ export function GuidedFilingStepper({
         // Hook surfaces the error state; no runtime fallback needed here.
       }
     },
-    [isSectionComplete, recordWalkthroughEvent, sectionsByModule]
+    [analysisId, isSectionComplete, recordWalkthroughEvent, sectionsByModule]
   )
 
   const notifySectionComplete = useCallback(

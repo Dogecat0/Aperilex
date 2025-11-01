@@ -319,9 +319,18 @@ async def analyze_filing_by_id(
     filing_id: FilingIdPath,
     application_service: ApplicationServiceDep,
     current_user: AuthenticatedUserDep,
+    force_reprocess: Annotated[
+        bool,
+        Query(
+            description="Force regeneration even if a recent analysis already exists",
+        ),
+    ] = False,
 ) -> TaskResponse:
     """Analyze a specific SEC filing identified by UUID."""
-    logger.info("Starting filing analysis by ID", extra={"filing_id": str(filing_id)})
+    logger.info(
+        "Starting filing analysis by ID",
+        extra={"filing_id": str(filing_id), "force_reprocess": force_reprocess},
+    )
 
     try:
         query = GetFilingQuery(
@@ -392,7 +401,7 @@ async def analyze_filing_by_id(
                 logger.warning(
                     "Received unknown user tier from authentication result",
                     extra={"user_tier": current_user.user_tier},
-                )
+        )
 
         command = AnalyzeFilingCommand(
             accession_number=accession_number,
@@ -400,6 +409,7 @@ async def analyze_filing_by_id(
             user_id=user_id_str(current_user),
             user_email=current_user.user_email,
             user_tier=tier_value,
+            force_reprocess=force_reprocess,
         )
 
         result = cast(

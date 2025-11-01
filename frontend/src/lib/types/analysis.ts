@@ -76,7 +76,7 @@ export const lessonReferenceSchema = z
     lesson_id: z.string(),
     learning_module_key: z.string(),
     module_stage: z.string(),
-    title: z.string().optional(),
+    title: z.string().nullable().optional(),
   })
   .strict()
 
@@ -338,6 +338,7 @@ const sentimentRollupSchema = z
     prior_analysis_delta: z.number().nullable().optional(),
     trend: z.string().nullable().optional(),
     confidence_band: z.string().nullable().optional(),
+    pro_tip: z.string().nullable().optional(),
   })
   .strict()
 

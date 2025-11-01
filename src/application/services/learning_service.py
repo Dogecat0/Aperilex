@@ -27,6 +27,7 @@ from src.shared.models.learning import (
     QuizAttemptCreate,
 )
 from src.shared.types import (
+    AnalysisId,
     LearningProgressId,
     QuizAttemptId,
     UserId,
@@ -256,6 +257,7 @@ class LearningService:
         user_id: UserId,
         module_key: str,
         *,
+        analysis_id: AnalysisId,
         section_key: str | None,
         progress_percent: int,
         completed_at: datetime,
@@ -274,7 +276,7 @@ class LearningService:
                 progress_percent=0,
                 last_interaction_at=completed_at,
                 completed_at=None,
-                metadata={},
+                metadata={"analysis_walkthroughs": {}},
                 schema_version=1,
                 streak_count=0,
                 pending_review_count=0,
@@ -284,19 +286,55 @@ class LearningService:
             )
 
         metadata = dict(progress.metadata or {})
+        analysis_runs_raw = metadata.get("analysis_walkthroughs", {})
+        analysis_runs: dict[str, dict[str, Any]] = {}
+        if isinstance(analysis_runs_raw, dict):
+            for run_key, run_data in analysis_runs_raw.items():
+                if isinstance(run_key, str) and isinstance(run_data, dict):
+                    analysis_runs[run_key] = dict(run_data)
+
+        run_key = str(analysis_id)
+        run_data = analysis_runs.get(run_key, {})
+        if not isinstance(run_data, dict):
+            run_data = {}
+
+        existing_sections = run_data.get("completed_sections", [])
+        completed_sections: set[str] = set()
+        if isinstance(existing_sections, list):
+            for item in existing_sections:
+                if isinstance(item, str):
+                    completed_sections.add(item)
+
         if section_key:
-            completed_sections = set(metadata.get("completed_sections", []))
             completed_sections.add(section_key)
-            metadata["completed_sections"] = sorted(completed_sections)
+
+        if completed_sections:
+            run_data["completed_sections"] = sorted(completed_sections)
+        else:
+            run_data.pop("completed_sections", None)
+
+        run_data["progress_percent"] = progress_percent
+        run_data["last_event_at"] = completed_at.isoformat()
+        if progress_percent >= 100:
+            run_data["completed_at"] = completed_at.isoformat()
+
+        analysis_runs[run_key] = run_data
+
+        metadata["analysis_walkthroughs"] = analysis_runs
         metadata["last_walkthrough_event_at"] = completed_at.isoformat()
+        metadata["last_walkthrough_analysis_id"] = run_key
+        metadata.pop("completed_sections", None)
+
+        updated_progress_percent = max(progress.progress_percent, progress_percent)
+        completion_timestamp = progress.completed_at
+        if progress_percent >= 100:
+            completion_timestamp = completed_at
 
         updated_progress = progress.model_copy(
             update={
-                "progress_percent": progress_percent,
+                "progress_percent": updated_progress_percent,
                 "last_interaction_at": completed_at,
-                "completed_at": completed_at
-                if progress_percent >= 100
-                else progress.completed_at,
+                "completed_at": completion_timestamp,
                 "metadata": metadata,
             }
         )
