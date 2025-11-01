@@ -21,6 +21,9 @@ lint: ## Run linting
 	poetry run black --check src tests
 	poetry run isort --check-only src tests
 
+deadcode: ## Detect unused code with Vulture
+	poetry run vulture src tests --min-confidence 80
+
 format: ## Format code
 	poetry run black src tests
 	poetry run isort src tests

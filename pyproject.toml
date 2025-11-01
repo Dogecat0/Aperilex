@@ -79,6 +79,7 @@ mypy = "^1.16.1"
 ruff = "^0.12.2"
 black = "^25.1.0"
 isort = "^5.13.0"
+vulture = "^2.11"
 # Type stubs removed due to compatibility issues
 boto3-stubs = { extras = ["full"], version = "1.40.16" }
 types-boto3 = "1.40.16"
