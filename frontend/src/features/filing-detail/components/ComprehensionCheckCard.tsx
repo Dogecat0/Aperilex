@@ -9,6 +9,31 @@ interface ComprehensionCheckCardProps {
 
 type AnswerStatus = 'idle' | 'correct' | 'incorrect'
 
+function createSeed(input: string) {
+  let hash = 0
+  for (let index = 0; index < input.length; index += 1) {
+    hash = (hash << 5) - hash + input.charCodeAt(index)
+    hash |= 0
+  }
+  return hash >>> 0
+}
+
+function seededShuffle<T>(values: readonly T[], seedValue: string): T[] {
+  const shuffled = [...values]
+  if (shuffled.length <= 1) {
+    return shuffled
+  }
+
+  let seed = createSeed(seedValue)
+  for (let index = shuffled.length - 1; index > 0; index -= 1) {
+    seed = (seed * 1664525 + 1013904223) % 4294967296
+    const swapIndex = seed % (index + 1)
+    ;[shuffled[index], shuffled[swapIndex]] = [shuffled[swapIndex], shuffled[index]]
+  }
+
+  return shuffled
+}
+
 export function ComprehensionCheckCard({
   check,
   completed,
@@ -17,17 +42,25 @@ export function ComprehensionCheckCard({
   const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null)
   const [status, setStatus] = useState<AnswerStatus>('idle')
 
+  const distractorKey = useMemo(
+    () => check.distractors.join('\u0000'),
+    [check.distractors],
+  )
+
   const options = useMemo(() => {
     const ordered = [check.correct_answer, ...check.distractors]
     const seen = new Set<string>()
-    return ordered.filter((option) => {
+    const deduped = ordered.filter((option) => {
       if (seen.has(option)) {
         return false
       }
       seen.add(option)
       return true
     })
-  }, [check.correct_answer, check.distractors])
+
+    const seedKey = `${check.id}::${check.correct_answer}::${distractorKey}`
+    return seededShuffle(deduped, seedKey)
+  }, [check.correct_answer, check.distractors, distractorKey, check.id])
 
   useEffect(() => {
     if (completed && status !== 'correct') {
