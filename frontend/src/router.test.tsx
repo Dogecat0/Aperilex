@@ -144,10 +144,10 @@ describe('App routing', () => {
 
     renderWithRouter(['/dashboard'])
 
-    await screen.findByText('Learning-first progress snapshot')
+    await screen.findByText('Stay on top of your filings')
 
     await user.click(await screen.findByRole('link', { name: 'Learning Hub' }))
-    await screen.findByText('Build your filing fluency')
+    await screen.findByText('Learning-first progress snapshot')
 
     await user.click(await screen.findByRole('link', { name: 'Saved Items' }))
     await screen.findByText('Keep your research within reach')

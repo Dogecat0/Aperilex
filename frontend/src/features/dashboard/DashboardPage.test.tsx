@@ -5,7 +5,6 @@ import { renderWithProviders } from '@/test/utils'
 import { DashboardPage } from './DashboardPage'
 import { apiClient } from '@/lib/apiClient'
 import { mockPaginatedAnalysesResponse } from '@/test/fixtures/analyses'
-import { learningProgressResponses } from '@/../tests/fixtures/learning'
 
 const mockTaskResponse = {
   schema_version: 1,
@@ -16,9 +15,6 @@ const mockTaskResponse = {
 describe('DashboardPage', () => {
   beforeEach(() => {
     vi.spyOn(apiClient, 'get').mockImplementation(async (path: string) => {
-      if (path === '/learning/progress') {
-        return learningProgressResponses
-      }
       if (path === '/analyses') {
         return mockPaginatedAnalysesResponse
       }
@@ -31,13 +27,17 @@ describe('DashboardPage', () => {
     vi.restoreAllMocks()
   })
 
-  it('renders learning-first hero and recent analyses from library data', async () => {
+  it('renders filings-focused hero and recent analyses from library data', async () => {
     renderWithProviders(<DashboardPage />)
 
-    expect(await screen.findByText(/Learning-first progress snapshot/i)).toBeInTheDocument()
+    expect(await screen.findByText(/Stay on top of your filings/i)).toBeInTheDocument()
+    expect(screen.getByText(/Completed analyses/i)).toBeInTheDocument()
+    expect(screen.getByText(/Guided sections covered/i)).toBeInTheDocument()
+    expect(screen.getByText(/Latest completion/i)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Run a new analysis/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Resume latest walkthrough/i })).toBeInTheDocument()
+
     expect(await screen.findByText(/Continue where you left off/i)).toBeInTheDocument()
-    expect(screen.getByText('3d')).toBeInTheDocument()
-    expect(screen.getByText('0/3 complete')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /KPI extract/i })).toBeInTheDocument()
 
     expect(screen.getByText(/Recent analyses/i)).toBeInTheDocument()
@@ -65,7 +65,7 @@ describe('DashboardPage', () => {
     const user = userEvent.setup()
     renderWithProviders(<DashboardPage />)
 
-    await screen.findByText(/Learning-first progress snapshot/i)
+    await screen.findByText(/Stay on top of your filings/i)
 
     const filterButton = screen.getByRole('button', { name: /Flagged follow-up/i })
     await user.click(filterButton)

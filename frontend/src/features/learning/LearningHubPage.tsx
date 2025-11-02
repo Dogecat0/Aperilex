@@ -1,11 +1,10 @@
 import { useCallback, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { FeatureHero } from '@/components/layout/FeatureHero'
-import { FeatureHeroStat } from '@/components/layout/FeatureHeroStat'
 import { Button } from '@/components/ui/Button'
 import { SectionIntro } from '@/components/ui/SectionIntro'
 import { useThemeTokens } from '@/components/ThemeProvider'
 import { useLearningModules, useLearningProgress, useQuizAttempts } from '@/lib/hooks'
+import { LearningProgressHero } from '@/features/dashboard/components/LearningProgressHero'
 
 import { LearningModuleModal } from './components/LearningModuleModal'
 
@@ -84,7 +83,9 @@ export function LearningHubPage() {
   const {
     progress,
     progressByModule,
+    dashboardHighlights,
     isLoading: progressLoading,
+    isRefetching: progressRefetching,
     isUpdating,
     isSchedulingReview,
     updateProgress,
@@ -252,17 +253,6 @@ export function LearningHubPage() {
     [progressError, clearProgressError, quizError, clearQuizError]
   )
 
-  const moduleSummary = useMemo(() => {
-    const total = learningModules.length
-    const completed = progress.filter((record) => record.progressPercent >= 100).length
-    const inProgress = progress.filter(
-      (record) => record.progressPercent > 0 && record.progressPercent < 100
-    ).length
-    const queued = Math.max(total - completed - inProgress, 0)
-
-    return { total, completed, inProgress, queued }
-  }, [learningModules, progress])
-
   return (
     <div className="flex flex-col gap-6">
       {toastMessages.map((toast) => (
@@ -288,29 +278,10 @@ export function LearningHubPage() {
         </div>
       ))}
 
-      <FeatureHero
-        overline="Learning hub"
-        title="Build your filing fluency"
-        description="Stage 5 identity keeps curated lessons, practice prompts, and contextual glossaries in sync. Jump back in from any device and keep your authenticated progress intact."
-      >
-        <div className="grid gap-3 sm:grid-cols-3">
-          <FeatureHeroStat
-            label="Weekly streak"
-            value={`${streakHighlight}d`}
-            helper="Logged in the last 7 days"
-          />
-          <FeatureHeroStat
-            label="In progress"
-            value={`${moduleSummary.inProgress}`}
-            helper={`${moduleSummary.total} total modules`}
-          />
-          <FeatureHeroStat
-            label="Completed"
-            value={`${moduleSummary.completed}`}
-            helper={`${moduleSummary.queued} queued next`}
-          />
-        </div>
-      </FeatureHero>
+      <LearningProgressHero
+        highlights={dashboardHighlights}
+        isLoading={progressLoading || progressRefetching}
+      />
 
       <section
         className="grid gap-4 md:grid-cols-3"

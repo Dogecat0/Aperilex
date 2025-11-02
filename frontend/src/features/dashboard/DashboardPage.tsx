@@ -4,8 +4,8 @@ import { FirstRunLaunchpad } from './components/FirstRunLaunchpad'
 import { AnalysisLibrarySection } from './components/AnalysisLibrarySection'
 import { RecentAnalysesList } from './components/RecentAnalysesList'
 import { ContinueWalkthroughRail } from './components/ContinueWalkthroughRail'
-import { LearningProgressHero } from './components/LearningProgressHero'
-import { useAnalyses, useAnalysisLibrary, useLearningProgress } from '@/lib/hooks'
+import { FilingProgressHero } from './components/FilingProgressHero'
+import { useAnalyses, useAnalysisLibrary } from '@/lib/hooks'
 import { ApiClientError } from '@/lib/apiClient'
 import type { AnalysisResponse, ListAnalysesParams } from '@/lib/types/analysis'
 
@@ -232,11 +232,6 @@ export function DashboardPage() {
   )
 
   const libraryQuery = useAnalysisLibrary(libraryQueryParams)
-  const {
-    dashboardHighlights,
-    isLoading: progressLoading,
-    isRefetching: progressRefetching,
-  } = useLearningProgress()
 
   useEffect(() => {
     setLibraryPage(1)
@@ -256,6 +251,49 @@ export function DashboardPage() {
   )
 
   const libraryAnalyses = useMemo(() => libraryQuery.data?.items ?? [], [libraryQuery.data])
+  const totalCompletedAnalyses = libraryQuery.data?.pagination.total_items ?? 0
+  const readySectionCount = useMemo(
+    () =>
+      libraryAnalyses.reduce((total, analysis) => {
+        const sections = analysis.summary.insight_counts?.sections_analyzed
+        return typeof sections === 'number' ? total + sections : total
+      }, 0),
+    [libraryAnalyses]
+  )
+
+  const heroLatestAnalysis = useMemo(() => {
+    if (libraryAnalyses.length === 0) {
+      return null
+    }
+    const target = libraryAnalyses[0]
+    const analyzedAt = formatDate(
+      target.summary.processing?.completed_at ??
+        target.summary.filing.date ??
+        target.created_at ??
+        null
+    )
+
+    return {
+      analysisId: target.analysis_id,
+      companyName: target.summary.company.name ?? 'Unknown company',
+      filingType: target.summary.filing.type,
+      analyzedAt,
+    }
+  }, [libraryAnalyses])
+
+  const dateRangeLabel = useMemo(() => {
+    switch (filters.dateRange) {
+      case '90d':
+        return '90 days'
+      case '180d':
+        return '180 days'
+      case '365d':
+        return '12 months'
+      case 'all':
+      default:
+        return 'All time'
+    }
+  }, [filters.dateRange])
 
   const recentCompanies = useMemo(() => buildRecentCompanies(libraryAnalyses), [libraryAnalyses])
   const recentAnalyses = useMemo(() => buildRecentAnalysesItems(libraryAnalyses), [libraryAnalyses])
@@ -303,9 +341,12 @@ export function DashboardPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <LearningProgressHero
-        highlights={dashboardHighlights}
-        isLoading={progressLoading || progressRefetching}
+      <FilingProgressHero
+        isLoading={libraryQuery.isLoading || libraryQuery.isFetching}
+        dateRangeLabel={dateRangeLabel}
+        totalCompleted={totalCompletedAnalyses}
+        readySectionCount={readySectionCount}
+        latestAnalysis={heroLatestAnalysis}
       />
 
       {libraryQuery.error ? (

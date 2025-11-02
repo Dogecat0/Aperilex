@@ -19,9 +19,9 @@ export function LearningProgressHero({ highlights, isLoading }: LearningProgress
 
   return (
     <FeatureHero
-      overline="Dashboard"
-      title="Learning-first progress snapshot"
-      description="Keep your walkthrough streak alive, finish modules, and jump back into the next lesson without hunting through raw filings."
+      overline="Learning Hub"
+      title="Learning Hub progress snapshot"
+      description="Keep your walkthrough streak alive, finish Learning Hub modules, and head straight to your next lesson."
     >
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <StreakCard streakDays={streakDays} isLoading={progressPending} />
@@ -61,12 +61,13 @@ function CompletionCard({
   const progressRatio = Math.min(Math.max(completion.completed / totalModules, 0), 1)
 
   return (
-    <ArticleShell eyebrow="Module completion">
+    <ArticleShell eyebrow="Learning Hub completion">
       {isLoading ? (
         <Skeleton className="h-6 w-28" />
       ) : (
         <p className="text-lg font-semibold text-[var(--text-primary)]">
-          {completion.completed}/{completion.total} complete
+          {completion.completed}/{completion.total} Learning Hub module
+          {completion.total === 1 ? '' : 's'} complete
         </p>
       )}
       <div className="h-2 rounded-full bg-[var(--lines-subtle)]/60">
