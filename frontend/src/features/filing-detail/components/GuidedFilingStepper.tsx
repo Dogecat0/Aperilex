@@ -7,7 +7,69 @@ import type { WalkthroughPreviousComparison } from '@/lib/types/analysis'
 
 type CompletedChecksBySection = Record<string, Record<string, true>>
 
-function extractAnalysisRun(
+function extractCompletedSectionsFromSectionsMetadata(
+  metadata: Record<string, unknown> | undefined,
+  analysisId: string
+): string[] {
+  if (!metadata) {
+    return []
+  }
+  const sections = metadata['sections']
+  if (!sections || typeof sections !== 'object') {
+    return []
+  }
+
+  const completed = new Set<string>()
+  const sectionEntries = sections as Record<string, unknown>
+  for (const [sectionKey, rawSection] of Object.entries(sectionEntries)) {
+    if (typeof sectionKey !== 'string') {
+      continue
+    }
+    if (!rawSection || typeof rawSection !== 'object') {
+      continue
+    }
+
+    const sectionData = rawSection as Record<string, unknown>
+    const completedIds = sectionData['completed_analysis_ids']
+    if (Array.isArray(completedIds)) {
+      for (const identifier of completedIds) {
+        if (typeof identifier === 'string' && identifier === analysisId) {
+          completed.add(sectionKey)
+          break
+        }
+      }
+      if (completed.has(sectionKey)) {
+        continue
+      }
+    }
+
+    const runs = sectionData['analysis_runs']
+    if (!runs || typeof runs !== 'object') {
+      continue
+    }
+    const run = (runs as Record<string, unknown>)[analysisId]
+    if (run && typeof run === 'object' && isSectionRunComplete(run as Record<string, unknown>)) {
+      completed.add(sectionKey)
+    }
+  }
+
+  return Array.from(completed)
+}
+
+function isSectionRunComplete(run: Record<string, unknown>): boolean {
+  const percent = run['progress_percent']
+  if (typeof percent === 'number' && percent >= 100) {
+    return true
+  }
+  if (typeof percent === 'string' && Number.parseFloat(percent) >= 100) {
+    return true
+  }
+
+  const completedAt = run['completed_at']
+  return typeof completedAt === 'string' && completedAt.length > 0
+}
+
+function extractLegacyAnalysisRun(
   metadata: Record<string, unknown> | undefined,
   analysisId: string
 ): Record<string, unknown> | null {
@@ -28,11 +90,11 @@ function extractAnalysisRun(
   return run as Record<string, unknown>
 }
 
-function extractCompletedSectionsForAnalysis(
+function extractLegacyCompletedSections(
   metadata: Record<string, unknown> | undefined,
   analysisId: string
 ): string[] {
-  const run = extractAnalysisRun(metadata, analysisId)
+  const run = extractLegacyAnalysisRun(metadata, analysisId)
   if (!run) {
     return []
   }
@@ -43,6 +105,17 @@ function extractCompletedSectionsForAnalysis(
   }
 
   return raw.filter((item): item is string => typeof item === 'string')
+}
+
+function extractCompletedSectionsForAnalysis(
+  metadata: Record<string, unknown> | undefined,
+  analysisId: string
+): string[] {
+  const fromSections = extractCompletedSectionsFromSectionsMetadata(metadata, analysisId)
+  if (fromSections.length > 0) {
+    return fromSections
+  }
+  return extractLegacyCompletedSections(metadata, analysisId)
 }
 
 interface GuidedFilingStepperProps {

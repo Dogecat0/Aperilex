@@ -50,6 +50,7 @@ export {
 } from './useAnalysisLibrary'
 export {
   useLearningProgress,
+  type UseLearningProgressOptions,
   type LearningProgressRecord,
   type UpdateProgressInput,
   type RecordWalkthroughEventInput,

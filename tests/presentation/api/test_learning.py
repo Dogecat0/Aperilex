@@ -127,26 +127,59 @@ class FakeLearningService:
     async def record_walkthrough_event(self, *args, **kwargs):  # type: ignore[no-untyped-def]
         self.walkthrough_event_calls += 1
         self.last_walkthrough_payload = (args, kwargs)
+        analysis_id = kwargs.get("analysis_id", uuid4())
+        section_key = kwargs.get("section_key")
+        progress_percent = kwargs.get("progress_percent", 0)
+        completed_at = kwargs.get("completed_at")
+        completed_iso = completed_at.isoformat() if completed_at else None
+        analysis_runs = {
+            str(analysis_id): {
+                "completed_sections": ([section_key] if section_key else []),
+                "progress_percent": progress_percent,
+                "last_event_at": completed_iso,
+            }
+        }
+        if progress_percent >= 100 and completed_iso:
+            analysis_runs[str(analysis_id)]["completed_at"] = completed_iso
+
+        sections: dict[str, dict[str, object]] = {}
+        if section_key:
+            section_entry: dict[str, object] = {
+                "analysis_runs": {
+                    str(analysis_id): {
+                        "progress_percent": progress_percent,
+                        "last_event_at": completed_iso,
+                    }
+                },
+                "latest_analysis_id": str(analysis_id),
+                "latest_progress_percent": progress_percent,
+                "last_event_at": completed_iso,
+                "progress_percent": progress_percent,
+            }
+            if progress_percent >= 100 and completed_iso:
+                section_entry["analysis_runs"][str(analysis_id)]["completed_at"] = completed_iso
+                section_entry["completed_at"] = completed_iso
+                section_entry["completed_analysis_ids"] = [str(analysis_id)]
+            else:
+                section_entry["analysis_runs"][str(analysis_id)].pop("completed_at", None)
+                section_entry["completed_analysis_ids"] = []
+            sections[section_key] = section_entry
+
         progress = LearningProgress(
             schema_version=1,
             progress_id=LearningProgressId(uuid4()),
             user_id=kwargs.get("user_id") or self.user_id,
             module_key=kwargs.get("module_key", "module"),
-            progress_percent=kwargs.get("progress_percent", 0),
-            last_interaction_at=kwargs.get("completed_at"),
-            completed_at=kwargs.get("completed_at"),
+            progress_percent=progress_percent,
+            last_interaction_at=completed_at,
+            completed_at=completed_at,
             metadata={
-                "analysis_walkthroughs": {
-                    str(kwargs.get("analysis_id", uuid4())): {
-                        "completed_sections": (
-                            [kwargs["section_key"]] if kwargs.get("section_key") else []
-                        ),
-                        "progress_percent": kwargs.get("progress_percent", 0),
-                    }
-                }
+                "analysis_walkthroughs": analysis_runs,
+                "sections": sections,
+                "section_progress_version": 1,
             },
-            created_at=kwargs.get("completed_at"),
-            updated_at=kwargs.get("completed_at"),
+            created_at=completed_at,
+            updated_at=completed_at,
         )
         self.progress_records.append(progress)
         return progress
@@ -212,7 +245,7 @@ def fake_learning_service(user_id: UserId) -> FakeLearningService:
         schema_version=1,
         progress_id=LearningProgressId(uuid4()),
         user_id=user_id,
-        module_key="mda-101",
+        module_key="mda_foundations",
         progress_percent=40,
         last_interaction_at=now,
         completed_at=None,
@@ -270,7 +303,7 @@ def fake_binding_query_service() -> FakeBindingQueryService:
             artifact_id="artifact-1",
             artifact_type=LearningWalkthroughArtifactType.COMPREHENSION_CHECK,
             lesson_id="lesson-1",
-            learning_module_key="mda-101",
+            learning_module_key="mda_foundations",
             module_stage="fundamentals",
             lesson_title="Liquidity quiz",
             status=LearningReviewStatus.APPROVED,
@@ -283,7 +316,7 @@ def fake_binding_query_service() -> FakeBindingQueryService:
             artifact_id="artifact-2",
             artifact_type=LearningWalkthroughArtifactType.HIGHLIGHT,
             lesson_id="lesson-2",
-            learning_module_key="risk-signal",
+            learning_module_key="risk_mastery",
             module_stage="orientation",
             lesson_title="Risk overview",
             status=LearningReviewStatus.PENDING,
@@ -358,7 +391,7 @@ async def test_upsert_learning_progress_updates_existing_entry(
     fake_learning_service: FakeLearningService,
 ) -> None:
     response = await api_client.put(
-        "/api/learning/progress/mda-101",
+        "/api/learning/progress/mda_foundations",
         json={"progress_percent": 100, "metadata": {"streak_days": 3}},
     )
 
@@ -368,7 +401,7 @@ async def test_upsert_learning_progress_updates_existing_entry(
     assert body["completed_at"] is not None
     assert fake_learning_service.upsert_calls == 1
     assert fake_learning_service.last_upsert_payload is not None
-    assert fake_learning_service.last_upsert_payload.module_key == "mda-101"
+    assert fake_learning_service.last_upsert_payload.module_key == "mda_foundations"
     assert fake_learning_service.last_upsert_payload.progress_percent == 100
 
 
@@ -390,6 +423,9 @@ async def test_record_walkthrough_event_endpoint(
     assert response.status_code == status.HTTP_201_CREATED
     payload = response.json()
     assert payload["progress_percent"] == 100
+    section_meta = payload["metadata"].get("sections", {})
+    assert section_meta.get("section-1", {}).get("progress_percent") == 100
+    assert payload["metadata"].get("section_progress_version") == 1
     assert fake_learning_service.walkthrough_event_calls == 1
 
 
@@ -414,7 +450,7 @@ async def test_list_module_bindings_returns_records(
     api_client: AsyncClient,
     fake_binding_query_service: FakeBindingQueryService,
 ) -> None:
-    response = await api_client.get("/api/learning/modules/mda-101/bindings")
+    response = await api_client.get("/api/learning/modules/mda_foundations/bindings")
 
     assert response.status_code == status.HTTP_200_OK
     payload = response.json()

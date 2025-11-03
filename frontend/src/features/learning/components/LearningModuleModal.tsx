@@ -86,7 +86,7 @@ export function LearningModuleModal({
     data: bindings = [],
     isLoading: bindingsLoading,
     isError: bindingsError,
-  } = useLearningModuleBindings(module.key, { enabled: true })
+  } = useLearningModuleBindings(module.moduleKey, { enabled: true })
 
   const pendingReviewCount = useMemo(() => {
     const recorded = progress?.pendingReviewCount ?? 0

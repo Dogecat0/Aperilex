@@ -3,7 +3,7 @@ export const learningProgressResponses = [
     schema_version: 1,
     progress_id: 'progress-mda',
     user_id: 'user-123',
-    module_key: 'mda-101',
+    module_key: 'mda_foundations',
     progress_percent: 60,
     last_interaction_at: '2025-01-05T10:00:00Z',
     completed_at: null,
@@ -12,7 +12,34 @@ export const learningProgressResponses = [
     last_reviewed_at: null,
     is_unlocked: false,
     unlocked_at: null,
-    metadata: { streak_days: 3 },
+    metadata: {
+      streak_days: 3,
+      section_progress_version: 1,
+      last_walkthrough_event_at: '2025-01-05T10:00:00Z',
+      last_walkthrough_analysis_id: '11111111-1111-1111-1111-111111111111',
+      sections: {
+        'Item 7 - Management Discussion & Analysis': {
+          analysis_runs: {
+            '11111111-1111-1111-1111-111111111111': {
+              progress_percent: 60,
+              last_event_at: '2025-01-05T10:00:00Z',
+            },
+          },
+          latest_analysis_id: '11111111-1111-1111-1111-111111111111',
+          latest_progress_percent: 60,
+          last_event_at: '2025-01-05T10:00:00Z',
+          progress_percent: 60,
+          completed_analysis_ids: [],
+        },
+      },
+      analysis_walkthroughs: {
+        '11111111-1111-1111-1111-111111111111': {
+          progress_percent: 60,
+          last_event_at: '2025-01-05T10:00:00Z',
+          completed_sections: [],
+        },
+      },
+    },
     created_at: '2025-01-05T09:00:00Z',
     updated_at: '2025-01-05T10:00:00Z',
   },
@@ -20,7 +47,7 @@ export const learningProgressResponses = [
     schema_version: 1,
     progress_id: 'progress-risk',
     user_id: 'user-123',
-    module_key: 'risk-signal',
+    module_key: 'risk_mastery',
     progress_percent: 20,
     last_interaction_at: '2025-01-03T14:30:00Z',
     completed_at: null,
@@ -29,7 +56,34 @@ export const learningProgressResponses = [
     last_reviewed_at: null,
     is_unlocked: false,
     unlocked_at: null,
-    metadata: { streak_days: 1 },
+    metadata: {
+      streak_days: 1,
+      section_progress_version: 1,
+      last_walkthrough_event_at: '2025-01-03T14:30:00Z',
+      last_walkthrough_analysis_id: '11111111-1111-1111-1111-111111111111',
+      sections: {
+        'Item 1A - Risk Factors': {
+          analysis_runs: {
+            '11111111-1111-1111-1111-111111111111': {
+              progress_percent: 20,
+              last_event_at: '2025-01-03T14:30:00Z',
+            },
+          },
+          latest_analysis_id: '11111111-1111-1111-1111-111111111111',
+          latest_progress_percent: 20,
+          last_event_at: '2025-01-03T14:30:00Z',
+          progress_percent: 20,
+          completed_analysis_ids: [],
+        },
+      },
+      analysis_walkthroughs: {
+        '11111111-1111-1111-1111-111111111111': {
+          progress_percent: 20,
+          last_event_at: '2025-01-03T14:30:00Z',
+          completed_sections: [],
+        },
+      },
+    },
     created_at: '2025-01-03T14:00:00Z',
     updated_at: '2025-01-03T14:30:00Z',
   },

@@ -56,23 +56,23 @@ describe('useLearningModules', () => {
     await waitFor(() => expect(result.current.isSuccess).toBe(true))
 
     const modules = result.current.data ?? []
-    expect(modules).toHaveLength(3)
+    expect(modules).toHaveLength(2)
 
-    const mdaModule = modules.find((module) => module.key === 'mda-101')
+    const mdaModule = modules.find((module) => module.moduleKey === 'mda_foundations')
     expect(mdaModule?.context?.analysisId).toBe(latestAnalysisId)
+    expect(mdaModule?.title).toBe('MD&A Guided Review')
+    expect(mdaModule?.duration).toBe('9 min walkthrough')
+    expect(mdaModule?.summary).toContain('Connect commentary')
     expect(mdaModule?.context?.sectionName).toBe('Management Discussion & Analysis')
-    expect(mdaModule?.summary).toContain('Margin expansion stems from services mix')
     expect(mdaModule?.context?.walkthrough?.title).toBe('MD&A Guided Review')
+    expect(mdaModule?.context?.guidanceWhyItMatters).toContain('stakeholders')
     expect(mdaModule?.context?.lessonBindings).toHaveLength(2)
-    expect(mdaModule?.context?.lessonBindings[0]?.source).toBe('highlight')
+    expect(mdaModule?.context?.estimatedDurationMinutes).toBe(9)
 
-    const riskModule = modules.find((module) => module.key === 'risk-signal')
-    expect(riskModule?.context?.highlight).toContain('Regulatory risk persists')
+    const riskModule = modules.find((module) => module.moduleKey === 'risk_mastery')
+    expect(riskModule?.duration).toBe('7 min walkthrough')
+    expect(riskModule?.context?.highlight).toContain('Regulators continue probing App Store policies')
     expect(riskModule?.context?.lessonBindings.every((binding) => binding.sectionKey)).toBe(true)
     expect(riskModule?.context?.previousComparison?.pro_tip).toContain('high-severity highlight')
-
-    const cashflowModule = modules.find((module) => module.key === 'cashflow-insights')
-    expect(cashflowModule?.context?.highlight).toContain('Free cash flow softened')
-    expect(cashflowModule?.context?.walkthrough).toBeNull()
   })
 })

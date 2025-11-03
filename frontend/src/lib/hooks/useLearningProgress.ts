@@ -7,6 +7,7 @@ import {
   learningProgressSchema,
   type LearningProgressResponse,
 } from '@/lib/types/learning'
+import type { LearningModule } from './useLearningModules'
 
 const PROGRESS_QUERY_KEY = ['learning-progress'] as const
 
@@ -93,6 +94,17 @@ interface MutationContext {
   previous: LearningProgressRecord[]
 }
 
+export interface UseLearningProgressOptions {
+  modules?: LearningModule[]
+}
+
+interface ModuleDescriptor {
+  key: string
+  title: string
+  summary: string
+  duration: string
+}
+
 function normalizeProgress(response: LearningProgressResponse): LearningProgressRecord {
   return {
     schemaVersion: response.schema_version,
@@ -164,10 +176,11 @@ function toTimestamp(value: string | null | undefined): number {
 }
 
 function computeDashboardHighlights(
-  progressMap: Record<string, LearningProgressRecord>
+  progressMap: Record<string, LearningProgressRecord>,
+  descriptors: ModuleDescriptor[]
 ): LearningDashboardHighlights {
-  const aggregates = learningModuleCatalog.map((meta) => {
-    const record = progressMap[meta.key]
+  const aggregates = descriptors.map((descriptor) => {
+    const record = progressMap[descriptor.key]
     const progressPercent = record?.progressPercent ?? 0
     const pendingReviewCount = record?.pendingReviewCount ?? 0
     const streakCount = record?.streakCount ?? 0
@@ -176,7 +189,7 @@ function computeDashboardHighlights(
       progressPercent >= 100 ? 'completed' : progressPercent > 0 ? 'in_progress' : 'queued'
 
     return {
-      meta,
+      descriptor,
       record,
       progressPercent,
       pendingReviewCount,
@@ -229,12 +242,12 @@ function computeDashboardHighlights(
       if (aTimestamp !== bTimestamp) {
         return aTimestamp - bTimestamp
       }
-      return a.meta.title.localeCompare(b.meta.title)
+      return a.descriptor.title.localeCompare(b.descriptor.title)
     })
     .slice(0, 3)
     .map((aggregate) => ({
-      moduleKey: aggregate.meta.key,
-      title: aggregate.meta.title,
+      moduleKey: aggregate.descriptor.key,
+      title: aggregate.descriptor.title,
       progressPercent: aggregate.progressPercent,
       pendingReviewCount: aggregate.pendingReviewCount,
       status: aggregate.status,
@@ -260,15 +273,15 @@ function computeDashboardHighlights(
       if (aTimestamp !== bTimestamp) {
         return aTimestamp - bTimestamp
       }
-      return a.meta.title.localeCompare(b.meta.title)
+      return a.descriptor.title.localeCompare(b.descriptor.title)
     })[0]
 
   const nextLesson = nextLessonSource
     ? {
-        moduleKey: nextLessonSource.meta.key,
-        title: nextLessonSource.meta.title,
-        summary: nextLessonSource.meta.summary,
-        duration: nextLessonSource.meta.duration,
+        moduleKey: nextLessonSource.descriptor.key,
+        title: nextLessonSource.descriptor.title,
+        summary: nextLessonSource.descriptor.summary,
+        duration: nextLessonSource.descriptor.duration,
         progressPercent: nextLessonSource.progressPercent,
         isUnlocked: nextLessonSource.isUnlocked,
         pendingReviewCount: nextLessonSource.pendingReviewCount,
@@ -290,7 +303,59 @@ function computeDashboardHighlights(
   }
 }
 
-export function useLearningProgress() {
+function resolveModuleDescriptors(
+  modules: LearningModule[] | undefined,
+  progressMap: Record<string, LearningProgressRecord>
+): ModuleDescriptor[] {
+  const descriptorMap = new Map<string, ModuleDescriptor>()
+
+  if (modules) {
+    for (const module of modules) {
+      if (!descriptorMap.has(module.moduleKey)) {
+        descriptorMap.set(module.moduleKey, {
+          key: module.moduleKey,
+          title: module.title,
+          summary: module.summary,
+          duration: module.duration,
+        })
+      }
+    }
+  }
+
+  for (const meta of learningModuleCatalog) {
+    if (!descriptorMap.has(meta.key)) {
+      descriptorMap.set(meta.key, {
+        key: meta.key,
+        title: meta.title,
+        summary: meta.summary,
+        duration: meta.duration,
+      })
+    }
+  }
+
+  for (const moduleKey of Object.keys(progressMap)) {
+    if (!descriptorMap.has(moduleKey)) {
+      descriptorMap.set(moduleKey, {
+        key: moduleKey,
+        title: formatTitleFromKey(moduleKey),
+        summary: 'Keep practicing this module to unlock advanced walkthroughs.',
+        duration: 'Guided practice',
+      })
+    }
+  }
+
+  return Array.from(descriptorMap.values())
+}
+
+function formatTitleFromKey(key: string): string {
+  return key
+    .replace(/[_-]+/g, ' ')
+    .split(' ')
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ')
+}
+
+export function useLearningProgress(options?: UseLearningProgressOptions) {
   const queryClient = useQueryClient()
   const [error, setError] = useState<string | null>(null)
 
@@ -314,9 +379,14 @@ export function useLearningProgress() {
     return map
   }, [progress])
 
+  const moduleDescriptors = useMemo(
+    () => resolveModuleDescriptors(options?.modules, progressByModule),
+    [options?.modules, progressByModule]
+  )
+
   const dashboardHighlights = useMemo(
-    () => computeDashboardHighlights(progressByModule),
-    [progressByModule]
+    () => computeDashboardHighlights(progressByModule, moduleDescriptors),
+    [progressByModule, moduleDescriptors]
   )
 
   const updateMutation = useMutation<

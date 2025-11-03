@@ -12,7 +12,7 @@ const moduleBindingsResponse = [
     artifact_id: 'artifact-1',
     artifact_type: 'COMPREHENSION_CHECK',
     lesson_id: 'lesson-1',
-    learning_module_key: 'mda-101',
+    learning_module_key: 'mda_foundations',
     module_stage: 'fundamentals',
     lesson_title: 'Margin quiz',
     status: 'APPROVED',
@@ -49,7 +49,7 @@ beforeEach(() => {
         filing_id: mockPaginatedAnalysesResponse.items[0].filing_id,
       }
     }
-    if (path === '/learning/modules/mda-101/bindings') {
+    if (path === '/learning/modules/mda_foundations/bindings') {
       return moduleBindingsResponse
     }
     throw new Error(`Unexpected GET path: ${path}`)
@@ -66,7 +66,7 @@ beforeEach(() => {
     if (path === '/learning/quiz-attempts') {
       return quizAttemptResponses[0]
     }
-    if (path === '/learning/progress/mda-101/reviews/schedule') {
+    if (path === '/learning/progress/mda_foundations/reviews/schedule') {
       const pendingCount = options?.body?.pending_review_count ?? 1
       const scheduledFor = options?.body?.scheduled_for ?? '2025-01-07T09:00:00Z'
       return {
@@ -95,7 +95,7 @@ describe('LearningHubPage', () => {
 
     expect(await screen.findByText('60% complete')).toBeInTheDocument()
     expect(screen.getByText((content) => content.includes('Score 67%'))).toBeInTheDocument()
-    const summarySnippets = await screen.findAllByText(/Margin expansion stems/)
+    const summarySnippets = await screen.findAllByText(/Connect commentary to margin movements/i)
     expect(summarySnippets.length).toBeGreaterThan(0)
     const detailLink = screen.getByRole('link', {
       name: /View Management Discussion & Analysis/i,
@@ -155,7 +155,7 @@ describe('LearningHubPage', () => {
 
     await waitFor(() => expect(putSpy).toHaveBeenCalledTimes(1))
     expect(putSpy).toHaveBeenCalledWith(
-      '/learning/progress/mda-101',
+      '/learning/progress/mda_foundations',
       expect.objectContaining({
         body: expect.objectContaining({ progress_percent: 100 }),
       })
@@ -200,7 +200,7 @@ describe('LearningHubPage', () => {
 
     await waitFor(() =>
       expect(postSpy).toHaveBeenCalledWith(
-        '/learning/progress/mda-101/reviews/schedule',
+        '/learning/progress/mda_foundations/reviews/schedule',
         expect.objectContaining({
           body: expect.objectContaining({ pending_review_count: 2 }),
         })

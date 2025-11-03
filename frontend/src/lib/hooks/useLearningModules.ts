@@ -1,7 +1,9 @@
 import { useQuery } from '@tanstack/react-query'
+
 import { apiClient } from '@/lib/apiClient'
 import {
   getLearningModuleMeta,
+  learningModuleCatalog,
   type LearningModuleMeta,
   type ModuleFocusTab,
 } from '@/lib/learning/moduleCatalog'
@@ -10,9 +12,9 @@ import {
   paginatedAnalysesSchema,
   type AnalysisResponse,
   type PaginatedAnalysesResponse,
-  type SectionAnalysis,
   type WalkthroughPreviousComparison,
 } from '@/lib/types/analysis'
+
 import {
   normaliseFilingDetail,
   type FilingDetailData,
@@ -23,6 +25,7 @@ import {
 const DEFAULT_ANALYSIS_SAMPLE = 12
 const DEFAULT_STALE_TIME_MS = 5 * 60 * 1000
 const DEFAULT_GC_TIME_MS = 15 * 60 * 1000
+const DEFAULT_DURATION_LABEL = 'Guided walkthrough'
 
 export interface LearningModuleContext {
   analysisId: string
@@ -32,15 +35,20 @@ export interface LearningModuleContext {
   filingDate?: string | null
   sectionName?: string
   sectionKey?: string | null
-  highlight?: string
+  highlight?: string | null
   sentimentScore?: number | null
   walkthrough?: GuidedWalkthroughSection | null
   previousComparison?: WalkthroughPreviousComparison | null
   lessonBindings: SectionLessonBinding[]
+  guidanceFocus?: string | null
+  guidanceWhyItMatters?: string | null
+  estimatedDurationMinutes?: number | null
 }
 
 export interface LearningModule {
   key: string
+  moduleKey: string
+  sectionKey: string
   title: string
   duration: string
   summary: string
@@ -49,44 +57,10 @@ export interface LearningModule {
   context?: LearningModuleContext
 }
 
-interface ModuleDefinition extends LearningModuleMeta {
-  derive: (detail: FilingDetailData) => DerivedModuleContext | null
-}
-
-interface DerivedModuleContext {
-  summary: string
-  highlight?: string
-  focusSection?: string
-  walkthrough?: GuidedWalkthroughSection | null
-}
-
 interface UseLearningModulesOptions {
   analysisLimit?: number
   enabled?: boolean
 }
-
-function requireMeta(key: string): LearningModuleMeta {
-  const meta = getLearningModuleMeta(key)
-  if (!meta) {
-    throw new Error(`Missing learning module metadata for key: ${key}`)
-  }
-  return meta
-}
-
-const MODULE_DEFINITIONS: ModuleDefinition[] = [
-  {
-    ...requireMeta('mda-101'),
-    derive: deriveMdaContext,
-  },
-  {
-    ...requireMeta('risk-signal'),
-    derive: deriveRiskContext,
-  },
-  {
-    ...requireMeta('cashflow-insights'),
-    derive: deriveCashflowContext,
-  },
-]
 
 export function useLearningModules(options?: UseLearningModulesOptions) {
   const analysisLimit = options?.analysisLimit ?? DEFAULT_ANALYSIS_SAMPLE
@@ -117,49 +91,53 @@ async function fetchLearningModules(limit: number): Promise<LearningModule[]> {
 
   const candidates = listResponse.items ?? []
   const detailCache = new Map<string, FilingDetailData | null>()
+  const moduleMap = new Map<string, LearningModule>()
+  const orderedKeys: string[] = []
 
-  const modules = await Promise.all(
-    MODULE_DEFINITIONS.map(async (definition) => {
-      const derived = await deriveModule(definition, candidates, detailCache)
-      return finalizeModule(definition, derived)
-    })
-  )
-
-  return modules
-}
-
-async function deriveModule(
-  definition: ModuleDefinition,
-  analyses: AnalysisResponse[],
-  cache: Map<string, FilingDetailData | null>
-): Promise<DerivedModuleResult | null> {
-  for (const candidate of analyses) {
-    const detail = await fetchAnalysisDetail(candidate.analysis_id, cache)
-    if (!detail) {
-      continue
-    }
-
-    const derived = definition.derive(detail)
-    if (derived) {
-      return {
-        detail,
-        summary: derived.summary,
-        highlight: derived.highlight,
-        focusSection: derived.focusSection,
-        walkthrough: derived.walkthrough ?? null,
+  for (const candidate of candidates) {
+    const modules = await deriveModulesFromAnalysis(candidate, detailCache)
+    for (const module of modules) {
+      if (!moduleMap.has(module.key)) {
+        moduleMap.set(module.key, module)
+        orderedKeys.push(module.key)
       }
     }
   }
 
-  return null
+  if (orderedKeys.length === 0) {
+    return buildFallbackModules()
+  }
+
+  return orderedKeys
+    .map((identifier) => moduleMap.get(identifier))
+    .filter((value): value is LearningModule => Boolean(value))
 }
 
-interface DerivedModuleResult {
-  detail: FilingDetailData
-  summary: string
-  highlight?: string
-  focusSection?: string
-  walkthrough?: GuidedWalkthroughSection | null
+async function deriveModulesFromAnalysis(
+  analysis: AnalysisResponse,
+  cache: Map<string, FilingDetailData | null>
+): Promise<LearningModule[]> {
+  const detail = await fetchAnalysisDetail(analysis.analysis_id, cache)
+  if (!detail) {
+    return []
+  }
+
+  const sections = [...detail.guidedSections].sort(
+    (a, b) => a.display_order - b.display_order
+  )
+
+  const modules: LearningModule[] = []
+  for (const section of sections) {
+    if (!section.learning_module_key) {
+      continue
+    }
+    const module = buildModuleFromSection(detail, section)
+    if (module) {
+      modules.push(module)
+    }
+  }
+
+  return modules
 }
 
 async function fetchAnalysisDetail(
@@ -184,235 +162,174 @@ async function fetchAnalysisDetail(
   }
 }
 
-function finalizeModule(
-  definition: ModuleDefinition,
-  derived: DerivedModuleResult | null
-): LearningModule {
-  if (!derived) {
-    return {
-      key: definition.key,
-      title: definition.title,
-      duration: definition.duration,
-      summary: definition.summary,
-      focusTab: definition.focusTab,
-      focusSection: definition.defaultFocusSection,
-      context: undefined,
-    }
-  }
-
-  const { detail, focusSection, highlight, summary, walkthrough } = derived
-  const analysis = detail.analysis
-  const focus =
-    focusSection ?? walkthrough?.section_key ?? definition.defaultFocusSection ?? undefined
-  const snapshot = buildAnalysisSnapshot(analysis)
-  const sentimentScore = getSectionSentiment(analysis, focus)
-  const lessonBindings =
-    walkthrough != null
-      ? detail.lessonBindings.filter((binding) => binding.sectionKey === walkthrough.section_key)
-      : []
-
-  return {
-    key: definition.key,
-    title: definition.title,
-    duration: definition.duration,
-    summary,
-    focusTab: definition.focusTab,
-    focusSection: focus,
-    context: {
-      analysisId: analysis.analysis_id,
-      filingId: analysis.filing_id,
-      companyName: snapshot.companyName,
-      filingType: snapshot.filingType,
-      filingDate: snapshot.filingDate,
-      sectionName: focus,
-      sectionKey: walkthrough?.section_key ?? null,
-      highlight,
-      sentimentScore,
-      walkthrough: walkthrough ?? null,
-      previousComparison: walkthrough?.previous_comparison ?? null,
-      lessonBindings,
-    },
-  }
-}
-
-function deriveMdaContext(detail: FilingDetailData): DerivedModuleContext | null {
-  const sectionContext = resolveSectionContext(detail, ['management discussion', 'mda', 'md&a'])
-  if (!sectionContext) {
-    return null
-  }
-
-  const { section, walkthrough } = sectionContext
-  const analysis = detail.analysis
-  const structured = detail.structured ?? analysis.full_results?.structured_data ?? null
-  const highlight = firstNonEmptyString([
-    section.section_summary,
-    section.consolidated_insights?.find(Boolean),
-    section.critical_findings?.find(Boolean),
-    structured?.key_insights?.find((insight) =>
-      typeof insight === 'string' ? /management|margin|tone/i.test(insight) : false
-    ),
-    walkthrough?.highlights[0]?.summary ?? null,
-  ])
-
-  if (!highlight) {
-    return null
-  }
-
-  return {
-    summary: buildFullSummary(analysis, section.section_name, highlight),
-    highlight,
-    focusSection: section.section_name,
-    walkthrough,
-  }
-}
-
-function deriveRiskContext(detail: FilingDetailData): DerivedModuleContext | null {
-  const sectionContext = resolveSectionContext(detail, ['risk factors', 'risk factor'])
-  if (!sectionContext) {
-    return null
-  }
-
-  const { section, walkthrough } = sectionContext
-  const analysis = detail.analysis
-  const structured = detail.structured ?? analysis.full_results?.structured_data ?? null
-  const highlight = firstNonEmptyString([
-    section.critical_findings?.find(Boolean),
-    section.section_summary,
-    section.consolidated_insights?.find(Boolean),
-    structured?.opportunities?.find((opportunity) =>
-      typeof opportunity === 'string' ? /risk|exposure|mitigation/i.test(opportunity) : false
-    ),
-    walkthrough?.highlights[0]?.summary ?? null,
-  ])
-
-  if (!highlight) {
-    return null
-  }
-
-  return {
-    summary: buildFullSummary(analysis, section.section_name, highlight),
-    highlight,
-    focusSection: section.section_name,
-    walkthrough,
-  }
-}
-
-function deriveCashflowContext(detail: FilingDetailData): DerivedModuleContext | null {
-  const sectionContext = resolveSectionContext(detail, [
-    'financial statements',
-    'liquidity',
-    'cash flow',
-  ])
-  if (!sectionContext) {
-    return null
-  }
-
-  const { section, walkthrough } = sectionContext
-  const analysis = detail.analysis
-  const interpretations = collectInterpretations(section)
-  const structured = detail.structured ?? analysis.full_results?.structured_data ?? null
-  const primaryInsight = firstNonEmptyString([
-    interpretations[0],
-    section.section_summary,
-    structured?.key_insights?.find((insight) =>
-      typeof insight === 'string' ? /cash|liquidity|flow/i.test(insight) : false
-    ),
-    walkthrough?.highlights[0]?.summary ?? null,
-  ])
-
-  if (!primaryInsight) {
-    return null
-  }
-
-  const secondary = interpretations.length > 1 ? interpretations[1] : null
-  const combined = secondary ? `${primaryInsight} ${secondary}` : primaryInsight
-
-  return {
-    summary: buildFullSummary(analysis, section.section_name, combined),
-    highlight: primaryInsight,
-    focusSection: section.section_name,
-    walkthrough,
-  }
-}
-
-function resolveSectionContext(
+function buildModuleFromSection(
   detail: FilingDetailData,
-  matchers: string[]
-): { section: SectionAnalysis; walkthrough: GuidedWalkthroughSection | null } | null {
-  const structuredSections =
-    detail.structured?.section_analyses ??
-    detail.analysis.full_results?.structured_data?.section_analyses ??
-    []
-
-  if (!structuredSections.length) {
+  section: GuidedWalkthroughSection
+): LearningModule | null {
+  const moduleKey = section.learning_module_key
+  const rawSectionKey = section.section_key ?? section.title ?? moduleKey
+  if (!moduleKey || !rawSectionKey) {
     return null
   }
 
-  const normalizedMatchers = matchers.map(normalizeSectionName)
+  const override = getLearningModuleMeta(moduleKey)
+  const highlight = selectHighlight(section)
+  const summary = composeSummary(section, override, highlight)
+  const duration = formatDuration(section, override)
+  const title = resolveModuleTitle(section, override, moduleKey)
+  const sectionKey = rawSectionKey
+  const focusTab = override?.focusTab ?? 'sections'
+  const focusSection =
+    stripSectionPrefix(section.section_key) ??
+    override?.defaultFocusSection ??
+    section.title ??
+    undefined
+  const context = buildModuleContext(detail, section, highlight)
 
-  const section =
-    structuredSections.find((candidate) => {
-      const name = candidate.section_name
-      if (typeof name !== 'string') {
-        return false
-      }
-      const normalized = normalizeSectionName(name)
-      return normalizedMatchers.some((matcher) => normalized.includes(matcher))
-    }) ?? null
-
-  if (!section) {
-    return null
+  return {
+    key: buildModuleCardKey(moduleKey, sectionKey),
+    moduleKey,
+    sectionKey,
+    title,
+    duration,
+    summary,
+    focusTab,
+    focusSection,
+    context,
   }
-
-  const walkthrough = matchGuidedSection(detail.guidedSections, section.section_name)
-  return { section, walkthrough }
 }
 
-function matchGuidedSection(
-  sections: GuidedWalkthroughSection[],
-  sectionName?: string | null
-): GuidedWalkthroughSection | null {
-  if (!sectionName) {
-    return null
+function buildFallbackModules(): LearningModule[] {
+  return learningModuleCatalog.map((meta) => ({
+    key: `${meta.key}::fallback`,
+    moduleKey: meta.key,
+    sectionKey: meta.defaultFocusSection ?? meta.key,
+    title: meta.title,
+    duration: meta.duration,
+    summary: meta.summary,
+    focusTab: meta.focusTab,
+    focusSection: meta.defaultFocusSection,
+    context: undefined,
+  }))
+}
+
+function buildModuleCardKey(moduleKey: string, sectionKey: string): string {
+  const normalized = normalizeSectionSlug(sectionKey)
+  return `${moduleKey}::${normalized}`
+}
+
+function normalizeSectionSlug(value: string): string {
+  const normalized = normalizeSectionName(value)
+  if (!normalized) {
+    return 'section'
+  }
+  return normalized.replace(/\s+/g, '-')
+}
+
+function resolveModuleTitle(
+  section: GuidedWalkthroughSection,
+  override: LearningModuleMeta | undefined,
+  moduleKey: string
+): string {
+  const explicitTitle = section.title?.trim()
+  if (explicitTitle) {
+    return explicitTitle
   }
 
-  const normalizedTarget = normalizeSectionName(sectionName)
-
-  for (const walkthrough of sections) {
-    const normalizedKey = normalizeSectionName(walkthrough.section_key)
-    if (
-      normalizedKey === normalizedTarget ||
-      normalizedKey.includes(normalizedTarget) ||
-      normalizedTarget.includes(normalizedKey)
-    ) {
-      return walkthrough
-    }
-
-    const normalizedTitle = normalizeSectionName(walkthrough.title)
-    if (normalizedTitle === normalizedTarget) {
-      return walkthrough
-    }
+  const sectionLabel = stripSectionPrefix(section.section_key)
+  if (sectionLabel) {
+    return sectionLabel
   }
 
+  if (override?.title) {
+    return override.title
+  }
+
+  return formatTitleFromKey(moduleKey)
+}
+
+function formatDuration(
+  section: GuidedWalkthroughSection,
+  override: LearningModuleMeta | undefined
+): string {
+  const estimated = section.estimated_duration_minutes
+  if (typeof estimated === 'number' && Number.isFinite(estimated) && estimated > 0) {
+    return `${Math.round(estimated)} min walkthrough`
+  }
+  return override?.duration ?? DEFAULT_DURATION_LABEL
+}
+
+function selectHighlight(section: GuidedWalkthroughSection): string | null {
+  for (const item of section.highlights) {
+    if (typeof item.summary === 'string' && item.summary.trim()) {
+      return item.summary.trim()
+    }
+    if (typeof item.title === 'string' && item.title.trim()) {
+      return item.title.trim()
+    }
+  }
   return null
 }
 
-function collectInterpretations(section: SectionAnalysis): string[] {
-  const interpretations: string[] = []
+function composeSummary(
+  section: GuidedWalkthroughSection,
+  override: LearningModuleMeta | undefined,
+  highlight: string | null
+): string {
+  const focus = section.guidance?.focus?.trim()
+  const why = section.guidance?.why_it_matters?.trim()
 
-  section.sub_sections?.forEach((subSection) => {
-    const raw = subSection.analysis
-    if (!raw || typeof raw !== 'object') {
-      return
-    }
-    const node = raw as Record<string, unknown>
-    const interpretation = node.interpretation ?? node.commentary ?? node.summary
-    if (typeof interpretation === 'string' && interpretation.trim()) {
-      interpretations.push(interpretation.trim())
-    }
-  })
+  if (focus && why) {
+    return `${focus} — ${why}`
+  }
+  if (focus) {
+    return focus
+  }
+  if (why) {
+    return why
+  }
+  if (highlight) {
+    return highlight
+  }
+  return override?.summary ?? 'Revisit this walkthrough to connect the findings back to the filing.'
+}
 
-  return interpretations
+function buildModuleContext(
+  detail: FilingDetailData,
+  section: GuidedWalkthroughSection,
+  highlight: string | null
+): LearningModuleContext {
+  const analysis = detail.analysis
+  const snapshot = buildAnalysisSnapshot(analysis)
+  const sectionLabel = stripSectionPrefix(section.section_key) ?? section.title ?? null
+  const lessonBindings = detail.lessonBindings.filter(
+    (binding) => binding.sectionKey === section.section_key
+  )
+  const sentimentScore = getSectionSentiment(
+    analysis,
+    section.section_key ?? section.title ?? null
+  )
+
+  return {
+    analysisId: analysis.analysis_id,
+    filingId: analysis.filing_id,
+    companyName: snapshot.companyName,
+    filingType: snapshot.filingType,
+    filingDate: snapshot.filingDate,
+    sectionName: sectionLabel ?? undefined,
+    sectionKey: section.section_key ?? null,
+    highlight,
+    sentimentScore,
+    walkthrough: section,
+    previousComparison: section.previous_comparison ?? null,
+    lessonBindings,
+    guidanceFocus: section.guidance?.focus ?? null,
+    guidanceWhyItMatters: section.guidance?.why_it_matters ?? null,
+    estimatedDurationMinutes:
+      typeof section.estimated_duration_minutes === 'number'
+        ? section.estimated_duration_minutes
+        : null,
+  }
 }
 
 interface AnalysisSnapshot {
@@ -451,52 +368,6 @@ function buildAnalysisSnapshot(analysis: AnalysisResponse): AnalysisSnapshot {
   }
 }
 
-function buildFullSummary(
-  analysis: AnalysisResponse,
-  sectionName: string | undefined,
-  detail: string
-): string {
-  const prefix = buildContextPrefix(analysis, sectionName)
-  return prefix ? `${prefix} - ${detail}` : detail
-}
-
-function buildContextPrefix(analysis: AnalysisResponse, sectionName?: string): string {
-  const snapshot = buildAnalysisSnapshot(analysis)
-  const parts: string[] = [snapshot.companyName]
-
-  if (snapshot.filingType) {
-    parts.push(snapshot.filingType)
-  }
-
-  const dateLabel = formatDateLabel(snapshot.filingDate)
-  if (dateLabel) {
-    parts.push(dateLabel)
-  }
-
-  if (sectionName) {
-    parts.push(sectionName)
-  }
-
-  return parts.filter(Boolean).join(' · ')
-}
-
-function formatDateLabel(value?: string | null): string | null {
-  if (!value) {
-    return null
-  }
-
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) {
-    return null
-  }
-
-  return date.toLocaleDateString(undefined, {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-  })
-}
-
 function getSectionSentiment(
   analysis: AnalysisResponse,
   sectionName?: string | null
@@ -521,19 +392,23 @@ function getSectionSentiment(
   return typeof average === 'number' ? average : null
 }
 
-function firstNonEmptyString(values: Array<string | null | undefined>): string | null {
-  for (const value of values) {
-    if (typeof value !== 'string') {
-      continue
-    }
-
-    const trimmed = value.trim()
-    if (trimmed) {
-      return trimmed
-    }
+function stripSectionPrefix(value?: string | null): string | null {
+  if (!value) {
+    return null
   }
+  const stripped = value.replace(
+    /^(part\s+[ivx]+\s+)?item\s+[0-9a-z.-]+\s*[-:–—:]?\s*/i,
+    ''
+  )
+  return stripped.trim() || null
+}
 
-  return null
+function formatTitleFromKey(key: string): string {
+  return key
+    .replace(/[_-]+/g, ' ')
+    .split(' ')
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ')
 }
 
 function normalizeSectionName(name: string): string {

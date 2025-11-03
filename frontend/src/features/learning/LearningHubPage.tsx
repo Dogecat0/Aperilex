@@ -92,7 +92,7 @@ export function LearningHubPage() {
     scheduleReview,
     error: progressError,
     clearError: clearProgressError,
-  } = useLearningProgress()
+  } = useLearningProgress({ modules: learningModules })
 
   const {
     attempts,
@@ -113,7 +113,7 @@ export function LearningHubPage() {
     return learningModules.find((item) => item.key === activeModuleKey) ?? null
   }, [activeModuleKey, learningModules])
 
-  const activeProgress = activeModuleKey ? progressByModule[activeModuleKey] : undefined
+  const activeProgress = activeModule ? progressByModule[activeModule.moduleKey] : undefined
 
   const moduleErrorMessage = modulesError
     ? modulesErrorValue instanceof Error
@@ -358,7 +358,8 @@ export function LearningHubPage() {
         ) : null}
 
         {learningModules.map((module) => {
-          const record = progressByModule[module.key]
+          const record = progressByModule[module.moduleKey]
+          const context = module.context
           const progressPercent = record?.progressPercent ?? 0
           const statusLabel =
             progressPercent >= 100 ? 'Completed' : progressPercent > 0 ? 'In progress' : 'Queued'
@@ -368,7 +369,7 @@ export function LearningHubPage() {
               : progressPercent > 0
                 ? tokens.learning.accent
                 : tokens.status.neutral
-          const context = module.context
+          const pendingReviews = record?.pendingReviewCount ?? 0
           const hasContext = Boolean(context)
           const filingDateLabel = formatFilingDate(context?.filingDate)
           const sentimentBadge = context
@@ -377,6 +378,8 @@ export function LearningHubPage() {
                 tokens
               )
             : null
+          const guidanceFocus = context?.guidanceFocus?.trim()
+          const guidanceWhy = context?.guidanceWhyItMatters?.trim()
           const resumeDisabled = !hasContext
           const resumeLabel = progressPercent >= 100 ? 'Review module' : 'Resume module'
           const resumeTitle = !hasContext
@@ -454,11 +457,34 @@ export function LearningHubPage() {
                       Pro tip: {context.previousComparison.pro_tip}
                     </p>
                   )}
+                  {(guidanceFocus || guidanceWhy) && (
+                    <div className="space-y-1 text-xs text-[var(--text-secondary)]">
+                      {guidanceFocus && (
+                        <p>
+                          <span className="font-semibold text-[var(--text-primary)]">Focus:</span>{' '}
+                          {guidanceFocus}
+                        </p>
+                      )}
+                      {guidanceWhy && (
+                        <p>
+                          <span className="font-semibold text-[var(--text-primary)]">
+                            Why it matters:
+                          </span>{' '}
+                          {guidanceWhy}
+                        </p>
+                      )}
+                    </div>
+                  )}
                   {context.lessonBindings.length > 0 && (
                     <p className="text-xs text-[var(--text-secondary)]">
                       {context.lessonBindings.length}{' '}
                       {context.lessonBindings.length === 1 ? 'linked lesson' : 'linked lessons'}{' '}
                       ready
+                    </p>
+                  )}
+                  {pendingReviews > 0 && (
+                    <p className="text-xs font-semibold text-[var(--status-negative)]">
+                      {pendingReviews} pending review{pendingReviews === 1 ? '' : 's'}
                     </p>
                   )}
                   <div className="flex flex-wrap items-center gap-2 text-xs text-[var(--text-secondary)]">
@@ -539,7 +565,7 @@ export function LearningHubPage() {
                   type="button"
                   size="sm"
                   variant="ghost"
-                  onClick={() => handleMarkComplete(module.key)}
+                  onClick={() => handleMarkComplete(module.moduleKey)}
                   disabled={busy || progressPercent >= 100}
                   className="px-0 py-0 tracking-[0.18em]"
                   style={{
@@ -703,12 +729,14 @@ export function LearningHubPage() {
           onClose={handleCloseModule}
           onResume={async () => {
             try {
-              await handleResumeModule(activeModule.key)
+              await handleResumeModule(activeModule.moduleKey)
             } finally {
               handleCloseModule()
             }
           }}
-          onScheduleReview={(params) => handleScheduleModuleReview(activeModule.key, params)}
+          onScheduleReview={(params) =>
+            handleScheduleModuleReview(activeModule.moduleKey, params)
+          }
           isSchedulingReview={isSchedulingReview}
         />
       ) : null}

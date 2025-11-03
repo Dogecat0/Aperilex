@@ -276,14 +276,18 @@ class LearningService:
                 progress_percent=0,
                 last_interaction_at=completed_at,
                 completed_at=None,
-                metadata={"analysis_walkthroughs": {}},
+                metadata={
+                    "analysis_walkthroughs": {},
+                    "sections": {},
+                    "section_progress_version": 1,
+                },
                 schema_version=1,
                 streak_count=0,
                 pending_review_count=0,
                 last_reviewed_at=None,
                 is_unlocked=False,
                 unlocked_at=None,
-            )
+        )
 
         metadata = dict(progress.metadata or {})
         analysis_runs_raw = metadata.get("analysis_walkthroughs", {})
@@ -292,6 +296,13 @@ class LearningService:
             for run_key, run_data in analysis_runs_raw.items():
                 if isinstance(run_key, str) and isinstance(run_data, dict):
                     analysis_runs[run_key] = dict(run_data)
+
+        sections_raw = metadata.get("sections", {})
+        sections: dict[str, dict[str, Any]] = {}
+        if isinstance(sections_raw, dict):
+            for section_name, section_data in sections_raw.items():
+                if isinstance(section_name, str) and isinstance(section_data, dict):
+                    sections[section_name] = dict(section_data)
 
         run_key = str(analysis_id)
         run_data = analysis_runs.get(run_key, {})
@@ -320,9 +331,71 @@ class LearningService:
 
         analysis_runs[run_key] = run_data
 
+        if section_key:
+            section_entry = sections.get(section_key, {})
+            if not isinstance(section_entry, dict):
+                section_entry = {}
+
+            runs_raw = section_entry.get("analysis_runs", {})
+            section_runs: dict[str, dict[str, Any]] = {}
+            if isinstance(runs_raw, dict):
+                for key, value in runs_raw.items():
+                    if isinstance(key, str) and isinstance(value, dict):
+                        section_runs[key] = dict(value)
+
+            section_run = section_runs.get(run_key, {})
+            if not isinstance(section_run, dict):
+                section_run = {}
+
+            section_run["progress_percent"] = progress_percent
+            section_run["last_event_at"] = completed_at.isoformat()
+            if progress_percent >= 100:
+                section_run["completed_at"] = completed_at.isoformat()
+            else:
+                section_run.pop("completed_at", None)
+
+            section_runs[run_key] = section_run
+
+            section_completed_ids = sorted(
+                key
+                for key, value in section_runs.items()
+                if isinstance(value, dict)
+                and isinstance(value.get("progress_percent"), int | float)
+                and float(value["progress_percent"]) >= 100
+            )
+            section_progress_percent = max(
+                (
+                    int(value.get("progress_percent", 0))
+                    if isinstance(value, dict)
+                    and isinstance(value.get("progress_percent"), int | float)
+                    else 0
+                )
+                for value in section_runs.values()
+            )
+            section_entry.update(
+                {
+                    "analysis_runs": section_runs,
+                    "latest_analysis_id": run_key,
+                    "latest_progress_percent": progress_percent,
+                    "last_event_at": completed_at.isoformat(),
+                    "progress_percent": section_progress_percent,
+                    "completed_analysis_ids": section_completed_ids,
+                }
+            )
+            if section_progress_percent >= 100:
+                section_entry["completed_at"] = completed_at.isoformat()
+            else:
+                section_entry.pop("completed_at", None)
+
+            sections[section_key] = section_entry
+
         metadata["analysis_walkthroughs"] = analysis_runs
         metadata["last_walkthrough_event_at"] = completed_at.isoformat()
         metadata["last_walkthrough_analysis_id"] = run_key
+        metadata["sections"] = sections
+        metadata["section_progress_version"] = 1
+        if section_key:
+            metadata["last_walkthrough_section_key"] = section_key
         metadata.pop("completed_sections", None)
 
         updated_progress_percent = max(progress.progress_percent, progress_percent)
