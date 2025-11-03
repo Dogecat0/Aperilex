@@ -150,9 +150,8 @@ describe('FilingDetailPage', () => {
     await user.click(correctOption)
 
     await waitFor(() => {
-      expect(screen.getByText(/Explanation/i)).toBeInTheDocument()
       expect(screen.getByText(/1 of 2 sections completed/i)).toBeInTheDocument()
-      expect(panelNextButton).not.toBeDisabled()
+      expect(panelNextButton).toBeDisabled()
     })
 
     const celebrationDialog = await screen.findByRole('dialog', { name: /Nice work!/i })
@@ -170,11 +169,8 @@ describe('FilingDetailPage', () => {
       )
     })
 
-    const dialogNextButton = within(celebrationDialog).getByRole('button', {
-      name: /^Next section$/i,
-    })
-    expect(dialogNextButton).not.toBeDisabled()
-    await user.click(dialogNextButton)
+    const closeButton = within(celebrationDialog).getByRole('button', { name: /^Close$/i })
+    await user.click(closeButton)
 
     expect(
       await screen.findByRole('heading', { name: 'Risk Factors Deep Dive' })

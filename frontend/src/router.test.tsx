@@ -147,7 +147,7 @@ describe('App routing', () => {
     await screen.findByText('Stay on top of your filings')
 
     await user.click(await screen.findByRole('link', { name: 'Learning Hub' }))
-    await screen.findByText('Learning-first progress snapshot')
+    await screen.findByText('Learning Hub momentum overview')
 
     await user.click(await screen.findByRole('link', { name: 'Saved Items' }))
     await screen.findByText('Keep your research within reach')

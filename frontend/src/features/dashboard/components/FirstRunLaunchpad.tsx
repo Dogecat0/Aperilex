@@ -11,7 +11,7 @@ export function FirstRunLaunchpad() {
       }}
     >
       <div className="space-y-2">
-        <p className="text-sm font-semibold uppercase tracking-wide text-[var(--text-secondary)]">
+        <p className="text-sm font-semibold uppercase tracking-wide text-[var(--text-muted)]">
           First-run launchpad
         </p>
         <h2 className="text-xl font-semibold text-[var(--text-primary)]">

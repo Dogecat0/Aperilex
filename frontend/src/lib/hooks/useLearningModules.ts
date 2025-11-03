@@ -3,7 +3,6 @@ import { useQuery } from '@tanstack/react-query'
 import { apiClient } from '@/lib/apiClient'
 import {
   getLearningModuleMeta,
-  learningModuleCatalog,
   type LearningModuleMeta,
   type ModuleFocusTab,
 } from '@/lib/learning/moduleCatalog'
@@ -104,10 +103,6 @@ async function fetchLearningModules(limit: number): Promise<LearningModule[]> {
     }
   }
 
-  if (orderedKeys.length === 0) {
-    return buildFallbackModules()
-  }
-
   return orderedKeys
     .map((identifier) => moduleMap.get(identifier))
     .filter((value): value is LearningModule => Boolean(value))
@@ -122,9 +117,7 @@ async function deriveModulesFromAnalysis(
     return []
   }
 
-  const sections = [...detail.guidedSections].sort(
-    (a, b) => a.display_order - b.display_order
-  )
+  const sections = [...detail.guidedSections].sort((a, b) => a.display_order - b.display_order)
 
   const modules: LearningModule[] = []
   for (const section of sections) {
@@ -197,20 +190,6 @@ function buildModuleFromSection(
     focusSection,
     context,
   }
-}
-
-function buildFallbackModules(): LearningModule[] {
-  return learningModuleCatalog.map((meta) => ({
-    key: `${meta.key}::fallback`,
-    moduleKey: meta.key,
-    sectionKey: meta.defaultFocusSection ?? meta.key,
-    title: meta.title,
-    duration: meta.duration,
-    summary: meta.summary,
-    focusTab: meta.focusTab,
-    focusSection: meta.defaultFocusSection,
-    context: undefined,
-  }))
 }
 
 function buildModuleCardKey(moduleKey: string, sectionKey: string): string {
@@ -305,10 +284,7 @@ function buildModuleContext(
   const lessonBindings = detail.lessonBindings.filter(
     (binding) => binding.sectionKey === section.section_key
   )
-  const sentimentScore = getSectionSentiment(
-    analysis,
-    section.section_key ?? section.title ?? null
-  )
+  const sentimentScore = getSectionSentiment(analysis, section.section_key ?? section.title ?? null)
 
   return {
     analysisId: analysis.analysis_id,
@@ -396,10 +372,7 @@ function stripSectionPrefix(value?: string | null): string | null {
   if (!value) {
     return null
   }
-  const stripped = value.replace(
-    /^(part\s+[ivx]+\s+)?item\s+[0-9a-z.-]+\s*[-:–—:]?\s*/i,
-    ''
-  )
+  const stripped = value.replace(/^(part\s+[ivx]+\s+)?item\s+[0-9a-z.-]+\s*[-:–—:]?\s*/i, '')
   return stripped.trim() || null
 }
 

@@ -14,19 +14,36 @@ interface LearningProgressHeroProps {
 }
 
 export function LearningProgressHero({ highlights, isLoading }: LearningProgressHeroProps) {
-  const { streakDays, completion, weakestTopics, nextLesson } = highlights
+  const {
+    streakDays,
+    completion,
+    sectionSummary,
+    pendingReviewTotal,
+    weakestTopics,
+    nextLesson,
+    activeAnalyses,
+  } = highlights
   const progressPending = isLoading
 
   return (
     <FeatureHero
       overline="Learning Hub"
-      title="Learning Hub progress snapshot"
-      description="Keep your walkthrough streak alive, finish Learning Hub modules, and head straight to your next lesson."
+      title="Learning Hub momentum overview"
+      description="Track guided walkthrough streaks, section coverage, and review backlog sourced from your latest filing modules."
     >
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <StreakCard streakDays={streakDays} isLoading={progressPending} />
-        <CompletionCard completion={completion} isLoading={progressPending} />
-        <WeakestTopicsCard topics={weakestTopics} isLoading={progressPending} />
+        <CompletionCard
+          completion={completion}
+          activeAnalyses={activeAnalyses}
+          isLoading={progressPending}
+        />
+        <SectionSummaryCard
+          summary={sectionSummary}
+          pendingReviewTotal={pendingReviewTotal}
+          topics={weakestTopics}
+          isLoading={progressPending}
+        />
         <NextLessonCard recommendation={nextLesson} isLoading={progressPending} />
       </div>
     </FeatureHero>
@@ -52,28 +69,40 @@ function StreakCard({ streakDays, isLoading }: { streakDays: number; isLoading: 
 
 function CompletionCard({
   completion,
+  activeAnalyses,
   isLoading,
 }: {
   completion: LearningDashboardHighlights['completion']
+  activeAnalyses: number
   isLoading: boolean
 }) {
-  const totalModules = completion.total || 1
-  const progressRatio = Math.min(Math.max(completion.completed / totalModules, 0), 1)
+  const totalModules = Math.max(completion.total, 0)
+  const activeModules = completion.completed + completion.inProgress
+  const notStarted = Math.max(totalModules - activeModules, 0)
+  const completionRatio =
+    totalModules > 0 ? Math.min(Math.max(completion.completed / totalModules, 0), 1) : 0
 
   return (
-    <ArticleShell eyebrow="Learning Hub completion">
+    <ArticleShell eyebrow="Module coverage">
       {isLoading ? (
-        <Skeleton className="h-6 w-28" />
+        <>
+          <Skeleton className="h-6 w-28" />
+          <Skeleton className="mt-2 h-4 w-32" />
+        </>
       ) : (
-        <p className="text-lg font-semibold text-[var(--text-primary)]">
-          {completion.completed}/{completion.total} Learning Hub module
-          {completion.total === 1 ? '' : 's'} complete
-        </p>
+        <>
+          <p className="text-lg font-semibold text-[var(--text-primary)]">
+            {activeModules}/{completion.total} module{completion.total === 1 ? '' : 's'} active
+          </p>
+          <p className="text-xs text-[var(--text-secondary)]">
+            {completion.completed} completed • {notStarted} not started
+          </p>
+        </>
       )}
       <div className="h-2 rounded-full bg-[var(--lines-subtle)]/60">
         <div
           className="h-2 rounded-full bg-[var(--status-positive)] transition-[width]"
-          style={{ width: `${Math.round(progressRatio * 100)}%` }}
+          style={{ width: `${Math.round(completionRatio * 100)}%` }}
         />
       </div>
       <dl className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-[var(--text-secondary)]">
@@ -82,65 +111,98 @@ function CompletionCard({
           <dd>{completion.inProgress}</dd>
         </div>
         <div>
-          <dt className="font-semibold uppercase tracking-[0.12em]">Queued</dt>
-          <dd>{completion.queued}</dd>
+          <dt className="font-semibold uppercase tracking-[0.12em]">Completed</dt>
+          <dd>{completion.completed}</dd>
         </div>
         <div>
-          <dt className="font-semibold uppercase tracking-[0.12em]">Unlocked</dt>
-          <dd>{completion.unlocked}</dd>
+          <dt className="font-semibold uppercase tracking-[0.12em]">Not started</dt>
+          <dd>{notStarted}</dd>
         </div>
         <div>
-          <dt className="font-semibold uppercase tracking-[0.12em]">Locked</dt>
-          <dd>{completion.locked}</dd>
+          <dt className="font-semibold uppercase tracking-[0.12em]">Active analyses</dt>
+          <dd>{activeAnalyses}</dd>
         </div>
       </dl>
     </ArticleShell>
   )
 }
 
-function WeakestTopicsCard({
+function SectionSummaryCard({
+  summary,
+  pendingReviewTotal,
   topics,
   isLoading,
 }: {
+  summary: LearningDashboardHighlights['sectionSummary']
+  pendingReviewTotal: number
   topics: ModuleWeakness[]
   isLoading: boolean
 }) {
+  const completionPercent =
+    summary.total > 0 ? Math.round((summary.completed / summary.total) * 100) : 0
+  const activeSections = summary.completed + summary.inProgress
+
   return (
-    <ArticleShell eyebrow="Weakest topics">
+    <ArticleShell eyebrow="Progress backlog">
       {isLoading ? (
         <div className="space-y-2">
           <Skeleton className="h-4 w-3/4" />
           <Skeleton className="h-4 w-5/6" />
           <Skeleton className="h-4 w-2/3" />
         </div>
-      ) : topics.length === 0 ? (
-        <p className="text-sm text-[var(--text-secondary)]">
-          No review backlog right now. Keep practicing guided walkthroughs to surface focus areas.
-        </p>
       ) : (
-        <ul className="space-y-2">
-          {topics.map((topic) => (
-            <li
-              key={topic.moduleKey}
-              className="rounded-xl border px-3 py-2"
-              style={{
-                borderColor: 'var(--lines-subtle)',
-                background: 'var(--surfaces-muted)',
-              }}
+        <>
+          <div className="flex items-baseline justify-between gap-3">
+            <p className="text-lg font-semibold text-[var(--text-primary)]">
+              {summary.completed}/{summary.total} section{summary.total === 1 ? '' : 's'} complete
+            </p>
+            <span
+              className="text-xs font-semibold uppercase tracking-[0.18em]"
+              style={{ color: 'var(--status-negative)' }}
             >
-              <p className="text-sm font-semibold text-[var(--text-primary)]">{topic.title}</p>
-              <p className="text-xs text-[var(--text-secondary)]">
-                {formatStatus(topic.status)} • {topic.progressPercent}% complete
-              </p>
-              {topic.pendingReviewCount > 0 ? (
-                <p className="text-xs font-semibold text-[var(--status-negative)]">
-                  {topic.pendingReviewCount} pending review
-                  {topic.pendingReviewCount === 1 ? '' : 's'}
-                </p>
-              ) : null}
-            </li>
-          ))}
-        </ul>
+              Pending reviews {pendingReviewTotal}
+            </span>
+          </div>
+          <p className="text-xs text-[var(--text-secondary)]">
+            {activeSections} active · {summary.inProgress} in progress · {summary.queued} queued
+          </p>
+          <div className="mt-2 h-2 rounded-full bg-[var(--lines-subtle)]/60">
+            <div
+              className="h-2 rounded-full bg-[var(--learning-accent, var(--status-positive))] transition-[width]"
+              style={{ width: `${completionPercent}%` }}
+            />
+          </div>
+          {topics.length > 0 ? (
+            <ul className="mt-3 space-y-2">
+              {topics.slice(0, 3).map((topic) => (
+                <li
+                  key={topic.id}
+                  className="rounded-xl border px-3 py-2"
+                  style={{
+                    borderColor: 'var(--lines-subtle)',
+                    background: 'var(--surfaces-muted)',
+                  }}
+                >
+                  <p className="text-sm font-semibold text-[var(--text-primary)]">{topic.title}</p>
+                  <p className="text-xs text-[var(--text-secondary)]">
+                    {formatStatus(topic.status)} • {topic.progressPercent}% complete
+                  </p>
+                  {topic.pendingReviewCount > 0 ? (
+                    <p className="text-xs font-semibold text-[var(--status-negative)]">
+                      {topic.pendingReviewCount} pending review
+                      {topic.pendingReviewCount === 1 ? '' : 's'}
+                    </p>
+                  ) : null}
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="mt-3 text-xs text-[var(--text-secondary)]">
+              No focus backlog right now. Keep reinforcing guided walkthroughs to surface new
+              practice targets.
+            </p>
+          )}
+        </>
       )}
     </ArticleShell>
   )
@@ -171,6 +233,10 @@ function NextLessonCard({
               {recommendation.title}
             </p>
             <p className="text-sm text-[var(--text-secondary)]">{recommendation.summary}</p>
+            <p className="text-xs text-[var(--text-secondary)]">
+              {recommendation.progressPercent}% complete · {recommendation.pendingReviewCount}{' '}
+              pending review{recommendation.pendingReviewCount === 1 ? '' : 's'}
+            </p>
           </div>
           <div className="mt-auto flex flex-wrap items-center justify-between gap-3 pt-3">
             <span

@@ -35,7 +35,9 @@ describe('DashboardPage', () => {
     expect(screen.getByText(/Guided sections covered/i)).toBeInTheDocument()
     expect(screen.getByText(/Latest completion/i)).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /Run a new analysis/i })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /Resume latest walkthrough/i })).toBeInTheDocument()
+    expect(
+      await screen.findByRole('button', { name: /Resume latest walkthrough/i })
+    ).toBeInTheDocument()
 
     expect(await screen.findByText(/Continue where you left off/i)).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /KPI extract/i })).toBeInTheDocument()

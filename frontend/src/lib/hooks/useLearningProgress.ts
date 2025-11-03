@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { apiClient, ApiClientError } from '@/lib/apiClient'
-import { learningModuleCatalog } from '@/lib/learning/moduleCatalog'
+import { getLearningModuleMeta } from '@/lib/learning/moduleCatalog'
 import {
   learningProgressListSchema,
   learningProgressSchema,
@@ -56,7 +56,9 @@ export interface ScheduleReviewInput {
 export type ModuleProgressStatus = 'queued' | 'in_progress' | 'completed'
 
 export interface ModuleWeakness {
+  id: string
   moduleKey: string
+  sectionKey: string
   title: string
   progressPercent: number
   pendingReviewCount: number
@@ -68,6 +70,7 @@ export interface ModuleWeakness {
 
 export interface NextLessonRecommendation {
   moduleKey: string
+  sectionKey: string
   title: string
   summary: string
   duration: string
@@ -86,6 +89,14 @@ export interface LearningDashboardHighlights {
     unlocked: number
     locked: number
   }
+  sectionSummary: {
+    total: number
+    completed: number
+    inProgress: number
+    queued: number
+  }
+  pendingReviewTotal: number
+  activeAnalyses: number
   weakestTopics: ModuleWeakness[]
   nextLesson: NextLessonRecommendation | null
 }
@@ -105,6 +116,261 @@ interface ModuleDescriptor {
   duration: string
 }
 
+interface SectionSummaryAccumulator {
+  total: number
+  completed: number
+  inProgress: number
+  queued: number
+}
+
+interface SectionSnapshot {
+  id: string
+  moduleKey: string
+  sectionKey: string
+  title: string
+  summary: string
+  duration: string
+  progressPercent: number
+  pendingReviewCount: number
+  isUnlocked: boolean
+  status: ModuleProgressStatus
+  lastInteractionAt: string | null
+  lastReviewedAt: string | null
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null
+}
+
+function coerceNumber(...values: unknown[]): number | null {
+  for (const candidate of values) {
+    if (typeof candidate === 'number' && !Number.isNaN(candidate)) {
+      return candidate
+    }
+    if (typeof candidate === 'string') {
+      const parsed = Number(candidate)
+      if (!Number.isNaN(parsed)) {
+        return parsed
+      }
+    }
+  }
+  return null
+}
+
+function clampPercent(value: number): number {
+  if (!Number.isFinite(value)) {
+    return 0
+  }
+  if (value <= 0) {
+    return 0
+  }
+  if (value >= 100) {
+    return 100
+  }
+  return value
+}
+
+function makeSectionIdentifier(moduleKey: string, sectionKey: string): string {
+  return `${moduleKey}::${sectionKey}`
+}
+
+function extractSectionProgressPercent(
+  record: LearningProgressRecord | undefined,
+  sectionKey: string
+): number {
+  if (!record) {
+    return 0
+  }
+  const metadata = record.metadata
+  if (!isRecord(metadata)) {
+    return 0
+  }
+  const sections = (metadata as Record<string, unknown>).sections
+  if (!isRecord(sections)) {
+    return 0
+  }
+  const sectionEntry = (sections as Record<string, unknown>)[sectionKey]
+  if (!isRecord(sectionEntry)) {
+    return 0
+  }
+
+  const percent =
+    coerceNumber(
+      (sectionEntry as { progress_percent?: unknown }).progress_percent,
+      (sectionEntry as { latest_progress_percent?: unknown }).latest_progress_percent,
+      (sectionEntry as { latestProgressPercent?: unknown }).latestProgressPercent
+    ) ?? 0
+
+  return clampPercent(percent)
+}
+
+function getSectionEntry(
+  record: LearningProgressRecord | undefined,
+  sectionKey: string
+): Record<string, unknown> | null {
+  if (!record) {
+    return null
+  }
+  const metadata = record.metadata
+  if (!isRecord(metadata)) {
+    return null
+  }
+  const sections = (metadata as Record<string, unknown>).sections
+  if (!isRecord(sections)) {
+    return null
+  }
+  const rawSection = (sections as Record<string, unknown>)[sectionKey]
+  if (!isRecord(rawSection)) {
+    return null
+  }
+
+  return rawSection as Record<string, unknown>
+}
+
+function extractSectionPendingReviewCount(
+  sectionEntry: Record<string, unknown> | null,
+  fallback: number
+): number {
+  if (!sectionEntry) {
+    return Math.max(fallback, 0)
+  }
+
+  const pending = coerceNumber(
+    (sectionEntry as { pending_review_count?: unknown }).pending_review_count,
+    (sectionEntry as { pendingReviewCount?: unknown }).pendingReviewCount
+  )
+
+  if (pending === null) {
+    return Math.max(fallback, 0)
+  }
+
+  return Math.max(pending, 0)
+}
+
+function extractSectionLastInteractionAt(
+  sectionEntry: Record<string, unknown> | null,
+  fallback: string | null
+): string | null {
+  if (!sectionEntry) {
+    return fallback ?? null
+  }
+
+  const candidate =
+    (sectionEntry as { last_event_at?: unknown }).last_event_at ??
+    (sectionEntry as { lastEventAt?: unknown }).lastEventAt ??
+    (sectionEntry as { updated_at?: unknown }).updated_at ??
+    (sectionEntry as { updatedAt?: unknown }).updatedAt
+
+  return typeof candidate === 'string' && candidate ? candidate : (fallback ?? null)
+}
+
+function accumulateSectionProgress(
+  record: LearningProgressRecord | undefined,
+  accumulator: SectionSummaryAccumulator,
+  seenSections: Set<string>,
+  activeAnalyses: Set<string>
+) {
+  if (!record) {
+    return
+  }
+
+  const metadata = record.metadata
+  if (!isRecord(metadata)) {
+    return
+  }
+
+  const sections = (metadata as Record<string, unknown>).sections
+  if (isRecord(sections)) {
+    for (const [sectionKey, rawSection] of Object.entries(sections)) {
+      if (!sectionKey || !isRecord(rawSection)) {
+        continue
+      }
+
+      const sectionIdentifier = makeSectionIdentifier(record.moduleKey, sectionKey)
+      if (!seenSections.has(sectionIdentifier)) {
+        seenSections.add(sectionIdentifier)
+        accumulator.total += 1
+      }
+
+      const percent =
+        coerceNumber(
+          (rawSection as { progress_percent?: unknown }).progress_percent,
+          (rawSection as { latest_progress_percent?: unknown }).latest_progress_percent,
+          (rawSection as { latestProgressPercent?: unknown }).latestProgressPercent
+        ) ?? 0
+      const progressPercent = clampPercent(percent)
+
+      if (progressPercent >= 100) {
+        accumulator.completed += 1
+      } else if (progressPercent > 0) {
+        accumulator.inProgress += 1
+      }
+
+      const analysisRuns = (rawSection as Record<string, unknown>).analysis_runs
+      if (isRecord(analysisRuns)) {
+        for (const [analysisId, analysisRaw] of Object.entries(analysisRuns)) {
+          if (!analysisId || !isRecord(analysisRaw)) {
+            continue
+          }
+          const runProgress = coerceNumber(
+            (analysisRaw as { progress_percent?: unknown }).progress_percent,
+            (analysisRaw as { progressPercent?: unknown }).progressPercent
+          )
+          if (runProgress !== null && runProgress > 0) {
+            activeAnalyses.add(analysisId)
+          }
+        }
+      }
+
+      const latestAnalysisId = (rawSection as { latest_analysis_id?: unknown }).latest_analysis_id
+      const latestProgress = coerceNumber(
+        (rawSection as { latest_progress_percent?: unknown }).latest_progress_percent,
+        (rawSection as { latestProgressPercent?: unknown }).latestProgressPercent
+      )
+      if (
+        typeof latestAnalysisId === 'string' &&
+        latestAnalysisId &&
+        latestProgress !== null &&
+        latestProgress > 0
+      ) {
+        activeAnalyses.add(latestAnalysisId)
+      }
+    }
+  }
+
+  const walkthroughs = (metadata as Record<string, unknown>).analysis_walkthroughs
+  if (isRecord(walkthroughs)) {
+    for (const [analysisId, rawWalkthrough] of Object.entries(walkthroughs)) {
+      if (!analysisId || !isRecord(rawWalkthrough)) {
+        continue
+      }
+
+      const walkthroughEntry = rawWalkthrough as {
+        progress_percent?: unknown
+        progressPercent?: unknown
+        completed_sections?: unknown
+        completedSections?: unknown
+      }
+
+      const progressPercent = coerceNumber(
+        walkthroughEntry.progress_percent,
+        walkthroughEntry.progressPercent
+      )
+      const completedSections = walkthroughEntry.completed_sections
+      const completedSectionsAlt = walkthroughEntry.completedSections
+      const completedList = Array.isArray(completedSections)
+        ? completedSections
+        : Array.isArray(completedSectionsAlt)
+          ? completedSectionsAlt
+          : []
+
+      if ((progressPercent !== null && progressPercent > 0) || completedList.length > 0) {
+        activeAnalyses.add(analysisId)
+      }
+    }
+  }
+}
+
 function normalizeProgress(response: LearningProgressResponse): LearningProgressRecord {
   return {
     schemaVersion: response.schema_version,
@@ -122,6 +388,112 @@ function normalizeProgress(response: LearningProgressResponse): LearningProgress
     createdAt: response.created_at ?? null,
     updatedAt: response.updated_at ?? null,
   }
+}
+
+function collectActiveAnalysesForSection(
+  record: LearningProgressRecord | undefined,
+  sectionKey: string,
+  activeAnalyses: Set<string>
+) {
+  if (!record) {
+    return
+  }
+
+  const sectionEntry = getSectionEntry(record, sectionKey)
+  if (sectionEntry) {
+    const analysisRuns = (sectionEntry as Record<string, unknown>)['analysis_runs']
+    if (isRecord(analysisRuns)) {
+      for (const [analysisId, rawAnalysis] of Object.entries(analysisRuns)) {
+        if (!analysisId || !isRecord(rawAnalysis)) {
+          continue
+        }
+        const runProgress = coerceNumber(
+          (rawAnalysis as { progress_percent?: unknown }).progress_percent,
+          (rawAnalysis as { progressPercent?: unknown }).progressPercent
+        )
+        if (runProgress !== null && runProgress > 0) {
+          activeAnalyses.add(analysisId)
+        }
+      }
+    }
+
+    const latestAnalysisId = (sectionEntry as Record<string, unknown>)['latest_analysis_id']
+    const latestProgress = coerceNumber(
+      (sectionEntry as Record<string, unknown>)['latest_progress_percent'],
+      (sectionEntry as Record<string, unknown>)['latestProgressPercent']
+    )
+    if (
+      typeof latestAnalysisId === 'string' &&
+      latestAnalysisId &&
+      latestProgress !== null &&
+      latestProgress > 0
+    ) {
+      activeAnalyses.add(latestAnalysisId)
+    }
+  }
+
+  const metadata = record.metadata
+  if (!isRecord(metadata)) {
+    return
+  }
+
+  const walkthroughs = (metadata as Record<string, unknown>).analysis_walkthroughs
+  if (!isRecord(walkthroughs)) {
+    return
+  }
+
+  for (const [analysisId, rawWalkthrough] of Object.entries(walkthroughs)) {
+    if (!analysisId || !isRecord(rawWalkthrough)) {
+      continue
+    }
+
+    const walkthroughEntry = rawWalkthrough as {
+      progress_percent?: unknown
+      progressPercent?: unknown
+      completed_sections?: unknown
+      completedSections?: unknown
+    }
+
+    const progressPercent = coerceNumber(
+      walkthroughEntry.progress_percent,
+      walkthroughEntry.progressPercent
+    )
+
+    const completedSections = walkthroughEntry.completed_sections
+    const completedSectionsAlt = walkthroughEntry.completedSections
+
+    const completedList = Array.isArray(completedSections)
+      ? completedSections
+      : Array.isArray(completedSectionsAlt)
+        ? completedSectionsAlt
+        : []
+
+    if ((progressPercent !== null && progressPercent > 0) || completedList.includes(sectionKey)) {
+      activeAnalyses.add(analysisId)
+    }
+  }
+}
+
+function extractStreakDays(record: LearningProgressRecord | undefined): number {
+  if (!record) {
+    return 0
+  }
+
+  let streak = record.streakCount
+  const metadata = record.metadata
+
+  if (isRecord(metadata)) {
+    const metadataStreak = coerceNumber(
+      (metadata as { streak_days?: unknown }).streak_days,
+      (metadata as { streakDays?: unknown }).streakDays
+    )
+
+    if (metadataStreak !== null) {
+      streak = Math.max(streak, metadataStreak)
+    }
+  }
+
+  return Math.max(streak, 0)
 }
 
 function buildErrorMessage(error: unknown): string {
@@ -175,10 +547,21 @@ function toTimestamp(value: string | null | undefined): number {
   return Number.isNaN(parsed) ? Number.POSITIVE_INFINITY : parsed
 }
 
-function computeDashboardHighlights(
+function computeHighlightsFromDescriptors(
   progressMap: Record<string, LearningProgressRecord>,
-  descriptors: ModuleDescriptor[]
+  descriptors: ModuleDescriptor[],
+  modules: LearningModule[] | undefined
 ): LearningDashboardHighlights {
+  const sectionSummary: SectionSummaryAccumulator = {
+    total: 0,
+    completed: 0,
+    inProgress: 0,
+    queued: 0,
+  }
+  const seenSections = new Set<string>()
+  const activeAnalyses = new Set<string>()
+  let pendingReviewTotal = 0
+
   const aggregates = descriptors.map((descriptor) => {
     const record = progressMap[descriptor.key]
     const progressPercent = record?.progressPercent ?? 0
@@ -215,7 +598,40 @@ function computeDashboardHighlights(
       unlocked += 1
     }
     streakDays = Math.max(streakDays, aggregate.streakCount)
+
+    pendingReviewTotal += aggregate.pendingReviewCount
+    accumulateSectionProgress(aggregate.record, sectionSummary, seenSections, activeAnalyses)
   }
+
+  if (modules) {
+    for (const module of modules) {
+      const sectionKey = module.sectionKey
+      if (!sectionKey) {
+        continue
+      }
+      const identifier = makeSectionIdentifier(module.moduleKey, sectionKey)
+      if (seenSections.has(identifier)) {
+        continue
+      }
+      seenSections.add(identifier)
+      sectionSummary.total += 1
+
+      const sectionPercent = extractSectionProgressPercent(
+        progressMap[module.moduleKey],
+        sectionKey
+      )
+      if (sectionPercent >= 100) {
+        sectionSummary.completed += 1
+      } else if (sectionPercent > 0) {
+        sectionSummary.inProgress += 1
+      }
+    }
+  }
+
+  sectionSummary.queued = Math.max(
+    sectionSummary.total - sectionSummary.completed - sectionSummary.inProgress,
+    0
+  )
 
   const queued = Math.max(total - completed - inProgress, 0)
   const locked = Math.max(total - unlocked, 0)
@@ -246,7 +662,9 @@ function computeDashboardHighlights(
     })
     .slice(0, 3)
     .map((aggregate) => ({
+      id: aggregate.descriptor.key,
       moduleKey: aggregate.descriptor.key,
+      sectionKey: aggregate.descriptor.key,
       title: aggregate.descriptor.title,
       progressPercent: aggregate.progressPercent,
       pendingReviewCount: aggregate.pendingReviewCount,
@@ -279,6 +697,7 @@ function computeDashboardHighlights(
   const nextLesson = nextLessonSource
     ? {
         moduleKey: nextLessonSource.descriptor.key,
+        sectionKey: nextLessonSource.descriptor.key,
         title: nextLessonSource.descriptor.title,
         summary: nextLessonSource.descriptor.summary,
         duration: nextLessonSource.descriptor.duration,
@@ -298,9 +717,220 @@ function computeDashboardHighlights(
       unlocked,
       locked,
     },
+    sectionSummary,
+    pendingReviewTotal,
+    activeAnalyses: activeAnalyses.size,
     weakestTopics,
     nextLesson,
   }
+}
+
+function computeHighlightsFromModules(
+  progressMap: Record<string, LearningProgressRecord>,
+  modules: LearningModule[]
+): LearningDashboardHighlights {
+  const snapshots: SectionSnapshot[] = []
+  const seenSectionIdentifiers = new Set<string>()
+  const activeAnalyses = new Set<string>()
+  const pendingReviewKeys = new Set<string>()
+  const unlockedModuleKeys = new Set<string>()
+  let pendingReviewTotal = 0
+  let streakDays = 0
+
+  for (const module of modules) {
+    const sectionKey = module.sectionKey
+    if (!sectionKey) {
+      continue
+    }
+
+    const identifier = makeSectionIdentifier(module.moduleKey, sectionKey)
+    if (seenSectionIdentifiers.has(identifier)) {
+      continue
+    }
+    seenSectionIdentifiers.add(identifier)
+
+    const record = progressMap[module.moduleKey]
+    const sectionEntry = getSectionEntry(record, sectionKey)
+
+    let progressPercent = extractSectionProgressPercent(record, sectionKey)
+    const recordProgressPercent = clampPercent(record?.progressPercent ?? 0)
+    if (progressPercent === 0 && recordProgressPercent > 0) {
+      progressPercent = recordProgressPercent
+    }
+
+    if ((record?.completedAt || recordProgressPercent >= 100) && progressPercent < 100) {
+      progressPercent = 100
+    }
+
+    const status: ModuleProgressStatus =
+      progressPercent >= 100 ? 'completed' : progressPercent > 0 ? 'in_progress' : 'queued'
+    const pendingReviewCount = extractSectionPendingReviewCount(
+      sectionEntry,
+      record?.pendingReviewCount ?? 0
+    )
+    const lastInteractionAt = extractSectionLastInteractionAt(
+      sectionEntry,
+      record?.lastInteractionAt ?? null
+    )
+    const lastReviewedAt = record?.lastReviewedAt ?? null
+    const isUnlocked = record?.isUnlocked ?? false
+
+    if (record) {
+      const modulePending = Math.max(record.pendingReviewCount, 0)
+      if (!pendingReviewKeys.has(record.moduleKey)) {
+        pendingReviewTotal += modulePending
+        pendingReviewKeys.add(record.moduleKey)
+      }
+      if (record.isUnlocked) {
+        unlockedModuleKeys.add(record.moduleKey)
+      }
+      const streak = extractStreakDays(record)
+      streakDays = Math.max(streakDays, streak)
+    }
+
+    collectActiveAnalysesForSection(record, sectionKey, activeAnalyses)
+
+    snapshots.push({
+      id: identifier,
+      moduleKey: module.moduleKey,
+      sectionKey,
+      title: module.title,
+      summary: module.summary,
+      duration: module.duration,
+      progressPercent,
+      pendingReviewCount,
+      isUnlocked,
+      status,
+      lastInteractionAt,
+      lastReviewedAt,
+    })
+  }
+
+  if (snapshots.length === 0) {
+    const fallbackDescriptors = resolveModuleDescriptors(undefined, progressMap)
+    return computeHighlightsFromDescriptors(progressMap, fallbackDescriptors, undefined)
+  }
+
+  const total = snapshots.length
+  let completed = 0
+  let inProgress = 0
+
+  for (const snapshot of snapshots) {
+    if (snapshot.status === 'completed') {
+      completed += 1
+    } else if (snapshot.status === 'in_progress') {
+      inProgress += 1
+    }
+  }
+
+  const queued = Math.max(total - completed - inProgress, 0)
+  const sectionSummary = {
+    total,
+    completed,
+    inProgress,
+    queued,
+  }
+
+  const weakestTopics = snapshots
+    .filter(
+      (snapshot) =>
+        snapshot.pendingReviewCount > 0 || snapshot.status !== 'completed' || !snapshot.isUnlocked
+    )
+    .sort((a, b) => {
+      if (a.isUnlocked !== b.isUnlocked) {
+        return Number(b.isUnlocked) - Number(a.isUnlocked)
+      }
+      if (b.pendingReviewCount !== a.pendingReviewCount) {
+        return b.pendingReviewCount - a.pendingReviewCount
+      }
+      if (a.progressPercent !== b.progressPercent) {
+        return a.progressPercent - b.progressPercent
+      }
+      const aTimestamp = toTimestamp(a.lastInteractionAt)
+      const bTimestamp = toTimestamp(b.lastInteractionAt)
+      if (aTimestamp !== bTimestamp) {
+        return aTimestamp - bTimestamp
+      }
+      return a.title.localeCompare(b.title)
+    })
+    .slice(0, 3)
+    .map((snapshot) => ({
+      id: snapshot.id,
+      moduleKey: snapshot.moduleKey,
+      sectionKey: snapshot.sectionKey,
+      title: snapshot.title,
+      progressPercent: snapshot.progressPercent,
+      pendingReviewCount: snapshot.pendingReviewCount,
+      status: snapshot.status,
+      isUnlocked: snapshot.isUnlocked,
+      lastInteractionAt: snapshot.lastInteractionAt,
+      lastReviewedAt: snapshot.lastReviewedAt,
+    }))
+
+  const nextLessonSource = snapshots
+    .filter((snapshot) => snapshot.status !== 'completed')
+    .sort((a, b) => {
+      if (a.isUnlocked !== b.isUnlocked) {
+        return Number(b.isUnlocked) - Number(a.isUnlocked)
+      }
+      if (a.progressPercent !== b.progressPercent) {
+        return a.progressPercent - b.progressPercent
+      }
+      if (b.pendingReviewCount !== a.pendingReviewCount) {
+        return b.pendingReviewCount - a.pendingReviewCount
+      }
+      const aTimestamp = toTimestamp(a.lastInteractionAt)
+      const bTimestamp = toTimestamp(b.lastInteractionAt)
+      if (aTimestamp !== bTimestamp) {
+        return aTimestamp - bTimestamp
+      }
+      return a.title.localeCompare(b.title)
+    })[0]
+
+  const unlocked = unlockedModuleKeys.size
+  const locked = Math.max(total - unlocked, 0)
+
+  const nextLesson = nextLessonSource
+    ? {
+        moduleKey: nextLessonSource.moduleKey,
+        sectionKey: nextLessonSource.sectionKey,
+        title: nextLessonSource.title,
+        summary: nextLessonSource.summary,
+        duration: nextLessonSource.duration,
+        progressPercent: nextLessonSource.progressPercent,
+        isUnlocked: nextLessonSource.isUnlocked,
+        pendingReviewCount: nextLessonSource.pendingReviewCount,
+      }
+    : null
+
+  return {
+    streakDays,
+    completion: {
+      total,
+      completed,
+      inProgress,
+      queued,
+      unlocked,
+      locked,
+    },
+    sectionSummary,
+    pendingReviewTotal,
+    activeAnalyses: activeAnalyses.size,
+    weakestTopics,
+    nextLesson,
+  }
+}
+
+function computeDashboardHighlights(
+  progressMap: Record<string, LearningProgressRecord>,
+  descriptors: ModuleDescriptor[],
+  modules: LearningModule[] | undefined
+): LearningDashboardHighlights {
+  if (modules && modules.length > 0) {
+    return computeHighlightsFromModules(progressMap, modules)
+  }
+
+  return computeHighlightsFromDescriptors(progressMap, descriptors, modules)
 }
 
 function resolveModuleDescriptors(
@@ -322,24 +952,16 @@ function resolveModuleDescriptors(
     }
   }
 
-  for (const meta of learningModuleCatalog) {
-    if (!descriptorMap.has(meta.key)) {
-      descriptorMap.set(meta.key, {
-        key: meta.key,
-        title: meta.title,
-        summary: meta.summary,
-        duration: meta.duration,
-      })
-    }
-  }
-
   for (const moduleKey of Object.keys(progressMap)) {
     if (!descriptorMap.has(moduleKey)) {
+      const meta = getLearningModuleMeta(moduleKey)
       descriptorMap.set(moduleKey, {
         key: moduleKey,
-        title: formatTitleFromKey(moduleKey),
-        summary: 'Keep practicing this module to unlock advanced walkthroughs.',
-        duration: 'Guided practice',
+        title: meta?.title ?? formatTitleFromKey(moduleKey),
+        summary:
+          meta?.summary ??
+          'Keep practicing this module to unlock advanced walkthroughs anchored to real filings.',
+        duration: meta?.duration ?? 'Guided practice',
       })
     }
   }
@@ -385,8 +1007,8 @@ export function useLearningProgress(options?: UseLearningProgressOptions) {
   )
 
   const dashboardHighlights = useMemo(
-    () => computeDashboardHighlights(progressByModule, moduleDescriptors),
-    [progressByModule, moduleDescriptors]
+    () => computeDashboardHighlights(progressByModule, moduleDescriptors, options?.modules),
+    [progressByModule, moduleDescriptors, options?.modules]
   )
 
   const updateMutation = useMutation<

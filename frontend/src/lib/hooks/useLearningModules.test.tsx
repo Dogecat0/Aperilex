@@ -71,8 +71,42 @@ describe('useLearningModules', () => {
 
     const riskModule = modules.find((module) => module.moduleKey === 'risk_mastery')
     expect(riskModule?.duration).toBe('7 min walkthrough')
-    expect(riskModule?.context?.highlight).toContain('Regulators continue probing App Store policies')
+    expect(riskModule?.context?.highlight).toContain(
+      'Regulators continue probing App Store policies'
+    )
     expect(riskModule?.context?.lessonBindings.every((binding) => binding.sectionKey)).toBe(true)
     expect(riskModule?.context?.previousComparison?.pro_tip).toContain('high-severity highlight')
+  })
+
+  it('returns an empty module list when no analyses exist', async () => {
+    const emptyPaginatedAnalyses = {
+      schema_version: 2,
+      items: [],
+      pagination: {
+        schema_version: 1,
+        page: 1,
+        page_size: 8,
+        total_items: 0,
+        total_pages: 0,
+        has_next: false,
+        has_previous: false,
+        next_page: null,
+        previous_page: null,
+      },
+    }
+
+    getSpy.mockImplementation(async (path: string) => {
+      if (path === '/analyses') {
+        return emptyPaginatedAnalyses
+      }
+      throw new Error(`Unexpected GET path: ${path}`)
+    })
+
+    const wrapper = createWrapper()
+    const { result } = renderHook(() => useLearningModules(), { wrapper })
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+
+    expect(result.current.data).toEqual([])
   })
 })
