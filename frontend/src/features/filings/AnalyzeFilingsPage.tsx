@@ -39,7 +39,9 @@ function isDuplicateStatus(status: string | null | undefined) {
 function extractDuplicateInfo(task: TaskResponse): DuplicateInfo {
   const result = task.result
   const payload =
-    result && typeof result === 'object' && result !== null ? (result as Record<string, unknown>) : {}
+    result && typeof result === 'object' && result !== null
+      ? (result as Record<string, unknown>)
+      : {}
 
   const message =
     typeof payload.message === 'string'
@@ -450,9 +452,7 @@ export function AnalyzeFilingsPage() {
                 Template: <span className="font-medium">{duplicateInfo.analysisTemplate}</span>
               </p>
             ) : null}
-            {duplicateInfo.analysisStatus ? (
-              <p>Status: {duplicateInfo.analysisStatus}</p>
-            ) : null}
+            {duplicateInfo.analysisStatus ? <p>Status: {duplicateInfo.analysisStatus}</p> : null}
             {duplicateInfo.analysisCompletedAt || duplicateInfo.analysisCreatedAt ? (
               <p>
                 Generated:{' '}

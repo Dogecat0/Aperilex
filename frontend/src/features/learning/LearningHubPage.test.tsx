@@ -103,7 +103,7 @@ describe('LearningHubPage', () => {
     expect(detailLink).toHaveAttribute('href', `/filing/${latestAnalysisId}`)
   })
 
-  it('disables module resume actions when no filing context exists', async () => {
+  it('shows onboarding guidance when no analyses exist', async () => {
     const emptyPaginatedAnalyses = {
       schema_version: 2,
       items: [],
@@ -135,15 +135,12 @@ describe('LearningHubPage', () => {
 
     renderWithProviders(<LearningHubPage />)
 
-    const resumeButtons = await screen.findAllByRole('button', {
-      name: /Resume module/i,
-    })
-
-    expect(resumeButtons.length).toBeGreaterThan(0)
-    for (const button of resumeButtons) {
-      expect(button).toBeDisabled()
-      expect(button).toHaveAttribute('title', expect.stringContaining('analysis'))
-    }
+    expect(
+      await screen.findByText(/Launch a filing analysis from the dashboard/i)
+    ).toBeInTheDocument()
+    await waitFor(() =>
+      expect(screen.queryByRole('button', { name: /Resume module/i })).toBeNull()
+    )
   })
 
   it('marks a module complete via the optimistic update flow', async () => {

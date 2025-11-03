@@ -42,10 +42,7 @@ export function ComprehensionCheckCard({
   const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null)
   const [status, setStatus] = useState<AnswerStatus>('idle')
 
-  const distractorKey = useMemo(
-    () => check.distractors.join('\u0000'),
-    [check.distractors],
-  )
+  const distractorKey = useMemo(() => check.distractors.join('\u0000'), [check.distractors])
 
   const options = useMemo(() => {
     const ordered = [check.correct_answer, ...check.distractors]

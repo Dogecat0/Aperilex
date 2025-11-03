@@ -322,13 +322,7 @@ export function GuidedFilingStepper({
         notifiedSectionsRef.current.delete(section.section_key)
       }
     }
-  }, [
-    sections,
-    completedChecks,
-    notifySectionComplete,
-    isSectionComplete,
-    persistedSectionSet,
-  ])
+  }, [sections, completedChecks, notifySectionComplete, isSectionComplete, persistedSectionSet])
 
   const activeSection = sections[activeIndex]
   if (!activeSection) {

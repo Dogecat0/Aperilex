@@ -734,9 +734,7 @@ export function LearningHubPage() {
               handleCloseModule()
             }
           }}
-          onScheduleReview={(params) =>
-            handleScheduleModuleReview(activeModule.moduleKey, params)
-          }
+          onScheduleReview={(params) => handleScheduleModuleReview(activeModule.moduleKey, params)}
           isSchedulingReview={isSchedulingReview}
         />
       ) : null}
