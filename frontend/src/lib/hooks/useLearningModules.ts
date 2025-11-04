@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import { apiClient } from '@/lib/apiClient'
 import {
   getLearningModuleMeta,
+  type LearningModuleCtaKind,
   type LearningModuleMeta,
   type ModuleFocusTab,
 } from '@/lib/learning/moduleCatalog'
@@ -25,6 +26,31 @@ const DEFAULT_ANALYSIS_SAMPLE = 12
 const DEFAULT_STALE_TIME_MS = 5 * 60 * 1000
 const DEFAULT_GC_TIME_MS = 15 * 60 * 1000
 const DEFAULT_DURATION_LABEL = 'Guided walkthrough'
+
+export type LearningModuleCta =
+  | {
+      kind: 'walkthrough'
+      analysisId: string
+      focusTab: ModuleFocusTab
+      sectionKey?: string | null
+      sectionName?: string | null
+      focusSection?: string | null
+    }
+  | {
+      kind: 'lesson'
+      moduleKey: string
+      bindingId: string
+      lessonId: string
+      walkthroughSectionId: string
+    }
+
+const DEFAULT_CTA_BY_FOCUS: Record<ModuleFocusTab, LearningModuleCtaKind> = {
+  overview: 'walkthrough',
+  sections: 'walkthrough',
+  numbers: 'walkthrough',
+  sentiment: 'walkthrough',
+  raw: 'lesson',
+}
 
 export interface LearningModuleContext {
   analysisId: string
@@ -54,6 +80,7 @@ export interface LearningModule {
   focusTab: ModuleFocusTab
   focusSection?: string
   context?: LearningModuleContext
+  ctas: LearningModuleCta[]
 }
 
 interface UseLearningModulesOptions {
@@ -178,6 +205,7 @@ function buildModuleFromSection(
     section.title ??
     undefined
   const context = buildModuleContext(detail, section, highlight)
+  const ctas = buildModuleCtas(moduleKey, focusTab, focusSection, context, override)
 
   return {
     key: buildModuleCardKey(moduleKey, sectionKey),
@@ -189,6 +217,7 @@ function buildModuleFromSection(
     focusTab,
     focusSection,
     context,
+    ctas,
   }
 }
 
@@ -306,6 +335,97 @@ function buildModuleContext(
         ? section.estimated_duration_minutes
         : null,
   }
+}
+
+function selectPreferredCtaKind(
+  override: LearningModuleMeta | undefined,
+  focusTab: ModuleFocusTab,
+  context: LearningModuleContext
+): LearningModuleCtaKind {
+  if (override?.defaultCta) {
+    return override.defaultCta
+  }
+
+  const hasWalkthrough = Boolean(context.walkthrough)
+  const hasLessonBindings = context.lessonBindings.length > 0
+
+  if (focusTab === 'raw') {
+    return hasLessonBindings ? 'lesson' : 'walkthrough'
+  }
+
+  if (['overview', 'sections', 'numbers', 'sentiment'].includes(focusTab)) {
+    if (hasWalkthrough) {
+      return 'walkthrough'
+    }
+    if (hasLessonBindings) {
+      return 'lesson'
+    }
+  }
+
+  if (hasLessonBindings) {
+    return 'lesson'
+  }
+
+  return DEFAULT_CTA_BY_FOCUS[focusTab] ?? 'walkthrough'
+}
+
+function buildLessonCta(
+  moduleKey: string,
+  context: LearningModuleContext
+): LearningModuleCta | null {
+  if (context.lessonBindings.length === 0) {
+    return null
+  }
+
+  const [firstBinding] = context.lessonBindings
+  if (!firstBinding) {
+    return null
+  }
+
+  return {
+    kind: 'lesson',
+    moduleKey,
+    bindingId: firstBinding.id,
+    lessonId: firstBinding.lessonId,
+    walkthroughSectionId: firstBinding.walkthroughId,
+  }
+}
+
+function buildWalkthroughCta(
+  context: LearningModuleContext,
+  focusTab: ModuleFocusTab,
+  focusSection: string | undefined
+): LearningModuleCta | null {
+  if (!context.analysisId) {
+    return null
+  }
+
+  return {
+    kind: 'walkthrough',
+    analysisId: context.analysisId,
+    focusTab,
+    sectionKey: context.sectionKey ?? null,
+    sectionName: context.sectionName ?? null,
+    focusSection: focusSection ?? null,
+  }
+}
+
+function buildModuleCtas(
+  moduleKey: string,
+  focusTab: ModuleFocusTab,
+  focusSection: string | undefined,
+  context: LearningModuleContext,
+  override: LearningModuleMeta | undefined
+): LearningModuleCta[] {
+  const preferred = selectPreferredCtaKind(override, focusTab, context)
+  const lessonCta = buildLessonCta(moduleKey, context)
+  const walkthroughCta = buildWalkthroughCta(context, focusTab, focusSection)
+
+  if (preferred === 'lesson') {
+    return [...(lessonCta ? [lessonCta] : []), ...(walkthroughCta ? [walkthroughCta] : [])]
+  }
+
+  return [...(walkthroughCta ? [walkthroughCta] : []), ...(lessonCta ? [lessonCta] : [])]
 }
 
 interface AnalysisSnapshot {

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 
 import { Button } from '@/components/ui/Button'
 import { useLearningModuleBindings } from '@/lib/hooks'
@@ -17,6 +17,7 @@ interface LearningModuleModalProps {
   onResume: () => Promise<void>
   onScheduleReview: (params: ScheduleReviewParams) => Promise<void>
   isSchedulingReview: boolean
+  initialFocus?: 'overview' | 'lessons'
 }
 
 function formatDateLabel(value: string | null | undefined): string {
@@ -81,6 +82,7 @@ export function LearningModuleModal({
   onResume,
   onScheduleReview,
   isSchedulingReview,
+  initialFocus = 'overview',
 }: LearningModuleModalProps) {
   const {
     data: bindings = [],
@@ -124,6 +126,24 @@ export function LearningModuleModal({
       lastReviewedAt: binding.lastReviewedAt,
     }))
   }, [bindings, module.context])
+
+  const lessonSectionRef = useRef<HTMLDivElement | null>(null)
+
+  useEffect(() => {
+    if (initialFocus !== 'lessons') {
+      return
+    }
+    const target = lessonSectionRef.current
+    if (!target) {
+      return
+    }
+    if (typeof target.scrollIntoView === 'function') {
+      target.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }
+    if (typeof target.focus === 'function') {
+      target.focus({ preventScroll: true })
+    }
+  }, [initialFocus, lessonItems.length])
 
   const loadingState = bindingsLoading && bindings.length === 0
   const scheduleDisabled = !scheduleDate || isSchedulingReview
@@ -209,7 +229,11 @@ export function LearningModuleModal({
           </div>
         </div>
 
-        <div className="rounded-2xl border border-[var(--lines-subtle)] bg-[var(--surfaces-muted)] px-5 py-4">
+        <div
+          ref={lessonSectionRef}
+          className="rounded-2xl border border-[var(--lines-subtle)] bg-[var(--surfaces-muted)] px-5 py-4 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--text-primary)]"
+          tabIndex={initialFocus === 'lessons' ? -1 : undefined}
+        >
           <div className="flex items-center justify-between gap-3">
             <div>
               <h3 className="text-base font-semibold text-[var(--text-primary)]">

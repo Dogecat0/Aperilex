@@ -123,6 +123,8 @@ interface GuidedFilingStepperProps {
   sections: GuidedWalkthroughSection[]
   diffsBySection?: Record<string, WalkthroughPreviousComparison>
   onSectionComplete?: (section: GuidedWalkthroughSection) => void
+  initialSectionKey?: string | null
+  focusRequestKey?: string | number | null
 }
 
 export function GuidedFilingStepper({
@@ -130,13 +132,20 @@ export function GuidedFilingStepper({
   sections,
   diffsBySection = {},
   onSectionComplete,
+  initialSectionKey = null,
+  focusRequestKey = null,
 }: GuidedFilingStepperProps) {
   const [activeIndex, setActiveIndex] = useState(0)
   const [completedChecks, setCompletedChecks] = useState<CompletedChecksBySection>({})
   const [celebrationSection, setCelebrationSection] = useState<string | null>(null)
   const notifiedSectionsRef = useRef<Set<string>>(new Set())
   const hasUserNavigatedRef = useRef(false)
+  const pendingInitialSectionRef = useRef<string | null>(null)
   const { progressByModule, recordWalkthroughEvent } = useLearningProgress()
+
+  useEffect(() => {
+    pendingInitialSectionRef.current = initialSectionKey ?? null
+  }, [initialSectionKey, focusRequestKey])
 
   const persistedSectionKeys = useMemo(() => {
     const keys = new Set<string>()
@@ -247,12 +256,29 @@ export function GuidedFilingStepper({
       return
     }
 
-    const firstIncompleteIndex = sections.findIndex((section) => !isSectionComplete(section))
-    const targetIndex =
-      firstIncompleteIndex === -1 ? Math.max(0, sections.length - 1) : firstIncompleteIndex
+    let targetIndex: number | null = null
+    const desiredKey = pendingInitialSectionRef.current
+    let matchedFocus = false
+    if (desiredKey) {
+      const matchIndex = sections.findIndex((section) => section.section_key === desiredKey)
+      if (matchIndex !== -1) {
+        targetIndex = matchIndex
+        pendingInitialSectionRef.current = null
+        matchedFocus = true
+      }
+    }
 
-    if (targetIndex !== activeIndex) {
+    if (targetIndex === null) {
+      const firstIncompleteIndex = sections.findIndex((section) => !isSectionComplete(section))
+      targetIndex =
+        firstIncompleteIndex === -1 ? Math.max(0, sections.length - 1) : firstIncompleteIndex
+    }
+
+    if (typeof targetIndex === 'number' && targetIndex !== activeIndex) {
       setActiveIndex(targetIndex)
+      if (matchedFocus) {
+        hasUserNavigatedRef.current = true
+      }
     }
   }, [sections, isSectionComplete, activeIndex])
 

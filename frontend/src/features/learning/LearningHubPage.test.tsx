@@ -97,6 +97,8 @@ describe('LearningHubPage', () => {
     expect(screen.getByText((content) => content.includes('Score 67%'))).toBeInTheDocument()
     const summarySnippets = await screen.findAllByText(/Connect commentary to margin movements/i)
     expect(summarySnippets.length).toBeGreaterThan(0)
+    const lessonButtons = screen.getAllByRole('button', { name: /Review lessons/i })
+    expect(lessonButtons.length).toBeGreaterThan(0)
     const detailLink = screen.getByRole('link', {
       name: /View Management Discussion & Analysis/i,
     })
@@ -138,9 +140,7 @@ describe('LearningHubPage', () => {
     expect(
       await screen.findByText(/Launch a filing analysis from the dashboard/i)
     ).toBeInTheDocument()
-    await waitFor(() =>
-      expect(screen.queryByRole('button', { name: /Resume module/i })).toBeNull()
-    )
+    await waitFor(() => expect(screen.queryByRole('button', { name: /Resume module/i })).toBeNull())
   })
 
   it('marks a module complete via the optimistic update flow', async () => {
@@ -183,8 +183,10 @@ describe('LearningHubPage', () => {
   it('opens the module modal and schedules a review', async () => {
     renderWithProviders(<LearningHubPage />)
 
-    const resumeButtons = await screen.findAllByRole('button', { name: /Resume module/i })
-    fireEvent.click(resumeButtons[0])
+    const lessonShortcuts = await screen.findAllByRole('button', {
+      name: /Review lessons/i,
+    })
+    fireEvent.click(lessonShortcuts[0])
 
     const dialog = await screen.findByRole('dialog')
     expect(dialog).toBeInTheDocument()

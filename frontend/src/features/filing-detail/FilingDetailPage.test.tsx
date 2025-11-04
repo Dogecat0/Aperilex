@@ -1,4 +1,4 @@
-import { screen, waitFor, within } from '@testing-library/react'
+import { act, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { apiClient } from '@/lib/apiClient'
@@ -235,6 +235,41 @@ describe('FilingDetailPage', () => {
     expect(apiClient.post).toHaveBeenCalledTimes(2)
     expect(
       screen.getByText(/Walkthrough complete—return to dashboard when ready\./i)
+    ).toBeInTheDocument()
+  })
+
+  it('respects focus section state by activating the matching walkthrough step', async () => {
+    const { router } = renderWithRouter(['/dashboard'])
+
+    await act(async () => {
+      await router.navigate(`/filing/${DETAIL_ID}`, {
+        state: { focusTab: 'sections', focusSection: 'Risk Factors' },
+      })
+    })
+
+    expect(
+      await screen.findByRole('heading', { name: 'Risk Factors Deep Dive' })
+    ).toBeInTheDocument()
+
+    const stepTwoButton = await screen.findByRole('button', { name: /^Step 2/i })
+    await waitFor(() => {
+      expect(stepTwoButton).toHaveAttribute('aria-current', 'step')
+    })
+  })
+
+  it('opens the sentiment tab when requested through router state', async () => {
+    const { router } = renderWithRouter(['/dashboard'])
+
+    await act(async () => {
+      await router.navigate(`/filing/${DETAIL_ID}`, {
+        state: { focusTab: 'sentiment' },
+      })
+    })
+
+    const sentimentTab = await screen.findByRole('tab', { name: /Sentiment/i })
+    expect(sentimentTab).toHaveAttribute('aria-selected', 'true')
+    expect(
+      screen.getByText(/Overall sentiment aggregates guided sections to highlight tone shifts/i)
     ).toBeInTheDocument()
   })
 })

@@ -4,11 +4,13 @@ import { Button } from '@/components/ui/Button'
 import { SectionIntro } from '@/components/ui/SectionIntro'
 import { useThemeTokens } from '@/components/ThemeProvider'
 import { useLearningModules, useLearningProgress, useQuizAttempts } from '@/lib/hooks'
+import type { LearningModuleCta } from '@/lib/hooks/useLearningModules'
 import { LearningProgressHero } from '@/features/dashboard/components/LearningProgressHero'
 
 import { LearningModuleModal } from './components/LearningModuleModal'
 
 const MODULE_SKELETON_KEYS = ['module-a', 'module-b', 'module-c'] as const
+type ModuleModalFocus = 'overview' | 'lessons'
 
 function formatTimestamp(value: string): string {
   const parsed = new Date(value)
@@ -104,14 +106,20 @@ export function LearningHubPage() {
     clearError: clearQuizError,
   } = useQuizAttempts({ limit: 5 })
 
-  const [activeModuleKey, setActiveModuleKey] = useState<string | null>(null)
+  const [activeModuleState, setActiveModuleState] = useState<{
+    key: string
+    focus: ModuleModalFocus
+  } | null>(null)
 
   const activeModule = useMemo(() => {
-    if (!activeModuleKey) {
+    const activeKey = activeModuleState?.key
+    if (!activeKey) {
       return null
     }
-    return learningModules.find((item) => item.key === activeModuleKey) ?? null
-  }, [activeModuleKey, learningModules])
+    return learningModules.find((item) => item.key === activeKey) ?? null
+  }, [activeModuleState, learningModules])
+
+  const activeModuleFocus: ModuleModalFocus = activeModuleState?.focus ?? 'overview'
 
   const activeProgress = activeModule ? progressByModule[activeModule.moduleKey] : undefined
 
@@ -203,12 +211,15 @@ export function LearningHubPage() {
     }
   }, [recordAttempt])
 
-  const handleOpenModule = useCallback((moduleKey: string) => {
-    setActiveModuleKey(moduleKey)
-  }, [])
+  const handleOpenModule = useCallback(
+    (moduleKey: string, focus: ModuleModalFocus = 'overview') => {
+      setActiveModuleState({ key: moduleKey, focus })
+    },
+    []
+  )
 
   const handleCloseModule = useCallback(() => {
-    setActiveModuleKey(null)
+    setActiveModuleState(null)
   }, [])
 
   const handleScheduleModuleReview = useCallback(
@@ -385,6 +396,90 @@ export function LearningHubPage() {
           const resumeTitle = !hasContext
             ? 'Launch a filing analysis to unlock contextual practice.'
             : undefined
+          const ctas = module.ctas
+          const primaryCta = ctas.length > 0 ? ctas[0] : null
+          const secondaryCtas = ctas.slice(1)
+          const createCtaElement = (
+            cta: LearningModuleCta,
+            variant: 'primary' | 'secondary',
+            index: number
+          ) => {
+            if (cta.kind === 'walkthrough') {
+              const sectionLabel =
+                cta.sectionName ?? module.focusSection ?? context?.sectionName ?? 'filing'
+              const focusSectionState =
+                cta.focusSection ?? cta.sectionName ?? module.focusSection ?? null
+              const color = variant === 'primary' ? tokens.action.primary : 'var(--text-secondary)'
+              const className =
+                variant === 'primary'
+                  ? 'self-start text-xs font-semibold uppercase tracking-[0.2em]'
+                  : 'text-xs font-semibold uppercase tracking-[0.18em]'
+              const label = (() => {
+                switch (cta.focusTab) {
+                  case 'numbers':
+                    return sectionLabel !== 'filing'
+                      ? `Inspect ${sectionLabel} metrics`
+                      : 'Inspect metrics'
+                  case 'sentiment':
+                    return sectionLabel !== 'filing'
+                      ? `View ${sectionLabel} sentiment`
+                      : 'View sentiment insights'
+                  case 'overview':
+                    return 'Review overview'
+                  case 'raw':
+                    return 'Open structured output'
+                  default:
+                    return `View ${sectionLabel}`
+                }
+              })()
+
+              return (
+                <Link
+                  key={`${module.key}-cta-${cta.kind}-${index}`}
+                  to={{
+                    pathname: `/filing/${cta.analysisId}`,
+                  }}
+                  state={{
+                    focusTab: cta.focusTab,
+                    focusSection: focusSectionState,
+                  }}
+                  className={className}
+                  style={{ color }}
+                >
+                  {label}
+                </Link>
+              )
+            }
+
+            if (cta.kind === 'lesson') {
+              const lessonCount = context?.lessonBindings.length ?? 0
+              const label = lessonCount <= 1 ? 'Review lesson' : 'Review lessons'
+              const color = variant === 'primary' ? tokens.action.primary : 'var(--text-secondary)'
+              const className =
+                variant === 'primary'
+                  ? 'self-start text-xs font-semibold uppercase tracking-[0.2em]'
+                  : 'text-xs font-semibold uppercase tracking-[0.18em]'
+
+              return (
+                <button
+                  key={`${module.key}-cta-${cta.kind}-${cta.bindingId}-${index}`}
+                  type="button"
+                  onClick={() => handleOpenModule(module.key, 'lessons')}
+                  className={`${className} inline-flex items-center gap-1 rounded-none border-none bg-transparent p-0 text-left transition hover:opacity-80 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2`}
+                  style={{ color }}
+                >
+                  {label}
+                </button>
+              )
+            }
+
+            return null
+          }
+          const primaryCtaElement = primaryCta ? createCtaElement(primaryCta, 'primary', 0) : null
+          const secondaryCtaElements = secondaryCtas
+            .map((cta, index) => createCtaElement(cta, 'secondary', index + 1))
+            .filter((element): element is NonNullable<typeof element> => element !== null)
+          const hasAnyCta = Boolean(primaryCtaElement) || secondaryCtaElements.length > 0
 
           return (
             <article
@@ -505,19 +600,18 @@ export function LearningHubPage() {
                       </span>
                     )}
                   </div>
-                  <Link
-                    to={{
-                      pathname: `/filing/${context.analysisId}`,
-                    }}
-                    state={{
-                      focusTab: module.focusTab,
-                      focusSection: context.sectionName ?? module.focusSection ?? null,
-                    }}
-                    className="self-start text-xs font-semibold uppercase tracking-[0.2em]"
-                    style={{ color: tokens.action.primary }}
-                  >
-                    View {context.sectionName ?? 'filing'}
-                  </Link>
+                  <div className="mt-1 flex flex-wrap items-center gap-3">
+                    {hasAnyCta ? (
+                      <>
+                        {primaryCtaElement}
+                        {secondaryCtaElements}
+                      </>
+                    ) : (
+                      <span className="text-xs text-[var(--text-secondary)]">
+                        Complete a fresh guided walkthrough to unlock deep links.
+                      </span>
+                    )}
+                  </div>
                 </div>
               ) : (
                 <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>
@@ -726,6 +820,7 @@ export function LearningHubPage() {
         <LearningModuleModal
           module={activeModule}
           progress={activeProgress}
+          initialFocus={activeModuleFocus}
           onClose={handleCloseModule}
           onResume={async () => {
             try {
