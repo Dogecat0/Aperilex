@@ -22,7 +22,7 @@ export function NumbersTab({ metrics }: NumbersTabProps) {
   }
 
   return (
-    <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+    <div className="grid gap-4 md:grid-cols-2">
       {metrics.map((metric) => {
         const display = metric.display ?? {}
         const category = describeCategory(metric.category)

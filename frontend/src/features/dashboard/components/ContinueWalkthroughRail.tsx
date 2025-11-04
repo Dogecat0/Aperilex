@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom'
 import { Button } from '@/components/ui/Button'
 import { SectionIntro } from '@/components/ui/SectionIntro'
 import type { AnalysisResponse } from '@/lib/types/analysis'
-import { usePracticeCommands } from '@/lib/hooks'
 
 interface ContinueWalkthroughRailProps {
   analyses: AnalysisResponse[]
@@ -17,6 +16,7 @@ interface WalkthroughItem {
   ticker?: string | null
   filingType?: string | null
   filedAt: string
+  filingDate?: string | null
   completedAt: string | null
   sectionsReady: number | null
 }
@@ -25,8 +25,6 @@ const SKELETON_KEYS = ['continue-a', 'continue-b', 'continue-c'] as const
 
 export function ContinueWalkthroughRail({ analyses, isLoading }: ContinueWalkthroughRailProps) {
   const navigate = useNavigate()
-  const { triggerKpiExtract, triggerRiskDelta, triggerMdaQuiz, isTriggering, error, clearError } =
-    usePracticeCommands()
 
   const items = useMemo(() => selectWalkthroughItems(analyses), [analyses])
 
@@ -41,29 +39,8 @@ export function ContinueWalkthroughRail({ analyses, isLoading }: ContinueWalkthr
     >
       <SectionIntro
         title="Continue where you left off"
-        description="Jump back into recent guided walkthroughs or trigger focused practice without leaving the dashboard."
+        description="Jump back into recent guided walkthroughs or open the analysis launchpad for additional templates."
       />
-
-      {error ? (
-        <div
-          className="flex flex-wrap items-center justify-between gap-3 rounded-xl border px-4 py-3 text-sm"
-          style={{
-            borderColor: 'rgba(231, 92, 74, 0.4)',
-            background: 'rgba(231, 92, 74, 0.1)',
-            color: 'var(--status-negative)',
-          }}
-        >
-          <span>{error}</span>
-          <button
-            type="button"
-            onClick={clearError}
-            className="text-xs font-semibold uppercase tracking-[0.18em]"
-            style={{ color: 'var(--status-negative)' }}
-          >
-            Dismiss
-          </button>
-        </div>
-      ) : null}
 
       {isLoading && items.length === 0 ? (
         <div className="grid gap-3 md:grid-cols-3">
@@ -94,7 +71,6 @@ export function ContinueWalkthroughRail({ analyses, isLoading }: ContinueWalkthr
         <div className="grid gap-3 md:grid-cols-3">
           {items.map((item) => {
             const hasFilingId = Boolean(item.filingId)
-            const disabled = isTriggering || !hasFilingId
             const resumeTarget = `/filing/${item.analysisId}`
 
             return (
@@ -141,28 +117,23 @@ export function ContinueWalkthroughRail({ analyses, isLoading }: ContinueWalkthr
                     type="button"
                     size="sm"
                     variant="ghost"
-                    disabled={disabled}
-                    onClick={() => triggerKpiExtract(item.filingId)}
+                    disabled={!hasFilingId}
+                    onClick={() =>
+                      navigate('/analyze', {
+                        state: {
+                          preselectFiling: {
+                            filingId: item.filingId,
+                            companyName: item.companyName,
+                            ticker: item.ticker ?? null,
+                            filingType: item.filingType ?? null,
+                            filingDate: item.filingDate ?? null,
+                            filingDateLabel: item.filedAt,
+                          },
+                        },
+                      })
+                    }
                   >
-                    KPI extract
-                  </Button>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="ghost"
-                    disabled={disabled}
-                    onClick={() => triggerRiskDelta(item.filingId)}
-                  >
-                    Risk delta
-                  </Button>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="ghost"
-                    disabled={disabled}
-                    onClick={() => triggerMdaQuiz(item.filingId)}
-                  >
-                    MD&A quiz
+                    Analyze this filing
                   </Button>
                 </div>
               </article>
@@ -189,6 +160,7 @@ function selectWalkthroughItems(analyses: AnalysisResponse[]): WalkthroughItem[]
       companyName: analysis.summary.company.name ?? 'Unknown company',
       ticker: analysis.summary.company.ticker,
       filingType: analysis.summary.filing.type,
+      filingDate: analysis.summary.filing.date ?? null,
       filedAt: formatDate(analysis.summary.filing.date),
       completedAt: formatRelativeDate(analysis.summary.processing?.completed_at),
       sectionsReady:

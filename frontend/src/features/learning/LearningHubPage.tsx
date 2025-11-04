@@ -524,7 +524,7 @@ export function LearningHubPage() {
                       {pendingReviews} pending review{pendingReviews === 1 ? '' : 's'}
                     </p>
                   )}
-                  <div className="flex flex-wrap items-center gap-2 text-xs text-[var(--text-secondary)]">
+                  <div className="flex w-full items-center justify-end gap-2 text-xs text-[var(--text-secondary)]">
                     {sentimentBadge && (
                       <span
                         className="rounded-full px-2 py-0.5 font-semibold uppercase tracking-wide"

@@ -1,26 +1,36 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { FeatureHero } from '@/components/layout/FeatureHero'
 import { FeatureHeroStat } from '@/components/layout/FeatureHeroStat'
-import { useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
 import { Button } from '@/components/ui/Button'
 import {
   useFilingSearch,
   useFilingById,
   useAnalyzeFiling,
+  usePracticeCommands,
   DEFAULT_FILING_SEARCH_PAGE_SIZE,
 } from '@/lib/hooks'
 import type { FilingSearchResult, FilingSearchParams } from '@/lib/types/filing'
 import { isTaskSuccessful, type TaskResponse } from '@/lib/types/task'
 import { pollTaskStatus } from '@/lib/tasks'
 import { ApiClientError } from '@/lib/apiClient'
-import { FilingDetailPanel } from './components/FilingDetailPanel'
+import {
+  FilingDetailPanel,
+  type AnalysisTemplateOption,
+  type AnalysisTemplateValue,
+  type FilingPrefillSummary,
+} from './components/FilingDetailPanel'
 import { FilingSearchForm, type FilingSearchFormValues } from './components/FilingSearchForm'
 import { FilingResultsList } from './components/FilingResultsList'
 import { ExistingAnalysesCallout } from './components/ExistingAnalysesCallout'
 
 interface SearchState extends FilingSearchFormValues {
   page: number
+}
+
+interface PreselectFilingState extends FilingPrefillSummary {
+  filingId: string
 }
 
 interface DuplicateInfo {
@@ -31,6 +41,29 @@ interface DuplicateInfo {
   analysisCompletedAt: string | null
   message: string
 }
+
+const ANALYSIS_TEMPLATE_OPTIONS: AnalysisTemplateOption[] = [
+  {
+    value: 'comprehensive',
+    label: 'Comprehensive',
+    helper: 'Full walkthrough across every section.',
+  },
+  {
+    value: 'financial_focused',
+    label: 'Financial focus',
+    helper: 'KPI extract across balance sheet, income, and cash flow.',
+  },
+  {
+    value: 'risk_focused',
+    label: 'Risk focus',
+    helper: 'Risk factor delta with forward-looking guidance.',
+  },
+  {
+    value: 'business_focused',
+    label: 'MD&A focus',
+    helper: 'Narrative quiz and strategy insights from MD&A.',
+  },
+]
 
 function isDuplicateStatus(status: string | null | undefined) {
   return typeof status === 'string' && status.toUpperCase() === 'DUPLICATE'
@@ -153,6 +186,8 @@ function getErrorMessage(error: unknown): string {
 export function AnalyzeFilingsPage() {
   const queryClient = useQueryClient()
   const navigate = useNavigate()
+  const location = useLocation()
+  const practiceCommands = usePracticeCommands()
 
   const [formState, setFormState] = useState<SearchState>({
     ticker: '',
@@ -163,11 +198,13 @@ export function AnalyzeFilingsPage() {
   })
 
   const [searchParams, setSearchParams] = useState<FilingSearchParams | undefined>(undefined)
-  const [selectedResult, setSelectedResult] = useState<FilingSearchResult | null>(null)
   const [taskStatus, setTaskStatus] = useState<TaskResponse | null>(null)
   const [duplicateInfo, setDuplicateInfo] = useState<DuplicateInfo | null>(null)
   const [pollError, setPollError] = useState<string | null>(null)
   const [pollingTaskId, setPollingTaskId] = useState<string | null>(null)
+  const [selectedFilingId, setSelectedFilingId] = useState<string | null>(null)
+  const [prefillSummary, setPrefillSummary] = useState<FilingPrefillSummary | null>(null)
+  const [analysisTemplate, setAnalysisTemplate] = useState<AnalysisTemplateValue>('comprehensive')
 
   const abortControllerRef = useRef<AbortController | null>(null)
 
@@ -176,9 +213,7 @@ export function AnalyzeFilingsPage() {
     staleTime: 1000 * 30,
   })
 
-  const selectedFilingId = selectedResult?.filing_id ?? undefined
-
-  const filingDetailQuery = useFilingById(selectedFilingId, {
+  const filingDetailQuery = useFilingById(selectedFilingId ?? undefined, {
     enabled: Boolean(selectedFilingId),
     staleTime: 1000 * 60,
   })
@@ -186,32 +221,84 @@ export function AnalyzeFilingsPage() {
   const analyzeMutation = useAnalyzeFiling()
 
   const results = filingSearch.data?.items ?? []
+  const selectedResult = useMemo(() => {
+    if (!selectedFilingId) {
+      return null
+    }
+
+    const match = results.find((item) => item.filing_id === selectedFilingId)
+    if (match) {
+      return match
+    }
+
+    return null
+  }, [results, selectedFilingId])
+
+  useEffect(() => {
+    const state = location.state as { preselectFiling?: PreselectFilingState } | null
+    if (!state?.preselectFiling) {
+      return
+    }
+
+    const incoming = state.preselectFiling
+    setSelectedFilingId(incoming.filingId)
+    setPrefillSummary({
+      filingId: incoming.filingId,
+      companyName: incoming.companyName,
+      ticker: incoming.ticker ?? null,
+      filingType: incoming.filingType ?? null,
+      filingDate: incoming.filingDate ?? null,
+      filingDateLabel: incoming.filingDateLabel ?? null,
+    })
+    setAnalysisTemplate('comprehensive')
+    practiceCommands.clearError()
+    analyzeMutation.reset()
+    setTaskStatus(null)
+    setDuplicateInfo(null)
+    setPollError(null)
+    setPollingTaskId(null)
+
+    navigate(location.pathname, { replace: true })
+  }, [
+    location,
+    navigate,
+    practiceCommands,
+    analyzeMutation,
+  ])
 
   useEffect(() => {
     setDuplicateInfo(null)
-  }, [selectedResult?.filing_id])
+  }, [selectedFilingId])
 
   useEffect(() => {
     if (!searchParams?.ticker) {
-      setSelectedResult(null)
+      if (!prefillSummary) {
+        setSelectedFilingId(null)
+      }
       return
     }
 
     if (results.length === 0) {
-      setSelectedResult(null)
+      if (!prefillSummary) {
+        setSelectedFilingId(null)
+      }
       return
     }
 
-    setSelectedResult((prev) => {
-      if (!prev) {
-        return results[0]
+    if (selectedFilingId) {
+      const stillExists = results.some((item) => item.filing_id === selectedFilingId)
+      if (!stillExists && !prefillSummary) {
+        const fallback = results.find((item) => item.filing_id)
+        setSelectedFilingId(fallback?.filing_id ?? null)
       }
+      return
+    }
 
-      const stillExists = results.some((item) => item.accession_number === prev.accession_number)
-
-      return stillExists ? prev : results[0]
-    })
-  }, [results, searchParams?.ticker])
+    const fallback = results.find((item) => item.filing_id)
+    if (fallback) {
+      setSelectedFilingId(fallback.filing_id)
+    }
+  }, [results, searchParams?.ticker, selectedFilingId, prefillSummary])
 
   useEffect(() => {
     return () => {
@@ -220,21 +307,12 @@ export function AnalyzeFilingsPage() {
   }, [])
 
   useEffect(() => {
-    if (!selectedResult) {
-      setTaskStatus(null)
-      setPollError(null)
-      setPollingTaskId(null)
-      abortControllerRef.current?.abort()
-      abortControllerRef.current = null
-      return
-    }
-
     setTaskStatus(null)
     setPollError(null)
     setPollingTaskId(null)
     abortControllerRef.current?.abort()
     abortControllerRef.current = null
-  }, [selectedResult])
+  }, [selectedFilingId])
 
   const handleFormChange = (updates: Partial<FilingSearchFormValues>) => {
     setFormState((prev) => ({
@@ -247,7 +325,8 @@ export function AnalyzeFilingsPage() {
     const trimmedTicker = formState.ticker.trim()
     if (!trimmedTicker) {
       setSearchParams(undefined)
-      setSelectedResult(null)
+      setSelectedFilingId(null)
+      setPrefillSummary(null)
       return
     }
 
@@ -259,6 +338,8 @@ export function AnalyzeFilingsPage() {
 
     setFormState(nextState)
     setSearchParams(buildSearchParams(nextState))
+    setPrefillSummary(null)
+    setSelectedFilingId(null)
   }
 
   const handlePageChange = (page: number) => {
@@ -279,6 +360,25 @@ export function AnalyzeFilingsPage() {
     })
   }
 
+  const handleSelectResult = (result: FilingSearchResult) => {
+    if (!result.filing_id) {
+      setSelectedFilingId(null)
+      setPrefillSummary(null)
+      return
+    }
+
+    setSelectedFilingId(result.filing_id)
+    setPrefillSummary({
+      filingId: result.filing_id,
+      companyName: result.company_name,
+      ticker: result.ticker ?? null,
+      filingType: result.filing_type,
+      filingDate: result.filing_date,
+      filingDateLabel: formatDate(result.filing_date),
+    })
+    setAnalysisTemplate('comprehensive')
+  }
+
   const resetPollingState = () => {
     setPollingTaskId(null)
     abortControllerRef.current?.abort()
@@ -286,8 +386,8 @@ export function AnalyzeFilingsPage() {
   }
 
   const handleAnalyze = async (options?: { force?: boolean }) => {
-    if (!selectedResult?.filing_id) {
-      setPollError('This filing is still syncing. Try again once it appears in the database.')
+    if (!selectedFilingId) {
+      setPollError('Select a filing before starting an analysis.')
       return
     }
 
@@ -296,12 +396,32 @@ export function AnalyzeFilingsPage() {
     setTaskStatus(null)
     setDuplicateInfo(null)
     analyzeMutation.reset()
+    practiceCommands.clearError()
 
     try {
-      const task = await analyzeMutation.mutateAsync({
-        filingId: selectedResult.filing_id,
-        forceReprocess: options?.force ?? false,
-      })
+      let task: TaskResponse
+
+      if (analysisTemplate === 'comprehensive') {
+        task = await analyzeMutation.mutateAsync({
+          filingId: selectedFilingId,
+          forceReprocess: options?.force ?? false,
+        })
+      } else {
+        const triggerMap: Record<
+          Exclude<AnalysisTemplateValue, 'comprehensive'>,
+          (filingId: string, force?: boolean) => Promise<TaskResponse>
+        > = {
+          financial_focused: practiceCommands.triggerKpiExtract,
+          risk_focused: practiceCommands.triggerRiskDelta,
+          business_focused: practiceCommands.triggerMdaQuiz,
+        }
+        const trigger = triggerMap[analysisTemplate]
+        if (!trigger) {
+          setPollError('Selected template is not supported yet.')
+          return
+        }
+        task = await trigger(selectedFilingId, options?.force)
+      }
 
       setTaskStatus(task)
       if (isDuplicateStatus(task.status)) {
@@ -364,13 +484,15 @@ export function AnalyzeFilingsPage() {
         setTaskStatus(lastKnownStatus)
       }
 
-      setPollError(getErrorMessage(error))
+      const combinedError = practiceCommands.error ?? getErrorMessage(error)
+      setPollError(combinedError)
     }
   }
 
-  const isAnalyzing = analyzeMutation.isPending || Boolean(pollingTaskId)
+  const isAnalyzing =
+    analyzeMutation.isPending || practiceCommands.isTriggering || Boolean(pollingTaskId)
 
-  const mutationError = getErrorMessage(analyzeMutation.error)
+  const mutationError = practiceCommands.error ?? getErrorMessage(analyzeMutation.error)
   const searchError = filingSearch.error ? getErrorMessage(filingSearch.error) : null
 
   const searchValues: FilingSearchFormValues = useMemo(
@@ -407,7 +529,7 @@ export function AnalyzeFilingsPage() {
         value: isAnalyzing ? 'Processing' : 'Idle',
         helper: isAnalyzing
           ? 'We will redirect once complete.'
-          : selectedResult?.filing_id
+          : selectedFilingId
             ? 'Ready to analyze'
             : 'Select a filing to analyze.',
       },
@@ -417,7 +539,7 @@ export function AnalyzeFilingsPage() {
       isAnalyzing,
       results.length,
       searchParams?.ticker,
-      selectedResult?.filing_id,
+      selectedFilingId,
       totalMatches,
     ]
   )
@@ -490,7 +612,7 @@ export function AnalyzeFilingsPage() {
           results={results}
           isLoading={filingSearch.isFetching && !filingSearch.data}
           selectedAccession={selectedResult?.accession_number}
-          onSelect={setSelectedResult}
+          onSelect={handleSelectResult}
           pagination={filingSearch.data?.pagination}
           onPageChange={handlePageChange}
           error={searchError}
@@ -502,11 +624,15 @@ export function AnalyzeFilingsPage() {
           isLoading={filingDetailQuery.isLoading}
           error={getErrorMessage(filingDetailQuery.error)}
           onAnalyze={handleAnalyze}
-          isAnalyzeDisabled={!selectedResult?.filing_id}
+          isAnalyzeDisabled={!selectedFilingId}
           isAnalyzing={isAnalyzing}
           taskStatus={taskStatus}
           pollError={pollError}
           mutationError={mutationError}
+          analysisTemplate={analysisTemplate}
+          templateOptions={ANALYSIS_TEMPLATE_OPTIONS}
+          onTemplateChange={setAnalysisTemplate}
+          prefill={prefillSummary}
         />
       </div>
     </div>

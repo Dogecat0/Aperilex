@@ -34,10 +34,11 @@ const dateRangeOptions: { label: string; value: DateRangeFilter }[] = [
 ]
 
 const segmentOptions: { label: string; value: SegmentFilter }[] = [
-  { label: 'All analyses', value: 'all' },
-  { label: 'Needs attention', value: 'attention' },
-  { label: 'Ready for review', value: 'ready_for_review' },
-  { label: 'Flagged follow-up', value: 'flagged' },
+  { label: 'All templates', value: 'all' },
+  { label: 'Comprehensive', value: 'comprehensive' },
+  { label: 'Financial focus', value: 'financial_focused' },
+  { label: 'Risk focus', value: 'risk_focused' },
+  { label: 'MD&A focus', value: 'business_focused' },
 ]
 
 const ANALYSIS_SKELETON_KEYS = ['group-a', 'group-b', 'group-c'] as const
@@ -237,7 +238,28 @@ export function AnalysisLibrarySection({
     return 'Unable to load analyses. Try refreshing the page.'
   }, [error])
 
-  const displayGroups = groups
+  const filteredGroups = useMemo(() => {
+    if (filters.segment === 'all') {
+      return groups
+    }
+
+    return groups
+      .map((group) => {
+        const filteredAnalyses = group.analyses.filter((run) => {
+          const template = run.analysisTemplate
+          return typeof template === 'string' && template.toLowerCase() === filters.segment
+        })
+
+        if (filteredAnalyses.length === 0) {
+          return null
+        }
+
+        return { ...group, analyses: filteredAnalyses } as AnalysisLibraryGroup
+      })
+      .filter((group): group is AnalysisLibraryGroup => group !== null)
+  }, [groups, filters.segment])
+
+  const displayGroups = filteredGroups
 
   const handleCopy = async (analysisId: string) => {
     const shareUrl = getShareUrl(analysisId)
@@ -321,7 +343,7 @@ export function AnalysisLibrarySection({
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <span className="text-xs font-semibold uppercase tracking-wide text-[var(--text-secondary)]">
-            Segment focus
+            Analysis template
           </span>
           {segmentOptions.map((option) => renderOptionButton('segment', option))}
         </div>

@@ -4,6 +4,7 @@ import { renderWithProviders } from '@/test/utils'
 import type { AuthSession, AuthStatus } from '@/state/authStore'
 import type { FilingSearchResult } from '@/lib/types/filing'
 import { FilingDetailPanel } from './FilingDetailPanel'
+import type { AnalysisTemplateOption } from './FilingDetailPanel'
 
 vi.mock('@/hooks/useAuth', () => ({
   useAuth: vi.fn(),
@@ -51,6 +52,11 @@ const filing: FilingSearchResult = {
   ticker: 'APXL',
 }
 
+const templateOptions: AnalysisTemplateOption[] = [
+  { value: 'comprehensive', label: 'Comprehensive' },
+  { value: 'financial_focused', label: 'Financial focus' },
+]
+
 const buildAuthState = (overrides: Partial<MockedAuthState> = {}): MockedAuthState => ({
   status: 'authenticated',
   session: baseSession,
@@ -82,6 +88,9 @@ describe('FilingDetailPanel analyze CTA', () => {
         onAnalyze={onAnalyze}
         isAnalyzeDisabled={false}
         isAnalyzing={false}
+        analysisTemplate="comprehensive"
+        templateOptions={templateOptions}
+        onTemplateChange={() => {}}
       />
     )
 
@@ -111,6 +120,9 @@ describe('FilingDetailPanel analyze CTA', () => {
         onAnalyze={onAnalyze}
         isAnalyzeDisabled={false}
         isAnalyzing={false}
+        analysisTemplate="comprehensive"
+        templateOptions={templateOptions}
+        onTemplateChange={() => {}}
       />
     )
 

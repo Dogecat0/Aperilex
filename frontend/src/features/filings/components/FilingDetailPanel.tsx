@@ -3,6 +3,27 @@ import { Button } from '@/components/ui/Button'
 import type { FilingResponse, FilingSearchResult } from '@/lib/types/filing'
 import type { TaskResponse } from '@/lib/types/task'
 
+export type AnalysisTemplateValue =
+  | 'comprehensive'
+  | 'financial_focused'
+  | 'risk_focused'
+  | 'business_focused'
+
+export interface AnalysisTemplateOption {
+  value: AnalysisTemplateValue
+  label: string
+  helper?: string
+}
+
+export interface FilingPrefillSummary {
+  filingId?: string | null
+  companyName?: string
+  ticker?: string | null
+  filingType?: string | null
+  filingDate?: string | null
+  filingDateLabel?: string | null
+}
+
 interface FilingDetailPanelProps {
   searchResult: FilingSearchResult | null
   filing?: FilingResponse
@@ -14,6 +35,10 @@ interface FilingDetailPanelProps {
   taskStatus?: TaskResponse | null
   pollError?: string | null
   mutationError?: string | null
+  analysisTemplate: AnalysisTemplateValue
+  templateOptions: AnalysisTemplateOption[]
+  onTemplateChange: (value: AnalysisTemplateValue) => void
+  prefill?: FilingPrefillSummary | null
 }
 
 function formatDate(value?: string | null) {
@@ -53,8 +78,33 @@ export function FilingDetailPanel({
   taskStatus,
   pollError,
   mutationError,
+  analysisTemplate,
+  templateOptions,
+  onTemplateChange,
+  prefill,
 }: FilingDetailPanelProps) {
-  const filingId = filing?.filing_id ?? searchResult?.filing_id ?? null
+  const filingId = filing?.filing_id ?? searchResult?.filing_id ?? prefill?.filingId ?? null
+  const headerCompany = searchResult?.company_name ?? prefill?.companyName ?? null
+  const headerFilingType = searchResult?.filing_type ?? prefill?.filingType ?? null
+  const headerSubtitle = headerCompany
+    ? `${headerCompany}${headerFilingType ? ` • ${headerFilingType}` : ''}`
+    : 'Select a filing to see full context.'
+  const companyName = headerCompany ?? '—'
+  const tickerValue = searchResult?.ticker ?? prefill?.ticker ?? null
+  const cikValue = searchResult?.cik ?? null
+  const tickerLine =
+    tickerValue || cikValue
+      ? `${tickerValue ?? '—'}${cikValue ? ` • CIK ${cikValue}` : ''}`
+      : '—'
+  const filingTypeDisplay = searchResult?.filing_type ?? prefill?.filingType ?? '—'
+  const filingDateDisplay = searchResult
+    ? formatDate(searchResult.filing_date)
+    : prefill?.filingDate
+      ? formatDate(prefill.filingDate)
+      : prefill?.filingDateLabel ?? '—'
+  const accessionDisplay = searchResult?.accession_number ?? '—'
+  const sectionsDisplay =
+    typeof searchResult?.sections_count === 'number' ? `${searchResult.sections_count}` : '—'
 
   return (
     <section
@@ -64,11 +114,7 @@ export function FilingDetailPanel({
       <header className="flex items-center justify-between">
         <div>
           <h2 className="text-sm font-semibold text-[var(--text-primary)]">Filing detail</h2>
-          <p className="text-xs text-[var(--text-secondary)]">
-            {searchResult
-              ? `${searchResult.company_name} • ${searchResult.filing_type}`
-              : 'Select a filing to see full context.'}
-          </p>
+          <p className="text-xs text-[var(--text-secondary)]">{headerSubtitle}</p>
         </div>
         <div className="text-xs text-[var(--text-secondary)]">
           {filingId ? `Filing ID: ${filingId}` : 'No filing ID available'}
@@ -85,16 +131,14 @@ export function FilingDetailPanel({
             <div className="h-4 w-1/2 animate-pulse rounded bg-[var(--lines-subtle)]" />
             <div className="h-4 w-1/3 animate-pulse rounded bg-[var(--lines-subtle)]" />
           </div>
-        ) : searchResult ? (
+        ) : searchResult || prefill ? (
           <div className="space-y-3 text-sm">
             <div>
               <p className="text-xs font-semibold uppercase tracking-wide text-[var(--text-secondary)]">
                 Company
               </p>
-              <p className="text-[var(--text-primary)]">{searchResult.company_name}</p>
-              <p className="text-xs text-[var(--text-secondary)]">
-                {searchResult.ticker ?? '—'} • CIK {searchResult.cik}
-              </p>
+              <p className="text-[var(--text-primary)]">{companyName}</p>
+              <p className="text-xs text-[var(--text-secondary)]">{tickerLine}</p>
             </div>
 
             <div className="grid gap-3 md:grid-cols-2">
@@ -102,25 +146,25 @@ export function FilingDetailPanel({
                 <p className="text-xs font-semibold uppercase tracking-wide text-[var(--text-secondary)]">
                   Filing date
                 </p>
-                <p className="text-[var(--text-primary)]">{formatDate(searchResult.filing_date)}</p>
+                <p className="text-[var(--text-primary)]">{filingDateDisplay}</p>
               </div>
               <div>
                 <p className="text-xs font-semibold uppercase tracking-wide text-[var(--text-secondary)]">
                   Accession number
                 </p>
-                <p className="text-[var(--text-primary)]">{searchResult.accession_number}</p>
+                <p className="text-[var(--text-primary)]">{accessionDisplay}</p>
               </div>
               <div>
                 <p className="text-xs font-semibold uppercase tracking-wide text-[var(--text-secondary)]">
                   Filing type
                 </p>
-                <p className="text-[var(--text-primary)]">{searchResult.filing_type}</p>
+                <p className="text-[var(--text-primary)]">{filingTypeDisplay}</p>
               </div>
               <div>
                 <p className="text-xs font-semibold uppercase tracking-wide text-[var(--text-secondary)]">
                   Sections extracted
                 </p>
-                <p className="text-[var(--text-primary)]">{searchResult.sections_count}</p>
+                <p className="text-[var(--text-primary)]">{sectionsDisplay}</p>
               </div>
             </div>
 
@@ -174,6 +218,39 @@ export function FilingDetailPanel({
       </div>
 
       <footer className="space-y-3">
+        <div className="space-y-2">
+          <p className="text-xs font-semibold uppercase tracking-wide text-[var(--text-secondary)]">
+            Analysis template
+          </p>
+          <div className="flex flex-col gap-2 md:flex-row md:flex-wrap">
+            {templateOptions.map((option) => {
+              const isActive = option.value === analysisTemplate
+              return (
+                <button
+                  key={option.value}
+                  type="button"
+                  onClick={() => onTemplateChange(option.value)}
+                  className="w-full rounded-2xl border p-3 text-left transition-colors md:w-auto md:min-w-[12rem]"
+                  style={{
+                    borderColor: isActive ? 'var(--status-positive)' : 'var(--lines-subtle)',
+                    background: isActive ? 'rgba(34, 197, 94, 0.12)' : 'var(--surfaces-muted)',
+                    color: 'var(--text-primary)',
+                    outlineColor: 'var(--focus-ring)',
+                  }}
+                  aria-pressed={isActive}
+                >
+                  <span className="block text-sm font-semibold">{option.label}</span>
+                  {option.helper ? (
+                    <span className="mt-1 block text-xs text-[var(--text-secondary)]">
+                      {option.helper}
+                    </span>
+                  ) : null}
+                </button>
+              )
+            })}
+          </div>
+        </div>
+
         <RequireAuthAction
           onAuthed={() => {
             onAnalyze?.()

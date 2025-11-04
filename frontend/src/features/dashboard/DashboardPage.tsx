@@ -11,7 +11,12 @@ import type { AnalysisResponse, ListAnalysesParams } from '@/lib/types/analysis'
 
 export type FilingTypeFilter = 'all' | '10-Q' | '10-K'
 export type DateRangeFilter = '90d' | '180d' | '365d' | 'all'
-export type SegmentFilter = 'all' | 'attention' | 'ready_for_review' | 'flagged'
+export type SegmentFilter =
+  | 'all'
+  | 'comprehensive'
+  | 'financial_focused'
+  | 'risk_focused'
+  | 'business_focused'
 
 export interface DashboardFiltersState {
   filingType: FilingTypeFilter
@@ -207,11 +212,14 @@ export function DashboardPage() {
   const baseQueryParams = useMemo<ListAnalysesParams>(() => {
     const dateFilters = deriveDateFilters(filters.dateRange)
     const params: ListAnalysesParams = {
-      segment: filters.segment,
       status: 'COMPLETED',
       sort: 'created_at',
       direction: 'desc',
       ...dateFilters,
+    }
+
+    if (filters.segment === 'all') {
+      params.segment = 'all'
     }
 
     const searchTerm = filingTypeSearchMap[filters.filingType]
@@ -250,8 +258,19 @@ export function DashboardPage() {
     [libraryQuery.error]
   )
 
-  const libraryAnalyses = useMemo(() => libraryQuery.data?.items ?? [], [libraryQuery.data])
-  const totalCompletedAnalyses = libraryQuery.data?.pagination.total_items ?? 0
+  const libraryAnalyses = useMemo(() => {
+    const items = libraryQuery.data?.items ?? []
+    if (filters.segment === 'all') {
+      return items
+    }
+
+    return items.filter((analysis) => {
+      const template = analysis.summary.filing.analysis_template
+      return typeof template === 'string' && template.toLowerCase() === filters.segment
+    })
+  }, [libraryQuery.data, filters.segment])
+  const totalCompletedAnalyses =
+    filters.segment === 'all' ? libraryQuery.data?.pagination.total_items ?? 0 : libraryAnalyses.length
   const readySectionCount = useMemo(
     () =>
       libraryAnalyses.reduce((total, analysis) => {

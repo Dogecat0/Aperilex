@@ -1,12 +1,6 @@
 import type { ReactNode } from 'react'
-import { useNavigate } from 'react-router-dom'
 import { FeatureHero } from '@/components/layout/FeatureHero'
-import { Button } from '@/components/ui/Button'
-import type {
-  LearningDashboardHighlights,
-  ModuleWeakness,
-  NextLessonRecommendation,
-} from '@/lib/hooks'
+import type { LearningDashboardHighlights, NextLessonRecommendation } from '@/lib/hooks'
 
 interface LearningProgressHeroProps {
   highlights: LearningDashboardHighlights
@@ -19,7 +13,6 @@ export function LearningProgressHero({ highlights, isLoading }: LearningProgress
     completion,
     sectionSummary,
     pendingReviewTotal,
-    weakestTopics,
     nextLesson,
     activeAnalyses,
   } = highlights
@@ -41,7 +34,6 @@ export function LearningProgressHero({ highlights, isLoading }: LearningProgress
         <SectionSummaryCard
           summary={sectionSummary}
           pendingReviewTotal={pendingReviewTotal}
-          topics={weakestTopics}
           isLoading={progressPending}
         />
         <NextLessonCard recommendation={nextLesson} isLoading={progressPending} />
@@ -130,12 +122,10 @@ function CompletionCard({
 function SectionSummaryCard({
   summary,
   pendingReviewTotal,
-  topics,
   isLoading,
 }: {
   summary: LearningDashboardHighlights['sectionSummary']
   pendingReviewTotal: number
-  topics: ModuleWeakness[]
   isLoading: boolean
 }) {
   const completionPercent =
@@ -172,36 +162,10 @@ function SectionSummaryCard({
               style={{ width: `${completionPercent}%` }}
             />
           </div>
-          {topics.length > 0 ? (
-            <ul className="mt-3 space-y-2">
-              {topics.slice(0, 3).map((topic) => (
-                <li
-                  key={topic.id}
-                  className="rounded-xl border px-3 py-2"
-                  style={{
-                    borderColor: 'var(--lines-subtle)',
-                    background: 'var(--surfaces-muted)',
-                  }}
-                >
-                  <p className="text-sm font-semibold text-[var(--text-primary)]">{topic.title}</p>
-                  <p className="text-xs text-[var(--text-secondary)]">
-                    {formatStatus(topic.status)} • {topic.progressPercent}% complete
-                  </p>
-                  {topic.pendingReviewCount > 0 ? (
-                    <p className="text-xs font-semibold text-[var(--status-negative)]">
-                      {topic.pendingReviewCount} pending review
-                      {topic.pendingReviewCount === 1 ? '' : 's'}
-                    </p>
-                  ) : null}
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className="mt-3 text-xs text-[var(--text-secondary)]">
-              No focus backlog right now. Keep reinforcing guided walkthroughs to surface new
-              practice targets.
-            </p>
-          )}
+          <p className="mt-3 text-xs text-[var(--text-secondary)]">
+            Keep reinforcing guided walkthroughs to reduce your review backlog and unlock more
+            tailored guidance.
+          </p>
         </>
       )}
     </ArticleShell>
@@ -215,9 +179,6 @@ function NextLessonCard({
   recommendation: NextLessonRecommendation | null
   isLoading: boolean
 }) {
-  const navigate = useNavigate()
-  const ctaLabel = recommendation?.isUnlocked ? 'Resume lesson' : 'View learning hub'
-
   return (
     <ArticleShell eyebrow="Next lesson">
       {isLoading ? (
@@ -238,16 +199,13 @@ function NextLessonCard({
               pending review{recommendation.pendingReviewCount === 1 ? '' : 's'}
             </p>
           </div>
-          <div className="mt-auto flex flex-wrap items-center justify-between gap-3 pt-3">
+          <div className="mt-auto flex flex-wrap items-center justify-end gap-3 pt-3">
             <span
               className="rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em]"
               style={{ borderColor: 'var(--lines-subtle)', color: 'var(--text-secondary)' }}
             >
               {recommendation.duration}
             </span>
-            <Button type="button" size="sm" variant="primary" onClick={() => navigate('/learning')}>
-              {ctaLabel}
-            </Button>
           </div>
         </>
       ) : (
@@ -258,18 +216,6 @@ function NextLessonCard({
       )}
     </ArticleShell>
   )
-}
-
-function formatStatus(status: ModuleWeakness['status']): string {
-  switch (status) {
-    case 'completed':
-      return 'Completed'
-    case 'in_progress':
-      return 'In progress'
-    case 'queued':
-    default:
-      return 'Queued'
-  }
 }
 
 function ArticleShell({ eyebrow, children }: { eyebrow: string; children: ReactNode }) {
