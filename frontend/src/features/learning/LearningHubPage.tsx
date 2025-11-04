@@ -1,10 +1,10 @@
 import { useCallback, useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import { Button } from '@/components/ui/Button'
 import { SectionIntro } from '@/components/ui/SectionIntro'
 import { useThemeTokens } from '@/components/ThemeProvider'
 import { useLearningModules, useLearningProgress, useQuizAttempts } from '@/lib/hooks'
-import type { LearningModuleCta } from '@/lib/hooks/useLearningModules'
+import type { LearningModule } from '@/lib/hooks/useLearningModules'
 import { LearningProgressHero } from '@/features/dashboard/components/LearningProgressHero'
 
 import { LearningModuleModal } from './components/LearningModuleModal'
@@ -147,26 +147,58 @@ export function LearningHubPage() {
     return completedModules
   }, [progress])
 
+  const navigate = useNavigate()
+
   const handleResumeModule = useCallback(
-    async (moduleKey: string) => {
-      const existing = progressByModule[moduleKey]
+    async (module: LearningModule) => {
+      const walkthroughCta = module.ctas.find((cta) => cta.kind === 'walkthrough')
+      if (!walkthroughCta) {
+        return
+      }
+
+      const focusSectionState =
+        walkthroughCta.focusSection ?? walkthroughCta.sectionName ?? module.focusSection ?? null
+
+      const existing = progressByModule[module.moduleKey]
       const currentPercent = existing?.progressPercent ?? 0
-      const nextPercent = Math.min(currentPercent + 20, 100)
-      const metadata = { ...(existing?.metadata ?? {}), last_action: 'resume-module' }
-      const progressId = existing?.progressId
+      const metadata: Record<string, unknown> = { ...(existing?.metadata ?? {}) }
+      const rawIntent = metadata['intended_next_sections']
+      const intendedMap: Record<string, unknown> =
+        rawIntent && typeof rawIntent === 'object' && rawIntent !== null
+          ? { ...(rawIntent as Record<string, unknown>) }
+          : {}
+
+      const targetSectionKey = walkthroughCta.sectionKey ?? module.sectionKey
+      const timestamp = new Date().toISOString()
+
+      intendedMap[walkthroughCta.analysisId] = {
+        section_key: targetSectionKey,
+        focus_section: focusSectionState,
+        updated_at: timestamp,
+      }
+
+      metadata['intended_next_sections'] = intendedMap
 
       try {
         await updateProgress({
-          moduleKey,
-          progressPercent: nextPercent,
+          moduleKey: module.moduleKey,
+          progressPercent: currentPercent,
           metadata,
-          progressId,
+          progressId: existing?.progressId,
+          lastInteractionAt: timestamp,
         })
       } catch {
-        // Errors surface through hook state; nothing additional to handle here.
+        // Hook error state already captures and surfaces the failure.
       }
+
+      navigate(`/filing/${walkthroughCta.analysisId}`, {
+        state: {
+          focusTab: walkthroughCta.focusTab,
+          focusSection: focusSectionState,
+        },
+      })
     },
-    [progressByModule, updateProgress]
+    [progressByModule, updateProgress, navigate]
   )
 
   const handleMarkComplete = useCallback(
@@ -396,91 +428,6 @@ export function LearningHubPage() {
           const resumeTitle = !hasContext
             ? 'Launch a filing analysis to unlock contextual practice.'
             : undefined
-          const ctas = module.ctas
-          const primaryCta = ctas.length > 0 ? ctas[0] : null
-          const secondaryCtas = ctas.slice(1)
-          const createCtaElement = (
-            cta: LearningModuleCta,
-            variant: 'primary' | 'secondary',
-            index: number
-          ) => {
-            if (cta.kind === 'walkthrough') {
-              const sectionLabel =
-                cta.sectionName ?? module.focusSection ?? context?.sectionName ?? 'filing'
-              const focusSectionState =
-                cta.focusSection ?? cta.sectionName ?? module.focusSection ?? null
-              const color = variant === 'primary' ? tokens.action.primary : 'var(--text-secondary)'
-              const className =
-                variant === 'primary'
-                  ? 'self-start text-xs font-semibold uppercase tracking-[0.2em]'
-                  : 'text-xs font-semibold uppercase tracking-[0.18em]'
-              const label = (() => {
-                switch (cta.focusTab) {
-                  case 'numbers':
-                    return sectionLabel !== 'filing'
-                      ? `Inspect ${sectionLabel} metrics`
-                      : 'Inspect metrics'
-                  case 'sentiment':
-                    return sectionLabel !== 'filing'
-                      ? `View ${sectionLabel} sentiment`
-                      : 'View sentiment insights'
-                  case 'overview':
-                    return 'Review overview'
-                  case 'raw':
-                    return 'Open structured output'
-                  default:
-                    return `View ${sectionLabel}`
-                }
-              })()
-
-              return (
-                <Link
-                  key={`${module.key}-cta-${cta.kind}-${index}`}
-                  to={{
-                    pathname: `/filing/${cta.analysisId}`,
-                  }}
-                  state={{
-                    focusTab: cta.focusTab,
-                    focusSection: focusSectionState,
-                  }}
-                  className={className}
-                  style={{ color }}
-                >
-                  {label}
-                </Link>
-              )
-            }
-
-            if (cta.kind === 'lesson') {
-              const lessonCount = context?.lessonBindings.length ?? 0
-              const label = lessonCount <= 1 ? 'Review lesson' : 'Review lessons'
-              const color = variant === 'primary' ? tokens.action.primary : 'var(--text-secondary)'
-              const className =
-                variant === 'primary'
-                  ? 'self-start text-xs font-semibold uppercase tracking-[0.2em]'
-                  : 'text-xs font-semibold uppercase tracking-[0.18em]'
-
-              return (
-                <button
-                  key={`${module.key}-cta-${cta.kind}-${cta.bindingId}-${index}`}
-                  type="button"
-                  onClick={() => handleOpenModule(module.key, 'lessons')}
-                  className={`${className} inline-flex items-center gap-1 rounded-none border-none bg-transparent p-0 text-left transition hover:opacity-80 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2`}
-                  style={{ color }}
-                >
-                  {label}
-                </button>
-              )
-            }
-
-            return null
-          }
-          const primaryCtaElement = primaryCta ? createCtaElement(primaryCta, 'primary', 0) : null
-          const secondaryCtaElements = secondaryCtas
-            .map((cta, index) => createCtaElement(cta, 'secondary', index + 1))
-            .filter((element): element is NonNullable<typeof element> => element !== null)
-          const hasAnyCta = Boolean(primaryCtaElement) || secondaryCtaElements.length > 0
-
           return (
             <article
               key={module.key}
@@ -531,11 +478,6 @@ export function LearningHubPage() {
                     background: 'rgba(255, 244, 222, 0.65)',
                   }}
                 >
-                  {context.walkthrough?.title && (
-                    <span className="text-xs font-semibold uppercase tracking-wide text-[var(--text-secondary)]">
-                      {context.walkthrough.title}
-                    </span>
-                  )}
                   {context.highlight && (
                     <p
                       className="text-sm"
@@ -583,11 +525,6 @@ export function LearningHubPage() {
                     </p>
                   )}
                   <div className="flex flex-wrap items-center gap-2 text-xs text-[var(--text-secondary)]">
-                    <span>
-                      {context.companyName}
-                      {context.filingType ? ` · ${context.filingType}` : ''}
-                      {filingDateLabel ? ` · ${filingDateLabel}` : ''}
-                    </span>
                     {sentimentBadge && (
                       <span
                         className="rounded-full px-2 py-0.5 font-semibold uppercase tracking-wide"
@@ -597,18 +534,6 @@ export function LearningHubPage() {
                         }}
                       >
                         {sentimentBadge.label}
-                      </span>
-                    )}
-                  </div>
-                  <div className="mt-1 flex flex-wrap items-center gap-3">
-                    {hasAnyCta ? (
-                      <>
-                        {primaryCtaElement}
-                        {secondaryCtaElements}
-                      </>
-                    ) : (
-                      <span className="text-xs text-[var(--text-secondary)]">
-                        Complete a fresh guided walkthrough to unlock deep links.
                       </span>
                     )}
                   </div>
@@ -824,7 +749,7 @@ export function LearningHubPage() {
           onClose={handleCloseModule}
           onResume={async () => {
             try {
-              await handleResumeModule(activeModule.moduleKey)
+              await handleResumeModule(activeModule)
             } finally {
               handleCloseModule()
             }

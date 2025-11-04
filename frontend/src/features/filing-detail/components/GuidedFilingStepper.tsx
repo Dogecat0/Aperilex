@@ -118,6 +118,62 @@ function extractCompletedSectionsForAnalysis(
   return extractLegacyCompletedSections(metadata, analysisId)
 }
 
+interface IntendedSectionDescriptor {
+  sectionKey: string | null
+  focusSection: string | null
+}
+
+function extractIntendedSectionForAnalysis(
+  metadata: Record<string, unknown> | undefined,
+  analysisId: string
+): IntendedSectionDescriptor | null {
+  if (!metadata) {
+    return null
+  }
+
+  const intents = metadata['intended_next_sections']
+  if (!intents || typeof intents !== 'object' || intents === null) {
+    return null
+  }
+
+  const entry = (intents as Record<string, unknown>)[analysisId]
+  if (!entry) {
+    return null
+  }
+
+  if (typeof entry === 'string') {
+    return { sectionKey: entry, focusSection: null }
+  }
+
+  if (typeof entry !== 'object' || entry === null) {
+    return null
+  }
+
+  const record = entry as Record<string, unknown>
+  const sectionKey =
+    typeof record['section_key'] === 'string'
+      ? (record['section_key'] as string)
+      : typeof record['sectionKey'] === 'string'
+        ? (record['sectionKey'] as string)
+        : null
+
+  const focusSection =
+    typeof record['focus_section'] === 'string'
+      ? (record['focus_section'] as string)
+      : typeof record['focusSection'] === 'string'
+        ? (record['focusSection'] as string)
+        : null
+
+  if (!sectionKey) {
+    return null
+  }
+
+  return {
+    sectionKey,
+    focusSection,
+  }
+}
+
 interface GuidedFilingStepperProps {
   analysisId: string
   sections: GuidedWalkthroughSection[]
@@ -138,17 +194,17 @@ export function GuidedFilingStepper({
   const [activeIndex, setActiveIndex] = useState(0)
   const [completedChecks, setCompletedChecks] = useState<CompletedChecksBySection>({})
   const [celebrationSection, setCelebrationSection] = useState<string | null>(null)
+  const [focusNotice, setFocusNotice] = useState<string | null>(null)
   const notifiedSectionsRef = useRef<Set<string>>(new Set())
   const hasUserNavigatedRef = useRef(false)
   const pendingInitialSectionRef = useRef<string | null>(null)
+  const pendingIntendedSectionRef = useRef<string | null>(null)
   const { progressByModule, recordWalkthroughEvent } = useLearningProgress()
 
-  useEffect(() => {
-    pendingInitialSectionRef.current = initialSectionKey ?? null
-  }, [initialSectionKey, focusRequestKey])
-
-  const persistedSectionKeys = useMemo(() => {
+  const { persistedSectionKeys, persistedIntendedSection } = useMemo(() => {
     const keys = new Set<string>()
+    let intended: IntendedSectionDescriptor | null = null
+
     for (const section of sections) {
       const moduleProgress = progressByModule[section.learning_module_key]
       if (!moduleProgress) {
@@ -162,9 +218,28 @@ export function GuidedFilingStepper({
       for (const key of completedSections) {
         keys.add(key)
       }
+
+      if (!intended) {
+        const candidate = extractIntendedSectionForAnalysis(moduleProgress.metadata, analysisId)
+        if (candidate?.sectionKey) {
+          intended = candidate
+        }
+      }
     }
-    return Array.from(keys)
+
+    return {
+      persistedSectionKeys: Array.from(keys),
+      persistedIntendedSection: intended,
+    }
   }, [sections, progressByModule, analysisId])
+
+  useEffect(() => {
+    pendingInitialSectionRef.current = initialSectionKey ?? null
+  }, [initialSectionKey, focusRequestKey])
+
+  useEffect(() => {
+    pendingIntendedSectionRef.current = persistedIntendedSection?.sectionKey ?? null
+  }, [persistedIntendedSection])
 
   const persistedSectionSet = useMemo(
     () => new Set<string>(persistedSectionKeys),
@@ -202,8 +277,10 @@ export function GuidedFilingStepper({
     notifiedSectionsRef.current = new Set()
     setCompletedChecks({})
     setCelebrationSection(null)
+    setFocusNotice(null)
     hasUserNavigatedRef.current = false
     setActiveIndex(0)
+    pendingIntendedSectionRef.current = null
   }, [analysisId])
 
   useEffect(() => {
@@ -256,31 +333,71 @@ export function GuidedFilingStepper({
       return
     }
 
-    let targetIndex: number | null = null
-    const desiredKey = pendingInitialSectionRef.current
+    const firstIncompleteIndex = sections.findIndex((section) => !isSectionComplete(section))
+    const fallbackIndex =
+      firstIncompleteIndex === -1 ? Math.max(0, sections.length - 1) : firstIncompleteIndex
+
+    const ensureAccessible = (index: number) => {
+      if (index <= 0) {
+        return { accessible: true, blocker: null as GuidedWalkthroughSection | null }
+      }
+      for (let i = 0; i < index; i += 1) {
+        if (!isSectionComplete(sections[i])) {
+          return { accessible: false, blocker: sections[i] }
+        }
+      }
+      return { accessible: true, blocker: null as GuidedWalkthroughSection | null }
+    }
+
+    let targetIndex = fallbackIndex
     let matchedFocus = false
+    let nextNotice: string | null = focusNotice
+
+    const desiredKey = pendingInitialSectionRef.current
     if (desiredKey) {
       const matchIndex = sections.findIndex((section) => section.section_key === desiredKey)
+      pendingInitialSectionRef.current = null
       if (matchIndex !== -1) {
-        targetIndex = matchIndex
-        pendingInitialSectionRef.current = null
-        matchedFocus = true
+        const { accessible, blocker } = ensureAccessible(matchIndex)
+        if (accessible) {
+          targetIndex = matchIndex
+          matchedFocus = true
+          nextNotice = null
+        } else if (blocker) {
+          const targetSection = sections[matchIndex]
+          nextNotice = `Finish “${blocker.title}” before jumping to “${targetSection.title}”.`
+        }
       }
     }
 
-    if (targetIndex === null) {
-      const firstIncompleteIndex = sections.findIndex((section) => !isSectionComplete(section))
-      targetIndex =
-        firstIncompleteIndex === -1 ? Math.max(0, sections.length - 1) : firstIncompleteIndex
+    if (!matchedFocus) {
+      const intendedKey = pendingIntendedSectionRef.current
+      if (intendedKey) {
+        const matchIndex = sections.findIndex((section) => section.section_key === intendedKey)
+        pendingIntendedSectionRef.current = null
+        if (matchIndex !== -1) {
+          const targetSection = sections[matchIndex]
+          if (!isSectionComplete(targetSection)) {
+            const { accessible } = ensureAccessible(matchIndex)
+            if (accessible) {
+              targetIndex = matchIndex
+            }
+          }
+        }
+      }
     }
 
-    if (typeof targetIndex === 'number' && targetIndex !== activeIndex) {
+    if (targetIndex !== activeIndex) {
       setActiveIndex(targetIndex)
       if (matchedFocus) {
         hasUserNavigatedRef.current = true
       }
     }
-  }, [sections, isSectionComplete, activeIndex])
+
+    if (focusNotice !== nextNotice) {
+      setFocusNotice(nextNotice)
+    }
+  }, [sections, isSectionComplete, activeIndex, focusNotice])
 
   const emitSectionCompletion = useCallback(
     async (section: GuidedWalkthroughSection) => {
@@ -366,6 +483,7 @@ export function GuidedFilingStepper({
     (count, section) => (isSectionComplete(section) ? count + 1 : count),
     0
   )
+  const remainingCount = Math.max(sections.length - completedCount, 0)
 
   function isSectionUnlocked(index: number) {
     if (index === 0) {
@@ -387,6 +505,7 @@ export function GuidedFilingStepper({
       return
     }
     hasUserNavigatedRef.current = true
+    setFocusNotice(null)
     setActiveIndex(index)
   }
 
@@ -395,6 +514,7 @@ export function GuidedFilingStepper({
       return
     }
     hasUserNavigatedRef.current = true
+    setFocusNotice(null)
     setActiveIndex((index) => Math.max(index - 1, 0))
   }
 
@@ -407,6 +527,7 @@ export function GuidedFilingStepper({
       return
     }
     hasUserNavigatedRef.current = true
+    setFocusNotice(null)
     setActiveIndex((index) => Math.min(index + 1, sections.length - 1))
   }
 
@@ -504,6 +625,26 @@ export function GuidedFilingStepper({
       </aside>
 
       <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+        <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+              Step {activeIndex + 1} of {sections.length}
+            </p>
+            <h2 className="mt-1 text-lg font-semibold text-slate-900">{activeSection.title}</h2>
+          </div>
+          <span className="text-xs text-slate-500">
+            {remainingCount === 0
+              ? 'All steps complete'
+              : `${remainingCount} step${remainingCount === 1 ? '' : 's'} remaining`}
+          </span>
+        </div>
+
+        {focusNotice ? (
+          <div className="mb-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+            {focusNotice}
+          </div>
+        ) : null}
+
         <GuidedSectionPanel
           section={activeSection}
           completedChecks={activeSectionChecks}

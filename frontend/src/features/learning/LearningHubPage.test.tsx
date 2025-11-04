@@ -97,12 +97,11 @@ describe('LearningHubPage', () => {
     expect(screen.getByText((content) => content.includes('Score 67%'))).toBeInTheDocument()
     const summarySnippets = await screen.findAllByText(/Connect commentary to margin movements/i)
     expect(summarySnippets.length).toBeGreaterThan(0)
-    const lessonButtons = screen.getAllByRole('button', { name: /Review lessons/i })
-    expect(lessonButtons.length).toBeGreaterThan(0)
-    const detailLink = screen.getByRole('link', {
-      name: /View Management Discussion & Analysis/i,
-    })
-    expect(detailLink).toHaveAttribute('href', `/filing/${latestAnalysisId}`)
+    const resumeButtons = screen.getAllByRole('button', { name: /Resume module/i })
+    expect(resumeButtons.length).toBeGreaterThan(0)
+    expect(
+      screen.queryByRole('link', { name: /View Management Discussion & Analysis/i })
+    ).toBeNull()
   })
 
   it('shows onboarding guidance when no analyses exist', async () => {
@@ -183,10 +182,8 @@ describe('LearningHubPage', () => {
   it('opens the module modal and schedules a review', async () => {
     renderWithProviders(<LearningHubPage />)
 
-    const lessonShortcuts = await screen.findAllByRole('button', {
-      name: /Review lessons/i,
-    })
-    fireEvent.click(lessonShortcuts[0])
+    const resumeButtons = await screen.findAllByRole('button', { name: /Resume module/i })
+    fireEvent.click(resumeButtons[0])
 
     const dialog = await screen.findByRole('dialog')
     expect(dialog).toBeInTheDocument()

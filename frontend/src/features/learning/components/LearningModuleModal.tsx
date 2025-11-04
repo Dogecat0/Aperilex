@@ -127,6 +127,13 @@ export function LearningModuleModal({
     }))
   }, [bindings, module.context])
 
+  const resumeWalkthroughCta =
+    module.ctas.find((cta) => cta.kind === 'walkthrough') ?? null
+  const resumeDisabled = !resumeWalkthroughCta
+  const resumeTitle = resumeDisabled
+    ? 'Resume becomes available once the guided walkthrough is ready.'
+    : undefined
+
   const lessonSectionRef = useRef<HTMLDivElement | null>(null)
 
   useEffect(() => {
@@ -223,6 +230,8 @@ export function LearningModuleModal({
               variant="secondary"
               className="mt-3 w-full"
               onClick={onResume}
+              disabled={resumeDisabled}
+              title={resumeTitle}
             >
               Resume walkthrough
             </Button>
