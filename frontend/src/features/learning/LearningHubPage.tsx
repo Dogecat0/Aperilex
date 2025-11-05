@@ -434,8 +434,8 @@ export function LearningHubPage() {
                 <div
                   className="flex flex-col gap-2 rounded-lg border px-3 py-3 text-sm"
                   style={{
-                    borderColor: 'rgba(184, 99, 7, 0.35)',
-                    background: 'rgba(255, 244, 222, 0.65)',
+                    borderColor: 'var(--surfaces-base)',
+                    background: 'var(--surfaces-muted)',
                   }}
                 >
                   {context.highlight && (
@@ -484,26 +484,26 @@ export function LearningHubPage() {
                       {pendingReviews} pending review{pendingReviews === 1 ? '' : 's'}
                     </p>
                   )}
-                  <div className="flex w-full items-center justify-end gap-2 text-xs text-[var(--text-secondary)]">
-                    {sentimentBadge && (
-                      <span
-                        className="rounded-full px-2 py-0.5 font-semibold uppercase tracking-wide"
-                        style={{
-                          background: sentimentBadgeBackground(sentimentBadge.color),
-                          color: sentimentBadge.color,
-                        }}
-                      >
-                        {sentimentBadge.label}
-                      </span>
-                    )}
-                  </div>
+
                 </div>
               ) : (
                 <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>
                   Run a completed filing analysis to unlock contextual practice material.
                 </p>
               )}
-
+              <div className="flex w-full items-center justify-end gap-2 text-xs text-[var(--text-secondary)]">
+                {sentimentBadge && (
+                  <span
+                    className="rounded-full px-2 py-0.5 font-semibold uppercase tracking-wide"
+                    style={{
+                      background: sentimentBadgeBackground(sentimentBadge.color),
+                      color: sentimentBadge.color,
+                    }}
+                  >
+                    {sentimentBadge.label}
+                  </span>
+                )}
+              </div>
               <div className="mt-auto flex flex-col gap-2">
                 <div
                   aria-label={`Progress ${progressPercent}%`}

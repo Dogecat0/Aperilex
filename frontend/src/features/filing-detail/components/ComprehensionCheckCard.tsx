@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useThemeTokens } from '@/components/ThemeProvider'
+import { hexToRgba } from '@/lib/color'
 import type { ComprehensionCheck } from '@/lib/types/analysis'
 
 interface ComprehensionCheckCardProps {
@@ -43,6 +45,16 @@ export function ComprehensionCheckCard({
 }: ComprehensionCheckCardProps) {
   const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null)
   const [status, setStatus] = useState<AnswerStatus>('idle')
+  const tokens = useThemeTokens()
+  const isLightMode = tokens.name === 'light'
+  const correctBackground = useMemo(
+    () => hexToRgba(tokens.status.positive, isLightMode ? 0.14 : 0.22),
+    [isLightMode, tokens.status.positive]
+  )
+  const incorrectBackground = useMemo(
+    () => hexToRgba(tokens.status.negative, isLightMode ? 0.14 : 0.22),
+    [isLightMode, tokens.status.negative]
+  )
 
   const distractorKey = useMemo(() => check.distractors.join('\u0000'), [check.distractors])
 
@@ -90,12 +102,22 @@ export function ComprehensionCheckCard({
   const showRetry = status === 'incorrect' && !completed
 
   return (
-    <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+    <article
+      className="rounded-2xl border p-5"
+      style={{
+        background: 'var(--surfaces-raised)',
+        borderColor: 'var(--lines-subtle)',
+        boxShadow: tokens.shadows.soft,
+      }}
+    >
       <header className="mb-4">
-        <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+        <p
+          className="text-xs font-semibold uppercase tracking-wide"
+          style={{ color: 'var(--text-muted)', letterSpacing: '0.2em' }}
+        >
           Comprehension Check
         </p>
-        <h3 className="mt-1 text-lg font-semibold text-slate-900">{check.question}</h3>
+        <h3 className="mt-1 text-lg font-semibold text-[var(--text-primary)]">{check.question}</h3>
       </header>
 
       <div className="flex flex-col gap-2">
@@ -106,29 +128,29 @@ export function ComprehensionCheckCard({
 
           const borderColor =
             resolvedCorrect || (isSelected && status === 'correct')
-              ? 'rgb(34 197 94)'
+              ? tokens.status.positive
               : isSelected && status === 'incorrect'
-                ? 'rgb(248 113 113)'
-                : 'var(--lines-subtle, rgb(226 232 240))'
+                ? tokens.status.negative
+                : 'var(--lines-subtle)'
           const backgroundColor =
             resolvedCorrect || (isSelected && status === 'correct')
-              ? 'rgb(240 253 244)'
+              ? correctBackground
               : isSelected && status === 'incorrect'
-                ? 'rgb(254 242 242)'
-                : 'white'
+                ? incorrectBackground
+                : 'var(--surfaces-raised)'
           const textColor =
             resolvedCorrect || (isSelected && status === 'correct')
-              ? 'rgb(22 101 52)'
+              ? tokens.status.positive
               : isSelected && status === 'incorrect'
-                ? 'rgb(185 28 28)'
-                : 'rgb(15 23 42)'
+                ? tokens.status.negative
+                : 'var(--text-primary)'
 
           return (
             <button
               key={option}
               type="button"
               onClick={() => handleSelect(option)}
-              className="rounded-xl border px-4 py-3 text-left text-sm transition-colors"
+              className="rounded-xl border px-4 py-3 text-left text-sm transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--focus-ring)]"
               style={{
                 borderColor,
                 backgroundColor,
@@ -144,12 +166,20 @@ export function ComprehensionCheckCard({
       </div>
 
       {showRetry ? (
-        <p className="mt-3 text-sm text-rose-600">Not quite. Select a different answer.</p>
+        <p className="mt-3 text-sm" style={{ color: tokens.status.negative }}>
+          Not quite. Select a different answer.
+        </p>
       ) : null}
 
       {showExplanation ? (
-        <div className="mt-4 rounded-xl bg-slate-50 p-4 text-sm text-slate-700">
-          <p className="font-semibold text-slate-900">Explanation</p>
+        <div
+          className="mt-4 rounded-xl p-4 text-sm"
+          style={{
+            background: 'var(--surfaces-muted)',
+            color: 'var(--text-secondary)',
+          }}
+        >
+          <p className="font-semibold text-[var(--text-primary)]">Explanation</p>
           <p className="mt-1 leading-relaxed">{check.explanation}</p>
         </div>
       ) : null}

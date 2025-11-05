@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation, useParams } from 'react-router-dom'
+import { useThemeTokens } from '@/components/ThemeProvider'
+import { hexToRgba } from '@/lib/color'
 import { GuidedFilingStepper } from './components/GuidedFilingStepper'
 import { NumbersTab } from './components/NumbersTab'
 import { OverviewTab } from './components/OverviewTab'
@@ -123,10 +125,13 @@ export function FilingDetailPage() {
   const location = useLocation<FilingDetailLocationState>()
   const requestedFocusTab = normaliseTab(location.state?.focusTab)
   const requestedFocusSection = location.state?.focusSection ?? null
+  const tokens = useThemeTokens()
+  const isLightMode = tokens.name === 'light'
   const detailQuery = useFilingDetail(id)
   const detail = detailQuery.data ?? null
   const analysis = detail?.analysis ?? null
-  const guidedSections = detail?.guidedSections ?? []
+  const rawGuidedSections = detail?.guidedSections
+  const guidedSections = useMemo(() => rawGuidedSections ?? [], [rawGuidedSections])
 
   const [activeTab, setActiveTab] = useState<ModuleFocusTab>(requestedFocusTab)
   const focusKey = `${location.key}:${requestedFocusTab}`
@@ -151,35 +156,60 @@ export function FilingDetailPage() {
 
   const estimatedMinutes = estimateWalkthroughTime(guidedSections)
 
-  if (!id) {
+  const renderMessageCard = (message: string, tone: 'info' | 'error' = 'info') => {
+    if (tone === 'error') {
+      const background = hexToRgba(tokens.status.negative, isLightMode ? 0.14 : 0.28)
+      const borderColor = hexToRgba(tokens.status.negative, isLightMode ? 0.42 : 0.55)
+      return (
+        <div
+          className="rounded-3xl border p-6 text-sm"
+          style={{
+            background,
+            borderColor,
+            color: tokens.status.negative,
+            boxShadow: tokens.shadows.soft,
+          }}
+        >
+          {message}
+        </div>
+      )
+    }
+
     return (
-      <div className="rounded-3xl border border-slate-200 bg-white p-6 text-sm text-slate-600">
-        No analysis identifier supplied. Navigate from the dashboard to view filing details.
+      <div
+        className="rounded-3xl border p-6 text-sm"
+        style={{
+          background: 'var(--surfaces-raised)',
+          borderColor: 'var(--lines-subtle)',
+          color: 'var(--text-secondary)',
+          boxShadow: tokens.shadows.soft,
+        }}
+      >
+        {message}
       </div>
+    )
+  }
+
+  if (!id) {
+    return renderMessageCard(
+      'No analysis identifier supplied. Navigate from the dashboard to view filing details.'
     )
   }
 
   if (detailQuery.isLoading) {
-    return (
-      <div className="rounded-3xl border border-slate-200 bg-white p-6 text-sm text-slate-600">
-        Loading guided filing experience…
-      </div>
-    )
+    return renderMessageCard('Loading guided filing experience…')
   }
 
   if (detailQuery.isError) {
-    return (
-      <div className="rounded-3xl border border-rose-200 bg-rose-50 p-6 text-sm text-rose-800">
-        We could not load this filing. Refresh the page or return to your analysis list.
-      </div>
+    return renderMessageCard(
+      'We could not load this filing. Refresh the page or return to your analysis list.',
+      'error'
     )
   }
 
   if (!analysis) {
-    return (
-      <div className="rounded-3xl border border-slate-200 bg-white p-6 text-sm text-slate-600">
-        Filing analysis not found. It may have been archived or is still processing.
-      </div>
+    return renderMessageCard(
+      'Filing analysis not found. It may have been archived or is still processing.'
     )
   }
 
@@ -202,17 +232,47 @@ export function FilingDetailPage() {
   }
 
   const tabItems = VALID_TABS.map((tab) => ({ key: tab, label: TAB_LABELS[tab] }))
+  const tabButtonStyles = tabItems.map((tab) => {
+    const isActive = activeTab === tab.key
+    if (isActive) {
+      return {
+        background: tokens.brand.accent,
+        borderColor: tokens.brand.accent,
+        color: tokens.text.onBrand,
+        boxShadow: tokens.shadows.soft,
+        ['--tab-hover' as const]: hexToRgba(tokens.brand.accent, isLightMode ? 0.22 : 0.3),
+      }
+    }
+
+    return {
+      background: 'var(--surfaces-raised)',
+      borderColor: 'var(--lines-subtle)',
+      color: 'var(--text-secondary)',
+      boxShadow: 'none',
+      ['--tab-hover' as const]: hexToRgba(tokens.brand.accent, isLightMode ? 0.08 : 0.16),
+    }
+  })
 
   return (
     <div className="flex flex-col gap-6">
-      <header className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-        <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+      <header
+        className="rounded-3xl border p-6"
+        style={{
+          background: 'var(--surfaces-raised)',
+          borderColor: 'var(--lines-subtle)',
+          boxShadow: tokens.shadows.soft,
+        }}
+      >
+        <p
+          className="text-xs font-semibold uppercase tracking-wide"
+          style={{ color: 'var(--text-muted)', letterSpacing: '0.26em' }}
+        >
           Guided Filing • {filingType}
         </p>
-        <h1 className="mt-2 text-2xl font-semibold text-slate-900">{companyName}</h1>
-        <div className="mt-4 flex flex-wrap gap-4 text-sm text-slate-600">
+        <h1 className="mt-2 text-2xl font-semibold text-[var(--text-primary)]">{companyName}</h1>
+        <div className="mt-4 flex flex-wrap gap-4 text-sm text-[var(--text-secondary)]">
           <span>
-            <strong className="text-slate-900">{sectionCount}</strong>{' '}
+            <strong className="text-[var(--text-primary)]">{sectionCount}</strong>{' '}
             {sectionCount === 1 ? 'section' : 'sections'}
           </span>
           {typeof estimatedMinutes === 'number' ? (
@@ -222,21 +282,22 @@ export function FilingDetailPage() {
           ) : null}
           <span>Generated {formattedCompletionDate}</span>
         </div>
-        <p className="mt-4 text-sm text-slate-600">
+        <p className="mt-4 text-sm text-[var(--text-secondary)]">
           Move through each section in order, review the guided highlights, and answer the
           comprehension checks to advance.
         </p>
       </header>
 
       <nav role="tablist" aria-label="Filing detail views" className="flex flex-wrap gap-3">
-        {tabItems.map((tab) => (
+        {tabItems.map((tab, index) => (
           <button
             key={tab.key}
             type="button"
             role="tab"
             aria-selected={activeTab === tab.key}
-            className={`rounded-full border px-4 py-2 text-sm font-semibold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-500 ${activeTab === tab.key ? 'border-slate-900 bg-slate-900 text-white shadow-sm' : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300'}`}
+            className="rounded-full border px-4 py-2 text-sm font-semibold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--focus-ring)] hover:bg-[var(--tab-hover)]"
             onClick={() => handleTabChange(tab.key)}
+            style={tabButtonStyles[index]}
           >
             {tab.label}
           </button>
@@ -247,9 +308,9 @@ export function FilingDetailPage() {
 
       {activeTab === 'sections' ? (
         sectionCount === 0 ? (
-          <div className="rounded-3xl border border-slate-200 bg-white p-6 text-sm text-slate-600">
-            Guided walkthrough sections are still being prepared for this filing. Check back soon.
-          </div>
+          renderMessageCard(
+            'Guided walkthrough sections are still being prepared for this filing. Check back soon.'
+          )
         ) : (
           <GuidedFilingStepper
             analysisId={analysis.analysis_id}

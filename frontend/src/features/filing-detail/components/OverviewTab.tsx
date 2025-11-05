@@ -1,3 +1,5 @@
+import { useMemo } from 'react'
+import { useThemeTokens } from '@/components/ThemeProvider'
 import type { SummarySection } from '@/lib/types/analysis'
 
 interface OverviewTabProps {
@@ -28,9 +30,30 @@ function formatFeaturedMetric(
 }
 
 export function OverviewTab({ segments }: OverviewTabProps) {
+  const tokens = useThemeTokens()
+  const cardStyles = useMemo(
+    () => ({
+      background: 'var(--surfaces-raised)',
+      borderColor: 'var(--lines-subtle)',
+      boxShadow: tokens.shadows.soft,
+    }),
+    [tokens]
+  )
+  const featuredMetricStyles = useMemo(
+    () => ({
+      background: tokens.brand.accent,
+      color: tokens.text.onBrand,
+      boxShadow: tokens.shadows.soft,
+    }),
+    [tokens]
+  )
+
   if (!segments || segments.length === 0) {
     return (
-      <div className="rounded-3xl border border-slate-200 bg-white p-6 text-sm text-slate-600">
+      <div
+        className="rounded-3xl border p-6 text-sm"
+        style={{ ...cardStyles, color: 'var(--text-secondary)' }}
+      >
         Overview copy is not available for this analysis yet. Review the guided walkthrough while we
         generate summary guidance.
       </div>
@@ -50,24 +73,33 @@ export function OverviewTab({ segments }: OverviewTabProps) {
         return (
           <article
             key={segment.id ?? segment.title}
-            className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm"
+            className="rounded-3xl border p-6"
+            style={cardStyles}
           >
             <header className="flex flex-col gap-2">
-              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+              <p
+                className="text-xs font-semibold uppercase tracking-wide"
+                style={{ color: 'var(--text-muted)', letterSpacing: '0.2em' }}
+              >
                 {segment.anchor ?? 'overview'}
               </p>
-              <h2 className="text-xl font-semibold text-slate-900">{segment.title}</h2>
-              {segment.summary ? <p className="text-sm text-slate-600">{segment.summary}</p> : null}
+              <h2 className="text-xl font-semibold text-[var(--text-primary)]">{segment.title}</h2>
+              {segment.summary ? (
+                <p className="text-sm text-[var(--text-secondary)]">{segment.summary}</p>
+              ) : null}
             </header>
 
             {metricText ? (
-              <p className="mt-4 inline-flex items-center gap-2 rounded-full bg-slate-900 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-white">
+              <p
+                className="mt-4 inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-wide"
+                style={featuredMetricStyles}
+              >
                 {metricText}
               </p>
             ) : null}
 
             {segment.supporting_points && segment.supporting_points.length > 0 ? (
-              <ul className="mt-4 list-disc space-y-2 pl-5 text-sm text-slate-700">
+              <ul className="mt-4 list-disc space-y-2 pl-5 text-sm text-[var(--text-secondary)]">
                 {segment.supporting_points.map((point, index) => (
                   <li key={`${segment.id ?? segment.title}-point-${index}`}>{point}</li>
                 ))}

@@ -451,6 +451,7 @@ export function AnalyzeFilingsPage() {
       if (isTaskSuccessful(finalStatus.status) && analysisId) {
         await queryClient.invalidateQueries({ queryKey: ['analyses'] })
         await queryClient.invalidateQueries({ queryKey: ['analysis'] })
+        await queryClient.invalidateQueries({ queryKey: ['learning-modules'] })
         navigate(`/filing/${analysisId}`)
         return
       }
@@ -458,6 +459,7 @@ export function AnalyzeFilingsPage() {
       if (analysisId) {
         await queryClient.invalidateQueries({ queryKey: ['analyses'] })
         await queryClient.invalidateQueries({ queryKey: ['analysis'] })
+        await queryClient.invalidateQueries({ queryKey: ['learning-modules'] })
         navigate(`/filing/${analysisId}`)
         return
       }

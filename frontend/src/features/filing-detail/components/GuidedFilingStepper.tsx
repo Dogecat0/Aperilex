@@ -3,6 +3,8 @@ import { useQueryClient } from '@tanstack/react-query'
 import { Button } from '@/components/ui/Button'
 import { GuidedSectionPanel } from './GuidedSectionPanel'
 import { useLearningProgress } from '@/lib/hooks'
+import { useThemeTokens } from '@/components/ThemeProvider'
+import { hexToRgba } from '@/lib/color'
 import type { GuidedWalkthroughSection } from '@/lib/hooks/useFilingDetail'
 import type { ComprehensionCheck, WalkthroughPreviousComparison } from '@/lib/types/analysis'
 import { submitQuizAttempt } from '@/lib/hooks/useQuizAttempts'
@@ -209,6 +211,25 @@ export function GuidedFilingStepper({
   const [completedChecks, setCompletedChecks] = useState<CompletedChecksBySection>({})
   const [celebrationSection, setCelebrationSection] = useState<string | null>(null)
   const [focusNotice, setFocusNotice] = useState<string | null>(null)
+  const tokens = useThemeTokens()
+  const isLightMode = tokens.name === 'light'
+  const progressCardStyles = useMemo(
+    () => ({
+      background: 'var(--surfaces-raised)',
+      borderColor: 'var(--lines-subtle)',
+      boxShadow: tokens.shadows.soft,
+    }),
+    [tokens]
+  )
+  const focusNoticeStyles = useMemo(() => {
+    if (!focusNotice) {
+      return null
+    }
+    const background = hexToRgba(tokens.status.warning, isLightMode ? 0.16 : 0.24)
+    const borderColor = hexToRgba(tokens.status.warning, isLightMode ? 0.45 : 0.6)
+    return { background, borderColor, color: tokens.status.warning }
+  }, [focusNotice, isLightMode, tokens.status.warning])
+  const celebrationOverlayBackground = hexToRgba(tokens.brand.background, isLightMode ? 0.55 : 0.68)
   const notifiedSectionsRef = useRef<Set<string>>(new Set())
   const hasUserNavigatedRef = useRef(false)
   const pendingInitialSectionRef = useRef<string | null>(null)
@@ -740,10 +761,15 @@ export function GuidedFilingStepper({
 
   return (
     <div className="grid gap-6 lg:grid-cols-[260px_minmax(0,1fr)]">
-      <aside className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+      <aside className="rounded-3xl border p-5" style={progressCardStyles}>
         <div className="mb-4">
-          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Progress</p>
-          <p className="mt-1 text-sm text-slate-700">{progressLabel}</p>
+          <p
+            className="text-xs font-semibold uppercase tracking-wide"
+            style={{ color: 'var(--text-muted)', letterSpacing: '0.2em' }}
+          >
+            Progress
+          </p>
+          <p className="mt-1 text-sm text-[var(--text-secondary)]">{progressLabel}</p>
         </div>
         <ol className="flex flex-col gap-3">
           {sections.map((section, index) => {
@@ -757,19 +783,43 @@ export function GuidedFilingStepper({
                 : unlocked
                   ? 'Ready'
                   : 'Locked'
-            const baseClasses =
-              'flex w-full flex-col rounded-2xl border px-4 py-3 text-left text-sm transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2'
-            let stateClasses =
-              'border-slate-200 bg-white text-slate-700 hover:border-slate-300 focus-visible:outline-slate-500'
+            const stepButtonClasses =
+              'flex w-full flex-col rounded-2xl border px-4 py-3 text-left text-sm transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--focus-ring)] hover:bg-[var(--step-hover)] disabled:cursor-not-allowed disabled:opacity-70'
+            const defaultHover = hexToRgba(tokens.brand.accent, isLightMode ? 0.08 : 0.16)
+            let stepStyles: Record<string, string> = {
+              background: 'var(--surfaces-raised)',
+              borderColor: 'var(--lines-subtle)',
+              color: 'var(--text-secondary)',
+              ['--step-hover' as const]: defaultHover,
+            }
+
             if (isActive) {
-              stateClasses =
-                'border-slate-900 bg-slate-900 text-white shadow-sm focus-visible:outline-slate-900'
+              stepStyles = {
+                background: tokens.brand.accent,
+                borderColor: tokens.brand.accent,
+                color: tokens.text.onBrand,
+                boxShadow: tokens.shadows.soft,
+                ['--step-hover' as const]: hexToRgba(tokens.brand.accent, isLightMode ? 0.22 : 0.3),
+              }
             } else if (isComplete) {
-              stateClasses =
-                'border-emerald-200 bg-emerald-50 text-emerald-900 hover:border-emerald-300 focus-visible:outline-emerald-500'
+              stepStyles = {
+                background: hexToRgba(tokens.status.positive, isLightMode ? 0.16 : 0.24),
+                borderColor: tokens.status.positive,
+                color: tokens.status.positive,
+                ['--step-hover' as const]: hexToRgba(
+                  tokens.status.positive,
+                  isLightMode ? 0.22 : 0.32
+                ),
+                boxShadow: tokens.shadows.soft,
+              }
             } else if (!unlocked) {
-              stateClasses =
-                'border-dashed border-slate-200 bg-slate-50 text-slate-400 cursor-not-allowed focus-visible:outline-slate-300'
+              stepStyles = {
+                background: 'var(--surfaces-muted)',
+                borderColor: 'var(--lines-subtle)',
+                color: 'var(--text-muted)',
+                borderStyle: 'dashed',
+                ['--step-hover' as const]: defaultHover,
+              }
             }
 
             return (
@@ -779,7 +829,8 @@ export function GuidedFilingStepper({
                   onClick={() => handleNavigate(index)}
                   aria-current={isActive ? 'step' : undefined}
                   disabled={!unlocked}
-                  className={`${baseClasses} ${stateClasses}`}
+                  className={stepButtonClasses}
+                  style={stepStyles}
                 >
                   <span className="text-xs font-semibold uppercase tracking-wide">
                     Step {index + 1}
@@ -793,15 +844,17 @@ export function GuidedFilingStepper({
         </ol>
       </aside>
 
-      <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+      <div className="rounded-3xl border p-6" style={progressCardStyles}>
         <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+            <p
+              className="text-xs font-semibold uppercase tracking-wide"
+              style={{ color: 'var(--text-muted)', letterSpacing: '0.2em' }}
+            >
               Step {activeIndex + 1} of {sections.length}
             </p>
-            <h2 className="mt-1 text-lg font-semibold text-slate-900">{activeSection.title}</h2>
           </div>
-          <span className="text-xs text-slate-500">
+          <span className="text-xs text-[var(--text-muted)]">
             {remainingCount === 0
               ? 'All steps complete'
               : `${remainingCount} step${remainingCount === 1 ? '' : 's'} remaining`}
@@ -809,8 +862,11 @@ export function GuidedFilingStepper({
         </div>
 
         {focusNotice ? (
-          <div className="mb-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-            {focusNotice}
+          <div
+            className="mb-4 rounded-2xl border px-4 py-3 text-sm"
+            style={focusNoticeStyles ?? undefined}
+          >
+            <span style={{ color: tokens.status.warning }}>{focusNotice}</span>
           </div>
         ) : null}
 
@@ -834,7 +890,7 @@ export function GuidedFilingStepper({
             Previous
           </Button>
           <div className="flex items-center gap-3">
-            <span className="text-sm text-slate-600">
+            <span className="text-sm text-[var(--text-secondary)]">
               {activeSectionComplete
                 ? atLastSection
                   ? 'Walkthrough complete—return to dashboard when ready.'
@@ -854,20 +910,34 @@ export function GuidedFilingStepper({
       </div>
 
       {celebrationSection ? (
-        <div className="fixed inset-0 z-30 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm">
+        <div
+          className="fixed inset-0 z-30 flex items-center justify-center backdrop-blur-sm"
+          style={{ background: celebrationOverlayBackground }}
+        >
           <div
             role="dialog"
             aria-modal="true"
             aria-labelledby="guided-celebration-title"
-            className="w-full max-w-sm rounded-3xl border border-slate-200 bg-white p-6 text-center shadow-2xl"
+            className="w-full max-w-sm rounded-3xl border p-6 text-center"
+            style={{
+              background: 'var(--surfaces-raised)',
+              borderColor: 'var(--lines-subtle)',
+              boxShadow: tokens.shadows.medium,
+            }}
           >
-            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+            <p
+              className="text-xs font-semibold uppercase tracking-wide"
+              style={{ color: 'var(--text-muted)', letterSpacing: '0.2em' }}
+            >
               Section complete
             </p>
-            <h2 id="guided-celebration-title" className="mt-2 text-xl font-semibold text-slate-900">
+            <h2
+              id="guided-celebration-title"
+              className="mt-2 text-xl font-semibold text-[var(--text-primary)]"
+            >
               Nice work!
             </h2>
-            <p className="mt-3 text-sm text-slate-600">
+            <p className="mt-3 text-sm text-[var(--text-secondary)]">
               You just wrapped {celebrationSection}. Keep the momentum going with the next section.
             </p>
             <div className="mt-5 flex flex-wrap items-center justify-center gap-3">
