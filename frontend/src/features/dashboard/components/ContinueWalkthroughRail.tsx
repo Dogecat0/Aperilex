@@ -107,33 +107,11 @@ export function ContinueWalkthroughRail({ analyses, isLoading }: ContinueWalkthr
                   <Button
                     type="button"
                     size="sm"
-                    variant="secondary"
+                    variant="primary"
                     className="px-4"
                     onClick={() => navigate(resumeTarget)}
                   >
                     Resume walkthrough
-                  </Button>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="ghost"
-                    disabled={!hasFilingId}
-                    onClick={() =>
-                      navigate('/analyze', {
-                        state: {
-                          preselectFiling: {
-                            filingId: item.filingId,
-                            companyName: item.companyName,
-                            ticker: item.ticker ?? null,
-                            filingType: item.filingType ?? null,
-                            filingDate: item.filingDate ?? null,
-                            filingDateLabel: item.filedAt,
-                          },
-                        },
-                      })
-                    }
-                  >
-                    Analyze this filing
                   </Button>
                 </div>
               </article>

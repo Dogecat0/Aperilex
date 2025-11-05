@@ -120,7 +120,7 @@ async def test_record_quiz_attempt_uses_repository(repository_factory: AsyncMock
         question_count=5,
         correct_count=4,
         score_percent=80.0,
-        passed=True,
+        passed=False,
         attempted_at=quiz_repo.record_attempt.return_value.attempted_at,
         responses={"q1": "A"},
         metadata={"topic": "mdna"},
@@ -131,6 +131,8 @@ async def test_record_quiz_attempt_uses_repository(repository_factory: AsyncMock
 
     assert result.attempt_id == sample_id
     quiz_repo.record_attempt.assert_awaited()
+    saved_payload = quiz_repo.record_attempt.await_args[0][0]
+    assert saved_payload.passed is True
 
 
 @pytest.mark.asyncio
@@ -211,7 +213,7 @@ async def test_list_user_progress_computes_unlock(repository_factory: AsyncMock)
 
     quiz_repo = AsyncMock()
     repository_factory.get_quiz_attempt_repository.return_value = quiz_repo
-    reviewed_attempt_time = datetime.now(UTC)
+    attempt_time = datetime.now(UTC)
     quiz_repo.get_best_attempt.return_value = QuizAttemptData(
         id=QuizAttemptId(uuid4()),
         user_id=unlocked_progress.user_id,
@@ -220,10 +222,10 @@ async def test_list_user_progress_computes_unlock(repository_factory: AsyncMock)
         correct_count=3,
         score_percent=100.0,
         passed=True,
-        is_human_reviewed=True,
+        is_human_reviewed=False,
         responses={"check-1": "A"},
         metadata={"review_status": LearningReviewStatus.APPROVED},
-        attempted_at=reviewed_attempt_time,
+        attempted_at=attempt_time,
         schema_version=1,
     )
 
@@ -243,7 +245,7 @@ async def test_list_user_progress_computes_unlock(repository_factory: AsyncMock)
             module_stage="foundation",
             lesson_title="Lesson",
             status=LearningReviewStatus.APPROVED,
-            last_reviewed_at=reviewed_attempt_time,
+            last_reviewed_at=attempt_time,
             created_at=None,
             updated_at=None,
         )
@@ -253,7 +255,8 @@ async def test_list_user_progress_computes_unlock(repository_factory: AsyncMock)
     results = await service.list_user_progress(unlocked_progress.user_id)
 
     assert results[0].is_unlocked is True
-    assert results[0].last_reviewed_at == reviewed_attempt_time
+    assert results[0].last_reviewed_at is None
+    assert results[0].unlocked_at == attempt_time
     assert results[0].pending_review_count == 0
 
 

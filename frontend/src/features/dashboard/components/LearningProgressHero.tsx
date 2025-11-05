@@ -48,7 +48,7 @@ export function LearningProgressHero({ highlights, isLoading }: LearningProgress
       title="Learning Hub momentum overview"
       description="Track guided walkthrough progress, section coverage, and recommended lessons sourced from your latest filing modules."
     >
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+      <div className="grid gap-3 md:grid-cols-3">
         <FeatureHeroStat
           label={completionStat.label}
           value={completionStat.value}

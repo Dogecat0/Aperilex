@@ -142,22 +142,25 @@ class LearningService:
             progress.user_id, effective_quiz_id
         )
 
-        reviewed_attempt = False
         last_reviewed_at = progress.last_reviewed_at
         unlocked_at = progress.unlocked_at
         is_unlocked = progress.is_unlocked
 
-        if best_attempt is not None and best_attempt.is_human_reviewed:
-            reviewed_attempt = True
-            last_reviewed_at = best_attempt.attempted_at
+        passing_attempt = False
+
+        if best_attempt is not None:
+            passing_attempt = bool(
+                best_attempt.passed or best_attempt.score_percent >= 80.0
+            )
+            if best_attempt.is_human_reviewed:
+                last_reviewed_at = best_attempt.attempted_at
 
         walkthrough_complete = (
             progress.progress_percent >= 100 or progress.completed_at is not None
         )
         quiz_passed = (
-            reviewed_attempt
-            and best_attempt is not None
-            and best_attempt.score_percent >= 80.0
+            best_attempt is not None
+            and passing_attempt
         )
 
         if walkthrough_complete and quiz_passed:
@@ -482,6 +485,7 @@ class LearningService:
         """Persist a quiz attempt for a learner."""
 
         attempt_id = payload.attempt_id or QuizAttemptId(uuid4())
+        passed = bool(payload.passed or payload.score_percent >= 80.0)
         data = QuizAttemptData(
             id=attempt_id,
             user_id=payload.user_id,
@@ -489,7 +493,7 @@ class LearningService:
             question_count=payload.question_count,
             correct_count=payload.correct_count,
             score_percent=payload.score_percent,
-            passed=payload.passed,
+            passed=passed,
             is_human_reviewed=payload.is_human_reviewed,
             responses=payload.responses or {},
             metadata=payload.metadata,

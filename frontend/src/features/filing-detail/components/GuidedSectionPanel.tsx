@@ -4,12 +4,13 @@ import { ComprehensionCheckCard } from './ComprehensionCheckCard'
 import { HighlightCallout } from './HighlightCallout'
 import { SectionDiffDrawer } from './SectionDiffDrawer'
 import type { GuidedWalkthroughSection } from '@/lib/hooks/useFilingDetail'
-import type { WalkthroughPreviousComparison } from '@/lib/types/analysis'
+import type { ComprehensionCheck, WalkthroughPreviousComparison } from '@/lib/types/analysis'
 
 interface GuidedSectionPanelProps {
   section: GuidedWalkthroughSection
   completedChecks: Record<string, true>
   onCheckCompleted(checkId: string): void
+  onAnswer?(check: ComprehensionCheck, answer: string, isCorrect: boolean): void
   diff?: WalkthroughPreviousComparison | null
 }
 
@@ -17,6 +18,7 @@ export function GuidedSectionPanel({
   section,
   completedChecks,
   onCheckCompleted,
+  onAnswer,
   diff = null,
 }: GuidedSectionPanelProps) {
   const [diffOpen, setDiffOpen] = useState(false)
@@ -142,6 +144,7 @@ export function GuidedSectionPanel({
                 check={check}
                 completed={Boolean(completedChecks[check.id])}
                 onCompleted={() => onCheckCompleted(check.id)}
+                onAttempt={(answer, isCorrect) => onAnswer?.(check, answer, isCorrect)}
               />
             ))
           )}

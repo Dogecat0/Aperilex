@@ -100,8 +100,6 @@ export function LearningHubPage() {
     attempts,
     stats,
     isLoading: attemptsLoading,
-    isRecording,
-    recordAttempt,
     error: quizError,
     clearError: clearQuizError,
   } = useQuizAttempts({ limit: 5 })
@@ -207,24 +205,6 @@ export function LearningHubPage() {
     [progressByModule, updateProgress]
   )
 
-  const handleRecordPracticeAttempt = useCallback(async () => {
-    const score = Math.round(75 + Math.random() * 20)
-    const correctCount = Math.max(0, Math.min(3, Math.round((score / 100) * 3)))
-
-    try {
-      await recordAttempt({
-        quizId: 'practice-check',
-        questionCount: 3,
-        correctCount,
-        scorePercent: score,
-        passed: score >= 80,
-        metadata: { source: 'learning-hub', generated: true },
-      })
-    } catch {
-      // Failure is handled via the hook error state.
-    }
-  }, [recordAttempt])
-
   const handleOpenModule = useCallback(
     (moduleKey: string, focus: ModuleModalFocus = 'overview') => {
       setActiveModuleState({ key: moduleKey, focus })
@@ -254,7 +234,7 @@ export function LearningHubPage() {
     [scheduleReview]
   )
 
-  const busy = isUpdating || isRecording || isSchedulingReview
+  const busy = isUpdating || isSchedulingReview
   const toastMessages = useMemo(
     () =>
       [
@@ -592,7 +572,7 @@ export function LearningHubPage() {
       >
         <SectionIntro
           title="Recent quiz attempts"
-          description="Drill quick knowledge checks and keep a rolling log of accuracy without relying on local storage."
+          description="Finish guided walkthrough comprehension checks to automatically log quiz attempts and track your accuracy over time."
           titleStyle={{ letterSpacing: tokens.typography.letterSpacing.tight }}
           descriptionClassName="text-[var(--text-secondary)] leading-[var(--typography-line-heights-standard)]"
           actions={
@@ -623,67 +603,55 @@ export function LearningHubPage() {
               lineHeight: 'var(--typography-line-heights-standard)',
             }}
           >
-            No quiz attempts recorded yet. Log your first practice check to populate this timeline.
+            No quiz attempts recorded yet. Work through a guided filing to populate this timeline.
           </p>
         ) : (
           <ul className="mt-4 flex flex-col gap-3">
-            {attempts.map((attempt) => (
-              <li
-                key={attempt.attemptId}
-                className="flex items-center justify-between rounded-xl border px-4 py-3"
-                style={{
-                  borderColor: 'var(--lines-subtle)',
-                  background: 'var(--surfaces-muted)',
-                  boxShadow: tokens.shadows.soft,
-                }}
-              >
-                <div className="flex flex-col gap-1">
-                  <span className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
-                    {attempt.quizId}
-                  </span>
-                  <span
-                    className="text-xs"
-                    style={{
-                      color: 'var(--text-secondary)',
-                      lineHeight: 'var(--typography-line-heights-standard)',
-                    }}
-                  >
-                    Score {attempt.scorePercent.toFixed(0)}% · {attempt.correctCount} /{' '}
-                    {attempt.questionCount} correct · {formatTimestamp(attempt.attemptedAt)}
-                  </span>
-                </div>
-                <span
-                  className="text-xs font-semibold uppercase tracking-[0.18em]"
+            {attempts.map((attempt) => {
+              const statusLabel = attempt.passed ? 'Passed' : 'Retake'
+              const statusColor = attempt.passed
+                ? tokens.status.positive
+                : tokens.status.negative
+
+              return (
+                <li
+                  key={attempt.attemptId}
+                  className="flex items-center justify-between rounded-xl border px-4 py-3"
                   style={{
-                    color: attempt.passed
-                      ? attempt.isHumanReviewed
-                        ? tokens.status.positive
-                        : tokens.text.onLearning
-                      : tokens.status.negative,
+                    borderColor: 'var(--lines-subtle)',
+                    background: 'var(--surfaces-muted)',
+                    boxShadow: tokens.shadows.soft,
                   }}
                 >
-                  {attempt.passed
-                    ? attempt.isHumanReviewed
-                      ? 'Passed'
-                      : 'Await review'
-                    : 'Retake'}
-                </span>
-              </li>
-            ))}
+                  <div className="flex flex-col gap-1">
+                    <span
+                      className="text-sm font-semibold"
+                      style={{ color: 'var(--text-primary)' }}
+                    >
+                      {attempt.quizId}
+                    </span>
+                    <span
+                      className="text-xs"
+                      style={{
+                        color: 'var(--text-secondary)',
+                        lineHeight: 'var(--typography-line-heights-standard)',
+                      }}
+                    >
+                      Score {attempt.scorePercent.toFixed(0)}% · {attempt.correctCount} /{' '}
+                      {attempt.questionCount} correct · {formatTimestamp(attempt.attemptedAt)}
+                    </span>
+                  </div>
+                  <span
+                    className="text-xs font-semibold uppercase tracking-[0.18em]"
+                    style={{ color: statusColor }}
+                  >
+                    {statusLabel}
+                  </span>
+                </li>
+              )
+            })}
           </ul>
         )}
-
-        <Button
-          type="button"
-          size="sm"
-          variant="primary"
-          onClick={handleRecordPracticeAttempt}
-          disabled={busy}
-          className="mt-4 self-start"
-          style={busy ? { boxShadow: 'none' } : undefined}
-        >
-          Log practice attempt
-        </Button>
       </section>
 
       {activeModule ? (

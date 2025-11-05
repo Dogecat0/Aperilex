@@ -204,19 +204,11 @@ describe('LearningHubPage', () => {
     )
   })
 
-  it('records a practice attempt through the CTA', async () => {
+  it('surfaces automatic logging guidance for quiz attempts', async () => {
     renderWithProviders(<LearningHubPage />)
-    await screen.findByText('Log practice attempt')
-
-    fireEvent.click(screen.getByText('Log practice attempt'))
-
-    await waitFor(() => expect(postSpy).toHaveBeenCalledTimes(1))
-    expect(postSpy).toHaveBeenCalledWith(
-      '/learning/quiz-attempts',
-      expect.objectContaining({
-        schema: expect.anything(),
-        body: expect.objectContaining({ quiz_id: 'practice-check' }),
-      })
-    )
+    expect(
+      await screen.findByText(/automatically log quiz attempts/i)
+    ).toBeInTheDocument()
+    expect(screen.queryByText('Log practice attempt')).toBeNull()
   })
 })

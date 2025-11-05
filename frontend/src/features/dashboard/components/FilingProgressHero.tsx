@@ -90,17 +90,6 @@ export function FilingProgressHero({
           helper={heroCopy.latestHelper}
         />
       </div>
-
-      <div className="mt-6 flex flex-wrap gap-3">
-        <Button type="button" size="sm" variant="primary" onClick={handleOpenAnalyze}>
-          Run a new analysis
-        </Button>
-        {hasLatestAnalysis ? (
-          <Button type="button" size="sm" variant="secondary" onClick={handleResumeLatest}>
-            Resume latest walkthrough
-          </Button>
-        ) : null}
-      </div>
     </FeatureHero>
   )
 }

@@ -1,11 +1,25 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { Button } from '@/components/ui/Button'
 import { GuidedSectionPanel } from './GuidedSectionPanel'
 import { useLearningProgress } from '@/lib/hooks'
 import type { GuidedWalkthroughSection } from '@/lib/hooks/useFilingDetail'
-import type { WalkthroughPreviousComparison } from '@/lib/types/analysis'
+import type { ComprehensionCheck, WalkthroughPreviousComparison } from '@/lib/types/analysis'
+import { submitQuizAttempt } from '@/lib/hooks/useQuizAttempts'
 
 type CompletedChecksBySection = Record<string, Record<string, true>>
+
+interface QuestionAttemptStat {
+  questionId: string
+  moduleKey: string
+  sectionKey: string
+  attempts: number
+  incorrectAttempts: number
+  firstAttemptAt: string | null
+  completedAt: string | null
+  lastSelectedOption: string | null
+  finalAnswer: string | null
+}
 
 function extractCompletedSectionsFromSectionsMetadata(
   metadata: Record<string, unknown> | undefined,
@@ -200,6 +214,148 @@ export function GuidedFilingStepper({
   const pendingInitialSectionRef = useRef<string | null>(null)
   const pendingIntendedSectionRef = useRef<string | null>(null)
   const { progressByModule, recordWalkthroughEvent } = useLearningProgress()
+  const queryClient = useQueryClient()
+  const questionStatsRef = useRef<Record<string, QuestionAttemptStat>>({})
+  const moduleStartTimeRef = useRef<Record<string, number>>({})
+  const recordedModulesRef = useRef<Set<string>>(new Set())
+
+  const registerAttempt = useCallback(
+    (
+      section: GuidedWalkthroughSection,
+      check: ComprehensionCheck,
+      answer: string,
+      isCorrect: boolean
+    ) => {
+      const moduleKey = section.learning_module_key
+      const now = new Date()
+
+      if (!moduleStartTimeRef.current[moduleKey]) {
+        moduleStartTimeRef.current[moduleKey] = now.getTime()
+      }
+
+      const existing = questionStatsRef.current[check.id]
+      const attempts = (existing?.attempts ?? 0) + 1
+
+      const updated: QuestionAttemptStat = {
+        questionId: check.id,
+        moduleKey,
+        sectionKey: section.section_key,
+        attempts,
+        incorrectAttempts: existing?.incorrectAttempts ?? 0,
+        firstAttemptAt: existing?.firstAttemptAt ?? null,
+        completedAt: existing?.completedAt ?? null,
+        lastSelectedOption: answer,
+        finalAnswer: existing?.finalAnswer ?? null,
+      }
+
+      if (!updated.firstAttemptAt) {
+        updated.firstAttemptAt = now.toISOString()
+      }
+
+      if (isCorrect) {
+        updated.completedAt = now.toISOString()
+        updated.finalAnswer = answer
+      } else {
+        updated.incorrectAttempts += 1
+      }
+
+      questionStatsRef.current[check.id] = updated
+    },
+    []
+  )
+
+  const recordModuleQuizAttempt = useCallback(
+    async (moduleKey: string, moduleSections: GuidedWalkthroughSection[]) => {
+      const attemptKey = `${analysisId}:${moduleKey}`
+      if (recordedModulesRef.current.has(attemptKey)) {
+        return
+      }
+
+      const allChecks = moduleSections.flatMap((item) => item.comprehension_checks)
+      const questionCount = allChecks.length
+      if (questionCount === 0) {
+        recordedModulesRef.current.add(attemptKey)
+        return
+      }
+
+      const now = new Date()
+      const attemptedAt = now.toISOString()
+
+      const responses: Record<string, unknown> = {}
+      let totalIncorrectAttempts = 0
+
+      for (const check of allChecks) {
+        const stats = questionStatsRef.current[check.id]
+        const attempts = stats?.attempts ?? 0
+        const incorrectAttempts = stats?.incorrectAttempts ?? 0
+        totalIncorrectAttempts += incorrectAttempts
+
+        responses[check.id] = {
+          question: check.question,
+          attempts,
+          incorrect_attempts: incorrectAttempts,
+          completed_at: stats?.completedAt,
+          first_attempt_at: stats?.firstAttemptAt,
+          final_answer: stats?.finalAnswer ?? check.correct_answer,
+        }
+      }
+
+      const correctCount = questionCount
+      const scorePercent =
+        questionCount > 0 ? Number(((correctCount / questionCount) * 100).toFixed(1)) : 0
+
+      const startTimestamp = moduleStartTimeRef.current[moduleKey]
+      const durationSeconds =
+        typeof startTimestamp === 'number'
+          ? Math.max(0, Math.round((now.getTime() - startTimestamp) / 1000))
+          : null
+
+      const metadata: Record<string, unknown> = {
+        module_key: moduleKey,
+        analysis_id: analysisId,
+        incorrect_attempts_total: totalIncorrectAttempts,
+        source: 'guided-walkthrough',
+      }
+
+      if (moduleSections[0]?.module_stage) {
+        metadata.module_stage = moduleSections[0].module_stage
+      }
+      if (durationSeconds !== null) {
+        metadata.duration_seconds = durationSeconds
+      }
+
+      try {
+        await submitQuizAttempt({
+          quizId: moduleKey,
+          questionCount,
+          correctCount,
+          scorePercent,
+          passed: scorePercent >= 80,
+          metadata,
+          responses,
+          attemptedAt,
+        })
+        recordedModulesRef.current.add(attemptKey)
+        await queryClient.invalidateQueries({ queryKey: ['quiz-attempts'] })
+      } catch (error) {
+        // eslint-disable-next-line no-console
+        console.error('Failed to record quiz attempt', error)
+      }
+    },
+    [analysisId, queryClient]
+  )
+
+  const handleCheckAnswer = useCallback(
+    (
+      section: GuidedWalkthroughSection,
+      check: ComprehensionCheck,
+      answer: string,
+      isCorrect: boolean
+    ) => {
+      registerAttempt(section, check, answer, isCorrect)
+    },
+    [registerAttempt]
+  )
 
   const { persistedSectionKeys, persistedIntendedSection } = useMemo(() => {
     const keys = new Set<string>()
@@ -281,6 +437,9 @@ export function GuidedFilingStepper({
     hasUserNavigatedRef.current = false
     setActiveIndex(0)
     pendingIntendedSectionRef.current = null
+    questionStatsRef.current = {}
+    moduleStartTimeRef.current = {}
+    recordedModulesRef.current = new Set()
   }, [analysisId])
 
   useEffect(() => {
@@ -423,8 +582,18 @@ export function GuidedFilingStepper({
       } catch {
         // Hook surfaces the error state; no runtime fallback needed here.
       }
+
+      if (progressPercent >= 100) {
+        await recordModuleQuizAttempt(section.learning_module_key, moduleSections)
+      }
     },
-    [analysisId, isSectionComplete, recordWalkthroughEvent, sectionsByModule]
+    [
+      analysisId,
+      isSectionComplete,
+      recordModuleQuizAttempt,
+      recordWalkthroughEvent,
+      sectionsByModule,
+    ]
   )
 
   const notifySectionComplete = useCallback(
@@ -649,6 +818,9 @@ export function GuidedFilingStepper({
           section={activeSection}
           completedChecks={activeSectionChecks}
           onCheckCompleted={(checkId) => handleCheckCompleted(activeSection, checkId)}
+          onAnswer={(check, answer, isCorrect) =>
+            handleCheckAnswer(activeSection, check, answer, isCorrect)
+          }
           diff={activeDiff}
         />
 

@@ -110,7 +110,7 @@ export const quizAttemptResponses = [
     correct_count: 3,
     score_percent: 100,
     passed: true,
-    is_human_reviewed: true,
+    is_human_reviewed: false,
     attempted_at: '2025-01-02T11:15:00Z',
     metadata: { duration_seconds: 35 },
     created_at: '2025-01-02T11:15:00Z',

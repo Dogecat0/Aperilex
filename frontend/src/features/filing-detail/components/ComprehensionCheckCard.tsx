@@ -5,6 +5,7 @@ interface ComprehensionCheckCardProps {
   check: ComprehensionCheck
   completed: boolean
   onCompleted(): void
+  onAttempt?(answer: string, isCorrect: boolean): void
 }
 
 type AnswerStatus = 'idle' | 'correct' | 'incorrect'
@@ -38,6 +39,7 @@ export function ComprehensionCheckCard({
   check,
   completed,
   onCompleted,
+  onAttempt,
 }: ComprehensionCheckCardProps) {
   const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null)
   const [status, setStatus] = useState<AnswerStatus>('idle')
@@ -72,6 +74,9 @@ export function ComprehensionCheckCard({
 
     setSelectedAnswer(option)
     const isCorrect = option === check.correct_answer
+    if (onAttempt) {
+      onAttempt(option, isCorrect)
+    }
 
     if (isCorrect) {
       setStatus('correct')
