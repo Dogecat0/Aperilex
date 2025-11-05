@@ -44,9 +44,22 @@ describe('LearningProgressHero', () => {
     expect(
       screen.getByRole('heading', { name: /learning hub momentum overview/i })
     ).toBeInTheDocument()
-    expect(screen.getByText('2/5 sections complete')).toBeInTheDocument()
-    expect(screen.getByText(/Pending reviews 3/i)).toBeInTheDocument()
-    expect(screen.getByText(/Active analyses/i).nextElementSibling?.textContent).toBe('2')
-    expect(screen.getByText(/60% complete · 2 pending review/i)).toBeInTheDocument()
+    expect(screen.getByText('Module coverage')).toBeInTheDocument()
+    expect(screen.getByText('3/4')).toBeInTheDocument()
+    expect(
+      screen.getByText(/Completed 1 · In progress 2 · Not started 1 · Active analyses 2/i)
+    ).toBeInTheDocument()
+    expect(screen.getByText('Sections complete')).toBeInTheDocument()
+    expect(screen.getByText('2/5')).toBeInTheDocument()
+    expect(
+      screen.getByText(/Active 4 · In progress 2 · Queued 1 · Pending reviews 3/i)
+    ).toBeInTheDocument()
+    expect(screen.getByText('Next lesson')).toBeInTheDocument()
+    expect(screen.getByText('Decode MD&A narratives')).toBeInTheDocument()
+    expect(
+      screen.getByText(
+        /Connect commentary back to margin changes from your latest filing\. · 9 min walkthrough · 60% complete · Pending reviews 2/i
+      )
+    ).toBeInTheDocument()
   })
 })
