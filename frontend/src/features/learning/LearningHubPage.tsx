@@ -129,24 +129,6 @@ export function LearningHubPage() {
       : 'Failed to load learning modules.'
     : null
 
-  const streakDays = useMemo(() => {
-    const metadataValues = progress
-      .map((record) => {
-        const candidate =
-          (record.metadata.streak_days as number | undefined) ??
-          (record.metadata.streakDays as number | undefined)
-        return typeof candidate === 'number' ? candidate : null
-      })
-      .filter((value): value is number => value !== null)
-
-    if (metadataValues.length > 0) {
-      return Math.max(...metadataValues)
-    }
-
-    const completedModules = progress.filter((record) => record.completedAt).length
-    return completedModules
-  }, [progress])
-
   const navigate = useNavigate()
 
   const handleResumeModule = useCallback(
@@ -273,8 +255,6 @@ export function LearningHubPage() {
   )
 
   const busy = isUpdating || isRecording || isSchedulingReview
-  const streakHighlight = Math.max(0, Math.min(7, Math.round(streakDays)))
-
   const toastMessages = useMemo(
     () =>
       [
@@ -600,41 +580,6 @@ export function LearningHubPage() {
             </article>
           )
         })}
-      </section>
-
-      <section
-        className="rounded-2xl border px-6 py-5"
-        style={{
-          borderColor: 'var(--lines-subtle)',
-          background: 'var(--surfaces-raised)',
-          boxShadow: tokens.shadows.soft,
-        }}
-      >
-        <SectionIntro
-          title="Learning streak"
-          description="Track your recent practice cadence across modules. Highlighted days reflect logged interactions from your authenticated session."
-          titleStyle={{ letterSpacing: tokens.typography.letterSpacing.tight }}
-          descriptionClassName="text-[var(--text-secondary)] leading-[var(--typography-line-heights-standard)]"
-        />
-        <div className="mt-4 grid grid-cols-7 gap-2">
-          {Array.from({ length: 7 }).map((_, index) => {
-            const isActive = index < streakHighlight
-            return (
-              <div
-                key={`streak-${index}`}
-                className="flex h-12 flex-col items-center justify-center rounded-lg border text-xs font-semibold"
-                style={{
-                  borderColor: isActive ? tokens.learning.accent : 'var(--lines-subtle)',
-                  background: isActive ? tokens.learning.accent : 'var(--surfaces-muted)',
-                  color: isActive ? tokens.text.onLearning : 'var(--text-secondary)',
-                  boxShadow: isActive ? tokens.shadows.soft : 'none',
-                }}
-              >
-                Day {index + 1}
-              </div>
-            )
-          })}
-        </div>
       </section>
 
       <section

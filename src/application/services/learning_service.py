@@ -68,7 +68,6 @@ class LearningService:
             progress_percent=data.progress_percent,
             last_interaction_at=data.last_interaction_at,
             completed_at=data.completed_at,
-            streak_count=data.streak_count,
             pending_review_count=
             pending_review_count if pending_review_count is not None else data.pending_review_count,
             last_reviewed_at=
@@ -206,7 +205,6 @@ class LearningService:
             completed_at=payload.completed_at,
             metadata=payload.metadata,
             schema_version=payload.schema_version,
-            streak_count=payload.streak_count or 0,
             pending_review_count=payload.pending_review_count or 0,
             last_reviewed_at=payload.last_reviewed_at,
             is_unlocked=payload.is_unlocked or False,
@@ -282,7 +280,6 @@ class LearningService:
                     "section_progress_version": 1,
                 },
                 schema_version=1,
-                streak_count=0,
                 pending_review_count=0,
                 last_reviewed_at=None,
                 is_unlocked=False,
@@ -444,7 +441,6 @@ class LearningService:
                 completed_at=None,
                 metadata={},
                 schema_version=1,
-                streak_count=0,
                 pending_review_count=0,
                 last_reviewed_at=None,
                 is_unlocked=False,

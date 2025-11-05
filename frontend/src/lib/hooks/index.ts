@@ -56,7 +56,6 @@ export {
   type RecordWalkthroughEventInput,
   type ScheduleReviewInput,
   type ModuleProgressStatus,
-  type ModuleWeakness,
   type NextLessonRecommendation,
   type LearningDashboardHighlights,
   type UseLearningProgressReturn,

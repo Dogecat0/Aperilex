@@ -9,7 +9,6 @@ interface LearningProgressHeroProps {
 
 export function LearningProgressHero({ highlights, isLoading }: LearningProgressHeroProps) {
   const {
-    streakDays,
     completion,
     sectionSummary,
     pendingReviewTotal,
@@ -22,10 +21,9 @@ export function LearningProgressHero({ highlights, isLoading }: LearningProgress
     <FeatureHero
       overline="Learning Hub"
       title="Learning Hub momentum overview"
-      description="Track guided walkthrough streaks, section coverage, and review backlog sourced from your latest filing modules."
+      description="Track guided walkthrough progress, section coverage, and recommended lessons sourced from your latest filing modules."
     >
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <StreakCard streakDays={streakDays} isLoading={progressPending} />
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
         <CompletionCard
           completion={completion}
           activeAnalyses={activeAnalyses}
@@ -39,23 +37,6 @@ export function LearningProgressHero({ highlights, isLoading }: LearningProgress
         <NextLessonCard recommendation={nextLesson} isLoading={progressPending} />
       </div>
     </FeatureHero>
-  )
-}
-
-function StreakCard({ streakDays, isLoading }: { streakDays: number; isLoading: boolean }) {
-  return (
-    <ArticleShell eyebrow="Streak focus">
-      {isLoading ? (
-        <Skeleton className="h-10 w-24" />
-      ) : (
-        <p className="text-3xl font-semibold tracking-tight text-[var(--text-primary)]">
-          {streakDays}d
-        </p>
-      )}
-      <p className="text-sm text-[var(--text-secondary)]">
-        Keep showing up daily to unlock advanced walkthroughs and spacing insights.
-      </p>
-    </ArticleShell>
   )
 }
 
@@ -133,7 +114,7 @@ function SectionSummaryCard({
   const activeSections = summary.completed + summary.inProgress
 
   return (
-    <ArticleShell eyebrow="Progress backlog">
+    <ArticleShell eyebrow="Progress summary">
       {isLoading ? (
         <div className="space-y-2">
           <Skeleton className="h-4 w-3/4" />
@@ -163,8 +144,8 @@ function SectionSummaryCard({
             />
           </div>
           <p className="mt-3 text-xs text-[var(--text-secondary)]">
-            Keep reinforcing guided walkthroughs to reduce your review backlog and unlock more
-            tailored guidance.
+            Keep reinforcing guided walkthroughs to expand your coverage and unlock more tailored
+            guidance.
           </p>
         </>
       )}

@@ -42,9 +42,7 @@ class LearningProgressRepository(ILearningProgressRepository):
         return None
 
     def _extract_fields(self, metadata: Mapping[str, Any]) -> dict[str, Any]:
-        streak_value = metadata.get("streak_count", 0)
         pending_value = metadata.get("pending_review_count", 0)
-        streak_count = int(streak_value) if isinstance(streak_value, int | float) else 0
         pending_review_count = (
             int(pending_value) if isinstance(pending_value, int | float) else 0
         )
@@ -52,7 +50,6 @@ class LearningProgressRepository(ILearningProgressRepository):
         unlocked_at = self._parse_datetime(metadata.get("unlocked_at"))
         is_unlocked = bool(metadata.get("is_unlocked", False))
         return {
-            "streak_count": streak_count,
             "pending_review_count": pending_review_count,
             "last_reviewed_at": last_reviewed_at,
             "is_unlocked": is_unlocked,
@@ -64,7 +61,6 @@ class LearningProgressRepository(ILearningProgressRepository):
         metadata = dict(progress.metadata or {})
         metadata.update(
             {
-                "streak_count": progress.streak_count,
                 "pending_review_count": progress.pending_review_count,
                 "last_reviewed_at": (
                     progress.last_reviewed_at.isoformat()
@@ -93,7 +89,6 @@ class LearningProgressRepository(ILearningProgressRepository):
             completed_at=model.completed_at,
             metadata=metadata,
             schema_version=model.schema_version,
-            streak_count=extracted["streak_count"],
             pending_review_count=extracted["pending_review_count"],
             last_reviewed_at=extracted["last_reviewed_at"],
             is_unlocked=extracted["is_unlocked"],
@@ -114,7 +109,6 @@ class LearningProgressRepository(ILearningProgressRepository):
             completed_at=row.get("completed_at"),
             metadata=metadata,
             schema_version=row["schema_version"],
-            streak_count=extracted["streak_count"],
             pending_review_count=extracted["pending_review_count"],
             last_reviewed_at=extracted["last_reviewed_at"],
             is_unlocked=extracted["is_unlocked"],

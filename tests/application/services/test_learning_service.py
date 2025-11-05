@@ -63,9 +63,8 @@ async def test_upsert_progress_generates_identifier(repository_factory: AsyncMoc
         progress_percent=75,
         last_interaction_at=None,
         completed_at=None,
-        metadata={"streak_count": 3},
+        metadata={},
         schema_version=1,
-        streak_count=3,
         pending_review_count=0,
         last_reviewed_at=None,
         is_unlocked=False,
@@ -78,13 +77,12 @@ async def test_upsert_progress_generates_identifier(repository_factory: AsyncMoc
         user_id=learning_repo.upsert.return_value.user_id,
         module_key="module-a",
         progress_percent=75,
-        metadata={"streak": 3},
+        metadata={},
     )
 
     result = await service.upsert_progress(payload)
 
     assert result.progress_id == generated_id
-    assert result.streak_count == 3
     assert result.is_unlocked is False
     learning_repo.upsert.assert_awaited()
 
@@ -149,7 +147,6 @@ async def test_list_user_progress(repository_factory: AsyncMock) -> None:
         completed_at=None,
         metadata={},
         schema_version=1,
-        streak_count=2,
         pending_review_count=0,
         last_reviewed_at=None,
         is_unlocked=False,
@@ -205,7 +202,6 @@ async def test_list_user_progress_computes_unlock(repository_factory: AsyncMock)
         completed_at=datetime.now(),
         metadata={},
         schema_version=1,
-        streak_count=1,
         pending_review_count=0,
         last_reviewed_at=None,
         is_unlocked=False,
@@ -286,7 +282,6 @@ async def test_schedule_review_preserves_pending_count(
         completed_at=None,
         metadata={"next_review_at": scheduled_for.isoformat()},
         schema_version=1,
-        streak_count=0,
         pending_review_count=3,
         last_reviewed_at=None,
         is_unlocked=False,

@@ -69,7 +69,6 @@ class LearningProgressResponse(BaseModel):
     progress_percent: int = Field(..., ge=0, le=100)
     last_interaction_at: datetime | None = Field(default=None)
     completed_at: datetime | None = Field(default=None)
-    streak_count: int = Field(default=0, ge=0)
     pending_review_count: int = Field(default=0, ge=0)
     last_reviewed_at: datetime | None = Field(default=None)
     is_unlocked: bool = Field(default=False)
@@ -90,7 +89,6 @@ class LearningProgressResponse(BaseModel):
             progress_percent=progress.progress_percent,
             last_interaction_at=progress.last_interaction_at,
             completed_at=progress.completed_at,
-            streak_count=progress.streak_count,
             pending_review_count=progress.pending_review_count,
             last_reviewed_at=progress.last_reviewed_at,
             is_unlocked=progress.is_unlocked,

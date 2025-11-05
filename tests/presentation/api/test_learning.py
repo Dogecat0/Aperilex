@@ -249,7 +249,7 @@ def fake_learning_service(user_id: UserId) -> FakeLearningService:
         progress_percent=40,
         last_interaction_at=now,
         completed_at=None,
-        metadata={"streak_days": 2},
+        metadata={"section_progress_version": 1},
         created_at=now,
         updated_at=now,
     )
@@ -392,7 +392,7 @@ async def test_upsert_learning_progress_updates_existing_entry(
 ) -> None:
     response = await api_client.put(
         "/api/learning/progress/mda_foundations",
-        json={"progress_percent": 100, "metadata": {"streak_days": 3}},
+        json={"progress_percent": 100, "metadata": {"section_progress_version": 2}},
     )
 
     assert response.status_code == 200

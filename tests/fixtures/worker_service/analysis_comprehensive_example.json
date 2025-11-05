@@ -1,5 +1,5 @@
 {
-    "schema_version": 3,
+    "schema_version": 4,
     "analysis_id": "3042d3ef-4cdc-44fd-9953-614743d47f96",
     "filing_id": "4a109426-19cb-59e6-8f90-44ea7aa1c548",
     "analysis_type": "COMPREHENSIVE",
@@ -209,29 +209,12 @@
                 },
                 "confidence": null
             }
-        ],
-        "risk_highlights": {
-            "critical_actions": [
-                {
-                    "id": "intense-competition",
-                    "title": "Intense Competition",
-                    "severity": "high",
-                    "probability": "high",
-                    "summary": "Adverse effects on results of operations and market share, potentially leading to reduced revenue.",
-                    "recommended_action": "Invest in research and development to innovate products and services.; Enhance marketing strategies to maintain competitive edge.; Monitor competitor activities and adjust business strategies accordingly.",
-                    "related_sections": [
-                        "Item 1A - Risk Factors",
-                        "Risk Factors"
-                    ]
-                }
-            ],
-            "signals_to_monitor": []
-        },
-        "insight_timeline": []
+        ]
     },
     "full_results": {
-        "schema_version": 2,
+        "schema_version": 3,
         "structured_data": {
+            "schema_version": 3,
             "filing_summary": "Microsoft Corp's latest 10-K filing reveals robust growth with total revenues reaching $281.7 billion, driven by substantial demand for cloud services and AI technologies. The company has showcased strong operational efficiency, as reflected in a 17% increase in operating income and a healthy liquidity position with cash reserves of $94.6 billion. However, it faces significant risks from competitive pressures, evolving regulatory environments, and rising operational costs, necessitating ongoing innovation and adaptation.",
             "key_insights": [
                 "Revenue increased by 15% to $281,724 million, highlighting strong demand across segments, particularly in Intelligent Cloud which grew by 23%.",

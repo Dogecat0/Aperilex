@@ -43,18 +43,18 @@ const GUIDANCE_PROMPTS: GuidancePrompt[] = [
     action: 'View sentiment timeline',
   },
   {
-    title: 'Build a learning streak',
-    description: 'Complete two micro-lessons to unlock a personalized practice plan.',
-    action: 'Continue learning path',
+    title: 'Plan your reviews',
+    description: 'Schedule a spaced review to convert pending comprehension checks.',
+    action: 'Open review planner',
     progress: 0.2,
   },
 ]
 
 const LEARNING_SUMMARY = {
-  streakDays: 3,
   activeModule: 'MD&A Primer',
   completionPercent: 62,
-  nextMilestone: 'Finish 2 micro-lessons to extend your streak',
+  pendingReviews: 2,
+  nextMilestone: 'Finish 2 micro-lessons to unlock personalised walkthrough guidance.',
 } as const
 
 interface GuidanceSidebarProps {
@@ -112,9 +112,11 @@ export function GuidanceSidebar({ onRequestClose }: GuidanceSidebarProps) {
         <div className="flex items-start justify-between gap-2">
           <div>
             <p className="text-xs font-semibold uppercase tracking-wide opacity-75">
-              Learning streak
+              Learning overview
             </p>
-            <p className="text-lg font-semibold">{LEARNING_SUMMARY.streakDays} days</p>
+            <p className="text-lg font-semibold text-[var(--text-onLearning)]">
+              {LEARNING_SUMMARY.activeModule}
+            </p>
           </div>
           <span
             className="inline-flex rounded-full px-2 py-1 text-xs font-semibold"
@@ -124,12 +126,11 @@ export function GuidanceSidebar({ onRequestClose }: GuidanceSidebarProps) {
               boxShadow: tokens.focus.shadow,
             }}
           >
-            Keep it going
+            Pending reviews {LEARNING_SUMMARY.pendingReviews}
           </span>
         </div>
 
         <div className="mt-3 space-y-2 text-sm">
-          <p className="font-semibold">{LEARNING_SUMMARY.activeModule}</p>
           <p className="text-xs opacity-75">{LEARNING_SUMMARY.nextMilestone}</p>
           <div>
             <div className="flex items-center justify-between text-xs font-medium">

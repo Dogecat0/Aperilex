@@ -18,7 +18,6 @@ export interface LearningProgressRecord {
   progressPercent: number
   lastInteractionAt: string | null
   completedAt: string | null
-  streakCount: number
   pendingReviewCount: number
   lastReviewedAt: string | null
   isUnlocked: boolean
@@ -55,19 +54,6 @@ export interface ScheduleReviewInput {
 
 export type ModuleProgressStatus = 'queued' | 'in_progress' | 'completed'
 
-export interface ModuleWeakness {
-  id: string
-  moduleKey: string
-  sectionKey: string
-  title: string
-  progressPercent: number
-  pendingReviewCount: number
-  status: ModuleProgressStatus
-  isUnlocked: boolean
-  lastInteractionAt: string | null
-  lastReviewedAt: string | null
-}
-
 export interface NextLessonRecommendation {
   moduleKey: string
   sectionKey: string
@@ -80,7 +66,6 @@ export interface NextLessonRecommendation {
 }
 
 export interface LearningDashboardHighlights {
-  streakDays: number
   completion: {
     total: number
     completed: number
@@ -97,7 +82,6 @@ export interface LearningDashboardHighlights {
   }
   pendingReviewTotal: number
   activeAnalyses: number
-  weakestTopics: ModuleWeakness[]
   nextLesson: NextLessonRecommendation | null
 }
 
@@ -379,7 +363,6 @@ function normalizeProgress(response: LearningProgressResponse): LearningProgress
     progressPercent: response.progress_percent,
     lastInteractionAt: response.last_interaction_at ?? null,
     completedAt: response.completed_at ?? null,
-    streakCount: response.streak_count,
     pendingReviewCount: response.pending_review_count,
     lastReviewedAt: response.last_reviewed_at ?? null,
     isUnlocked: response.is_unlocked,
@@ -474,28 +457,6 @@ function collectActiveAnalysesForSection(
   }
 }
 
-function extractStreakDays(record: LearningProgressRecord | undefined): number {
-  if (!record) {
-    return 0
-  }
-
-  let streak = record.streakCount
-  const metadata = record.metadata
-
-  if (isRecord(metadata)) {
-    const metadataStreak = coerceNumber(
-      (metadata as { streak_days?: unknown }).streak_days,
-      (metadata as { streakDays?: unknown }).streakDays
-    )
-
-    if (metadataStreak !== null) {
-      streak = Math.max(streak, metadataStreak)
-    }
-  }
-
-  return Math.max(streak, 0)
-}
-
 function buildErrorMessage(error: unknown): string {
   if (error instanceof ApiClientError) {
     if (error.status_code === 401) {
@@ -566,7 +527,6 @@ function computeHighlightsFromDescriptors(
     const record = progressMap[descriptor.key]
     const progressPercent = record?.progressPercent ?? 0
     const pendingReviewCount = record?.pendingReviewCount ?? 0
-    const streakCount = record?.streakCount ?? 0
     const isUnlocked = record?.isUnlocked ?? false
     const status: ModuleProgressStatus =
       progressPercent >= 100 ? 'completed' : progressPercent > 0 ? 'in_progress' : 'queued'
@@ -576,7 +536,6 @@ function computeHighlightsFromDescriptors(
       record,
       progressPercent,
       pendingReviewCount,
-      streakCount,
       isUnlocked,
       status,
     }
@@ -586,7 +545,6 @@ function computeHighlightsFromDescriptors(
   let completed = 0
   let inProgress = 0
   let unlocked = 0
-  let streakDays = 0
 
   for (const aggregate of aggregates) {
     if (aggregate.status === 'completed') {
@@ -597,7 +555,6 @@ function computeHighlightsFromDescriptors(
     if (aggregate.isUnlocked) {
       unlocked += 1
     }
-    streakDays = Math.max(streakDays, aggregate.streakCount)
 
     pendingReviewTotal += aggregate.pendingReviewCount
     accumulateSectionProgress(aggregate.record, sectionSummary, seenSections, activeAnalyses)
@@ -636,44 +593,6 @@ function computeHighlightsFromDescriptors(
   const queued = Math.max(total - completed - inProgress, 0)
   const locked = Math.max(total - unlocked, 0)
 
-  const weakestTopics = aggregates
-    .filter(
-      (aggregate) =>
-        aggregate.pendingReviewCount > 0 ||
-        aggregate.status !== 'completed' ||
-        !aggregate.isUnlocked
-    )
-    .sort((a, b) => {
-      if (a.isUnlocked !== b.isUnlocked) {
-        return Number(b.isUnlocked) - Number(a.isUnlocked)
-      }
-      if (b.pendingReviewCount !== a.pendingReviewCount) {
-        return b.pendingReviewCount - a.pendingReviewCount
-      }
-      if (a.progressPercent !== b.progressPercent) {
-        return a.progressPercent - b.progressPercent
-      }
-      const aTimestamp = toTimestamp(a.record?.lastInteractionAt)
-      const bTimestamp = toTimestamp(b.record?.lastInteractionAt)
-      if (aTimestamp !== bTimestamp) {
-        return aTimestamp - bTimestamp
-      }
-      return a.descriptor.title.localeCompare(b.descriptor.title)
-    })
-    .slice(0, 3)
-    .map((aggregate) => ({
-      id: aggregate.descriptor.key,
-      moduleKey: aggregate.descriptor.key,
-      sectionKey: aggregate.descriptor.key,
-      title: aggregate.descriptor.title,
-      progressPercent: aggregate.progressPercent,
-      pendingReviewCount: aggregate.pendingReviewCount,
-      status: aggregate.status,
-      isUnlocked: aggregate.isUnlocked,
-      lastInteractionAt: aggregate.record?.lastInteractionAt ?? null,
-      lastReviewedAt: aggregate.record?.lastReviewedAt ?? null,
-    }))
-
   const nextLessonSource = aggregates
     .filter((aggregate) => aggregate.status !== 'completed')
     .sort((a, b) => {
@@ -708,7 +627,6 @@ function computeHighlightsFromDescriptors(
     : null
 
   return {
-    streakDays,
     completion: {
       total,
       completed,
@@ -720,7 +638,6 @@ function computeHighlightsFromDescriptors(
     sectionSummary,
     pendingReviewTotal,
     activeAnalyses: activeAnalyses.size,
-    weakestTopics,
     nextLesson,
   }
 }
@@ -735,7 +652,6 @@ function computeHighlightsFromModules(
   const pendingReviewKeys = new Set<string>()
   const unlockedModuleKeys = new Set<string>()
   let pendingReviewTotal = 0
-  let streakDays = 0
 
   for (const module of modules) {
     const sectionKey = module.sectionKey
@@ -784,8 +700,6 @@ function computeHighlightsFromModules(
       if (record.isUnlocked) {
         unlockedModuleKeys.add(record.moduleKey)
       }
-      const streak = extractStreakDays(record)
-      streakDays = Math.max(streakDays, streak)
     }
 
     collectActiveAnalysesForSection(record, sectionKey, activeAnalyses)
@@ -831,42 +745,6 @@ function computeHighlightsFromModules(
     queued,
   }
 
-  const weakestTopics = snapshots
-    .filter(
-      (snapshot) =>
-        snapshot.pendingReviewCount > 0 || snapshot.status !== 'completed' || !snapshot.isUnlocked
-    )
-    .sort((a, b) => {
-      if (a.isUnlocked !== b.isUnlocked) {
-        return Number(b.isUnlocked) - Number(a.isUnlocked)
-      }
-      if (b.pendingReviewCount !== a.pendingReviewCount) {
-        return b.pendingReviewCount - a.pendingReviewCount
-      }
-      if (a.progressPercent !== b.progressPercent) {
-        return a.progressPercent - b.progressPercent
-      }
-      const aTimestamp = toTimestamp(a.lastInteractionAt)
-      const bTimestamp = toTimestamp(b.lastInteractionAt)
-      if (aTimestamp !== bTimestamp) {
-        return aTimestamp - bTimestamp
-      }
-      return a.title.localeCompare(b.title)
-    })
-    .slice(0, 3)
-    .map((snapshot) => ({
-      id: snapshot.id,
-      moduleKey: snapshot.moduleKey,
-      sectionKey: snapshot.sectionKey,
-      title: snapshot.title,
-      progressPercent: snapshot.progressPercent,
-      pendingReviewCount: snapshot.pendingReviewCount,
-      status: snapshot.status,
-      isUnlocked: snapshot.isUnlocked,
-      lastInteractionAt: snapshot.lastInteractionAt,
-      lastReviewedAt: snapshot.lastReviewedAt,
-    }))
-
   const nextLessonSource = snapshots
     .filter((snapshot) => snapshot.status !== 'completed')
     .sort((a, b) => {
@@ -904,7 +782,6 @@ function computeHighlightsFromModules(
     : null
 
   return {
-    streakDays,
     completion: {
       total,
       completed,
@@ -916,7 +793,6 @@ function computeHighlightsFromModules(
     sectionSummary,
     pendingReviewTotal,
     activeAnalyses: activeAnalyses.size,
-    weakestTopics,
     nextLesson,
   }
 }
@@ -1065,7 +941,6 @@ export function useLearningProgress(options?: UseLearningProgressOptions) {
         progressPercent: input.progressPercent,
         lastInteractionAt: baseTimestamp,
         completedAt: completedAt ?? existing?.completedAt ?? null,
-        streakCount: existing?.streakCount ?? 0,
         pendingReviewCount: existing?.pendingReviewCount ?? 0,
         lastReviewedAt: existing?.lastReviewedAt ?? null,
         isUnlocked: existing?.isUnlocked ?? false,

@@ -5,7 +5,6 @@ import type { LearningDashboardHighlights } from '@/lib/hooks'
 import { LearningProgressHero } from './LearningProgressHero'
 
 const sampleHighlights: LearningDashboardHighlights = {
-  streakDays: 4,
   completion: {
     total: 4,
     completed: 1,
@@ -22,32 +21,6 @@ const sampleHighlights: LearningDashboardHighlights = {
   },
   pendingReviewTotal: 3,
   activeAnalyses: 2,
-  weakestTopics: [
-    {
-      id: 'risk_mastery::item-1a',
-      moduleKey: 'risk_mastery',
-      sectionKey: 'item-1a',
-      title: 'Risk mastery focus',
-      progressPercent: 20,
-      pendingReviewCount: 2,
-      status: 'in_progress',
-      isUnlocked: true,
-      lastInteractionAt: null,
-      lastReviewedAt: null,
-    },
-    {
-      id: 'cashflow_insights::cash',
-      moduleKey: 'cashflow_insights',
-      sectionKey: 'cash',
-      title: 'Cashflow insights',
-      progressPercent: 0,
-      pendingReviewCount: 1,
-      status: 'queued',
-      isUnlocked: false,
-      lastInteractionAt: null,
-      lastReviewedAt: null,
-    },
-  ],
   nextLesson: {
     moduleKey: 'mda_foundations',
     sectionKey: 'item-7',
@@ -61,7 +34,7 @@ const sampleHighlights: LearningDashboardHighlights = {
 }
 
 describe('LearningProgressHero', () => {
-  it('renders updated progress summaries and backlog details', () => {
+  it('renders updated progress summaries and recommendations', () => {
     render(
       <MemoryRouter>
         <LearningProgressHero highlights={sampleHighlights} isLoading={false} />
@@ -74,7 +47,6 @@ describe('LearningProgressHero', () => {
     expect(screen.getByText('2/5 sections complete')).toBeInTheDocument()
     expect(screen.getByText(/Pending reviews 3/i)).toBeInTheDocument()
     expect(screen.getByText(/Active analyses/i).nextElementSibling?.textContent).toBe('2')
-    expect(screen.getByText(/Risk mastery focus/i)).toBeInTheDocument()
     expect(screen.getByText(/60% complete · 2 pending review/i)).toBeInTheDocument()
   })
 })

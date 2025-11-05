@@ -218,11 +218,6 @@ class LearningProgressData(BaseModel):
         default_factory=dict,
         description="Supplemental metadata for the progress entry",
     )
-    streak_count: int = Field(
-        default=0,
-        ge=0,
-        description="Current learning streak for the module",
-    )
     pending_review_count: int = Field(
         default=0,
         ge=0,

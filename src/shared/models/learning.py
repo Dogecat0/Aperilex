@@ -44,11 +44,6 @@ class LearningProgress(BaseModel):
         default=None,
         description="When the module was completed",
     )
-    streak_count: int = Field(
-        default=0,
-        ge=0,
-        description="Current streak count for module engagement",
-    )
     pending_review_count: int = Field(
         default=0,
         ge=0,
@@ -98,7 +93,6 @@ class LearningProgressUpsert(BaseModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
     last_interaction_at: datetime | None = None
     completed_at: datetime | None = None
-    streak_count: int | None = Field(default=None, ge=0)
     pending_review_count: int | None = Field(default=None, ge=0)
     last_reviewed_at: datetime | None = None
     is_unlocked: bool | None = None

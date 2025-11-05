@@ -222,7 +222,7 @@ export function LearningModuleModal({
               Next steps
             </p>
             <p className="mt-2 text-sm text-[var(--text-secondary)] leading-6">
-              Revisit comprehension checks and micro-lessons to keep your streak active.
+              Revisit comprehension checks and micro-lessons to reinforce the sections flagged above.
             </p>
             <Button
               type="button"
