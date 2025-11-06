@@ -5,6 +5,7 @@ import { AnalysisLibrarySection } from './components/AnalysisLibrarySection'
 import { RecentAnalysesList } from './components/RecentAnalysesList'
 import { ContinueWalkthroughRail } from './components/ContinueWalkthroughRail'
 import { FilingProgressHero } from './components/FilingProgressHero'
+import { DashboardFilters } from './components/DashboardFilters'
 import { useAnalyses, useAnalysisLibrary } from '@/lib/hooks'
 import { ApiClientError } from '@/lib/apiClient'
 import type { AnalysisResponse, ListAnalysesParams } from '@/lib/types/analysis'
@@ -240,6 +241,7 @@ export function DashboardPage() {
   )
 
   const libraryQuery = useAnalysisLibrary(libraryQueryParams)
+  const filtersBusy = libraryQuery.isLoading || libraryQuery.isFetching
 
   useEffect(() => {
     setLibraryPage(1)
@@ -353,6 +355,7 @@ export function DashboardPage() {
     !completedAnalysesQuery.error &&
     !anyAnalysesQuery.error
 
+  const handleFiltersChange = (nextFilters: DashboardFiltersState) => setFilters(nextFilters)
   const handleResetFilters = () => setFilters({ ...DEFAULT_FILTERS })
   const handleLibraryPageChange = (page: number) => {
     setLibraryPage(page < 1 ? 1 : page)
@@ -366,6 +369,13 @@ export function DashboardPage() {
         totalCompleted={totalCompletedAnalyses}
         readySectionCount={readySectionCount}
         latestAnalysis={heroLatestAnalysis}
+      />
+
+      <DashboardFilters
+        filters={filters}
+        onFilterChange={handleFiltersChange}
+        onResetFilters={handleResetFilters}
+        disabled={filtersBusy}
       />
 
       {libraryQuery.error ? (
@@ -440,8 +450,6 @@ export function DashboardPage() {
           <AnalysisLibrarySection
             query={libraryQuery}
             filters={filters}
-            onFilterChange={setFilters}
-            onResetFilters={handleResetFilters}
             onPageChange={handleLibraryPageChange}
             isLoading={libraryQuery.isLoading}
           />

@@ -69,7 +69,7 @@ describe('DashboardPage', () => {
 
     await screen.findByText(/Stay on top of your filings/i)
 
-    const filterButton = screen.getByRole('button', { name: /Flagged follow-up/i })
+    const filterButton = screen.getByRole('button', { name: /10-q snapshot/i })
     await user.click(filterButton)
 
     await waitFor(() => {
@@ -77,7 +77,7 @@ describe('DashboardPage', () => {
         '/analyses',
         expect.objectContaining({
           query: expect.objectContaining({
-            segment: 'flagged',
+            search: '10-Q',
           }),
         })
       )
