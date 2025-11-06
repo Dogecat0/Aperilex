@@ -1,16 +1,17 @@
 #!/usr/bin/env python3
-"""Seed SEC filings into the local database from repository datasets.
+"""Seed SEC filings into the local database by downloading from EDGAR.
 
-This simplified importer loads filing content from the repository's
-`data/filings` directory and persists the corresponding company and filing
-records so the analysis pipeline can run end-to-end in a Docker environment.
+The script fetches filings directly from the SEC using the edgartools library
+and persists the downloaded content using the same storage and database flow
+that the application relies on. It is designed to run inside Docker for local
+bootstrap scenarios, e.g.
+`docker exec aperilex-app-1 python scripts/import_filings.py --tickers AAPL`.
 """
 
 from __future__ import annotations
 
 import argparse
 import asyncio
-import json
 import logging
 import os
 import sys
@@ -21,6 +22,8 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import quote_plus
 from uuid import NAMESPACE_DNS, uuid4, uuid5
+
+from edgar import Company, set_identity
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 if str(REPO_ROOT) not in sys.path:
@@ -70,6 +73,8 @@ def ensure_database_url() -> None:
 
 ensure_database_url()
 
+from sqlalchemy.ext.asyncio import AsyncSession  # noqa: E402
+
 from src.application.interfaces.repositories import (  # noqa: E402
     CompanyData,
     FilingData,
@@ -95,8 +100,8 @@ from src.shared.types import (  # noqa: E402
 )
 
 DEFAULT_FILING_TYPES = [FilingType.FORM_10K, FilingType.FORM_10Q]
-DATASET_ENV_VAR = "IMPORT_DATASET_PATH"
 STORAGE_ENV_VAR = "LOCAL_STORAGE_PATH"
+EDGAR_IDENTITY_ENV_VAR = "EDGAR_IDENTITY"
 
 
 @dataclass
@@ -108,6 +113,7 @@ class ImportOptions:
     end_date: date | None
     dry_run: bool
     verbose: bool
+    edgar_identity: str
 
 
 @dataclass
@@ -166,26 +172,27 @@ def generate_filing_id(accession_number: str) -> FilingId:
     return FilingId(filing_uuid)
 
 
-class LocalDatasetImporter:
-    """Importer that seeds filings using the local dataset bundle."""
+class EdgarFilingsImporter:
+    """Importer that downloads filings from EDGAR via edgartools."""
 
     def __init__(self, options: ImportOptions) -> None:
         self.options = options
 
-        dataset_root = os.environ.get(DATASET_ENV_VAR, "data/filings")
-        self.dataset_root = Path(dataset_root).resolve()
-        self.storage_root = Path(os.environ.get(STORAGE_ENV_VAR, "./data")).resolve()
+        storage_root_value = os.environ.get(STORAGE_ENV_VAR)
+        self.storage_root = self._resolve_storage_path(storage_root_value)
         self.storage = LocalStorageProvider(str(self.storage_root))
 
-    async def execute(self) -> None:
-        if not self.dataset_root.exists():
-            logging.error(
-                "Dataset directory %s not found. Set %s to override.",
-                self.dataset_root,
-                DATASET_ENV_VAR,
-            )
-            return
+        self.identity = options.edgar_identity
+        set_identity(self.identity)
+        logging.debug("Configured edgartools identity: %s", self.identity)
 
+        self._forms_allowed: set[str] | None = None
+        if self.options.filing_types:
+            self._forms_allowed = {
+                filing_type.value.upper() for filing_type in self.options.filing_types
+            }
+
+    async def execute(self) -> None:
         identifiers = self.options.identifiers
         if not identifiers:
             logging.error("No tickers or CIKs provided; nothing to import.")
@@ -198,16 +205,24 @@ class LocalDatasetImporter:
             filing_repo = FilingRepository(session)
 
             for identifier in identifiers:
-                payload = self._load_local_dataset(identifier)
+                try:
+                    payload = self._load_company_filings(identifier)
+                except Exception as exc:  # noqa: BLE001
+                    logging.error(
+                        "Failed to prepare filings for %s: %s", identifier, exc
+                    )
+                    continue
+
                 if payload is None:
                     logging.warning(
-                        "No local dataset entries found for %s; skipping.", identifier
+                        "No EDGAR filings found for %s after filtering; skipping.",
+                        identifier,
                     )
                     continue
 
                 if not payload.filings:
                     logging.info(
-                        "Dataset for %s contains no filings after filtering; skipping.",
+                        "Filters excluded all filings for %s; nothing to import.",
                         identifier,
                     )
                     continue
@@ -222,193 +237,271 @@ class LocalDatasetImporter:
 
         self._log_summary(results)
 
-    def _load_local_dataset(self, identifier: str) -> CompanyImportPayload | None:
-        match = self._find_company_directory(identifier)
-        if match is None:
-            return None
-
-        company_dir, sample_data = match
-        company_name = str(sample_data.get("company_name", "Unknown Company")).strip()
-        cik_value = str(sample_data.get("company_cik", "")).strip()
-        if not cik_value:
-            logging.debug("Sample data for %s missing CIK; skipping.", identifier)
-            return None
-
-        try:
-            company_cik = CIK(value=cik_value)
-        except ValueError:
-            logging.debug("Invalid CIK %s for %s; skipping.", cik_value, identifier)
-            return None
-
-        ticker_obj: Ticker | None = None
-        ticker_value = sample_data.get("ticker")
-        if ticker_value:
-            try:
-                ticker_obj = Ticker(value=str(ticker_value))
-            except ValueError:
-                ticker_obj = None
-
-        filings = self._collect_filings(company_dir, company_name, ticker_obj)
-        if not filings:
-            return CompanyImportPayload(
-                cik=company_cik,
-                name=company_name,
-                ticker=ticker_obj,
-                filings=[],
-                source="local_dataset",
-            )
-
-        filings.sort(key=lambda item: item.filing_date, reverse=True)
-        limited_filings = filings[: self.options.limit]
-
-        return CompanyImportPayload(
-            cik=company_cik,
-            name=company_name,
-            ticker=ticker_obj,
-            filings=limited_filings,
-            source="local_dataset",
-        )
-
-    def _collect_filings(
-        self,
-        company_dir: Path,
-        company_name: str,
-        ticker: Ticker | None,
-    ) -> list[FilingImportPayload]:
-        payloads: list[FilingImportPayload] = []
-        json_files = sorted(company_dir.glob("*.json"))
-
-        for json_path in json_files:
-            data = self._load_json(json_path)
-            if not data:
-                continue
-
-            accession_raw = data.get("accession_number") or data.get("accessionNumber")
-            filing_type_raw = data.get("filing_type") or data.get("form")
-            filing_date_raw = data.get("filing_date") or data.get("filingDate")
-            content_text = data.get("content_text") or data.get("content")
-
-            if not accession_raw or not filing_type_raw or not filing_date_raw:
-                continue
-
-            try:
-                accession = AccessionNumber(value=str(accession_raw))
-            except ValueError:
-                logging.debug(
-                    "Skipping filing with invalid accession %s in %s",
-                    accession_raw,
-                    json_path,
-                )
-                continue
-
-            try:
-                filing_type = parse_filing_type_label(str(filing_type_raw))
-            except ValueError:
-                logging.debug(
-                    "Skipping filing with unsupported type %s in %s",
-                    filing_type_raw,
-                    json_path,
-                )
-                continue
-
-            if (
-                self.options.filing_types
-                and filing_type not in self.options.filing_types
-            ):
-                continue
-
-            try:
-                filing_date_only = parse_iso_date(str(filing_date_raw))
-            except ValueError:
-                logging.debug(
-                    "Skipping filing with invalid date %s in %s",
-                    filing_date_raw,
-                    json_path,
-                )
-                continue
-
-            if self.options.start_date and filing_date_only < self.options.start_date:
-                continue
-            if self.options.end_date and filing_date_only > self.options.end_date:
-                continue
-
-            if not content_text:
-                logging.debug(
-                    "Filing %s in %s has no content; skipping.",
-                    accession_raw,
-                    json_path,
-                )
-                continue
-
-            filing_datetime = datetime.combine(filing_date_only, datetime.min.time())
-            filing_id = generate_filing_id(accession.value)
-            metadata = {
-                "company_name": company_name,
-                "cik": accession.get_cik(),
-                "ticker": str(ticker.value) if ticker else "",
-                "accession_number": accession.value,
-                "source_file": str(json_path.relative_to(self.dataset_root))
-                if json_path.is_relative_to(self.dataset_root)
-                else str(json_path),
-            }
-
-            payloads.append(
-                FilingImportPayload(
-                    filing_id=filing_id,
-                    accession_number=accession,
-                    filing_type=filing_type,
-                    filing_date=filing_datetime,
-                    content=str(content_text).encode("utf-8", errors="ignore"),
-                    metadata=metadata,
-                    seed_path=str(json_path),
-                )
-            )
-
-        return payloads
-
-    def _find_company_directory(
-        self, identifier: str
-    ) -> tuple[Path, dict[str, Any]] | None:
+    def _load_company_filings(self, identifier: str) -> CompanyImportPayload | None:
         normalized = identifier.strip()
         if not normalized:
             return None
 
-        is_cik = normalized.isdigit()
-        normalized_upper = normalized.upper()
+        company = self._resolve_company(normalized)
+        company_name = str(getattr(company, "name", "Unknown Company")).strip() or (
+            f"CIK {getattr(company, 'cik', 'unknown')}"
+        )
 
-        for company_dir in sorted(self.dataset_root.iterdir()):
-            if not company_dir.is_dir():
+        cik_value = getattr(company, "cik", None)
+        if cik_value is None:
+            logging.warning("Company %s does not expose a CIK; skipping.", identifier)
+            return None
+
+        try:
+            cik = CIK(value=str(cik_value))
+        except ValueError as exc:
+            logging.warning("Invalid CIK %s for %s: %s", cik_value, identifier, exc)
+            return None
+
+        ticker: Ticker | None = None
+        ticker_candidate = None
+        if normalized.isdigit():
+            ticker_candidate = getattr(company, "ticker", None)
+        else:
+            ticker_candidate = normalized.upper()
+
+        if ticker_candidate:
+            try:
+                ticker = Ticker(value=str(ticker_candidate))
+            except ValueError:
+                ticker = None
+
+        filings = self._collect_filings(company, company_name, cik, ticker)
+        if filings is None:
+            return None
+
+        return CompanyImportPayload(
+            cik=cik,
+            name=company_name,
+            ticker=ticker,
+            filings=sorted(
+                filings,
+                key=lambda item: item.filing_date,
+                reverse=True,
+            ),
+            source="edgar",
+        )
+
+    def _resolve_company(self, identifier: str) -> Company:
+        try:
+            if identifier.isdigit():
+                return Company(int(identifier))
+            return Company(identifier.upper())
+        except Exception as exc:  # noqa: BLE001
+            raise RuntimeError(f"Failed to resolve company {identifier}") from exc
+
+    def _collect_filings(
+        self,
+        company: Company,
+        company_name: str,
+        cik: CIK,
+        ticker: Ticker | None,
+    ) -> list[FilingImportPayload] | None:
+        max_candidates = max(self.options.limit * 3, self.options.limit + 5)
+        forms_to_fetch: list[str | None]
+        if self.options.filing_types:
+            forms_to_fetch = [ft.value for ft in self.options.filing_types]
+        else:
+            forms_to_fetch = [None]
+
+        collected: list[FilingImportPayload] = []
+        seen_accessions: set[str] = set()
+
+        for form in forms_to_fetch:
+            try:
+                filings = (
+                    company.get_filings(form=form) if form else company.get_filings()
+                )
+            except Exception as exc:  # noqa: BLE001
+                logging.warning(
+                    "Failed retrieving filings (%s) for CIK %s: %s",
+                    form or "all",
+                    cik.padded(),
+                    exc,
+                )
                 continue
 
-            sample_path = next(
-                (path for path in sorted(company_dir.glob("*.json")) if path.is_file()),
-                None,
-            )
-            if sample_path is None:
-                continue
+            if self.options.start_date:
+                filings = filings.filter(date=f">={self.options.start_date.isoformat()}")
+            if self.options.end_date:
+                filings = filings.filter(date=f"<={self.options.end_date.isoformat()}")
 
-            sample_data = self._load_json(sample_path)
-            if not sample_data:
-                continue
+            try:
+                candidates = list(filings[:max_candidates])
+            except Exception:  # noqa: BLE001
+                # Fallback in case slicing is unsupported
+                candidates = []
+                for idx, filing in enumerate(filings):
+                    candidates.append(filing)
+                    if idx + 1 >= max_candidates:
+                        break
 
-            ticker_value = sample_data.get("ticker")
-            cik_value_raw = sample_data.get("company_cik")
+            for filing in candidates:
+                accession_raw = getattr(filing, "accession_number", None)
+                if not accession_raw:
+                    continue
 
-            if is_cik and cik_value_raw is not None:
+                accession_str = self._normalize_accession(accession_raw)
+                if accession_str is None or accession_str in seen_accessions:
+                    continue
+
                 try:
-                    if int(str(cik_value_raw)) == int(normalized):
-                        return company_dir, sample_data
+                    accession_number = AccessionNumber(value=accession_str)
                 except ValueError:
                     continue
-            elif not is_cik and ticker_value:
-                if str(ticker_value).upper() == normalized_upper:
-                    return company_dir, sample_data
 
+                filing_type_raw = getattr(filing, "form", "")
+                try:
+                    filing_type = parse_filing_type_label(str(filing_type_raw))
+                except ValueError:
+                    if self._forms_allowed is not None:
+                        continue
+                    # We skip filings we cannot classify unless all forms allowed
+                    continue
+
+                if self._forms_allowed and filing_type.value.upper() not in (
+                    self._forms_allowed
+                ):
+                    continue
+
+                filing_date_raw = getattr(filing, "filing_date", None)
+                filing_date_only = self._coerce_date(filing_date_raw)
+                if filing_date_only is None:
+                    continue
+                if self.options.start_date and filing_date_only < self.options.start_date:
+                    continue
+                if self.options.end_date and filing_date_only > self.options.end_date:
+                    continue
+
+                raw_content: Any = ""
+                if not self.options.dry_run:
+                    try:
+                        raw_content = filing.text()
+                    except Exception as exc:  # noqa: BLE001
+                        logging.warning(
+                            "Failed to download filing %s for %s: %s",
+                            accession_number.value,
+                            company_name,
+                            exc,
+                        )
+                        continue
+
+                if isinstance(raw_content, bytes):
+                    content_bytes = raw_content
+                else:
+                    if raw_content is None:
+                        if self.options.dry_run:
+                            content_bytes = b""
+                        else:
+                            logging.warning(
+                                "Filing %s returned no content; skipping.",
+                                accession_number.value,
+                            )
+                            continue
+                    else:
+                        content_bytes = str(raw_content).encode("utf-8", errors="ignore")
+                filing_datetime = datetime.combine(
+                    filing_date_only, datetime.min.time()
+                )
+                filing_id = generate_filing_id(accession_number.value)
+
+                metadata = {
+                    "company_name": company_name,
+                    "cik": cik.padded(),
+                    "ticker": str(ticker.value) if ticker else "",
+                    "accession_number": accession_number.value,
+                    "filing_type": filing_type.value,
+                    "filing_date": filing_date_only.isoformat(),
+                }
+
+                url_value = getattr(filing, "url", None)
+                if url_value:
+                    metadata["edgar_url"] = str(url_value)
+
+                collected.append(
+                    FilingImportPayload(
+                        filing_id=filing_id,
+                        accession_number=accession_number,
+                        filing_type=filing_type,
+                        filing_date=filing_datetime,
+                        content=content_bytes,
+                        metadata=metadata,
+                    )
+                )
+                seen_accessions.add(accession_number.value)
+
+                if len(collected) >= max_candidates:
+                    break
+
+            if len(collected) >= max_candidates:
+                break
+
+        return collected
+
+    @staticmethod
+    def _normalize_accession(value: Any) -> str | None:
+        try:
+            raw = str(value).strip()
+        except Exception:  # noqa: BLE001
+            return None
+        if not raw:
+            return None
+        clean = raw.replace("-", "")
+        if len(clean) != 18 or not clean.isdigit():
+            return None
+        return f"{clean[:10]}-{clean[10:12]}-{clean[12:]}"
+
+    @staticmethod
+    def _coerce_date(value: Any) -> date | None:
+        if value is None:
+            return None
+        if isinstance(value, datetime):
+            return value.date()
+        if isinstance(value, date):
+            return value
+        if isinstance(value, str):
+            try:
+                return parse_iso_date(value)
+            except ValueError:
+                return None
         return None
+
+    @staticmethod
+    def _resolve_path(path_value: str) -> Path:
+        """Resolve paths relative to the repository root when not absolute."""
+
+        candidate = Path(path_value)
+        if not candidate.is_absolute():
+            candidate = (REPO_ROOT / candidate).resolve()
+        else:
+            candidate = candidate.resolve()
+        return candidate
+
+    @staticmethod
+    def _resolve_storage_path(path_value: str | None) -> Path:
+        """Resolve the storage base path, preferring the shared storage root."""
+
+        default_path = (REPO_ROOT / "data" / "storage").resolve()
+        if not path_value:
+            return default_path
+
+        resolved = EdgarFilingsImporter._resolve_path(path_value)
+
+        # Existing environments may still point at the old root (/app/data). Nudge them
+        # into the shared storage directory so filings land where the app reads them.
+        if resolved == (REPO_ROOT / "data").resolve():
+            resolved = resolved / "storage"
+
+        return resolved
 
     async def _process_company(
         self,
-        session,
+        session: AsyncSession,
         company_repo: CompanyRepository,
         filing_repo: FilingRepository,
         payload: CompanyImportPayload,
@@ -439,6 +532,14 @@ class LocalDatasetImporter:
         skipped_filings = 0
 
         for filing in payload.filings:
+            if created_filings >= self.options.limit:
+                logging.debug(
+                    "Reached import limit (%d) for %s; stopping.",
+                    self.options.limit,
+                    payload.cik.padded(),
+                )
+                break
+
             existing = await filing_repo.get_by_accession_number(
                 filing.accession_number
             )
@@ -475,7 +576,9 @@ class LocalDatasetImporter:
                 )
                 storage_key_str = str(storage_key)
 
-            filing_metadata = dict(filing.metadata)
+            filing_metadata: dict[str, str | int | float | bool] = dict(
+                filing.metadata
+            )
             filing_metadata.update(
                 {
                     "storage_key": storage_key_str,
@@ -509,14 +612,6 @@ class LocalDatasetImporter:
             "created_filings": created_filings,
             "skipped_filings": skipped_filings,
         }
-
-    def _load_json(self, path: Path) -> dict[str, Any] | None:
-        try:
-            with path.open("r", encoding="utf-8") as handle:
-                return json.load(handle)
-        except (OSError, json.JSONDecodeError) as exc:
-            logging.debug("Failed to load %s: %s", path, exc)
-            return None
 
     def _log_summary(self, results: Iterable[dict[str, Any]]) -> None:
         results_list = list(results)
@@ -601,6 +696,12 @@ def build_options(
     if start_date and end_date and end_date < start_date:
         parser.error("--end-date must be on or after --start-date")
 
+    identity = (argv.edgar_identity or os.environ.get(EDGAR_IDENTITY_ENV_VAR, "")).strip()
+    if not identity:
+        parser.error(
+            "Set --edgar-identity or EDGAR_IDENTITY so the script can authenticate with EDGAR."
+        )
+
     return ImportOptions(
         identifiers=identifiers,
         filing_types=filing_types,
@@ -609,12 +710,13 @@ def build_options(
         end_date=end_date,
         dry_run=argv.dry_run,
         verbose=argv.verbose,
+        edgar_identity=identity,
     )
 
 
 def parse_args() -> ImportOptions:
     parser = argparse.ArgumentParser(
-        description="Seed companies and filings from the local dataset for analysis tests.",
+        description="Download SEC filings from EDGAR and store them for local analysis.",
     )
     parser.add_argument(
         "--tickers",
@@ -652,13 +754,18 @@ def parse_args() -> ImportOptions:
         action="store_true",
         help="Enable debug logging",
     )
+    parser.add_argument(
+        "--edgar-identity",
+        help="EDGAR identity string (e.g. 'Aperilex Importer contact@example.com'). "
+        "Defaults to EDGAR_IDENTITY environment variable if unset.",
+    )
 
     options = build_options(parser.parse_args(), parser)
     return options
 
 
 async def run_import(options: ImportOptions) -> None:
-    importer = LocalDatasetImporter(options)
+    importer = EdgarFilingsImporter(options)
     await importer.execute()
 
 

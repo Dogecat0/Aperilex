@@ -67,7 +67,7 @@ services:
       DEBUG: "true"
       EDGAR_IDENTITY: ${EDGAR_IDENTITY:-dev@aperilex.com}
       EDGAR_DATA_DIR: /tmp/edgar_data
-      LOCAL_STORAGE_PATH: ${LOCAL_STORAGE_PATH:-/app/data}
+      LOCAL_STORAGE_PATH: ${LOCAL_STORAGE_PATH:-/app/data/storage}
 
       # LLM Configuration
       OPENAI_API_KEY: ${OPENAI_API_KEY:-dummy_openai_key}
@@ -117,7 +117,7 @@ services:
       DEBUG: "true"
       EDGAR_IDENTITY: ${EDGAR_IDENTITY:-dev@aperilex.com}
       EDGAR_DATA_DIR: /tmp/edgar_data
-      LOCAL_STORAGE_PATH: ${LOCAL_STORAGE_PATH:-/app/data}
+      LOCAL_STORAGE_PATH: ${LOCAL_STORAGE_PATH:-/app/data/storage}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-dummy_openai_key}
       GOOGLE_API_KEY: ${GOOGLE_API_KEY:-dummy_google_key}
       DEFAULT_LLM_PROVIDER: ${DEFAULT_LLM_PROVIDER:-openai}
