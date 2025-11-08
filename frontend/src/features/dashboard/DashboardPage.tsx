@@ -272,7 +272,9 @@ export function DashboardPage() {
     })
   }, [libraryQuery.data, filters.segment])
   const totalCompletedAnalyses =
-    filters.segment === 'all' ? libraryQuery.data?.pagination.total_items ?? 0 : libraryAnalyses.length
+    filters.segment === 'all'
+      ? (libraryQuery.data?.pagination.total_items ?? 0)
+      : libraryAnalyses.length
   const readySectionCount = useMemo(
     () =>
       libraryAnalyses.reduce((total, analysis) => {

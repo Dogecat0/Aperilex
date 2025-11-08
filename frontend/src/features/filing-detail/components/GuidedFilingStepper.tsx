@@ -359,7 +359,6 @@ export function GuidedFilingStepper({
         recordedModulesRef.current.add(attemptKey)
         await queryClient.invalidateQueries({ queryKey: ['quiz-attempts'] })
       } catch (error) {
-        // eslint-disable-next-line no-console
         console.error('Failed to record quiz attempt', error)
       }
     },
@@ -538,15 +537,14 @@ export function GuidedFilingStepper({
       const matchIndex = sections.findIndex((section) => section.section_key === desiredKey)
       pendingInitialSectionRef.current = null
       if (matchIndex !== -1) {
+        const targetSection = sections[matchIndex]
         const { accessible, blocker } = ensureAccessible(matchIndex)
-        if (accessible) {
-          targetIndex = matchIndex
-          matchedFocus = true
-          nextNotice = null
-        } else if (blocker) {
-          const targetSection = sections[matchIndex]
-          nextNotice = `Finish “${blocker.title}” before jumping to “${targetSection.title}”.`
-        }
+        targetIndex = matchIndex
+        matchedFocus = true
+        nextNotice =
+          !accessible && blocker
+            ? `Complete “${blocker.title}” to keep your walkthrough in sync before you finish “${targetSection.title}”.`
+            : null
       }
     }
 

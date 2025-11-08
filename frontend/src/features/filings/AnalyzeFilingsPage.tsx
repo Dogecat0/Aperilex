@@ -220,7 +220,8 @@ export function AnalyzeFilingsPage() {
 
   const analyzeMutation = useAnalyzeFiling()
 
-  const results = filingSearch.data?.items ?? []
+  const filingSearchItems = filingSearch.data?.items ?? null
+  const results = useMemo(() => filingSearchItems ?? [], [filingSearchItems])
   const selectedResult = useMemo(() => {
     if (!selectedFilingId) {
       return null
@@ -259,12 +260,7 @@ export function AnalyzeFilingsPage() {
     setPollingTaskId(null)
 
     navigate(location.pathname, { replace: true })
-  }, [
-    location,
-    navigate,
-    practiceCommands,
-    analyzeMutation,
-  ])
+  }, [location, navigate, practiceCommands, analyzeMutation])
 
   useEffect(() => {
     setDuplicateInfo(null)

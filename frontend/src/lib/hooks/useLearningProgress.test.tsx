@@ -96,12 +96,27 @@ function HighlightsProbe() {
     <div>
       <div data-testid="completion-total">{dashboardHighlights.completion.total}</div>
       <div data-testid="sections-in-progress">{dashboardHighlights.sectionSummary.inProgress}</div>
-      <div data-testid="weakest-topic">{dashboardHighlights.weakestTopics[0]?.id ?? 'none'}</div>
       <div data-testid="next-lesson">
         {dashboardHighlights.nextLesson
           ? `${dashboardHighlights.nextLesson.moduleKey}::${dashboardHighlights.nextLesson.sectionKey}`
           : 'none'}
       </div>
+    </div>
+  )
+}
+
+function SnapshotProbe({ analysisId }: { analysisId?: string }) {
+  const { getSectionProgressSnapshot } = useLearningProgress()
+  const snapshot = getSectionProgressSnapshot(
+    'mda_foundations',
+    'Item 7 - Management Discussion & Analysis',
+    analysisId ?? null
+  )
+
+  return (
+    <div>
+      <div data-testid="snapshot-percent">{snapshot.progressPercent}</div>
+      <div data-testid="snapshot-status">{snapshot.status}</div>
     </div>
   )
 }
@@ -243,14 +258,48 @@ describe('useLearningProgress', () => {
     expect(total.textContent).toBe('2')
     await waitFor(() => expect(screen.getByTestId('sections-in-progress').textContent).toBe('2'))
     await waitFor(() =>
-      expect(screen.getByTestId('weakest-topic').textContent).toBe(
-        'mda_foundations::Item 7 - Management Discussion & Analysis'
-      )
-    )
-    await waitFor(() =>
       expect(screen.getByTestId('next-lesson').textContent).toBe(
         'risk_mastery::Item 1A - Risk Factors'
       )
     )
+  })
+
+  it('resolves section snapshots for a matching analysis run', async () => {
+    renderWithProviders(<SnapshotProbe analysisId="11111111-1111-1111-1111-111111111111" />)
+
+    await waitFor(() => expect(screen.getByTestId('snapshot-percent').textContent).toBe('60'))
+    expect(screen.getByTestId('snapshot-status').textContent).toBe('in_progress')
+  })
+
+  it('treats unmatched analyses as new runs even when previous completions exist', async () => {
+    const nextAnalysisId = '99999999-9999-9999-9999-999999999999'
+    const customRecord = JSON.parse(
+      JSON.stringify(learningProgressResponses[0])
+    ) as (typeof learningProgressResponses)[number]
+    customRecord.progress_percent = 100
+    customRecord.completed_at = '2024-12-15T09:05:00Z'
+
+    const sections =
+      (customRecord.metadata.sections as Record<string, Record<string, unknown>>) ?? {}
+    const sectionKey = 'Item 7 - Management Discussion & Analysis'
+    const sectionMeta = { ...(sections[sectionKey] ?? {}) }
+    sectionMeta['latest_analysis_id'] = nextAnalysisId
+    sectionMeta['latest_progress_percent'] = 0
+    sectionMeta['last_event_at'] = '2025-01-10T11:00:00Z'
+    const analysisRuns =
+      (sectionMeta['analysis_runs'] as Record<string, Record<string, unknown>>) ?? {}
+    if (analysisRuns[nextAnalysisId]) {
+      delete analysisRuns[nextAnalysisId]
+    }
+    sectionMeta['analysis_runs'] = analysisRuns
+    sections[sectionKey] = sectionMeta
+    customRecord.metadata.sections = sections
+
+    getSpy.mockResolvedValueOnce([customRecord, learningProgressResponses[1]])
+
+    renderWithProviders(<SnapshotProbe analysisId={nextAnalysisId} />)
+
+    await waitFor(() => expect(screen.getByTestId('snapshot-percent').textContent).toBe('0'))
+    expect(screen.getByTestId('snapshot-status').textContent).toBe('queued')
   })
 })

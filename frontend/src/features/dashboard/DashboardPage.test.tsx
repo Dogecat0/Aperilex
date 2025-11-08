@@ -6,12 +6,6 @@ import { DashboardPage } from './DashboardPage'
 import { apiClient } from '@/lib/apiClient'
 import { mockPaginatedAnalysesResponse } from '@/test/fixtures/analyses'
 
-const mockTaskResponse = {
-  schema_version: 1,
-  task_id: 'task-123',
-  status: 'QUEUED',
-}
-
 describe('DashboardPage', () => {
   beforeEach(() => {
     vi.spyOn(apiClient, 'get').mockImplementation(async (path: string) => {
@@ -20,7 +14,6 @@ describe('DashboardPage', () => {
       }
       throw new Error(`Unexpected GET path: ${path}`)
     })
-    vi.spyOn(apiClient, 'post').mockResolvedValue(mockTaskResponse)
   })
 
   afterEach(() => {
@@ -34,33 +27,12 @@ describe('DashboardPage', () => {
     expect(screen.getByText(/Completed analyses/i)).toBeInTheDocument()
     expect(screen.getByText(/Guided sections covered/i)).toBeInTheDocument()
     expect(screen.getByText(/Latest completion/i)).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /Run a new analysis/i })).toBeInTheDocument()
-    expect(
-      await screen.findByRole('button', { name: /Resume latest walkthrough/i })
-    ).toBeInTheDocument()
-
     expect(await screen.findByText(/Continue where you left off/i)).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /KPI extract/i })).toBeInTheDocument()
+    expect(screen.getAllByRole('button', { name: /Resume walkthrough/i }).length).toBeGreaterThan(0)
+    expect(screen.queryByRole('button', { name: /KPI extract/i })).not.toBeInTheDocument()
 
     expect(screen.getByText(/Recent analyses/i)).toBeInTheDocument()
     expect(screen.getByRole('link', { name: /View analysis/i })).toBeInTheDocument()
-  })
-
-  it('triggers practice commands from the continuation rail', async () => {
-    const user = userEvent.setup()
-    renderWithProviders(<DashboardPage />)
-
-    const kpiButton = await screen.findByRole('button', { name: /KPI extract/i })
-    await user.click(kpiButton)
-
-    await waitFor(() => {
-      expect(apiClient.post).toHaveBeenCalledWith(
-        expect.stringMatching(/\/practice\/kpi-extract$/),
-        expect.objectContaining({
-          schema: expect.anything(),
-        })
-      )
-    })
   })
 
   it('requests new data when changing library filters', async () => {

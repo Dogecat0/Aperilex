@@ -3,7 +3,10 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { Button } from '@/components/ui/Button'
 import { useLearningModuleBindings } from '@/lib/hooks'
 import type { LearningModule, LearningModuleContext } from '@/lib/hooks/useLearningModules'
-import type { LearningProgressRecord } from '@/lib/hooks/useLearningProgress'
+import type {
+  LearningProgressRecord,
+  SectionProgressSnapshot,
+} from '@/lib/hooks/useLearningProgress'
 
 interface ScheduleReviewParams {
   pendingReviewCount: number
@@ -13,6 +16,7 @@ interface ScheduleReviewParams {
 interface LearningModuleModalProps {
   module: LearningModule
   progress: LearningProgressRecord | null | undefined
+  sectionProgress: SectionProgressSnapshot | null
   onClose: () => void
   onResume: () => Promise<void>
   onScheduleReview: (params: ScheduleReviewParams) => Promise<void>
@@ -78,6 +82,7 @@ function deriveLessonTitle(
 export function LearningModuleModal({
   module,
   progress,
+  sectionProgress,
   onClose,
   onResume,
   onScheduleReview,
@@ -91,12 +96,12 @@ export function LearningModuleModal({
   } = useLearningModuleBindings(module.moduleKey, { enabled: true })
 
   const pendingReviewCount = useMemo(() => {
-    const recorded = progress?.pendingReviewCount ?? 0
+    const recorded = sectionProgress?.pendingReviewCount ?? progress?.pendingReviewCount ?? 0
     const comprehensionBindings = bindings.filter(
       (binding) => binding.artifactType === 'COMPREHENSION_CHECK'
     ).length
     return Math.max(recorded, comprehensionBindings)
-  }, [bindings, progress])
+  }, [bindings, progress, sectionProgress])
 
   const metadataNextReview =
     progress && typeof progress.metadata['next_review_at'] === 'string'
@@ -127,8 +132,7 @@ export function LearningModuleModal({
     }))
   }, [bindings, module.context])
 
-  const resumeWalkthroughCta =
-    module.ctas.find((cta) => cta.kind === 'walkthrough') ?? null
+  const resumeWalkthroughCta = module.ctas.find((cta) => cta.kind === 'walkthrough') ?? null
   const resumeDisabled = !resumeWalkthroughCta
   const resumeTitle = resumeDisabled
     ? 'Resume becomes available once the guided walkthrough is ready.'
@@ -200,10 +204,13 @@ export function LearningModuleModal({
               Progress
             </p>
             <p className="mt-2 text-2xl font-semibold text-[var(--text-primary)]">
-              {progress?.progressPercent ?? 0}%
+              {sectionProgress?.progressPercent ?? progress?.progressPercent ?? 0}%
             </p>
             <p className="mt-1 text-xs text-[var(--text-secondary)]">
-              Last interaction {formatDateLabel(progress?.lastInteractionAt ?? null)}
+              Last interaction{' '}
+              {formatDateLabel(
+                sectionProgress?.lastInteractionAt ?? progress?.lastInteractionAt ?? null
+              )}
             </p>
           </div>
           <div className="rounded-2xl border border-[var(--lines-subtle)] bg-[var(--surfaces-muted)] px-4 py-3">
@@ -211,7 +218,7 @@ export function LearningModuleModal({
               Last reviewed
             </p>
             <p className="mt-2 text-2xl font-semibold text-[var(--text-primary)]">
-              {formatDateLabel(progress?.lastReviewedAt ?? null)}
+              {formatDateLabel(sectionProgress?.lastReviewedAt ?? progress?.lastReviewedAt ?? null)}
             </p>
             <p className="mt-1 text-xs text-[var(--text-secondary)]">
               Pending reviews {pendingReviewCount}
@@ -222,7 +229,8 @@ export function LearningModuleModal({
               Next steps
             </p>
             <p className="mt-2 text-sm text-[var(--text-secondary)] leading-6">
-              Revisit comprehension checks and micro-lessons to reinforce the sections flagged above.
+              Revisit comprehension checks and micro-lessons to reinforce the sections flagged
+              above.
             </p>
             <Button
               type="button"

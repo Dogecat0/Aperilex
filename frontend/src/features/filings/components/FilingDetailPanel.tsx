@@ -93,15 +93,13 @@ export function FilingDetailPanel({
   const tickerValue = searchResult?.ticker ?? prefill?.ticker ?? null
   const cikValue = searchResult?.cik ?? null
   const tickerLine =
-    tickerValue || cikValue
-      ? `${tickerValue ?? '—'}${cikValue ? ` • CIK ${cikValue}` : ''}`
-      : '—'
+    tickerValue || cikValue ? `${tickerValue ?? '—'}${cikValue ? ` • CIK ${cikValue}` : ''}` : '—'
   const filingTypeDisplay = searchResult?.filing_type ?? prefill?.filingType ?? '—'
   const filingDateDisplay = searchResult
     ? formatDate(searchResult.filing_date)
     : prefill?.filingDate
       ? formatDate(prefill.filingDate)
-      : prefill?.filingDateLabel ?? '—'
+      : (prefill?.filingDateLabel ?? '—')
   const accessionDisplay = searchResult?.accession_number ?? '—'
   const sectionsDisplay =
     typeof searchResult?.sections_count === 'number' ? `${searchResult.sections_count}` : '—'

@@ -26,23 +26,6 @@ function formatTimestamp(value: string): string {
   })
 }
 
-function formatFilingDate(value?: string | null): string | null {
-  if (!value) {
-    return null
-  }
-
-  const parsed = new Date(value)
-  if (Number.isNaN(parsed.getTime())) {
-    return null
-  }
-
-  return parsed.toLocaleDateString(undefined, {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-  })
-}
-
 function describeSentiment(
   score: number | null,
   tokens: ReturnType<typeof useThemeTokens>
@@ -86,6 +69,7 @@ export function LearningHubPage() {
     progress,
     progressByModule,
     dashboardHighlights,
+    getSectionProgressSnapshot,
     isLoading: progressLoading,
     isRefetching: progressRefetching,
     isUpdating,
@@ -120,6 +104,13 @@ export function LearningHubPage() {
   const activeModuleFocus: ModuleModalFocus = activeModuleState?.focus ?? 'overview'
 
   const activeProgress = activeModule ? progressByModule[activeModule.moduleKey] : undefined
+  const activeSectionProgress = activeModule
+    ? getSectionProgressSnapshot(
+        activeModule.moduleKey,
+        activeModule.sectionKey,
+        activeModule.context?.analysisId ?? null
+      )
+    : null
 
   const moduleErrorMessage = modulesError
     ? modulesErrorValue instanceof Error
@@ -182,27 +173,31 @@ export function LearningHubPage() {
   )
 
   const handleMarkComplete = useCallback(
-    async (moduleKey: string) => {
-      const existing = progressByModule[moduleKey]
-      if (existing?.progressPercent === 100) {
+    async (module: LearningModule) => {
+      const snapshot = getSectionProgressSnapshot(
+        module.moduleKey,
+        module.sectionKey,
+        module.context?.analysisId ?? null
+      )
+      const existing = progressByModule[module.moduleKey]
+      if (!existing || snapshot.progressPercent >= 100) {
         return
       }
 
-      const metadata = { ...(existing?.metadata ?? {}), last_action: 'mark-complete' }
-      const progressId = existing?.progressId
+      const metadata = { ...(existing.metadata ?? {}), last_action: 'mark-complete' }
 
       try {
         await updateProgress({
-          moduleKey,
+          moduleKey: module.moduleKey,
           progressPercent: 100,
           metadata,
-          progressId,
+          progressId: existing.progressId,
         })
       } catch {
         // Hook error state already communicates the failure.
       }
     },
-    [progressByModule, updateProgress]
+    [getSectionProgressSnapshot, progressByModule, updateProgress]
   )
 
   const handleOpenModule = useCallback(
@@ -361,20 +356,27 @@ export function LearningHubPage() {
         ) : null}
 
         {learningModules.map((module) => {
-          const record = progressByModule[module.moduleKey]
           const context = module.context
-          const progressPercent = record?.progressPercent ?? 0
+          const sectionProgress = getSectionProgressSnapshot(
+            module.moduleKey,
+            module.sectionKey,
+            context?.analysisId ?? null
+          )
+          const progressPercent = sectionProgress.progressPercent
           const statusLabel =
-            progressPercent >= 100 ? 'Completed' : progressPercent > 0 ? 'In progress' : 'Queued'
+            sectionProgress.status === 'completed'
+              ? 'Completed'
+              : sectionProgress.status === 'in_progress'
+                ? 'In progress'
+                : 'Queued'
           const accentColor =
-            progressPercent >= 100
+            sectionProgress.status === 'completed'
               ? tokens.status.positive
-              : progressPercent > 0
+              : sectionProgress.status === 'in_progress'
                 ? tokens.learning.accent
                 : tokens.status.neutral
-          const pendingReviews = record?.pendingReviewCount ?? 0
+          const pendingReviews = sectionProgress.pendingReviewCount
           const hasContext = Boolean(context)
-          const filingDateLabel = formatFilingDate(context?.filingDate)
           const sentimentBadge = context
             ? describeSentiment(
                 typeof context.sentimentScore === 'number' ? context.sentimentScore : null,
@@ -484,7 +486,6 @@ export function LearningHubPage() {
                       {pendingReviews} pending review{pendingReviews === 1 ? '' : 's'}
                     </p>
                   )}
-
                 </div>
               ) : (
                 <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>
@@ -520,8 +521,8 @@ export function LearningHubPage() {
                   style={{ color: 'var(--text-secondary)' }}
                 >
                   <span>{progressPercent}% complete</span>
-                  {record?.lastInteractionAt ? (
-                    <span>Last active {formatTimestamp(record.lastInteractionAt)}</span>
+                  {sectionProgress.lastInteractionAt ? (
+                    <span>Last active {formatTimestamp(sectionProgress.lastInteractionAt)}</span>
                   ) : (
                     <span>Not started yet</span>
                   )}
@@ -544,7 +545,9 @@ export function LearningHubPage() {
                   type="button"
                   size="sm"
                   variant="ghost"
-                  onClick={() => handleMarkComplete(module.moduleKey)}
+                  onClick={() => {
+                    void handleMarkComplete(module)
+                  }}
                   disabled={busy || progressPercent >= 100}
                   className="px-0 py-0 tracking-[0.18em]"
                   style={{
@@ -609,9 +612,7 @@ export function LearningHubPage() {
           <ul className="mt-4 flex flex-col gap-3">
             {attempts.map((attempt) => {
               const statusLabel = attempt.passed ? 'Passed' : 'Retake'
-              const statusColor = attempt.passed
-                ? tokens.status.positive
-                : tokens.status.negative
+              const statusColor = attempt.passed ? tokens.status.positive : tokens.status.negative
 
               return (
                 <li
@@ -658,6 +659,7 @@ export function LearningHubPage() {
         <LearningModuleModal
           module={activeModule}
           progress={activeProgress}
+          sectionProgress={activeSectionProgress}
           initialFocus={activeModuleFocus}
           onClose={handleCloseModule}
           onResume={async () => {

@@ -1,8 +1,6 @@
 import { useMemo } from 'react'
-import { useNavigate } from 'react-router-dom'
 import { FeatureHero } from '@/components/layout/FeatureHero'
 import { FeatureHeroStat } from '@/components/layout/FeatureHeroStat'
-import { Button } from '@/components/ui/Button'
 
 interface LatestAnalysisHighlight {
   analysisId: string
@@ -26,8 +24,6 @@ export function FilingProgressHero({
   readySectionCount,
   latestAnalysis,
 }: FilingProgressHeroProps) {
-  const navigate = useNavigate()
-
   const heroCopy = useMemo(() => {
     const completionValue = isLoading ? '—' : `${totalCompleted}`
     const completionHelper =
@@ -53,19 +49,6 @@ export function FilingProgressHero({
       latestHelper,
     }
   }, [dateRangeLabel, isLoading, latestAnalysis, readySectionCount, totalCompleted])
-
-  const handleResumeLatest = () => {
-    if (!latestAnalysis) {
-      return
-    }
-    navigate(`/filing/${latestAnalysis.analysisId}`)
-  }
-
-  const handleOpenAnalyze = () => {
-    navigate('/analyze')
-  }
-
-  const hasLatestAnalysis = Boolean(latestAnalysis)
 
   return (
     <FeatureHero

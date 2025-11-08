@@ -52,6 +52,7 @@ export {
   useLearningProgress,
   type UseLearningProgressOptions,
   type LearningProgressRecord,
+  type SectionProgressSnapshot,
   type UpdateProgressInput,
   type RecordWalkthroughEventInput,
   type ScheduleReviewInput,

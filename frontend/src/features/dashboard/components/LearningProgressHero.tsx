@@ -8,13 +8,7 @@ interface LearningProgressHeroProps {
 }
 
 export function LearningProgressHero({ highlights, isLoading }: LearningProgressHeroProps) {
-  const {
-    completion,
-    sectionSummary,
-    pendingReviewTotal,
-    nextLesson,
-    activeAnalyses,
-  } = highlights
+  const { completion, sectionSummary, pendingReviewTotal, nextLesson, activeAnalyses } = highlights
   const progressPending = isLoading
 
   const totalModules = Math.max(completion.total, 0)

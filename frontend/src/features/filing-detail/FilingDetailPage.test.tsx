@@ -97,6 +97,35 @@ describe('FilingDetailPage', () => {
           }
         }
 
+        if (path === '/learning/quiz-attempts') {
+          const body = (config?.body as Record<string, unknown> | undefined) ?? {}
+          const attemptedAt =
+            typeof body.attempted_at === 'string' ? body.attempted_at : new Date().toISOString()
+          const scorePercent = typeof body.score_percent === 'number' ? body.score_percent : 0
+          const schemaVersion = typeof body.schema_version === 'number' ? body.schema_version : 1
+          const questionCount = typeof body.question_count === 'number' ? body.question_count : 0
+          const correctCount = typeof body.correct_count === 'number' ? body.correct_count : 0
+          const quizId = typeof body.quiz_id === 'string' ? body.quiz_id : 'mock-quiz'
+          const attemptId =
+            typeof body.attempt_id === 'string' ? body.attempt_id : `attempt-${Date.now()}`
+          const isHumanReviewed =
+            typeof body.is_human_reviewed === 'boolean' ? body.is_human_reviewed : false
+          return {
+            schema_version: schemaVersion,
+            attempt_id: attemptId,
+            quiz_id: quizId,
+            question_count: questionCount,
+            correct_count: correctCount,
+            score_percent: scorePercent,
+            passed: typeof body.passed === 'boolean' ? body.passed : scorePercent >= 80,
+            is_human_reviewed: isHumanReviewed,
+            attempted_at: attemptedAt,
+            metadata: (body.metadata as Record<string, unknown>) ?? {},
+            created_at: attemptedAt,
+            updated_at: attemptedAt,
+          }
+        }
+
         throw new Error(`Unexpected post path: ${path}`)
       }
     )
@@ -232,7 +261,12 @@ describe('FilingDetailPage', () => {
     const dismissButton = within(completionDialog).getByRole('button', { name: /^Close$/i })
     await user.click(dismissButton)
 
-    expect(apiClient.post).toHaveBeenCalledTimes(2)
+    const progressCalls = vi
+      .mocked(apiClient.post)
+      .mock.calls.filter(
+        ([path]) => typeof path === 'string' && path.startsWith('/learning/progress/')
+      )
+    expect(progressCalls).toHaveLength(2)
     expect(
       screen.getByText(/Walkthrough complete—return to dashboard when ready\./i)
     ).toBeInTheDocument()

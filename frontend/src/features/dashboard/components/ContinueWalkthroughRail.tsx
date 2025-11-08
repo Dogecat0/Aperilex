@@ -11,12 +11,10 @@ interface ContinueWalkthroughRailProps {
 
 interface WalkthroughItem {
   analysisId: string
-  filingId: string
   companyName: string
   ticker?: string | null
   filingType?: string | null
   filedAt: string
-  filingDate?: string | null
   completedAt: string | null
   sectionsReady: number | null
 }
@@ -58,7 +56,6 @@ export function ContinueWalkthroughRail({ analyses, isLoading }: ContinueWalkthr
               <div className="h-3 w-1/3 rounded bg-[var(--lines-subtle)]/60" />
               <div className="mt-auto flex gap-2">
                 <div className="h-9 w-20 rounded-full bg-[var(--lines-subtle)]/60" />
-                <div className="h-9 w-20 rounded-full bg-[var(--lines-subtle)]/60" />
               </div>
             </article>
           ))}
@@ -70,7 +67,6 @@ export function ContinueWalkthroughRail({ analyses, isLoading }: ContinueWalkthr
       ) : (
         <div className="grid gap-3 md:grid-cols-3">
           {items.map((item) => {
-            const hasFilingId = Boolean(item.filingId)
             const resumeTarget = `/filing/${item.analysisId}`
 
             return (
@@ -134,11 +130,9 @@ function selectWalkthroughItems(analyses: AnalysisResponse[]): WalkthroughItem[]
     .slice(0, 3)
     .map<WalkthroughItem>((analysis) => ({
       analysisId: analysis.analysis_id,
-      filingId: analysis.filing_id,
       companyName: analysis.summary.company.name ?? 'Unknown company',
       ticker: analysis.summary.company.ticker,
       filingType: analysis.summary.filing.type,
-      filingDate: analysis.summary.filing.date ?? null,
       filedAt: formatDate(analysis.summary.filing.date),
       completedAt: formatRelativeDate(analysis.summary.processing?.completed_at),
       sectionsReady:

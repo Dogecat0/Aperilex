@@ -55,11 +55,39 @@ beforeEach(() => {
     throw new Error(`Unexpected GET path: ${path}`)
   })
 
+  const sectionMeta = learningProgressResponses[0].metadata.sections?.[
+    'Item 7 - Management Discussion & Analysis'
+  ] as {
+    analysis_runs?: Record<string, { [key: string]: unknown }>
+  }
+  const runMeta = sectionMeta?.analysis_runs?.[latestAnalysisId] ?? {}
+  const updatedMetadata = {
+    ...learningProgressResponses[0].metadata,
+    sections: {
+      ...learningProgressResponses[0].metadata.sections,
+      'Item 7 - Management Discussion & Analysis': {
+        ...sectionMeta,
+        analysis_runs: {
+          ...(sectionMeta?.analysis_runs ?? {}),
+          [latestAnalysisId]: {
+            ...runMeta,
+            progress_percent: 100,
+            last_event_at: '2025-01-06T12:00:00Z',
+            completed_at: '2025-01-06T12:00:00Z',
+          },
+        },
+        latest_progress_percent: 100,
+        last_event_at: '2025-01-06T12:00:00Z',
+      },
+    },
+  }
+
   putSpy.mockResolvedValue({
     ...learningProgressResponses[0],
     progress_percent: 100,
     completed_at: '2025-01-06T12:00:00Z',
     last_interaction_at: '2025-01-06T12:00:00Z',
+    metadata: updatedMetadata,
   })
 
   postSpy.mockImplementation(async (path: string, options?: { body?: Record<string, unknown> }) => {
@@ -206,9 +234,55 @@ describe('LearningHubPage', () => {
 
   it('surfaces automatic logging guidance for quiz attempts', async () => {
     renderWithProviders(<LearningHubPage />)
-    expect(
-      await screen.findByText(/automatically log quiz attempts/i)
-    ).toBeInTheDocument()
+    expect(await screen.findByText(/automatically log quiz attempts/i)).toBeInTheDocument()
     expect(screen.queryByText('Log practice attempt')).toBeNull()
+  })
+
+  it('resets card progress for a fresh analysis even when aggregates are complete', async () => {
+    const latestAnalysisIdOverride = '11111111-1111-1111-1111-111111111111'
+    const freshProgress = JSON.parse(
+      JSON.stringify(learningProgressResponses)
+    ) as typeof learningProgressResponses
+    const sectionKey = 'Item 7 - Management Discussion & Analysis'
+    const sectionMeta = freshProgress[0].metadata.sections?.[sectionKey] as {
+      analysis_runs?: Record<string, { progress_percent?: number }>
+      latest_progress_percent?: number
+      progress_percent?: number
+    }
+    if (sectionMeta?.analysis_runs?.[latestAnalysisIdOverride]) {
+      sectionMeta.analysis_runs[latestAnalysisIdOverride].progress_percent = 0
+      sectionMeta.latest_progress_percent = 0
+      sectionMeta.progress_percent = 100
+    }
+    freshProgress[0].progress_percent = 100
+    freshProgress[0].completed_at = '2024-12-15T09:05:00Z'
+
+    getSpy.mockImplementation(async (path: string) => {
+      if (path === '/learning/progress') {
+        return freshProgress
+      }
+      if (path === '/learning/quiz-attempts') {
+        return quizAttemptResponses
+      }
+      if (path === '/analyses') {
+        return mockPaginatedAnalysesResponse
+      }
+      if (path === `/analyses/${latestAnalysisId}`) {
+        return {
+          ...mockAnalysisDetail,
+          analysis_id: latestAnalysisIdOverride,
+          filing_id: mockPaginatedAnalysesResponse.items[0].filing_id,
+        }
+      }
+      if (path === '/learning/modules/mda_foundations/bindings') {
+        return moduleBindingsResponse
+      }
+      throw new Error(`Unexpected GET path: ${path}`)
+    })
+
+    renderWithProviders(<LearningHubPage />)
+
+    expect(await screen.findByText('Queued')).toBeInTheDocument()
+    expect(screen.getByText('0% complete')).toBeInTheDocument()
   })
 })

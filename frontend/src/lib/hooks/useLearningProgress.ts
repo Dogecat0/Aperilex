@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { apiClient, ApiClientError } from '@/lib/apiClient'
 import { getLearningModuleMeta } from '@/lib/learning/moduleCatalog'
@@ -107,19 +107,24 @@ interface SectionSummaryAccumulator {
   queued: number
 }
 
-interface SectionSnapshot {
-  id: string
+export interface SectionProgressSnapshot {
   moduleKey: string
   sectionKey: string
-  title: string
-  summary: string
-  duration: string
+  analysisId: string | null
   progressPercent: number
   pendingReviewCount: number
   isUnlocked: boolean
   status: ModuleProgressStatus
   lastInteractionAt: string | null
   lastReviewedAt: string | null
+  completedAt: string | null
+}
+
+interface DashboardSectionSnapshot extends SectionProgressSnapshot {
+  id: string
+  title: string
+  summary: string
+  duration: string
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -211,6 +216,21 @@ function getSectionEntry(
   return rawSection as Record<string, unknown>
 }
 
+function pickString(source: Record<string, unknown> | null, ...keys: string[]): string | null {
+  if (!source) {
+    return null
+  }
+
+  for (const key of keys) {
+    const candidate = source[key]
+    if (typeof candidate === 'string' && candidate) {
+      return candidate
+    }
+  }
+
+  return null
+}
+
 function extractSectionPendingReviewCount(
   sectionEntry: Record<string, unknown> | null,
   fallback: number
@@ -246,6 +266,97 @@ function extractSectionLastInteractionAt(
     (sectionEntry as { updatedAt?: unknown }).updatedAt
 
   return typeof candidate === 'string' && candidate ? candidate : (fallback ?? null)
+}
+
+interface AnalysisRunSnapshot {
+  analysisId: string
+  progressPercent: number
+  lastInteractionAt: string | null
+  completedAt: string | null
+}
+
+function resolveAnalysisRunSnapshot(
+  sectionEntry: Record<string, unknown> | null,
+  analysisId: string | null
+): AnalysisRunSnapshot | null {
+  if (!sectionEntry || !analysisId) {
+    return null
+  }
+
+  const analysisRuns = (sectionEntry as Record<string, unknown>).analysis_runs
+  if (!isRecord(analysisRuns)) {
+    return null
+  }
+
+  const rawRun = (analysisRuns as Record<string, unknown>)[analysisId]
+  if (!isRecord(rawRun)) {
+    return null
+  }
+
+  const percent =
+    coerceNumber(
+      (rawRun as { progress_percent?: unknown }).progress_percent,
+      (rawRun as { latest_progress_percent?: unknown }).latest_progress_percent,
+      (rawRun as { progressPercent?: unknown }).progressPercent
+    ) ?? 0
+
+  const lastInteractionAt = pickString(
+    rawRun as Record<string, unknown>,
+    'last_event_at',
+    'lastEventAt',
+    'updated_at',
+    'updatedAt'
+  )
+  const completedAt = pickString(rawRun as Record<string, unknown>, 'completed_at', 'completedAt')
+
+  return {
+    analysisId,
+    progressPercent: clampPercent(percent),
+    lastInteractionAt,
+    completedAt,
+  }
+}
+
+function resolveLatestAnalysisSnapshot(
+  sectionEntry: Record<string, unknown> | null,
+  analysisId: string | null
+): AnalysisRunSnapshot | null {
+  if (!sectionEntry || !analysisId) {
+    return null
+  }
+
+  const latestAnalysisId = (sectionEntry as { latest_analysis_id?: unknown }).latest_analysis_id
+  if (typeof latestAnalysisId !== 'string' || latestAnalysisId !== analysisId) {
+    return null
+  }
+
+  const percent =
+    coerceNumber(
+      (sectionEntry as { latest_progress_percent?: unknown }).latest_progress_percent,
+      (sectionEntry as { latestProgressPercent?: unknown }).latestProgressPercent
+    ) ?? 0
+
+  const lastInteractionAt = pickString(
+    sectionEntry,
+    'latest_event_at',
+    'latestEventAt',
+    'last_event_at',
+    'lastEventAt'
+  )
+  const completedAt = pickString(
+    sectionEntry,
+    'latest_completed_at',
+    'latestCompletedAt',
+    'completed_at',
+    'completedAt'
+  )
+
+  return {
+    analysisId,
+    progressPercent: clampPercent(percent),
+    lastInteractionAt,
+    completedAt,
+  }
 }
 
 function accumulateSectionProgress(
@@ -457,6 +568,69 @@ function collectActiveAnalysesForSection(
   }
 }
 
+function resolveSectionProgressSnapshot(
+  record: LearningProgressRecord | undefined,
+  moduleKey: string,
+  sectionKey: string,
+  analysisId: string | null
+): SectionProgressSnapshot {
+  const sectionEntry = getSectionEntry(record, sectionKey)
+  const pendingReviewCount = extractSectionPendingReviewCount(
+    sectionEntry,
+    record?.pendingReviewCount ?? 0
+  )
+  const lastReviewedAt = record?.lastReviewedAt ?? null
+  const isUnlocked = record?.isUnlocked ?? false
+  const recordProgressPercent = clampPercent(record?.progressPercent ?? 0)
+
+  let progressPercent = extractSectionProgressPercent(record, sectionKey)
+  let lastInteractionAt = extractSectionLastInteractionAt(
+    sectionEntry,
+    record?.lastInteractionAt ?? null
+  )
+  let completedAt = record?.completedAt ?? null
+
+  if (analysisId) {
+    const runSnapshot =
+      resolveAnalysisRunSnapshot(sectionEntry, analysisId) ??
+      resolveLatestAnalysisSnapshot(sectionEntry, analysisId)
+
+    if (runSnapshot) {
+      progressPercent = runSnapshot.progressPercent
+      lastInteractionAt = runSnapshot.lastInteractionAt ?? lastInteractionAt
+      completedAt = runSnapshot.completedAt ?? completedAt
+    } else {
+      progressPercent = 0
+      lastInteractionAt = null
+      completedAt = null
+    }
+  } else {
+    if (progressPercent === 0 && recordProgressPercent > 0) {
+      progressPercent = recordProgressPercent
+    }
+
+    if ((record?.completedAt || recordProgressPercent >= 100) && progressPercent < 100) {
+      progressPercent = 100
+    }
+  }
+
+  const status: ModuleProgressStatus =
+    progressPercent >= 100 ? 'completed' : progressPercent > 0 ? 'in_progress' : 'queued'
+
+  return {
+    moduleKey,
+    sectionKey,
+    analysisId: analysisId ?? null,
+    progressPercent,
+    pendingReviewCount,
+    isUnlocked,
+    status,
+    lastInteractionAt,
+    lastReviewedAt,
+    completedAt,
+  }
+}
+
 function buildErrorMessage(error: unknown): string {
   if (error instanceof ApiClientError) {
     if (error.status_code === 401) {
@@ -646,7 +820,7 @@ function computeHighlightsFromModules(
   progressMap: Record<string, LearningProgressRecord>,
   modules: LearningModule[]
 ): LearningDashboardHighlights {
-  const snapshots: SectionSnapshot[] = []
+  const snapshots: DashboardSectionSnapshot[] = []
   const seenSectionIdentifiers = new Set<string>()
   const activeAnalyses = new Set<string>()
   const pendingReviewKeys = new Set<string>()
@@ -666,57 +840,30 @@ function computeHighlightsFromModules(
     seenSectionIdentifiers.add(identifier)
 
     const record = progressMap[module.moduleKey]
-    const sectionEntry = getSectionEntry(record, sectionKey)
+    const snapshot = resolveSectionProgressSnapshot(
+      record,
+      module.moduleKey,
+      sectionKey,
+      module.context?.analysisId ?? null
+    )
 
-    let progressPercent = extractSectionProgressPercent(record, sectionKey)
-    const recordProgressPercent = clampPercent(record?.progressPercent ?? 0)
-    if (progressPercent === 0 && recordProgressPercent > 0) {
-      progressPercent = recordProgressPercent
+    if (!pendingReviewKeys.has(module.moduleKey)) {
+      pendingReviewTotal += snapshot.pendingReviewCount
+      pendingReviewKeys.add(module.moduleKey)
     }
 
-    if ((record?.completedAt || recordProgressPercent >= 100) && progressPercent < 100) {
-      progressPercent = 100
-    }
-
-    const status: ModuleProgressStatus =
-      progressPercent >= 100 ? 'completed' : progressPercent > 0 ? 'in_progress' : 'queued'
-    const pendingReviewCount = extractSectionPendingReviewCount(
-      sectionEntry,
-      record?.pendingReviewCount ?? 0
-    )
-    const lastInteractionAt = extractSectionLastInteractionAt(
-      sectionEntry,
-      record?.lastInteractionAt ?? null
-    )
-    const lastReviewedAt = record?.lastReviewedAt ?? null
-    const isUnlocked = record?.isUnlocked ?? false
-
-    if (record) {
-      const modulePending = Math.max(record.pendingReviewCount, 0)
-      if (!pendingReviewKeys.has(record.moduleKey)) {
-        pendingReviewTotal += modulePending
-        pendingReviewKeys.add(record.moduleKey)
-      }
-      if (record.isUnlocked) {
-        unlockedModuleKeys.add(record.moduleKey)
-      }
+    if (snapshot.isUnlocked) {
+      unlockedModuleKeys.add(module.moduleKey)
     }
 
     collectActiveAnalysesForSection(record, sectionKey, activeAnalyses)
 
     snapshots.push({
       id: identifier,
-      moduleKey: module.moduleKey,
-      sectionKey,
+      ...snapshot,
       title: module.title,
       summary: module.summary,
       duration: module.duration,
-      progressPercent,
-      pendingReviewCount,
-      isUnlocked,
-      status,
-      lastInteractionAt,
-      lastReviewedAt,
     })
   }
 
@@ -880,6 +1027,17 @@ export function useLearningProgress(options?: UseLearningProgressOptions) {
   const moduleDescriptors = useMemo(
     () => resolveModuleDescriptors(options?.modules, progressByModule),
     [options?.modules, progressByModule]
+  )
+
+  const getSectionProgressSnapshot = useCallback(
+    (moduleKey: string, sectionKey: string, analysisId?: string | null) =>
+      resolveSectionProgressSnapshot(
+        progressByModule[moduleKey],
+        moduleKey,
+        sectionKey,
+        analysisId ?? null
+      ),
+    [progressByModule]
   )
 
   const dashboardHighlights = useMemo(
@@ -1053,6 +1211,7 @@ export function useLearningProgress(options?: UseLearningProgressOptions) {
     progress,
     progressByModule,
     dashboardHighlights,
+    getSectionProgressSnapshot,
     isLoading: progressQuery.isLoading,
     isRefetching: progressQuery.isRefetching,
     isUpdating: updateMutation.isPending,
