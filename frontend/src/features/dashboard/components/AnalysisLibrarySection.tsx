@@ -64,12 +64,12 @@ function formatTimestamp(input?: string | null) {
 
 function formatConfidence(score?: number | null, bucket?: string | null) {
   if (typeof score !== 'number') {
-    return bucket ? `${bucket.toLowerCase()} confidence` : 'Confidence pending'
+    return bucket ? bucket.toLowerCase() : 'Confidence pending'
   }
 
   const percentage = Math.round(score * 100)
   const bucketLabel = bucket ? bucket.toLowerCase() : undefined
-  return bucketLabel ? `${percentage}% • ${bucketLabel}` : `${percentage}% confidence`
+  return bucketLabel ? `${percentage}% • ${bucketLabel}` : `${percentage}%`
 }
 
 function groupSummaryTitle(group: AnalysisLibraryGroup) {
@@ -319,6 +319,7 @@ export function AnalysisLibrarySection({
                 {group.analyses.map((run, index) => {
                   const saved = isSaved(run.analysisId)
                   const label = formatTemplateLabel(run.analysisTemplate)
+                  const confidenceDisplay = formatConfidence(run.confidenceScore, run.confidenceBucket)
                   const saveButtonClass = `${controlBaseClass} ${
                     saved ? 'hover:bg-[rgba(69,195,136,0.16)]' : 'hover:bg-[var(--surfaces-muted)]'
                   }`
@@ -342,16 +343,13 @@ export function AnalysisLibrarySection({
                           <span className="text-sm font-semibold text-[var(--text-primary)]">
                             {label}
                           </span>
-                          <span className="text-[10px] uppercase tracking-wide text-[var(--text-secondary)]">
-                            {run.analysisType.toLowerCase()}
-                          </span>
                         </div>
                         <p className="text-xs text-[var(--text-secondary)]">
                           {formatTimestamp(run.createdAt)}
-                          {run.createdBy ? ` • Requested by ${run.createdBy}` : ''}
                         </p>
                         <p className="text-xs font-semibold text-[var(--text-secondary)]">
-                          {formatConfidence(run.confidenceScore, run.confidenceBucket)}
+                          {confidenceDisplay}
+                          {confidenceDisplay !== 'Confidence pending' ? ' confidence' : ''}
                         </p>
                       </div>
 

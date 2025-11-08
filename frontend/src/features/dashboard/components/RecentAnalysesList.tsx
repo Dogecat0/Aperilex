@@ -146,7 +146,7 @@ export function RecentAnalysesList({ groups, isLoading }: RecentAnalysesListProp
                             outlineColor: 'var(--focus-ring)',
                           }}
                         >
-                          View analysis
+                          View
                         </Link>
                         <button
                           type="button"
