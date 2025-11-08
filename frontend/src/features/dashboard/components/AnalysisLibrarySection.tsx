@@ -319,7 +319,10 @@ export function AnalysisLibrarySection({
                 {group.analyses.map((run, index) => {
                   const saved = isSaved(run.analysisId)
                   const label = formatTemplateLabel(run.analysisTemplate)
-                  const confidenceDisplay = formatConfidence(run.confidenceScore, run.confidenceBucket)
+                  const confidenceDisplay = formatConfidence(
+                    run.confidenceScore,
+                    run.confidenceBucket
+                  )
                   const saveButtonClass = `${controlBaseClass} ${
                     saved ? 'hover:bg-[rgba(69,195,136,0.16)]' : 'hover:bg-[var(--surfaces-muted)]'
                   }`

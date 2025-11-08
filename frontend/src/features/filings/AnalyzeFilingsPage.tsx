@@ -23,7 +23,6 @@ import {
 } from './components/FilingDetailPanel'
 import { FilingSearchForm, type FilingSearchFormValues } from './components/FilingSearchForm'
 import { FilingResultsList } from './components/FilingResultsList'
-import { ExistingAnalysesCallout } from './components/ExistingAnalysesCallout'
 
 interface SearchState extends FilingSearchFormValues {
   page: number
@@ -560,8 +559,6 @@ export function AnalyzeFilingsPage() {
           ))}
         </div>
       </FeatureHero>
-
-      <ExistingAnalysesCallout />
 
       {duplicateInfo ? (
         <div className="rounded-3xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">

@@ -32,7 +32,7 @@ describe('DashboardPage', () => {
     expect(screen.queryByRole('button', { name: /KPI extract/i })).not.toBeInTheDocument()
 
     expect(screen.getByText(/Recent analyses/i)).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: /View analysis/i })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /View latest/i })).toBeInTheDocument()
   })
 
   it('requests new data when changing library filters', async () => {

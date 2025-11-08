@@ -1,13 +1,20 @@
-import { act, screen, waitFor } from '@testing-library/react'
+import { screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type * as ReactRouterDomModule from 'react-router-dom'
 import { renderWithProviders } from '@/test/utils'
 import { SearchBar } from './SearchBar'
-import { apiClient } from '@/lib/apiClient'
 import { mockPaginatedAnalysesResponse } from '@/test/fixtures/analyses'
+import type {
+  UseAnalysisSearchOptions,
+  UseAnalysisSearchReturn,
+} from '@/lib/hooks/useAnalysisSearch'
+import type * as HooksModule from '@/lib/hooks'
 
 const mockNavigate = vi.fn()
+const mockUseAnalysisSearch = vi.hoisted(() =>
+  vi.fn<UseAnalysisSearchReturn, [string, UseAnalysisSearchOptions?]>()
+)
 
 vi.mock('react-router-dom', async () => {
   const actual = await vi.importActual<ReactRouterDomModule>('react-router-dom')
@@ -17,14 +24,30 @@ vi.mock('react-router-dom', async () => {
   }
 })
 
+vi.mock('@/lib/hooks', async () => {
+  const actual = await vi.importActual<HooksModule>('@/lib/hooks')
+  return {
+    ...actual,
+    useAnalysisSearch: mockUseAnalysisSearch,
+  }
+})
+
 describe('SearchBar', () => {
   beforeEach(() => {
-    vi.spyOn(apiClient, 'get').mockResolvedValue(mockPaginatedAnalysesResponse)
+    mockUseAnalysisSearch.mockReturnValue({
+      data: mockPaginatedAnalysesResponse,
+      isFetching: false,
+      error: null,
+      isStale: false,
+      isLoading: false,
+      status: 'success',
+      fetchStatus: 'idle',
+    } as unknown as UseAnalysisSearchReturn)
   })
 
   afterEach(() => {
-    vi.restoreAllMocks()
     mockNavigate.mockReset()
+    mockUseAnalysisSearch.mockReset()
   })
 
   it('shows filing search results and navigates on selection', async () => {
@@ -35,12 +58,6 @@ describe('SearchBar', () => {
     const input = screen.getByPlaceholderText(/search filings/i)
     await user.click(input)
     await user.type(input, 'Apple')
-
-    await waitFor(() => expect(apiClient.get).toHaveBeenCalled())
-
-    await act(async () => {
-      await new Promise((resolve) => setTimeout(resolve, 450))
-    })
 
     const resultButton = await screen.findByRole('button', { name: /apple inc\./i })
     await user.click(resultButton)
