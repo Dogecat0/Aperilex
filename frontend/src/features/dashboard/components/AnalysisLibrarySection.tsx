@@ -299,7 +299,7 @@ export function AnalysisLibrarySection({
                   </h3>
                   <p className="text-xs text-[var(--text-secondary)]">
                     {group.accessionNumber ? `Accession ${group.accessionNumber} • ` : ''}
-                    Analyzed {formatDay(group.filingDate)}
+                    Filed at {formatDay(group.filingDate)}
                   </p>
                 </div>
                 <Link
@@ -365,7 +365,7 @@ export function AnalysisLibrarySection({
                             outlineColor: 'var(--focus-ring)',
                           }}
                         >
-                          Open
+                          View
                         </Link>
                         <button
                           type="button"

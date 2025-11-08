@@ -98,15 +98,6 @@ function getConfidenceScore(analysis: AnalysisResponse): number | null {
   return typeof summaryScore === 'number' ? summaryScore : null
 }
 
-export interface RecentCompanyItem {
-  id: string
-  companyName: string
-  ticker?: string | null
-  filingType?: string | null
-  analyzedAt: string
-  analysisId: string
-}
-
 export interface RecentAnalysisListItem {
   analysisId: string
   filingId: string
@@ -120,68 +111,78 @@ export interface RecentAnalysisListItem {
   filingDate?: string | null
 }
 
-function buildRecentCompanies(analyses: AnalysisResponse[], limit = 4): RecentCompanyItem[] {
-  const seenCompanies = new Set<string>()
-  const recentCompanies: RecentCompanyItem[] = []
-
-  analyses.forEach((analysis) => {
-    const companyName = analysis.summary.company.name ?? 'Unknown company'
-    if (seenCompanies.has(companyName)) {
-      return
-    }
-    seenCompanies.add(companyName)
-
-    recentCompanies.push({
-      id: `${analysis.analysis_id}-chip`,
-      companyName,
-      ticker: analysis.summary.company.ticker,
-      filingType: analysis.summary.filing.type,
-      analyzedAt: formatDate(
-        analysis.summary.processing?.completed_at ??
-          analysis.summary.filing.date ??
-          analysis.created_at
-      ),
-      analysisId: analysis.analysis_id,
-    })
-  })
-
-  return recentCompanies.slice(0, limit)
+export interface RecentAnalysisGroup {
+  id: string
+  companyName: string
+  ticker?: string | null
+  latestAnalyzedAt: string
+  analyses: RecentAnalysisListItem[]
 }
 
-function buildRecentAnalysesItems(
+function toRecentAnalysisListItem(analysis: AnalysisResponse): RecentAnalysisListItem {
+  const analyzedAt = formatDate(
+    analysis.summary.processing?.completed_at ?? analysis.summary.filing.date ?? analysis.created_at
+  )
+
+  const confidence = getConfidenceScore(analysis)
+  const confidenceLabel =
+    typeof confidence === 'number'
+      ? `${Math.round(confidence * 100)}% confidence`
+      : 'Confidence pending'
+
+  return {
+    analysisId: analysis.analysis_id,
+    filingId: analysis.filing_id,
+    companyName: analysis.summary.company.name ?? 'Unknown company',
+    ticker: analysis.summary.company.ticker,
+    filingType: analysis.summary.filing.type,
+    analyzedAt,
+    confidenceLabel,
+    criticalFindings: analysis.summary.insight_counts?.critical_findings ?? null,
+    opportunities: analysis.summary.insight_counts?.opportunities ?? null,
+    filingDate: analysis.summary.filing.date ?? null,
+  }
+}
+
+function buildRecentAnalysisGroups(
   analyses: AnalysisResponse[],
-  limit = 5
-): RecentAnalysisListItem[] {
+  groupLimit = 4,
+  analysesPerGroup = 3
+): RecentAnalysisGroup[] {
   if (analyses.length === 0) {
     return []
   }
 
-  return analyses.slice(0, limit).map((analysis) => {
-    const analyzedAt = formatDate(
-      analysis.summary.processing?.completed_at ??
-        analysis.summary.filing.date ??
-        analysis.created_at
-    )
+  const groups = new Map<string, RecentAnalysisGroup>()
 
-    const confidence = getConfidenceScore(analysis)
-    const confidenceLabel =
-      typeof confidence === 'number'
-        ? `${Math.round(confidence * 100)}% confidence`
-        : 'Confidence pending'
+  analyses.forEach((analysis) => {
+    const item = toRecentAnalysisListItem(analysis)
+    const companySummary = analysis.summary.company ?? {}
+    const companyKey =
+      companySummary.cik ?? companySummary.id ?? companySummary.name ?? analysis.analysis_id
 
-    return {
-      analysisId: analysis.analysis_id,
-      filingId: analysis.filing_id,
-      companyName: analysis.summary.company.name ?? 'Unknown company',
-      ticker: analysis.summary.company.ticker,
-      filingType: analysis.summary.filing.type,
-      analyzedAt,
-      confidenceLabel,
-      criticalFindings: analysis.summary.insight_counts?.critical_findings ?? null,
-      opportunities: analysis.summary.insight_counts?.opportunities ?? null,
-      filingDate: analysis.summary.filing.date ?? null,
+    let group = groups.get(companyKey)
+    if (!group) {
+      if (groups.size >= groupLimit) {
+        return
+      }
+
+      group = {
+        id: `recent-${companyKey}-${groups.size}`,
+        companyName: item.companyName,
+        ticker: item.ticker,
+        latestAnalyzedAt: item.analyzedAt,
+        analyses: [],
+      }
+      groups.set(companyKey, group)
+    }
+
+    if (group.analyses.length < analysesPerGroup) {
+      group.analyses.push(item)
     }
   })
+
+  return Array.from(groups.values())
 }
 
 export function DashboardPage() {
@@ -318,8 +319,10 @@ export function DashboardPage() {
     }
   }, [filters.dateRange])
 
-  const recentCompanies = useMemo(() => buildRecentCompanies(libraryAnalyses), [libraryAnalyses])
-  const recentAnalyses = useMemo(() => buildRecentAnalysesItems(libraryAnalyses), [libraryAnalyses])
+  const recentAnalysisGroups = useMemo(
+    () => buildRecentAnalysisGroups(libraryAnalyses),
+    [libraryAnalyses]
+  )
 
   const hasAnalyses = libraryAnalyses.length > 0
   const hasCompletedAnalyses = hasAnalyses || (completedAnalysesQuery.data?.items?.length ?? 0) > 0
@@ -444,8 +447,7 @@ export function DashboardPage() {
           />
 
           <RecentAnalysesList
-            items={recentAnalyses}
-            recentCompanies={recentCompanies}
+            groups={recentAnalysisGroups}
             isLoading={libraryQuery.isLoading && !hasAnalyses}
           />
 
