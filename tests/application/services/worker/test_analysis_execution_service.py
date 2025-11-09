@@ -16,6 +16,7 @@ from src.infrastructure.providers.llm.base import (
     ComprehensiveAnalysisResponse,
     SectionAnalysisResponse,
     SectionWalkthroughPayload,
+    SubsectionAnalysisResponse,
     WalkthroughComprehensionCheck,
     WalkthroughGuidancePayload,
     WalkthroughHighlight,
@@ -329,6 +330,75 @@ async def test_perform_structured_comprehensive_analysis_shapes_result() -> None
         walkthroughs["Item 1A - Risk Factors"]["learning_module_key"]
         == "risk_mastery"
     )
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+async def test_structured_analysis_truncates_subsection_analysis_lists() -> None:
+    sub_section = SubsectionAnalysisResponse(
+        sub_section_name="Liquidity Ratios",
+        processing_time_ms=150,
+        schema_type="FinancialRatio",
+        analysis=[{"ratio_name": f"Metric {index}"} for index in range(8)],
+        parent_section="Item 7 - MD&A",
+        subsection_focus="liquidity",
+    )
+    section = SectionAnalysisResponse(
+        section_name="Item 7 - Management Discussion & Analysis",
+        section_summary="MD&A summary.",
+        consolidated_insights=["Insight 1", "Insight 2", "Insight 3", "Insight 4", "Insight 5"],
+        overall_sentiment=0.2,
+        critical_findings=["Finding 1", "Finding 2", "Finding 3"],
+        sub_sections=[sub_section],
+        citations=[],
+        walkthrough=None,
+        processing_time_ms=500,
+        sub_section_count=1,
+    )
+    response = ComprehensiveAnalysisResponse(
+        filing_summary="Overall positive outlook.",
+        key_insights=["Insight A"],
+        opportunities=["Opportunity X"],
+        confidence_score=0.82,
+        section_analyses=[section],
+        total_sections_analyzed=1,
+        total_sub_sections_analyzed=1,
+        total_processing_time_ms=1200,
+        filing_type=FilingType.FORM_10K.value,
+        company_name="Acme Corp",
+        analysis_timestamp=datetime.now(UTC).isoformat(),
+    )
+
+    async def fake_analyze_sections(**_: Any) -> ComprehensiveAnalysisResponse:
+        return response
+
+    async def fake_model_info() -> SimpleNamespace:
+        return SimpleNamespace(model_name="gpt-4-structured")
+
+    llm_provider = SimpleNamespace(
+        analyze_filing_sections=fake_analyze_sections,
+        get_model_info=fake_model_info,
+    )
+    service = AnalysisExecutionService(llm_provider=llm_provider)
+
+    task_data = _make_task_data()
+    result = await service.perform_structured_comprehensive_analysis(
+        request=service.create_analysis_request(task_data),
+        filing_id=task_data.filing_id,
+        filing_type=task_data.filing_type,
+        filing_sections={"MD&A": "Section text"},
+        company_name="Acme Corp",
+        template=AnalysisTemplate.COMPREHENSIVE,
+        metadata=task_data.metadata,
+        task_data=task_data,
+    )
+
+    structured_dump = result.structured_data.model_dump(mode="json")
+    analysis_entries = structured_dump["section_analyses"][0]["sub_sections"][0][
+        "analysis"
+    ]
+    assert len(analysis_entries) == 5
+    assert analysis_entries == [{"ratio_name": f"Metric {index}"} for index in range(5)]
 
 
 @pytest.mark.unit

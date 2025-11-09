@@ -9,7 +9,7 @@ transition WorkerService to delegate without altering behaviour.
 from __future__ import annotations
 
 import re
-from typing import Any
+from typing import Any, Final
 
 from src.application.services.worker.summary_utils import (
     append_unique,
@@ -26,6 +26,8 @@ __all__ = ["AnalysisSummaryBuilder"]
 
 class AnalysisSummaryBuilder:
     """Compose the structured summary payload for analysis results."""
+
+    HEADLINE_METRIC_LIMIT: Final[int] = 10
 
     def build_summary_payload(
         self,
@@ -290,6 +292,8 @@ class AnalysisSummaryBuilder:
                         seen_ids.add(metric_id)
                     metrics.append(metric_payload)
 
+        if len(metrics) > self.HEADLINE_METRIC_LIMIT:
+            return metrics[: self.HEADLINE_METRIC_LIMIT]
         return metrics
 
     def _map_subsection_to_headline_metric(

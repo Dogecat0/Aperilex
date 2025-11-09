@@ -44,6 +44,8 @@ class AnalysisExecutionService:
     """Compose LLM analysis requests and prompts for worker tasks."""
 
     MAX_PROMPT_LENGTH: Final[int] = 50_000
+    HEADLINE_METRIC_LIMIT: Final[int] = 10
+    SUBSECTION_ANALYSIS_LIMIT: Final[int] = 5
 
     def __init__(
         self,
@@ -259,6 +261,11 @@ class AnalysisExecutionService:
         )
 
         structured_payload = comprehensive_response.model_dump(mode="json")
+        headline_metrics = structured_payload.get("headline_metrics")
+        if isinstance(headline_metrics, list):
+            structured_payload["headline_metrics"] = headline_metrics[
+                : self.HEADLINE_METRIC_LIMIT
+            ]
 
         sections = structured_payload.get("section_analyses") or []
         for section in sections:
@@ -327,6 +334,19 @@ class AnalysisExecutionService:
                     walkthrough_payload["citations"] = list(derived_citations)
                 else:
                     walkthrough_payload["citations"] = cleaned
+
+            sub_sections = section.get("sub_sections")
+            if isinstance(sub_sections, list):
+                for sub_section in sub_sections:
+                    if not isinstance(sub_section, dict):
+                        continue
+                    analysis_entries = sub_section.get("analysis")
+                    if isinstance(analysis_entries, list) and len(
+                        analysis_entries
+                    ) > self.SUBSECTION_ANALYSIS_LIMIT:
+                        sub_section["analysis"] = analysis_entries[
+                            : self.SUBSECTION_ANALYSIS_LIMIT
+                        ]
 
         structured_payload["section_analyses"] = sections
         structured_payload["section_walkthroughs"] = self._build_section_walkthroughs(

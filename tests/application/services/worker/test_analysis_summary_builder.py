@@ -309,3 +309,52 @@ def test_summary_builder_handles_missing_structured_data() -> None:
     assert summary["headline_metrics"] == []
     assert "risk_highlights" not in summary
     assert "insight_timeline" not in summary
+
+
+@pytest.mark.unit
+def test_summary_builder_limits_headline_metrics_to_ten() -> None:
+    """Headline metric collection is capped to ten entries."""
+
+    ratio_entries = [
+        {
+            "ratio_name": f"Coverage Ratio {index}",
+            "current_value": float(index),
+            "previous_value": float(index - 1),
+            "interpretation": "Directional signal.",
+        }
+        for index in range(1, 13)
+    ]
+    structured_data = {
+        "section_analyses": [
+            {
+                "section_name": "Cash Flow",
+                "overall_sentiment": 0.2,
+                "sub_section_count": 1,
+                "sub_sections": [
+                    {
+                        "sub_section_name": "Liquidity Ratios",
+                        "schema_type": "FinancialRatio",
+                        "analysis": ratio_entries,
+                    }
+                ],
+            }
+        ],
+    }
+
+    builder = AnalysisSummaryBuilder()
+    summary = builder.build_summary_payload(
+        _make_analysis_result(structured_data),
+        _make_task_data(
+            {
+                "filing_date": "2024-08-01",
+                "analysis_template": "comprehensive",
+                "accession_number": "0001234567",
+            }
+        ),
+    )
+
+    headline_metrics = summary["headline_metrics"]
+    assert len(headline_metrics) == 10
+    assert [metric["name"] for metric in headline_metrics] == [
+        f"Coverage Ratio {index}" for index in range(1, 11)
+    ]
