@@ -146,12 +146,20 @@ def test_summary_builder_curates_structured_artifacts() -> None:
                     {
                         "sub_section_name": "Liquidity Ratios",
                         "schema_type": "FinancialRatio",
-                        "analysis": {
-                            "ratio_name": "Current Ratio",
-                            "current_value": 1.9,
-                            "previous_value": 1.7,
-                            "interpretation": "Liquidity position improved against prior quarter.",
-                        },
+                        "analysis": [
+                            {
+                                "ratio_name": "Current Ratio",
+                                "current_value": 1.9,
+                                "previous_value": 1.7,
+                                "interpretation": "Liquidity position improved against prior quarter.",
+                            },
+                            {
+                                "ratio_name": "Quick Ratio",
+                                "current_value": 1.5,
+                                "previous_value": 1.4,
+                                "interpretation": "Cash conversion remained stable.",
+                            },
+                        ],
                     }
                 ],
             },

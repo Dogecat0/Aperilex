@@ -8,7 +8,6 @@ from datetime import UTC, datetime
 
 from google import genai
 from google.genai import types
-from pydantic import BaseModel as PydanticBaseModel
 from tenacity import retry, stop_after_attempt, wait_exponential
 
 from src.application.interfaces.llm import LLMPrompt, LLMResponse
@@ -27,12 +26,13 @@ from .base import (
     SectionAnalysisResponse,
     SectionSummaryResponse,
     SubsectionAnalysisResponse,
+    SubsectionDefinition,
     create_analysis_prompt,
     create_fallback_subsection_response,
     create_human_readable_name,
     create_overall_analysis_prompts,
     create_section_summary_prompts,
-    extract_subsection_schemas,
+    extract_subsection_definitions,
     run_concurrent_subsection_analysis,
 )
 
@@ -115,9 +115,8 @@ class GoogleLLMProvider(BaseLLMProvider):
 
     async def _analyze_subsection(
         self,
+        subsection: SubsectionDefinition,
         section_text: str,
-        subsection_name: str,
-        subsection_schema: type[PydanticBaseModel],
         section_name: str,
         company_name: str,
         filing_type: FilingType,
@@ -126,8 +125,7 @@ class GoogleLLMProvider(BaseLLMProvider):
 
         Args:
             section_text: Full section text containing the target context
-            subsection_name: Name of the subsection (e.g., 'operational_overview')
-            subsection_schema: Pydantic schema class for this subsection
+            subsection: Schema definition describing the subsection
             section_name: Name of the parent section
             company_name: Company name for context
             filing_type: Type of SEC filing
@@ -137,7 +135,10 @@ class GoogleLLMProvider(BaseLLMProvider):
         """
         await self._ensure_initialized()
         start_time = time.time()
-        human_readable_name = create_human_readable_name(subsection_name)
+        subsection_schema = subsection.schema
+        human_readable_name = subsection.human_label or create_human_readable_name(
+            subsection.name
+        )
 
         system_prompt = (
             f"You are a financial analyst specializing in {human_readable_name} analysis. "
@@ -151,6 +152,7 @@ class GoogleLLMProvider(BaseLLMProvider):
             filing_type,
             section_name,
             section_text,
+            is_collection=subsection.is_collection,
         )
 
         # Create schema-based prompt
@@ -190,16 +192,18 @@ class GoogleLLMProvider(BaseLLMProvider):
             return SubsectionAnalysisResponse(
                 sub_section_name=human_readable_name,
                 processing_time_ms=processing_time_ms,
-                schema_type=subsection_schema.__name__,
+                schema_type=subsection.schema_label,
                 analysis=validated_result.model_dump(),
                 parent_section=section_name,
-                subsection_focus=subsection_name,
+                subsection_focus=subsection.name,
             )
 
         except Exception as e:
             logger.error(f"Subsection analysis failed: {e}")
             return create_fallback_subsection_response(
-                subsection_name, subsection_schema, section_name, str(e)
+                subsection=subsection,
+                section_name=section_name,
+                error=str(e),
             )
 
     async def analyze_section(
@@ -233,11 +237,11 @@ class GoogleLLMProvider(BaseLLMProvider):
 
         if section_schema:
             # Extract subsection schemas dynamically
-            subsection_schemas = extract_subsection_schemas(section_schema)
+            subsection_definitions = extract_subsection_definitions(section_schema)
 
             # Run concurrent subsection analysis
             sub_sections = await run_concurrent_subsection_analysis(
-                subsection_schemas=subsection_schemas,
+                subsection_definitions=subsection_definitions,
                 section_text=section_text,
                 section_name=section_name,
                 company_name=company_name,

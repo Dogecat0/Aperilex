@@ -7,9 +7,18 @@ from abc import ABC, abstractmethod
 from collections.abc import Awaitable, Callable, Sequence
 from dataclasses import dataclass
 from functools import cache
-from typing import TYPE_CHECKING, Any, ClassVar, Union, cast, get_args, get_origin
+from typing import (
+    TYPE_CHECKING,
+    Annotated,
+    Any,
+    ClassVar,
+    Union,
+    cast,
+    get_args,
+    get_origin,
+)
 
-from pydantic import BaseModel, ConfigDict, Field, conlist
+from pydantic import BaseModel, ConfigDict, Field, RootModel, conlist
 from pydantic import BaseModel as PydanticBaseModel
 
 from src.application.interfaces.llm import (
@@ -42,97 +51,15 @@ class BaseSubSectionAnalysisResponse(BaseModel):
 
 
 # Generic analysis response class
-class AnalysisResponse(BaseSubSectionAnalysisResponse):
-    """Generic analysis response for any schema type."""
-
-    analysis: BaseModel = Field(..., description="Analysis structured content")
-
-    @classmethod
-    def from_schema(
-        cls,
-        schema_instance: BaseModel,
-        sub_section_name: str,
-        processing_time_ms: int | None = None,
-        **kwargs: Any,
-    ) -> "AnalysisResponse":
-        """Create response from schema instance.
-
-        Args:
-            schema_instance: Validated schema instance
-            sub_section_name: Name of the sub-section
-            processing_time_ms: Processing time in milliseconds
-            **kwargs: Additional response fields
-
-        Returns:
-            AnalysisResponse with populated fields
-        """
-        return cls(
-            analysis=schema_instance,
-            schema_type=schema_instance.__class__.__name__,
-            sub_section_name=sub_section_name,
-            processing_time_ms=processing_time_ms,
-            **kwargs,
-        )
-
-
-# Schema type mapping for factory pattern
-SCHEMA_TYPE_MAP: dict[str, type[BaseModel]] = {
-    "BusinessAnalysisSection": schemas.BusinessAnalysisSection,
-    "RiskFactorsAnalysisSection": schemas.RiskFactorsAnalysisSection,
-    "MDAAnalysisSection": schemas.MDAAnalysisSection,
-    "BalanceSheetAnalysisSection": schemas.BalanceSheetAnalysisSection,
-    "IncomeStatementAnalysisSection": schemas.IncomeStatementAnalysisSection,
-    "CashFlowAnalysisSection": schemas.CashFlowAnalysisSection,
-}
-
-
-def create_analysis_response(
-    schema_type: str,
-    result: dict[str, Any],
-    sub_section_name: str,
-    processing_time_ms: int | None = None,
-    **kwargs: Any,
-) -> AnalysisResponse:
-    """Factory function to create analysis response from schema type.
-
-    Args:
-        schema_type: Type of schema (e.g., "BusinessAnalysisSection")
-        result: Raw analysis result dictionary
-        sub_section_name: Name of the sub-section
-        processing_time_ms: Processing time in milliseconds
-        **kwargs: Additional response fields
-
-    Returns:
-        AnalysisResponse with validated schema instance
-
-    Raises:
-        ValueError: If schema_type is not recognized
-    """
-    schema_class = SCHEMA_TYPE_MAP.get(schema_type)
-    if not schema_class:
-        raise ValueError(f"Unknown schema type: {schema_type}")
-
-    schema_instance = schema_class.model_validate(result)
-    return AnalysisResponse.from_schema(
-        schema_instance=schema_instance,
-        sub_section_name=sub_section_name,
-        processing_time_ms=processing_time_ms,
-        **kwargs,
-    )
-
-
 class SubsectionAnalysisResponse(BaseSubSectionAnalysisResponse):
     """Generic subsection analysis response for individual schema components."""
 
-    model_config: ClassVar[ConfigDict] = ConfigDict(
-        extra="forbid", json_schema_extra={"additionalProperties": False}
-    )
+    model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid")
 
     schema_type: str = Field(..., description="Type of subsection schema")
-    analysis: dict[str, Any] = Field(
+    analysis: dict[str, Any] | list[Any] = Field(
         ...,
-        description="Subsection analysis content",
-        json_schema_extra={"additionalProperties": False},
+        description="Subsection analysis content which may be an object or a list",
     )
     parent_section: str = Field(..., description="Name of parent section")
     subsection_focus: str = Field(
@@ -141,13 +68,32 @@ class SubsectionAnalysisResponse(BaseSubSectionAnalysisResponse):
 
 
 # Union type for all possible sub-section response types
-SubSectionAnalysisResponse = AnalysisResponse | SubsectionAnalysisResponse
+SubSectionAnalysisResponse = SubsectionAnalysisResponse
 
 
 if TYPE_CHECKING:
     CriticalFindings = list[str]
 else:
     CriticalFindings = conlist(str, min_length=3, max_length=5)
+
+
+@dataclass(frozen=True, slots=True)
+class SubsectionDefinition:
+    """Schema-bound metadata for a subsection analysis task."""
+
+    name: str
+    schema: type[PydanticBaseModel]
+    human_label: str | None = None
+    is_collection: bool = False
+    collection_item_schema: type[PydanticBaseModel] | None = None
+
+    @property
+    def schema_label(self) -> str:
+        """Return the schema name that should be exposed to downstream consumers."""
+
+        if self.collection_item_schema is not None:
+            return self.collection_item_schema.__name__
+        return self.schema.__name__
 
 
 @dataclass(frozen=True)
@@ -902,10 +848,27 @@ CANONICAL_SECTION_SCHEMAS.update(
 )
 
 
-def extract_subsection_schemas(
+@cache
+def _build_collection_schema(
+    field_name: str, item_schema: type[PydanticBaseModel]
+) -> type[PydanticBaseModel]:
+    """Create (and cache) a RootModel enforcing a list of `item_schema` entries."""
+
+    key = field_name or item_schema.__name__
+    formatted = "".join(part.capitalize() for part in key.split("_") if part)
+    class_name = f"{formatted or item_schema.__name__}List"
+
+    class CollectionSchema(RootModel[list[item_schema]]):  # type: ignore[valid-type]
+        root: list[item_schema]  # type: ignore[valid-type]
+
+    CollectionSchema.__name__ = class_name
+    return CollectionSchema
+
+
+def extract_subsection_definitions(
     schema_class: type[PydanticBaseModel],
-) -> dict[str, type[PydanticBaseModel]]:
-    """Extract subsection schemas from a main section schema.
+) -> list[SubsectionDefinition]:
+    """Extract subsection schema definitions from a main section schema.
 
     This method introspects the schema to identify all subsection fields that are
     themselves Pydantic models, enabling targeted analysis of each subsection.
@@ -914,37 +877,58 @@ def extract_subsection_schemas(
         schema_class: The main section schema class
 
     Returns:
-        Dictionary mapping field names to their schema types
+        List of SubsectionDefinition entries describing each subsection schema
     """
     from enum import Enum
 
-    subsections: dict[Any, Any] = {}
+    subsections: list[SubsectionDefinition] = []
 
     for field_name, field_info in schema_class.model_fields.items():
-        field_type = field_info.annotation
+        annotation = field_info.annotation
+        field_type = annotation
+        is_collection = False
+        item_schema: type[PydanticBaseModel] | None = None
 
-        # Handle Optional types (Union[Type, None])
-        if get_origin(field_type) is Union:
-            args = get_args(field_type)
-            field_type = (
-                args[0] if len(args) == 2 and type(None) in args else field_type
-            )
-
-        # Handle List types
-        if get_origin(field_type) is list:
+        origin = get_origin(field_type)
+        if origin is Annotated:
             field_type = get_args(field_type)[0]
 
-        # Check if it's a BaseModel subclass (but not an Enum)
+        origin = get_origin(field_type)
+        if origin is Union:
+            args = tuple(arg for arg in get_args(field_type) if arg is not type(None))
+            if len(args) == 1:
+                field_type = args[0]
+
+        origin = get_origin(field_type)
+        if origin in (list, tuple):
+            args = get_args(field_type)
+            if args:
+                field_type = args[0]
+                is_collection = True
+
         try:
             if (
                 isinstance(field_type, type)
                 and issubclass(field_type, PydanticBaseModel)
                 and not issubclass(field_type, Enum)
             ):
-                subsections[field_name] = field_type
+                if is_collection:
+                    item_schema = field_type
+                    collection_schema = _build_collection_schema(field_name, field_type)
+                    subsections.append(
+                        SubsectionDefinition(
+                            name=field_name,
+                            schema=collection_schema,
+                            is_collection=True,
+                            collection_item_schema=item_schema,
+                        )
+                    )
+                else:
+                    subsections.append(
+                        SubsectionDefinition(name=field_name, schema=field_type)
+                    )
         except TypeError:
-            # Handle cases where field_type might not be a proper type
-            pass
+            continue
 
     return subsections
 
@@ -960,14 +944,23 @@ def create_analysis_prompt(
     filing_type: FilingType,
     section_name: str,
     section_text: str,
+    *,
+    is_collection: bool = False,
 ) -> str:
     """Create standardized prompt for subsection analysis from full section text."""
+    collection_instruction = ""
+    if is_collection:
+        collection_instruction = (
+            "\n4. Return the structured analysis as a JSON array that captures every distinct entry required "
+            "by the schema; never collapse the array into a single object."
+        )
+
     return f"""You are reviewing the entire {section_name} section from {company_name}'s {filing_type.value} filing.
 
 Instructions:
 1. Locate the passages that are directly relevant to the {human_readable_name} topic.
 2. Base your structured analysis exclusively on that relevant context, preserving necessary citations or figures.
-3. If information is missing, state the limitation clearly rather than fabricating data.
+3. If information is missing, state the limitation clearly rather than fabricating data.{collection_instruction}
 
 Full Section Text:
 {section_text}
@@ -975,42 +968,34 @@ Full Section Text:
 Provide a detailed analysis for the {human_readable_name} schema using only the relevant context you identified."""
 
 
-def create_section_analysis_prompt(
-    section_name: str,
-    company_name: str,
-    filing_type: FilingType,
-    section_text: str,
-) -> str:
-    """Create standardized prompt for section analysis."""
-    return f"""Analyze the {section_name} section from {company_name}'s {filing_type.value} filing.
-
-Text:
-{section_text}
-
-Use the structured schema to guide your analysis and ensure comprehensive coverage of all relevant aspects."""
-
-
 def create_fallback_subsection_response(
-    subsection_name: str,
-    subsection_schema: type[PydanticBaseModel],
+    subsection: SubsectionDefinition,
     section_name: str,
     error: str,
     processing_time_ms: int = 0,
 ) -> SubsectionAnalysisResponse:
     """Create a fallback response for failed subsection analysis."""
-    human_readable_name = create_human_readable_name(subsection_name)
+    human_readable_name = subsection.human_label or create_human_readable_name(
+        subsection.name
+    )
+    empty_payload: dict[str, Any] | list[Any]
+    if subsection.is_collection:
+        empty_payload = []
+    else:
+        empty_payload = {}
+
     return SubsectionAnalysisResponse(
         sub_section_name=human_readable_name,
         processing_time_ms=processing_time_ms,
-        schema_type=subsection_schema.__name__,
-        analysis={},
+        schema_type=subsection.schema_label,
+        analysis=empty_payload,
         parent_section=section_name,
         subsection_focus=f"Analysis failed: {error}",
     )
 
 
 async def run_concurrent_subsection_analysis(
-    subsection_schemas: dict[str, type],
+    subsection_definitions: Sequence[SubsectionDefinition],
     section_text: str,
     section_name: str,
     company_name: str,
@@ -1026,7 +1011,7 @@ async def run_concurrent_subsection_analysis(
     4. Filtering valid responses
 
     Args:
-        subsection_schemas: Dict mapping subsection names to their schema types
+        subsection_definitions: Sequence of subsection definitions to analyze
         section_text: Full text of the parent section
         section_name: Name of the parent section
         company_name: Company name for context
@@ -1038,13 +1023,12 @@ async def run_concurrent_subsection_analysis(
     """
 
     async def analyze_subsection_task(
-        subsection_name: str, subsection_schema: type
+        subsection: SubsectionDefinition,
     ) -> SubsectionAnalysisResponse:
         """Concurrent task for analyzing a single subsection."""
         try:
             result = await analyze_subsection_func(
-                subsection_name=subsection_name,
-                subsection_schema=subsection_schema,
+                subsection=subsection,
                 section_text=section_text,
                 section_name=section_name,
                 company_name=company_name,
@@ -1053,13 +1037,15 @@ async def run_concurrent_subsection_analysis(
             return result
         except Exception as e:
             return create_fallback_subsection_response(
-                subsection_name, subsection_schema, section_name, str(e)
+                subsection=subsection,
+                section_name=section_name,
+                error=str(e),
             )
 
     # Run all subsection analyses concurrently
     tasks = [
-        analyze_subsection_task(subsection_name, subsection_schema)
-        for subsection_name, subsection_schema in subsection_schemas.items()
+        asyncio.create_task(analyze_subsection_task(definition))
+        for definition in subsection_definitions
     ]
 
     # Execute all tasks concurrently

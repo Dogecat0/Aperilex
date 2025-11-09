@@ -264,23 +264,31 @@ class AnalysisSummaryBuilder:
             for sub_section in sub_sections:
                 if not isinstance(sub_section, dict):
                     continue
-                analysis = sub_section.get("analysis")
-                if not isinstance(analysis, dict):
+                analysis_payload = sub_section.get("analysis")
+                candidate_payloads: list[dict[str, Any]] = []
+                if isinstance(analysis_payload, dict):
+                    candidate_payloads = [analysis_payload]
+                elif isinstance(analysis_payload, list):
+                    candidate_payloads = [
+                        entry for entry in analysis_payload if isinstance(entry, dict)
+                    ]
+                if not candidate_payloads:
                     continue
                 schema_type = str(sub_section.get("schema_type") or "").lower()
-                metric_payload = self._map_subsection_to_headline_metric(
-                    analysis,
-                    schema_type,
-                    parent_section,
-                )
-                if not metric_payload:
-                    continue
-                metric_id = metric_payload.get("id")
-                if metric_id:
-                    if metric_id in seen_ids:
+                for analysis in candidate_payloads:
+                    metric_payload = self._map_subsection_to_headline_metric(
+                        analysis,
+                        schema_type,
+                        parent_section,
+                    )
+                    if not metric_payload:
                         continue
-                    seen_ids.add(metric_id)
-                metrics.append(metric_payload)
+                    metric_id = metric_payload.get("id")
+                    if metric_id:
+                        if metric_id in seen_ids:
+                            continue
+                        seen_ids.add(metric_id)
+                    metrics.append(metric_payload)
 
         return metrics
 
