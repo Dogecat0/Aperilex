@@ -12,8 +12,6 @@ class LLMModelInfo(BaseModel):
     model_name: str
     model_version: str
     provider: str
-    context_window: int
-    max_output_tokens: int
     supports_streaming: bool
     supports_functions: bool
     pricing_per_1k_tokens: float | None = None

@@ -28,7 +28,6 @@ from .base import (
     SectionSummaryResponse,
     SubsectionAnalysisResponse,
     create_analysis_prompt,
-    create_extraction_prompt,
     create_fallback_subsection_response,
     create_human_readable_name,
     create_overall_analysis_prompts,
@@ -81,8 +80,6 @@ class GoogleLLMProvider(BaseLLMProvider):
             model_name=config.model_name,
             model_version="latest",
             provider=config.provider.value,
-            context_window=1000000,  # Gemini 1.5 context window
-            max_output_tokens=8192,
             supports_streaming=True,
             supports_functions=True,
             pricing_per_1k_tokens=0.001,  # Approximate pricing
@@ -116,53 +113,9 @@ class GoogleLLMProvider(BaseLLMProvider):
                     )
             self.client = genai.Client(api_key=self._api_key)
 
-    async def _extract_subsection_text(
+    async def _analyze_subsection(
         self,
         section_text: str,
-        subsection_name: str,
-        subsection_schema: type[PydanticBaseModel],
-        section_name: str,
-        company_name: str,
-    ) -> str:
-        """Extract relevant text from section for specific subsection analysis."""
-        await self._ensure_initialized()
-        prompt = create_extraction_prompt(
-            section_name, subsection_name, section_text, subsection_schema
-        )
-
-        try:
-            assert self.client is not None  # Type guard
-            response = await self.client.aio.models.generate_content(
-                model=self.model,
-                contents=[
-                    f"You are a text extraction specialist. Extract relevant text for specific subsection analysis from {company_name}'s filing.",
-                    prompt,
-                ],
-                config=types.GenerateContentConfig(
-                    temperature=self.generation_config.get("temperature", 0.0),
-                ),
-            )
-
-            if hasattr(response, "usage_metadata") and response.usage_metadata:
-                logger.debug(
-                    "Tokens used: %d prompt and %d output",
-                    response.usage_metadata.prompt_token_count,
-                    response.usage_metadata.candidates_token_count,
-                )
-
-            extracted_text = response.text
-            if not extracted_text:
-                return section_text
-
-            return extracted_text.strip()
-
-        except Exception as e:
-            logger.warning(f"Text extraction failed: {e}")
-            return section_text
-
-    async def _analyze_individual_subsection(
-        self,
-        subsection_text: str,
         subsection_name: str,
         subsection_schema: type[PydanticBaseModel],
         section_name: str,
@@ -172,7 +125,7 @@ class GoogleLLMProvider(BaseLLMProvider):
         """Analyze an individual subsection with its specific schema.
 
         Args:
-            subsection_text: Text content relevant to this subsection
+            section_text: Full section text containing the target context
             subsection_name: Name of the subsection (e.g., 'operational_overview')
             subsection_schema: Pydantic schema class for this subsection
             section_name: Name of the parent section
@@ -188,7 +141,8 @@ class GoogleLLMProvider(BaseLLMProvider):
 
         system_prompt = (
             f"You are a financial analyst specializing in {human_readable_name} analysis. "
-            f"Use the provided schema to structure your focused analysis."
+            "Read the entire section text, extract only the passages relevant to this focus area, "
+            "and structure your response to match the provided schema exactly."
         )
 
         user_prompt = create_analysis_prompt(
@@ -196,7 +150,7 @@ class GoogleLLMProvider(BaseLLMProvider):
             company_name,
             filing_type,
             section_name,
-            subsection_text,
+            section_text,
         )
 
         # Create schema-based prompt
@@ -288,8 +242,7 @@ class GoogleLLMProvider(BaseLLMProvider):
                 section_name=section_name,
                 company_name=company_name,
                 filing_type=filing_type,
-                extract_text_func=self._extract_subsection_text,
-                analyze_subsection_func=self._analyze_individual_subsection,
+                analyze_subsection_func=self._analyze_subsection,
             )
         else:
             # If no specific schema, analyze as a single subsection

@@ -28,7 +28,6 @@ from .base import (
     SectionSummaryResponse,
     SubsectionAnalysisResponse,
     create_analysis_prompt,
-    create_extraction_prompt,
     create_fallback_subsection_response,
     create_human_readable_name,
     create_overall_analysis_prompts,
@@ -82,8 +81,6 @@ class OpenAILLMProvider(BaseLLMProvider):
             model_name=config.model_name,
             model_version="latest",
             provider=config.provider.value,
-            context_window=128000,  # GPT-4 context window
-            max_output_tokens=4096,
             supports_streaming=True,
             supports_functions=True,
             pricing_per_1k_tokens=0.03,  # Approximate pricing
@@ -125,58 +122,9 @@ class OpenAILLMProvider(BaseLLMProvider):
             # Initialize OpenAI client
             self.client = AsyncOpenAI(api_key=self.api_key, base_url=self.base_url)
 
-    async def _extract_subsection_text(
+    async def _analyze_subsection(
         self,
         section_text: str,
-        subsection_name: str,
-        subsection_schema: type[PydanticBaseModel],
-        section_name: str,
-        company_name: str,
-    ) -> str:
-        """Extract relevant text from section for specific subsection analysis."""
-        prompt = create_extraction_prompt(
-            section_name, subsection_name, section_text, subsection_schema
-        )
-
-        try:
-            await self._ensure_client()
-            assert self.client is not None  # Type narrowing for mypy
-            response = await self.client.chat.completions.create(
-                model=self.model,
-                messages=[
-                    {
-                        "role": "system",
-                        "content": f"You are a text extraction specialist. Extract relevant text for specific subsection analysis from {company_name}'s filing.",
-                    },
-                    {"role": "user", "content": prompt},
-                ],
-                temperature=self.generation_config.get("temperature", 0.0),
-                extra_body=self.extra_body,
-            )
-
-            if response.usage is not None:
-                try:
-                    logger.debug(
-                        "Tokens used: %d prompt and %d output",
-                        int(response.usage.prompt_tokens),
-                        int(response.usage.completion_tokens),
-                    )
-                except (TypeError, ValueError):
-                    logger.debug("Token usage info unavailable")
-
-            extracted_text: str | None = response.choices[0].message.content
-            if not extracted_text:
-                return section_text
-
-            return extracted_text.strip()
-
-        except Exception as e:
-            logger.warning(f"Text extraction failed: {e}")
-            return section_text
-
-    async def _analyze_individual_subsection(
-        self,
-        subsection_text: str,
         subsection_name: str,
         subsection_schema: type[PydanticBaseModel],
         section_name: str,
@@ -186,7 +134,7 @@ class OpenAILLMProvider(BaseLLMProvider):
         """Analyze an individual subsection with its specific schema.
 
         Args:
-            subsection_text: Text content relevant to this subsection
+            section_text: Full section text containing the target context
             subsection_name: Name of the subsection (e.g., 'operational_overview')
             subsection_schema: Pydantic schema class for this subsection
             section_name: Name of the parent section
@@ -203,26 +151,30 @@ class OpenAILLMProvider(BaseLLMProvider):
             company_name,
             filing_type,
             section_name,
-            subsection_text,
+            section_text,
         )
 
         try:
             await self._ensure_client()
             assert self.client is not None  # Type narrowing for mypy
-            response: ParsedChatCompletion[Any] = (
-                await self.client.chat.completions.parse(
-                    model=self.model,
-                    messages=[
-                        {
-                            "role": "system",
-                            "content": f"You are a financial analyst specializing in {human_readable_name} analysis. Use the provided schema to structure your focused analysis.",
-                        },
-                        {"role": "user", "content": prompt},
-                    ],
-                    temperature=self.generation_config.get("temperature", 0.0),
-                    response_format=subsection_schema,
-                    extra_body=self.extra_body,
-                )
+            response: ParsedChatCompletion[
+                Any
+            ] = await self.client.chat.completions.parse(
+                model=self.model,
+                messages=[
+                    {
+                        "role": "system",
+                        "content": (
+                            f"You are a financial analyst specializing in {human_readable_name} analysis. "
+                            "Within the provided section text, locate the most relevant context before "
+                            "producing a structured response that matches the schema exactly."
+                        ),
+                    },
+                    {"role": "user", "content": prompt},
+                ],
+                temperature=self.generation_config.get("temperature", 0.0),
+                response_format=subsection_schema,
+                extra_body=self.extra_body,
             )
 
             if response.usage is not None:
@@ -302,8 +254,7 @@ class OpenAILLMProvider(BaseLLMProvider):
                 section_name=section_name,
                 company_name=company_name,
                 filing_type=filing_type,
-                extract_text_func=self._extract_subsection_text,
-                analyze_subsection_func=self._analyze_individual_subsection,
+                analyze_subsection_func=self._analyze_subsection,
             )
         else:
             # If no specific schema, analyze as a single subsection
@@ -322,17 +273,17 @@ class OpenAILLMProvider(BaseLLMProvider):
         try:
             await self._ensure_client()
             assert self.client is not None  # Type narrowing for mypy
-            summary_response: ParsedChatCompletion[SectionSummaryResponse] = (
-                await self.client.chat.completions.parse(
-                    model=self.model,
-                    messages=[
-                        {"role": "system", "content": summary_prompts[0]},
-                        {"role": "user", "content": summary_prompts[1]},
-                    ],
-                    temperature=self.generation_config.get("temperature", 0.0),
-                    response_format=SectionSummaryResponse,
-                    extra_body=self.extra_body,
-                )
+            summary_response: ParsedChatCompletion[
+                SectionSummaryResponse
+            ] = await self.client.chat.completions.parse(
+                model=self.model,
+                messages=[
+                    {"role": "system", "content": summary_prompts[0]},
+                    {"role": "user", "content": summary_prompts[1]},
+                ],
+                temperature=self.generation_config.get("temperature", 0.0),
+                response_format=SectionSummaryResponse,
+                extra_body=self.extra_body,
             )
 
             if summary_response.usage is not None:
@@ -427,17 +378,17 @@ class OpenAILLMProvider(BaseLLMProvider):
         try:
             await self._ensure_client()
             assert self.client is not None  # Type narrowing for mypy
-            overall_response: ParsedChatCompletion[OverallAnalysisResponse] = (
-                await self.client.chat.completions.parse(
-                    model=self.model,
-                    messages=[
-                        {"role": "system", "content": overall_prompts[0]},
-                        {"role": "user", "content": overall_prompts[1]},
-                    ],
-                    temperature=self.generation_config.get("temperature", 0.0),
-                    response_format=OverallAnalysisResponse,
-                    extra_body=self.extra_body,
-                )
+            overall_response: ParsedChatCompletion[
+                OverallAnalysisResponse
+            ] = await self.client.chat.completions.parse(
+                model=self.model,
+                messages=[
+                    {"role": "system", "content": overall_prompts[0]},
+                    {"role": "user", "content": overall_prompts[1]},
+                ],
+                temperature=self.generation_config.get("temperature", 0.0),
+                response_format=OverallAnalysisResponse,
+                extra_body=self.extra_body,
             )
 
             if overall_response.usage is not None:

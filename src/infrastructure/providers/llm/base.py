@@ -4,7 +4,7 @@ import asyncio
 import json
 import re
 from abc import ABC, abstractmethod
-from collections.abc import Callable, Sequence
+from collections.abc import Awaitable, Callable, Sequence
 from dataclasses import dataclass
 from functools import cache
 from typing import TYPE_CHECKING, Any, ClassVar, Union, cast, get_args, get_origin
@@ -954,45 +954,25 @@ def create_human_readable_name(subsection_name: str) -> str:
     return subsection_name.replace("_", " ").title()
 
 
-def create_extraction_prompt(
-    section_name: str,
-    subsection_name: str,
-    section_text: str,
-    subsection_schema: type[PydanticBaseModel],
-) -> str:
-    """Create standardized prompt for text extraction."""
-    field_descriptions = [
-        f"{field}: {info.description or 'No description'}"
-        for field, info in subsection_schema.model_fields.items()
-    ]
-
-    return f"""Extract the most relevant text from the following {section_name} section for analyzing the "{subsection_name}" subsection.
-
-The {subsection_name} subsection should focus on these aspects:
-{chr(10).join(field_descriptions)}
-
-Full Section Text:
-{section_text}
-
-Extract only the text segments that are directly relevant to the {subsection_name} analysis. Include context but avoid unrelated content. If no directly relevant text is found, return the most contextually appropriate portions.
-
-Return the extracted text without any additional commentary or formatting."""
-
-
 def create_analysis_prompt(
     human_readable_name: str,
     company_name: str,
     filing_type: FilingType,
     section_name: str,
-    subsection_text: str,
+    section_text: str,
 ) -> str:
-    """Create standardized prompt for subsection analysis."""
-    return f"""Analyze the {human_readable_name} from {company_name}'s {filing_type.value} filing's {section_name} section.
+    """Create standardized prompt for subsection analysis from full section text."""
+    return f"""You are reviewing the entire {section_name} section from {company_name}'s {filing_type.value} filing.
 
-Text:
-{subsection_text}
+Instructions:
+1. Locate the passages that are directly relevant to the {human_readable_name} topic.
+2. Base your structured analysis exclusively on that relevant context, preserving necessary citations or figures.
+3. If information is missing, state the limitation clearly rather than fabricating data.
 
-Focus specifically on the {human_readable_name} aspects and provide a detailed analysis using the structured schema provided."""
+Full Section Text:
+{section_text}
+
+Provide a detailed analysis for the {human_readable_name} schema using only the relevant context you identified."""
 
 
 def create_section_analysis_prompt(
@@ -1035,14 +1015,13 @@ async def run_concurrent_subsection_analysis(
     section_name: str,
     company_name: str,
     filing_type: FilingType,
-    extract_text_func: Callable[..., Any],
-    analyze_subsection_func: Callable[..., Any],
+    analyze_subsection_func: Callable[..., Awaitable[SubsectionAnalysisResponse]],
 ) -> list[SubsectionAnalysisResponse]:
     """Run concurrent analysis of all subsections in a section.
 
     This function encapsulates the common pattern of:
     1. Creating concurrent tasks for each subsection
-    2. Running text extraction and analysis for each
+    2. Running structured subsection analysis for each task
     3. Handling exceptions and creating fallback responses
     4. Filtering valid responses
 
@@ -1052,7 +1031,6 @@ async def run_concurrent_subsection_analysis(
         section_name: Name of the parent section
         company_name: Company name for context
         filing_type: Type of SEC filing
-        extract_text_func: Function to extract text for a subsection
         analyze_subsection_func: Function to analyze a subsection
 
     Returns:
@@ -1064,25 +1042,15 @@ async def run_concurrent_subsection_analysis(
     ) -> SubsectionAnalysisResponse:
         """Concurrent task for analyzing a single subsection."""
         try:
-            # Extract relevant text for this subsection
-            subsection_text = await extract_text_func(
-                section_text,
-                subsection_name,
-                subsection_schema,
-                section_name,
-                company_name,
-            )
-
-            # Analyze the subsection with its specific schema
             result = await analyze_subsection_func(
-                subsection_text,
-                subsection_name,
-                subsection_schema,
-                section_name,
-                company_name,
-                filing_type,
+                subsection_name=subsection_name,
+                subsection_schema=subsection_schema,
+                section_text=section_text,
+                section_name=section_name,
+                company_name=company_name,
+                filing_type=filing_type,
             )
-            return result  # type: ignore[no-any-return]
+            return result
         except Exception as e:
             return create_fallback_subsection_response(
                 subsection_name, subsection_schema, section_name, str(e)
