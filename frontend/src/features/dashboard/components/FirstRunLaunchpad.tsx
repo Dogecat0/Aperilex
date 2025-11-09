@@ -1,6 +1,9 @@
-import { Link } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
+import { Button } from '@/components/ui/Button'
 
 export function FirstRunLaunchpad() {
+  const navigate = useNavigate()
+
   return (
     <section
       className="flex flex-col gap-6 rounded-3xl border p-6"
@@ -53,13 +56,16 @@ export function FirstRunLaunchpad() {
         ))}
       </div>
 
-      <div>
-        <Link
-          to="/analyze"
-          className="inline-flex items-center justify-center rounded-full bg-[var(--status-positive)] px-6 py-3 text-sm font-semibold uppercase tracking-wide text-white"
+      <div className="flex items-end justify-end">
+        <Button
+          type="button"
+          size="sm"
+          variant="primary"
+          className="uppercase tracking-wide"
+          onClick={() => navigate('/analyze')}
         >
           Open analysis launchpad
-        </Link>
+        </Button>
       </div>
     </section>
   )
