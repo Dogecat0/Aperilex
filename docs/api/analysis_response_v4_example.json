@@ -142,17 +142,25 @@
             {
               "sub_section_name": "Cash Flow Ratios",
               "schema_type": "CashFlowRatio",
-              "analysis": {
-                "ratio_name": "Cash Flow to Debt",
-                "current_value": 1.24,
-                "previous_value": 1.15,
-                "display": {
-                  "current": "1.24×",
-                  "previous": "1.15×",
-                  "delta": "+0.09×"
+              "analysis": [
+                {
+                  "ratio_name": "Cash Flow to Debt",
+                  "current_value": 1.24,
+                  "previous_value": 1.15,
+                  "display": {
+                    "current": "1.24×",
+                    "previous": "1.15×",
+                    "delta": "+0.09×"
+                  },
+                  "interpretation": "Improved coverage of debt with operating cash as Alphabet boosted operating cash generation."
                 },
-                "interpretation": "Improved coverage of debt with operating cash as Alphabet boosted operating cash generation."
-              }
+                {
+                  "ratio_name": "Free Cash Flow Margin",
+                  "current_value": 0.18,
+                  "previous_value": 0.16,
+                  "interpretation": "Margin expanded on disciplined capex despite higher infrastructure spend."
+                }
+              ]
             }
           ]
         }

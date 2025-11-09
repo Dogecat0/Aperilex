@@ -199,6 +199,10 @@ class OpenAILLMProvider(BaseLLMProvider):
 
             # Convert to dict for SubsectionAnalysisResponse
             result_dict = result.model_dump()
+            if subsection.is_collection:
+                analysis_payload = result_dict.get("items", [])
+            else:
+                analysis_payload = result_dict
 
             processing_time_ms = int((time.time() - start_time) * 1000)
 
@@ -206,7 +210,7 @@ class OpenAILLMProvider(BaseLLMProvider):
                 sub_section_name=human_readable_name,
                 processing_time_ms=processing_time_ms,
                 schema_type=subsection.schema_label,
-                analysis=result_dict,
+                analysis=analysis_payload,
                 parent_section=section_name,
                 subsection_focus=subsection.name,
             )

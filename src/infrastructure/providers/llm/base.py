@@ -18,7 +18,7 @@ from typing import (
     get_origin,
 )
 
-from pydantic import BaseModel, ConfigDict, Field, RootModel, conlist
+from pydantic import BaseModel, ConfigDict, Field, conlist, model_validator
 from pydantic import BaseModel as PydanticBaseModel
 
 from src.application.interfaces.llm import (
@@ -852,14 +852,21 @@ CANONICAL_SECTION_SCHEMAS.update(
 def _build_collection_schema(
     field_name: str, item_schema: type[PydanticBaseModel]
 ) -> type[PydanticBaseModel]:
-    """Create (and cache) a RootModel enforcing a list of `item_schema` entries."""
+    """Create (and cache) a wrapper model enforcing a list of `item_schema` entries."""
 
     key = field_name or item_schema.__name__
     formatted = "".join(part.capitalize() for part in key.split("_") if part)
     class_name = f"{formatted or item_schema.__name__}List"
 
-    class CollectionSchema(RootModel[list[item_schema]]):  # type: ignore[valid-type]
-        root: list[item_schema]  # type: ignore[valid-type]
+    class CollectionSchema(BaseModel):
+        items: list[item_schema]  # type: ignore[valid-type]
+
+        @model_validator(mode="before")
+        @classmethod
+        def _coerce_root(cls, value: Any) -> Any:
+            if isinstance(value, list):
+                return {"items": value}
+            return value
 
     CollectionSchema.__name__ = class_name
     return CollectionSchema
@@ -951,8 +958,8 @@ def create_analysis_prompt(
     collection_instruction = ""
     if is_collection:
         collection_instruction = (
-            "\n4. Return the structured analysis as a JSON array that captures every distinct entry required "
-            "by the schema; never collapse the array into a single object."
+            "\n4. Return the structured analysis as a JSON object with an `items` array that captures every distinct "
+            "entry required by the schema; never collapse the array into a single object."
         )
 
     return f"""You are reviewing the entire {section_name} section from {company_name}'s {filing_type.value} filing.

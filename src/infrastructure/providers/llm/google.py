@@ -5,6 +5,7 @@ import json
 import logging
 import time
 from datetime import UTC, datetime
+from typing import Any, cast
 
 from google import genai
 from google.genai import types
@@ -186,6 +187,14 @@ class GoogleLLMProvider(BaseLLMProvider):
             # Parse and validate with Pydantic
             result_dict = json.loads(result_text)
             validated_result = subsection_schema.model_validate(result_dict)
+            analysis_payload: Any
+            if subsection.is_collection:
+                analysis_payload = cast(
+                    list[Any],
+                    getattr(validated_result, "items", []),
+                )
+            else:
+                analysis_payload = validated_result.model_dump()
 
             processing_time_ms = int((time.time() - start_time) * 1000)
 
@@ -193,7 +202,7 @@ class GoogleLLMProvider(BaseLLMProvider):
                 sub_section_name=human_readable_name,
                 processing_time_ms=processing_time_ms,
                 schema_type=subsection.schema_label,
-                analysis=validated_result.model_dump(),
+                analysis=analysis_payload,
                 parent_section=section_name,
                 subsection_focus=subsection.name,
             )
