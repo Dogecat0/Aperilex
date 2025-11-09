@@ -1,6 +1,6 @@
 import { fireEvent, screen, waitFor } from '@testing-library/react'
 import { describe, expect, it, beforeEach, afterEach, vi } from 'vitest'
-import { ApiClientError, apiClient } from '@/lib/apiClient'
+import { apiClient } from '@/lib/apiClient'
 import { renderWithProviders } from '@/test/utils'
 import { learningProgressResponses, quizAttemptResponses } from '@/../tests/fixtures/learning'
 
@@ -24,13 +24,11 @@ import { mockPaginatedAnalysesResponse, mockAnalysisDetail } from '@/test/fixtur
 import { LearningHubPage } from './LearningHubPage'
 
 const getSpy = vi.spyOn(apiClient, 'get')
-const putSpy = vi.spyOn(apiClient, 'put')
 const postSpy = vi.spyOn(apiClient, 'post')
 const latestAnalysisId = mockPaginatedAnalysesResponse.items[0].analysis_id
 
 beforeEach(() => {
   getSpy.mockReset()
-  putSpy.mockReset()
   postSpy.mockReset()
   getSpy.mockImplementation(async (path: string) => {
     if (path === '/learning/progress') {
@@ -53,41 +51,6 @@ beforeEach(() => {
       return moduleBindingsResponse
     }
     throw new Error(`Unexpected GET path: ${path}`)
-  })
-
-  const sectionMeta = learningProgressResponses[0].metadata.sections?.[
-    'Item 7 - Management Discussion & Analysis'
-  ] as {
-    analysis_runs?: Record<string, { [key: string]: unknown }>
-  }
-  const runMeta = sectionMeta?.analysis_runs?.[latestAnalysisId] ?? {}
-  const updatedMetadata = {
-    ...learningProgressResponses[0].metadata,
-    sections: {
-      ...learningProgressResponses[0].metadata.sections,
-      'Item 7 - Management Discussion & Analysis': {
-        ...sectionMeta,
-        analysis_runs: {
-          ...(sectionMeta?.analysis_runs ?? {}),
-          [latestAnalysisId]: {
-            ...runMeta,
-            progress_percent: 100,
-            last_event_at: '2025-01-06T12:00:00Z',
-            completed_at: '2025-01-06T12:00:00Z',
-          },
-        },
-        latest_progress_percent: 100,
-        last_event_at: '2025-01-06T12:00:00Z',
-      },
-    },
-  }
-
-  putSpy.mockResolvedValue({
-    ...learningProgressResponses[0],
-    progress_percent: 100,
-    completed_at: '2025-01-06T12:00:00Z',
-    last_interaction_at: '2025-01-06T12:00:00Z',
-    metadata: updatedMetadata,
   })
 
   postSpy.mockImplementation(async (path: string, options?: { body?: Record<string, unknown> }) => {
@@ -113,7 +76,6 @@ beforeEach(() => {
 
 afterEach(() => {
   getSpy.mockReset()
-  putSpy.mockReset()
   postSpy.mockReset()
 })
 
@@ -170,41 +132,10 @@ describe('LearningHubPage', () => {
     await waitFor(() => expect(screen.queryByRole('button', { name: /Resume module/i })).toBeNull())
   })
 
-  it('marks a module complete via the optimistic update flow', async () => {
+  it('does not render manual completion actions', async () => {
     renderWithProviders(<LearningHubPage />)
     await screen.findByText('60% complete')
-
-    const actionButtons = screen.getAllByText('Mark complete')
-    fireEvent.click(actionButtons[0])
-
-    await waitFor(() => expect(putSpy).toHaveBeenCalledTimes(1))
-    expect(putSpy).toHaveBeenCalledWith(
-      '/learning/progress/mda_foundations',
-      expect.objectContaining({
-        body: expect.objectContaining({ progress_percent: 100 }),
-      })
-    )
-
-    await waitFor(() => expect(screen.getByText('100% complete')).toBeInTheDocument())
-  })
-
-  it('surfaces toast errors when progress updates fail', async () => {
-    putSpy.mockRejectedValue(
-      new ApiClientError('unauthorized', 401, { error: { message: 'Session expired' } })
-    )
-
-    renderWithProviders(<LearningHubPage />)
-    await screen.findByText('60% complete')
-
-    const actionButtons = screen.getAllByText('Mark complete')
-    fireEvent.click(actionButtons[0])
-
-    const alert = await screen.findByRole('status')
-    expect(alert.textContent).toContain('session')
-
-    const dismissButtons = screen.getAllByText('Dismiss')
-    fireEvent.click(dismissButtons[0])
-    await waitFor(() => expect(screen.queryByRole('status')).toBeNull())
+    expect(screen.queryByText('Mark complete')).toBeNull()
   })
 
   it('opens the module modal and schedules a review', async () => {

@@ -72,7 +72,6 @@ export function LearningHubPage() {
     getSectionProgressSnapshot,
     isLoading: progressLoading,
     isRefetching: progressRefetching,
-    isUpdating,
     isSchedulingReview,
     updateProgress,
     scheduleReview,
@@ -172,34 +171,6 @@ export function LearningHubPage() {
     [progressByModule, updateProgress, navigate]
   )
 
-  const handleMarkComplete = useCallback(
-    async (module: LearningModule) => {
-      const snapshot = getSectionProgressSnapshot(
-        module.moduleKey,
-        module.sectionKey,
-        module.context?.analysisId ?? null
-      )
-      const existing = progressByModule[module.moduleKey]
-      if (!existing || snapshot.progressPercent >= 100) {
-        return
-      }
-
-      const metadata = { ...(existing.metadata ?? {}), last_action: 'mark-complete' }
-
-      try {
-        await updateProgress({
-          moduleKey: module.moduleKey,
-          progressPercent: 100,
-          metadata,
-          progressId: existing.progressId,
-        })
-      } catch {
-        // Hook error state already communicates the failure.
-      }
-    },
-    [getSectionProgressSnapshot, progressByModule, updateProgress]
-  )
-
   const handleOpenModule = useCallback(
     (moduleKey: string, focus: ModuleModalFocus = 'overview') => {
       setActiveModuleState({ key: moduleKey, focus })
@@ -229,7 +200,6 @@ export function LearningHubPage() {
     [scheduleReview]
   )
 
-  const busy = isUpdating || isSchedulingReview
   const toastMessages = useMemo(
     () =>
       [
@@ -566,24 +536,6 @@ export function LearningHubPage() {
                             style={resumeDisabled ? { boxShadow: 'none' } : undefined}
                           >
                             {resumeLabel}
-                          </Button>
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => {
-                              void handleMarkComplete(module)
-                            }}
-                            disabled={busy || progressPercent >= 100}
-                            className="px-0 py-0 tracking-[0.18em]"
-                            style={{
-                              color:
-                                busy || progressPercent >= 100
-                                  ? 'var(--text-muted)'
-                                  : 'var(--text-secondary)',
-                            }}
-                          >
-                            Mark complete
                           </Button>
                         </div>
                       </div>

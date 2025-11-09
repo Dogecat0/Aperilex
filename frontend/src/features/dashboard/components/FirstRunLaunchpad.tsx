@@ -56,7 +56,7 @@ export function FirstRunLaunchpad() {
         ))}
       </div>
 
-      <div className="flex items-end justify-end">
+      <div className="flex items-center justify-end">
         <Button
           type="button"
           size="sm"
