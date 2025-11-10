@@ -298,7 +298,7 @@ class AnalysisExecutionService:
             else:
                 section["citations"] = []
 
-            walkthrough_payload = section.get("walkthrough")
+            walkthrough_payload = section.pop("walkthrough", None)
             if isinstance(walkthrough_payload, dict):
                 raw_citations = walkthrough_payload.get("citations")
                 if isinstance(raw_citations, list):
@@ -331,9 +331,6 @@ class AnalysisExecutionService:
                             },
                         )
                     section["citations"] = list(derived_citations)
-                    walkthrough_payload["citations"] = list(derived_citations)
-                else:
-                    walkthrough_payload["citations"] = cleaned
 
             sub_sections = section.get("sub_sections")
             if isinstance(sub_sections, list):

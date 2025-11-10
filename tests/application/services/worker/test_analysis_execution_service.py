@@ -335,6 +335,85 @@ async def test_perform_structured_comprehensive_analysis_shapes_result() -> None
 @pytest.mark.unit
 @pytest.mark.asyncio
 async def test_structured_analysis_truncates_subsection_analysis_lists() -> None:
+    mdna_walkthrough = SectionWalkthroughPayload(
+        guidance=WalkthroughGuidancePayload(
+            focus="Connect commentary back to the underlying drivers.",
+            why_it_matters="MD&A walkthroughs reinforce how narrative links to the financial outcomes.",
+        ),
+        highlights=[
+            WalkthroughHighlight(
+                id="highlight-mdna-drivers",
+                title="Cost discipline continues to improve margins",
+                summary="Management called out expense controls that expanded operating margin despite revenue volatility.",
+                source_reference="Item 7 - MD&A ¶1",
+                confidence=0.75,
+                severity="Medium",
+                lesson_reference=WalkthroughLessonReference(
+                    lesson_id="lesson-mdna-margins",
+                    learning_module_key="mda_foundations",
+                    module_stage="walkthrough",
+                    title="Linking MD&A commentary to margin movement",
+                ),
+                quote=None,
+                tags=["mdna"],
+            )
+        ],
+        comprehension_checks=[
+            WalkthroughComprehensionCheck(
+                id="mdna-check-1",
+                question="What factor did management cite for margin expansion?",
+                correct_answer="Cost discipline and spending controls.",
+                distractors=[
+                    "A divestiture of the consumer business.",
+                    "Immediate regulatory relief in all markets.",
+                ],
+                explanation="The MD&A section highlights operating expense discipline supporting margins.",
+                lesson_reference=WalkthroughLessonReference(
+                    lesson_id="lesson-mdna-margin-check",
+                    learning_module_key="mda_foundations",
+                    module_stage="walkthrough",
+                    title="Reading margin commentary",
+                ),
+            ),
+            WalkthroughComprehensionCheck(
+                id="mdna-check-2",
+                question="Which section discusses liquidity plans?",
+                correct_answer="The Liquidity Ratios subsection.",
+                distractors=[
+                    "The auditor report.",
+                    "The risk management appendix.",
+                ],
+                explanation="Liquidity ratios coverage appears within the MD&A subsections.",
+                lesson_reference=WalkthroughLessonReference(
+                    lesson_id="lesson-mdna-liquidity",
+                    learning_module_key="mda_foundations",
+                    module_stage="walkthrough",
+                    title="Following liquidity commentary",
+                ),
+            ),
+            WalkthroughComprehensionCheck(
+                id="mdna-check-3",
+                question="What mitigation accompanies the margin discussion?",
+                correct_answer="Maintaining disciplined OpEx as revenue normalizes.",
+                distractors=[
+                    "Issuing additional equity immediately.",
+                    "Halting all product development.",
+                ],
+                explanation="Management emphasises disciplined OpEx as revenue normalises.",
+                lesson_reference=WalkthroughLessonReference(
+                    lesson_id="lesson-mdna-mitigation",
+                    learning_module_key="mda_foundations",
+                    module_stage="walkthrough",
+                    title="Identifying MD&A mitigations",
+                ),
+            ),
+        ],
+        learning_module_key="mda_foundations",
+        module_stage="walkthrough",
+        estimated_duration_minutes=6,
+        citations=["Item 7 - MD&A ¶1"],
+    )
+
     sub_section = SubsectionAnalysisResponse(
         sub_section_name="Liquidity Ratios",
         processing_time_ms=150,
@@ -351,7 +430,7 @@ async def test_structured_analysis_truncates_subsection_analysis_lists() -> None
         critical_findings=["Finding 1", "Finding 2", "Finding 3"],
         sub_sections=[sub_section],
         citations=[],
-        walkthrough=None,
+        walkthrough=mdna_walkthrough,
         processing_time_ms=500,
         sub_section_count=1,
     )
@@ -480,6 +559,40 @@ async def test_structured_analysis_handles_missing_walkthrough_citations() -> No
     assert structured_dump["section_analyses"][0]["citations"] == [
         "Item 1A - Risk Factors ¶4"
     ]
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+async def test_structured_analysis_strips_section_walkthrough_payloads() -> None:
+    async def fake_analyze_sections(**_: Any) -> ComprehensiveAnalysisResponse:
+        return _make_comprehensive_response()
+
+    async def fake_model_info() -> SimpleNamespace:
+        return SimpleNamespace(model_name="gpt-4-structured")
+
+    llm_provider = SimpleNamespace(
+        analyze_filing_sections=fake_analyze_sections,
+        get_model_info=fake_model_info,
+    )
+
+    service = AnalysisExecutionService(llm_provider=llm_provider)
+
+    task_data = _make_task_data()
+    request = service.create_analysis_request(task_data)
+
+    result = await service.perform_structured_comprehensive_analysis(
+        request=request,
+        filing_id=task_data.filing_id,
+        filing_type=task_data.filing_type,
+        filing_sections={"Risk Factors": "Section text"},
+        company_name="Acme Corp",
+        template=AnalysisTemplate.COMPREHENSIVE,
+        metadata=task_data.metadata,
+        task_data=task_data,
+    )
+
+    structured_dump = result.structured_data.model_dump()
+    assert "walkthrough" not in structured_dump["section_analyses"][0]
 
 
 @pytest.mark.unit
