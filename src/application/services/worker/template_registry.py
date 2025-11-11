@@ -11,7 +11,7 @@ import json
 import re
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, ClassVar
 
 from src.application.handlers.schemas.commands.analyze_filing import AnalysisTemplate
 from src.shared.models import (
@@ -22,9 +22,11 @@ from src.shared.models import (
     WalkthroughGuidance,
 )
 from src.shared.models.analysis import build_default_section_walkthrough
+from src.shared.utils.logging import get_logger
 
 __all__ = ["TemplateRegistry", "WalkthroughConstructionError"]
 
+logger = get_logger(__name__)
 
 class WalkthroughConstructionError(ValueError):
     """Raised when guided walkthrough construction fails."""
@@ -46,6 +48,8 @@ class _WalkthroughBlueprint:
 
 class TemplateRegistry:
     """Resolve template metadata and expose canonical schema mappings."""
+
+    WALKTHROUGH_HIGHLIGHT_LIMIT: ClassVar[int] = 3
 
     DEFAULT_TEMPLATE_SCHEMAS: Mapping[AnalysisTemplate, tuple[str, ...]] = {
         AnalysisTemplate.COMPREHENSIVE: (
@@ -270,11 +274,10 @@ class TemplateRegistry:
             raise WalkthroughConstructionError(
                 f"walkthrough for '{section_name}' did not include any highlights"
             )
-        if len(highlight_models) > 3:
-            raise WalkthroughConstructionError(
-                f"walkthrough for '{section_name}' returned {len(highlight_models)} "
-                "highlights; maximum allowed is 3"
-            )
+        highlight_models = self._limit_highlight_count(
+            highlight_models,
+            section_name,
+        )
 
         comprehension_models = self._build_comprehension_checks(
             comprehension_checks,
@@ -443,6 +446,27 @@ class TemplateRegistry:
             highlight_models.append(HighlightCallout.model_validate(data))
 
         return highlight_models
+
+    def _limit_highlight_count(
+        self,
+        highlights: Sequence[HighlightCallout],
+        section_name: str,
+    ) -> list[HighlightCallout]:
+        """Trim highlight payloads to the configured limit."""
+
+        limit = self.WALKTHROUGH_HIGHLIGHT_LIMIT
+        if len(highlights) <= limit:
+            return list(highlights)
+
+        logger.warning(
+            "Walkthrough returned more highlights than supported; truncating",
+            extra={
+                "section_name": section_name,
+                "observed_highlights": len(highlights),
+                "highlight_limit": limit,
+            },
+        )
+        return list(highlights[:limit])
 
     @staticmethod
     def _build_comprehension_checks(

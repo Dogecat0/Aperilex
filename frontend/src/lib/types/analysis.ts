@@ -36,6 +36,7 @@ export const tokenUsageSchema = z
     prompt_tokens: z.number().int().nonnegative().optional(),
     completion_tokens: z.number().int().nonnegative().optional(),
     total_tokens: z.number().int().nonnegative().optional(),
+    cached_prompt_tokens: z.number().int().nonnegative().optional(),
   })
   .strict()
 
