@@ -1,5 +1,6 @@
 import { fireEvent, screen, waitFor } from '@testing-library/react'
 import { describe, expect, it, beforeEach, afterEach, vi } from 'vitest'
+import type * as ReactRouterDomModule from 'react-router-dom'
 import { apiClient } from '@/lib/apiClient'
 import { renderWithProviders } from '@/test/utils'
 import { learningProgressResponses, quizAttemptResponses } from '@/../tests/fixtures/learning'
@@ -7,13 +8,23 @@ import { learningProgressResponses, quizAttemptResponses } from '@/../tests/fixt
 import { mockPaginatedAnalysesResponse, mockAnalysisDetail } from '@/test/fixtures/analyses'
 import { LearningHubPage } from './LearningHubPage'
 
+const mockNavigate = vi.fn()
 const getSpy = vi.spyOn(apiClient, 'get')
 const postSpy = vi.spyOn(apiClient, 'post')
 const latestAnalysisId = mockPaginatedAnalysesResponse.items[0].analysis_id
 
+vi.mock('react-router-dom', async () => {
+  const actual = await vi.importActual<ReactRouterDomModule>('react-router-dom')
+  return {
+    ...actual,
+    useNavigate: () => mockNavigate,
+  }
+})
+
 beforeEach(() => {
   getSpy.mockReset()
   postSpy.mockReset()
+  mockNavigate.mockReset()
   getSpy.mockImplementation(async (path: string) => {
     if (path === '/learning/progress') {
       return learningProgressResponses
@@ -45,6 +56,7 @@ beforeEach(() => {
 afterEach(() => {
   getSpy.mockReset()
   postSpy.mockReset()
+  mockNavigate.mockReset()
 })
 
 describe('LearningHubPage', () => {
@@ -55,7 +67,7 @@ describe('LearningHubPage', () => {
     expect(screen.getByText((content) => content.includes('Score 67%'))).toBeInTheDocument()
     const summarySnippets = await screen.findAllByText(/Connect commentary to margin movements/i)
     expect(summarySnippets.length).toBeGreaterThan(0)
-    const resumeButtons = screen.getAllByRole('button', { name: /Resume module/i })
+    const resumeButtons = screen.getAllByRole('button', { name: /Resume walkthrough/i })
     expect(resumeButtons.length).toBeGreaterThan(0)
     expect(
       screen.queryByRole('link', { name: /View Management Discussion & Analysis/i })
@@ -97,7 +109,9 @@ describe('LearningHubPage', () => {
     expect(
       await screen.findByText(/Launch a filing analysis from the dashboard/i)
     ).toBeInTheDocument()
-    await waitFor(() => expect(screen.queryByRole('button', { name: /Resume module/i })).toBeNull())
+    await waitFor(() =>
+      expect(screen.queryByRole('button', { name: /Resume walkthrough/i })).toBeNull()
+    )
   })
 
   it('does not render manual completion actions', async () => {
@@ -106,17 +120,22 @@ describe('LearningHubPage', () => {
     expect(screen.queryByText('Mark complete')).toBeNull()
   })
 
-  it('opens the module modal and surfaces resume actions', async () => {
+  it('navigates directly to the walkthrough analysis when resuming', async () => {
     renderWithProviders(<LearningHubPage />)
 
-    const resumeButtons = await screen.findAllByRole('button', { name: /Resume module/i })
+    const resumeButtons = await screen.findAllByRole('button', { name: /Resume walkthrough/i })
     fireEvent.click(resumeButtons[0])
 
-    const dialog = await screen.findByRole('dialog')
-    expect(dialog).toBeInTheDocument()
-    expect(screen.getByText(/Module overview/i)).toBeInTheDocument()
-    expect(screen.getByText(/Resume the guided walkthrough/i)).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /Resume walkthrough/i })).toBeInTheDocument()
+    await waitFor(() =>
+      expect(mockNavigate).toHaveBeenCalledWith(
+        `/filing/${latestAnalysisId}`,
+        expect.objectContaining({
+          state: expect.objectContaining({
+            focusSection: expect.anything(),
+          }),
+        })
+      )
+    )
   })
 
   it('surfaces automatic logging guidance for quiz attempts', async () => {

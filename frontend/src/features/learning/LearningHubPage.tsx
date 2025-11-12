@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Button } from '@/components/ui/Button'
 import { SectionIntro } from '@/components/ui/SectionIntro'
@@ -6,8 +6,6 @@ import { useThemeTokens } from '@/components/ThemeProvider'
 import { useLearningModules, useLearningProgress, useQuizAttempts } from '@/lib/hooks'
 import type { LearningModule } from '@/lib/hooks/useLearningModules'
 import { LearningProgressHero } from '@/features/dashboard/components/LearningProgressHero'
-
-import { LearningModuleModal } from './components/LearningModuleModal'
 
 const MODULE_SKELETON_KEYS = ['module-a', 'module-b', 'module-c'] as const
 
@@ -84,25 +82,6 @@ export function LearningHubPage() {
     clearError: clearQuizError,
   } = useQuizAttempts({ limit: 5 })
 
-  const [activeModuleKey, setActiveModuleKey] = useState<string | null>(null)
-
-  const activeModule = useMemo(() => {
-    const activeKey = activeModuleKey
-    if (!activeKey) {
-      return null
-    }
-    return learningModules.find((item) => item.key === activeKey) ?? null
-  }, [activeModuleKey, learningModules])
-
-  const activeProgress = activeModule ? progressByModule[activeModule.moduleKey] : undefined
-  const activeSectionProgress = activeModule
-    ? getSectionProgressSnapshot(
-        activeModule.moduleKey,
-        activeModule.sectionKey,
-        activeModule.context?.analysisId ?? null
-      )
-    : null
-
   const moduleErrorMessage = modulesError
     ? modulesErrorValue instanceof Error
       ? modulesErrorValue.message
@@ -162,14 +141,6 @@ export function LearningHubPage() {
     },
     [progressByModule, updateProgress, navigate]
   )
-
-  const handleOpenModule = useCallback((moduleKey: string) => {
-    setActiveModuleKey(moduleKey)
-  }, [])
-
-  const handleCloseModule = useCallback(() => {
-    setActiveModuleKey(null)
-  }, [])
 
   const toastMessages = useMemo(
     () =>
@@ -477,7 +448,7 @@ export function LearningHubPage() {
                             type="button"
                             size="sm"
                             variant="primary"
-                            onClick={() => handleOpenModule(module.key)}
+                            onClick={() => void handleResumeModule(module)}
                             disabled={resumeDisabled}
                             title={resumeTitle}
                             style={resumeDisabled ? { boxShadow: 'none' } : undefined}
@@ -582,22 +553,6 @@ export function LearningHubPage() {
           </ul>
         )}
       </section>
-
-      {activeModule ? (
-        <LearningModuleModal
-          module={activeModule}
-          progress={activeProgress}
-          sectionProgress={activeSectionProgress}
-          onClose={handleCloseModule}
-          onResume={async () => {
-            try {
-              await handleResumeModule(activeModule)
-            } finally {
-              handleCloseModule()
-            }
-          }}
-        />
-      ) : null}
     </div>
   )
 }
