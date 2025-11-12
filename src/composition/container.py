@@ -301,9 +301,6 @@ class CompositionRoot(containers.DeclarativeContainer):
         app_container.cqrs.learning_progress_query_service.override(
             infra.learning_progress_query_service
         )
-        app_container.cqrs.learning_walkthrough_binding_query_service.override(
-            infra.learning_walkthrough_binding_query_service
-        )
         app_container.cqrs.quiz_attempt_query_service.override(
             infra.quiz_attempt_query_service
         )

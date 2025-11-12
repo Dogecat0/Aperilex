@@ -42,16 +42,9 @@ class LearningProgressRepository(ILearningProgressRepository):
         return None
 
     def _extract_fields(self, metadata: Mapping[str, Any]) -> dict[str, Any]:
-        pending_value = metadata.get("pending_review_count", 0)
-        pending_review_count = (
-            int(pending_value) if isinstance(pending_value, int | float) else 0
-        )
-        last_reviewed_at = self._parse_datetime(metadata.get("last_reviewed_at"))
         unlocked_at = self._parse_datetime(metadata.get("unlocked_at"))
         is_unlocked = bool(metadata.get("is_unlocked", False))
         return {
-            "pending_review_count": pending_review_count,
-            "last_reviewed_at": last_reviewed_at,
             "is_unlocked": is_unlocked,
             "unlocked_at": unlocked_at,
         }
@@ -61,12 +54,6 @@ class LearningProgressRepository(ILearningProgressRepository):
         metadata = dict(progress.metadata or {})
         metadata.update(
             {
-                "pending_review_count": progress.pending_review_count,
-                "last_reviewed_at": (
-                    progress.last_reviewed_at.isoformat()
-                    if progress.last_reviewed_at
-                    else None
-                ),
                 "is_unlocked": progress.is_unlocked,
                 "unlocked_at": (
                     progress.unlocked_at.isoformat()
@@ -89,8 +76,6 @@ class LearningProgressRepository(ILearningProgressRepository):
             completed_at=model.completed_at,
             metadata=metadata,
             schema_version=model.schema_version,
-            pending_review_count=extracted["pending_review_count"],
-            last_reviewed_at=extracted["last_reviewed_at"],
             is_unlocked=extracted["is_unlocked"],
             unlocked_at=extracted["unlocked_at"],
             created_at=getattr(model, "created_at", None),
@@ -109,8 +94,6 @@ class LearningProgressRepository(ILearningProgressRepository):
             completed_at=row.get("completed_at"),
             metadata=metadata,
             schema_version=row["schema_version"],
-            pending_review_count=extracted["pending_review_count"],
-            last_reviewed_at=extracted["last_reviewed_at"],
             is_unlocked=extracted["is_unlocked"],
             unlocked_at=extracted["unlocked_at"],
             created_at=row.get("created_at"),

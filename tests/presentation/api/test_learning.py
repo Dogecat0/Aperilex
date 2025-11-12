@@ -10,23 +10,14 @@ from fastapi import FastAPI, status
 from httpx import ASGITransport, AsyncClient
 
 from src.application.interfaces.authentication import AuthenticationResult
-from src.application.interfaces.query_services import (
-    LearningWalkthroughBindingQueryResult,
-)
 from src.presentation.api.dependencies import (
     get_learning_service,
-    get_learning_walkthrough_binding_query_service,
 )
 from src.presentation.api.routers import learning
 from src.presentation.api.security import get_current_user
-from src.shared.enums.learning import (
-    LearningReviewStatus,
-    LearningWalkthroughArtifactType,
-)
 from src.shared.models.learning import LearningProgress, QuizAttempt
 from src.shared.types import (
     LearningProgressId,
-    LearningWalkthroughBindingId,
     QuizAttemptId,
     UserId,
 )
@@ -47,9 +38,7 @@ class FakeLearningService:
         self.last_upsert_payload = None
         self.last_attempt_payload = None
         self.walkthrough_event_calls = 0
-        self.review_schedule_calls = 0
         self.last_walkthrough_payload = None
-        self.last_review_schedule_payload = None
 
     async def list_user_progress(self, user_id: UserId) -> list[LearningProgress]:
         assert user_id == self.user_id
@@ -184,23 +173,6 @@ class FakeLearningService:
         self.progress_records.append(progress)
         return progress
 
-    async def schedule_review(self, *args, **kwargs):  # type: ignore[no-untyped-def]
-        self.review_schedule_calls += 1
-        self.last_review_schedule_payload = (args, kwargs)
-        progress = LearningProgress(
-            schema_version=1,
-            progress_id=LearningProgressId(uuid4()),
-            user_id=kwargs.get("user_id") or self.user_id,
-            module_key=kwargs.get("module_key", "module"),
-            progress_percent=0,
-            pending_review_count=kwargs.get("pending_review_count", 0),
-            metadata={},
-            created_at=kwargs.get("scheduled_for"),
-            updated_at=kwargs.get("scheduled_for"),
-        )
-        self.progress_records.append(progress)
-        return progress
-
     async def get_best_quiz_attempt(
         self,
         user_id: UserId,
@@ -213,23 +185,6 @@ class FakeLearningService:
             return None
         return max(relevant, key=lambda attempt: attempt.score_percent)
 
-
-class FakeBindingQueryService:
-    """Stub of the walkthrough binding query service."""
-
-    def __init__(self) -> None:
-        self.bindings: list[LearningWalkthroughBindingQueryResult] = []
-        self.list_calls = 0
-
-    async def list_module_bindings(
-        self, learning_module_key: str
-    ) -> list[LearningWalkthroughBindingQueryResult]:
-        self.list_calls += 1
-        return [
-            binding
-            for binding in self.bindings
-            if binding.learning_module_key == learning_module_key
-        ]
 
 @pytest.fixture
 def user_id() -> UserId:
@@ -292,46 +247,8 @@ def fake_learning_service(user_id: UserId) -> FakeLearningService:
 
 
 @pytest.fixture
-def fake_binding_query_service() -> FakeBindingQueryService:
-    service = FakeBindingQueryService()
-    now = datetime.now(UTC)
-
-    service.bindings = [
-        LearningWalkthroughBindingQueryResult(
-            binding_id=LearningWalkthroughBindingId(uuid4()),
-            walkthrough_section_id="section-1",
-            artifact_id="artifact-1",
-            artifact_type=LearningWalkthroughArtifactType.COMPREHENSION_CHECK,
-            lesson_id="lesson-1",
-            learning_module_key="mda_foundations",
-            module_stage="fundamentals",
-            lesson_title="Liquidity quiz",
-            status=LearningReviewStatus.APPROVED,
-            last_reviewed_at=now,
-            updated_at=now,
-        ),
-        LearningWalkthroughBindingQueryResult(
-            binding_id=LearningWalkthroughBindingId(uuid4()),
-            walkthrough_section_id="section-2",
-            artifact_id="artifact-2",
-            artifact_type=LearningWalkthroughArtifactType.HIGHLIGHT,
-            lesson_id="lesson-2",
-            learning_module_key="risk_mastery",
-            module_stage="orientation",
-            lesson_title="Risk overview",
-            status=LearningReviewStatus.PENDING,
-            last_reviewed_at=None,
-            updated_at=now,
-        ),
-    ]
-
-    return service
-
-
-@pytest.fixture
 def learning_app(
     fake_learning_service: FakeLearningService,
-    fake_binding_query_service: FakeBindingQueryService,
     user_id: UserId,
 ) -> FastAPI:
     app = FastAPI()
@@ -349,14 +266,8 @@ def learning_app(
     async def override_learning_service():  # type: ignore[no-untyped-def]
         return fake_learning_service
 
-    async def override_binding_query_service():  # type: ignore[no-untyped-def]
-        return fake_binding_query_service
-
     app.dependency_overrides[get_current_user] = override_current_user
     app.dependency_overrides[get_learning_service] = override_learning_service
-    app.dependency_overrides[
-        get_learning_walkthrough_binding_query_service
-    ] = override_binding_query_service
 
     yield app
 
@@ -427,38 +338,6 @@ async def test_record_walkthrough_event_endpoint(
     assert section_meta.get("section-1", {}).get("progress_percent") == 100
     assert payload["metadata"].get("section_progress_version") == 1
     assert fake_learning_service.walkthrough_event_calls == 1
-
-
-@pytest.mark.asyncio
-async def test_schedule_review_endpoint(
-    api_client: AsyncClient,
-    fake_learning_service: FakeLearningService,
-) -> None:
-    response = await api_client.post(
-        "/api/learning/progress/module-a/reviews/schedule",
-        json={"pending_review_count": 2},
-    )
-
-    assert response.status_code == status.HTTP_200_OK
-    payload = response.json()
-    assert payload["pending_review_count"] == 2
-    assert fake_learning_service.review_schedule_calls == 1
-
-
-@pytest.mark.asyncio
-async def test_list_module_bindings_returns_records(
-    api_client: AsyncClient,
-    fake_binding_query_service: FakeBindingQueryService,
-) -> None:
-    response = await api_client.get("/api/learning/modules/mda_foundations/bindings")
-
-    assert response.status_code == status.HTTP_200_OK
-    payload = response.json()
-    assert isinstance(payload, list)
-    assert len(payload) == 1
-    assert payload[0]["lesson_id"] == "lesson-1"
-    assert payload[0]["status"] == LearningReviewStatus.APPROVED.value
-    assert fake_binding_query_service.list_calls == 1
 
 
 @pytest.mark.asyncio

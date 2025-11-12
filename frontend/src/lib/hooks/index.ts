@@ -55,7 +55,6 @@ export {
   type SectionProgressSnapshot,
   type UpdateProgressInput,
   type RecordWalkthroughEventInput,
-  type ScheduleReviewInput,
   type ModuleProgressStatus,
   type NextLessonRecommendation,
   type LearningDashboardHighlights,
@@ -75,8 +74,3 @@ export {
   type ModuleFocusTab,
   type UseLearningModulesReturn,
 } from './useLearningModules'
-export {
-  useLearningModuleBindings,
-  type LearningModuleBinding,
-  type UseLearningModuleBindingsReturn,
-} from './useLearningModuleBindings'

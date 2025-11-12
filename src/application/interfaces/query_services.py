@@ -15,8 +15,6 @@ from pydantic import BaseModel, Field
 from src.shared.enums import (
     AnalysisStatus,
     FilingType,
-    LearningReviewStatus,
-    LearningWalkthroughArtifactType,
     UserStatus,
     UserTier,
 )
@@ -26,7 +24,6 @@ from src.shared.types import (
     Email,
     FilingId,
     LearningProgressId,
-    LearningWalkthroughBindingId,
     QuizAttemptId,
     UserId,
 )
@@ -126,27 +123,6 @@ class LearningProgressQueryResult(BaseModel):
     progress_percent: int
     completed_at: datetime | None = None
     last_interaction_at: datetime | None = None
-    updated_at: datetime | None = None
-
-
-class LearningWalkthroughBindingQueryResult(BaseModel):
-    """Result model for walkthrough binding queries."""
-
-    schema_version: int = Field(
-        default=1,
-        ge=1,
-        description="Schema version for binding query result models",
-    )
-    binding_id: LearningWalkthroughBindingId
-    walkthrough_section_id: str
-    artifact_id: str
-    artifact_type: LearningWalkthroughArtifactType
-    lesson_id: str
-    learning_module_key: str
-    module_stage: str
-    lesson_title: str | None = None
-    status: LearningReviewStatus
-    last_reviewed_at: datetime | None = None
     updated_at: datetime | None = None
 
 
@@ -473,40 +449,6 @@ class ILearningProgressQueryService(Protocol):
         offset: int = 0,
     ) -> list[LearningProgressQueryResult]:
         """Retrieve learners engaging with a given module."""
-
-
-@runtime_checkable
-class ILearningWalkthroughBindingQueryService(Protocol):
-    """Query service for walkthrough binding aggregation."""
-
-    @abstractmethod
-    async def get_binding(
-        self,
-        binding_id: LearningWalkthroughBindingId,
-    ) -> LearningWalkthroughBindingQueryResult | None:
-        """Retrieve a binding by identifier."""
-
-    @abstractmethod
-    async def get_binding_by_artifact(
-        self,
-        artifact_id: str,
-        artifact_type: LearningWalkthroughArtifactType,
-    ) -> LearningWalkthroughBindingQueryResult | None:
-        """Retrieve a binding by its walkthrough artifact."""
-
-    @abstractmethod
-    async def list_section_bindings(
-        self,
-        walkthrough_section_id: str,
-    ) -> list[LearningWalkthroughBindingQueryResult]:
-        """Retrieve bindings for a specific walkthrough section."""
-
-    @abstractmethod
-    async def list_module_bindings(
-        self,
-        learning_module_key: str,
-    ) -> list[LearningWalkthroughBindingQueryResult]:
-        """Retrieve bindings associated with a learning module."""
 
 
 @runtime_checkable

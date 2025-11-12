@@ -17,7 +17,6 @@ from src.application.interfaces.repositories import (
     ICompanyRepository,
     IFilingRepository,
     ILearningProgressRepository,
-    ILearningWalkthroughBindingRepository,
     IQuizAttemptRepository,
     IRepositoryFactory,
     IUserIdentityRepository,
@@ -168,21 +167,6 @@ class RepositoryFactory(IRepositoryFactory):
         session = self._session_factory()
         self._register_session(session)
         return LearningProgressRepository(session)
-
-    async def get_learning_walkthrough_binding_repository(
-        self,
-    ) -> ILearningWalkthroughBindingRepository:
-        """Get a LearningWalkthroughBinding repository instance."""
-
-        from .repositories.learning_walkthrough_binding_repository import (
-            LearningWalkthroughBindingRepository,
-        )
-
-        if self._active_session and self._transaction_active:
-            return LearningWalkthroughBindingRepository(self._active_session)
-        session = self._session_factory()
-        self._register_session(session)
-        return LearningWalkthroughBindingRepository(session)
 
     async def get_quiz_attempt_repository(self) -> IQuizAttemptRepository:
         """Get a QuizAttempt repository instance."""

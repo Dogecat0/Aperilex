@@ -5,15 +5,10 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field
 
-from src.shared.enums.learning import (
-    LearningReviewStatus,
-    LearningWalkthroughArtifactType,
-)
 from src.shared.types import (
     LearningProgressId,
-    LearningWalkthroughBindingId,
     QuizAttemptId,
     UserId,
 )
@@ -43,15 +38,6 @@ class LearningProgress(BaseModel):
     completed_at: datetime | None = Field(
         default=None,
         description="When the module was completed",
-    )
-    pending_review_count: int = Field(
-        default=0,
-        ge=0,
-        description="Number of lessons pending review for spaced repetition",
-    )
-    last_reviewed_at: datetime | None = Field(
-        default=None,
-        description="When the learner last reviewed the module content",
     )
     is_unlocked: bool = Field(
         default=False,
@@ -93,8 +79,6 @@ class LearningProgressUpsert(BaseModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
     last_interaction_at: datetime | None = None
     completed_at: datetime | None = None
-    pending_review_count: int | None = Field(default=None, ge=0)
-    last_reviewed_at: datetime | None = None
     is_unlocked: bool | None = None
     unlocked_at: datetime | None = None
 
@@ -158,129 +142,3 @@ class QuizAttemptCreate(BaseModel):
     attempted_at: datetime
     responses: dict[str, Any] | None = None
     metadata: dict[str, Any] = Field(default_factory=dict)
-
-
-class LearningWalkthroughBinding(BaseModel):
-    """Mapping between walkthrough artifacts and micro-lessons with review status."""
-
-    schema_version: int = Field(
-        default=1,
-        ge=1,
-        description="Schema version for learning walkthrough binding payloads",
-    )
-    binding_id: LearningWalkthroughBindingId = Field(
-        description="Identifier for the walkthrough binding record"
-    )
-    walkthrough_section_id: str = Field(
-        description="Identifier for the section walkthrough that emitted the artifact"
-    )
-    artifact_id: str = Field(
-        description="Identifier for the highlight or comprehension check artifact"
-    )
-    artifact_type: LearningWalkthroughArtifactType = Field(
-        description="Type of artifact associated with the binding"
-    )
-    lesson_id: str = Field(description="Identifier for the linked micro-lesson")
-    learning_module_key: str = Field(
-        description="Module key aligned with the walkthrough artifact"
-    )
-    module_stage: str = Field(
-        description="Module stage (e.g., orientation, fundamentals, mastery)"
-    )
-    lesson_title: str | None = Field(
-        default=None,
-        description="Optional curated title for the linked lesson",
-    )
-    status: LearningReviewStatus = Field(
-        default=LearningReviewStatus.PENDING,
-        description="Review status for the walkthrough artifact binding",
-    )
-    last_reviewed_at: datetime | None = Field(
-        default=None,
-        description="Timestamp for the most recent review decision",
-    )
-    created_at: datetime | None = None
-    updated_at: datetime | None = None
-
-    model_config = {"arbitrary_types_allowed": True}
-
-    @field_validator(
-        "walkthrough_section_id",
-        "artifact_id",
-        "lesson_id",
-        "learning_module_key",
-        "module_stage",
-        mode="before",
-    )
-    @classmethod
-    def _ensure_non_empty(cls, value: Any) -> str:
-        """Ensure string fields are populated with non-empty values."""
-
-        if not isinstance(value, str) or not value.strip():
-            raise ValueError("value must be a non-empty string")
-        return value.strip()
-
-    @field_validator("lesson_title", mode="before")
-    @classmethod
-    def _normalise_optional_title(cls, value: Any) -> str | None:
-        """Normalise optional lesson titles to trimmed strings."""
-
-        if value is None:
-            return None
-        if not isinstance(value, str):
-            raise TypeError("lesson_title must be a string when provided")
-        stripped = value.strip()
-        return stripped or None
-
-
-class LearningWalkthroughBindingUpsert(BaseModel):
-    """Payload for creating or updating walkthrough bindings."""
-
-    schema_version: int = Field(
-        default=1,
-        ge=1,
-        description="Schema version for learning walkthrough binding write payloads",
-    )
-    binding_id: LearningWalkthroughBindingId | None = Field(
-        default=None,
-        description="Optional existing binding identifier to update",
-    )
-    walkthrough_section_id: str
-    artifact_id: str
-    artifact_type: LearningWalkthroughArtifactType
-    lesson_id: str
-    learning_module_key: str
-    module_stage: str
-    lesson_title: str | None = None
-    status: LearningReviewStatus = LearningReviewStatus.PENDING
-    last_reviewed_at: datetime | None = None
-
-    model_config = {"arbitrary_types_allowed": True}
-
-    @field_validator(
-        "walkthrough_section_id",
-        "artifact_id",
-        "lesson_id",
-        "learning_module_key",
-        "module_stage",
-        mode="before",
-    )
-    @classmethod
-    def _ensure_non_empty(cls, value: Any) -> str:
-        """Normalise string fields for write payloads."""
-
-        if not isinstance(value, str) or not value.strip():
-            raise ValueError("value must be a non-empty string")
-        return value.strip()
-
-    @field_validator("lesson_title", mode="before")
-    @classmethod
-    def _normalise_optional_title(cls, value: Any) -> str | None:
-        """Trim optional lesson titles."""
-
-        if value is None:
-            return None
-        if not isinstance(value, str):
-            raise TypeError("lesson_title must be a string when provided")
-        stripped = value.strip()
-        return stripped or None

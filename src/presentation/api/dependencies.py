@@ -29,9 +29,6 @@ from src.application.interfaces import (
     IWorkerProvider,
 )
 from src.application.interfaces.config import IConfigProvider
-from src.application.interfaces.query_services import (
-    ILearningWalkthroughBindingQueryService,
-)
 from src.application.interfaces.secret import ISecretManager
 from src.application.services.application_service import ApplicationService
 from src.application.services.background_task_coordinator import (
@@ -231,14 +228,6 @@ async def get_learning_service(
                 "Failed to finalize learning service resources", exc_info=True
             )
 
-
-@inject
-async def get_learning_walkthrough_binding_query_service(
-    query_service: Any = Provide["cqrs.learning_walkthrough_binding_query_service"],
-) -> ILearningWalkthroughBindingQueryService:
-    """Resolve the learning walkthrough binding query service from the container."""
-
-    return cast(ILearningWalkthroughBindingQueryService, _resolve_provider(query_service))
 
 
 def _resolve_provider(instance: Any) -> Any:

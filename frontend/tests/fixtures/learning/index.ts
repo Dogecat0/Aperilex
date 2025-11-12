@@ -7,8 +7,6 @@ export const learningProgressResponses = [
     progress_percent: 60,
     last_interaction_at: '2025-01-05T10:00:00Z',
     completed_at: null,
-    pending_review_count: 2,
-    last_reviewed_at: null,
     is_unlocked: false,
     unlocked_at: null,
     metadata: {
@@ -59,8 +57,6 @@ export const learningProgressResponses = [
     progress_percent: 20,
     last_interaction_at: '2025-01-03T14:30:00Z',
     completed_at: null,
-    pending_review_count: 1,
-    last_reviewed_at: null,
     is_unlocked: false,
     unlocked_at: null,
     metadata: {

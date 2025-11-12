@@ -17,7 +17,6 @@ LearningProgressId = NewType("LearningProgressId", UUID)
 QuizAttemptId = NewType("QuizAttemptId", UUID)
 AuthSessionId = NewType("AuthSessionId", UUID)
 AuthRateLimitId = NewType("AuthRateLimitId", UUID)
-LearningWalkthroughBindingId = NewType("LearningWalkthroughBindingId", UUID)
 
 # Service Identifiers (String-based)
 StorageKey = NewType("StorageKey", str)

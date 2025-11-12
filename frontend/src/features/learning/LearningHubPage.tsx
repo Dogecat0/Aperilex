@@ -10,7 +10,6 @@ import { LearningProgressHero } from '@/features/dashboard/components/LearningPr
 import { LearningModuleModal } from './components/LearningModuleModal'
 
 const MODULE_SKELETON_KEYS = ['module-a', 'module-b', 'module-c'] as const
-type ModuleModalFocus = 'overview' | 'lessons'
 
 function formatTimestamp(value: string): string {
   const parsed = new Date(value)
@@ -72,9 +71,7 @@ export function LearningHubPage() {
     getSectionProgressSnapshot,
     isLoading: progressLoading,
     isRefetching: progressRefetching,
-    isSchedulingReview,
     updateProgress,
-    scheduleReview,
     error: progressError,
     clearError: clearProgressError,
   } = useLearningProgress({ modules: learningModules })
@@ -87,20 +84,15 @@ export function LearningHubPage() {
     clearError: clearQuizError,
   } = useQuizAttempts({ limit: 5 })
 
-  const [activeModuleState, setActiveModuleState] = useState<{
-    key: string
-    focus: ModuleModalFocus
-  } | null>(null)
+  const [activeModuleKey, setActiveModuleKey] = useState<string | null>(null)
 
   const activeModule = useMemo(() => {
-    const activeKey = activeModuleState?.key
+    const activeKey = activeModuleKey
     if (!activeKey) {
       return null
     }
     return learningModules.find((item) => item.key === activeKey) ?? null
-  }, [activeModuleState, learningModules])
-
-  const activeModuleFocus: ModuleModalFocus = activeModuleState?.focus ?? 'overview'
+  }, [activeModuleKey, learningModules])
 
   const activeProgress = activeModule ? progressByModule[activeModule.moduleKey] : undefined
   const activeSectionProgress = activeModule
@@ -171,34 +163,13 @@ export function LearningHubPage() {
     [progressByModule, updateProgress, navigate]
   )
 
-  const handleOpenModule = useCallback(
-    (moduleKey: string, focus: ModuleModalFocus = 'overview') => {
-      setActiveModuleState({ key: moduleKey, focus })
-    },
-    []
-  )
-
-  const handleCloseModule = useCallback(() => {
-    setActiveModuleState(null)
+  const handleOpenModule = useCallback((moduleKey: string) => {
+    setActiveModuleKey(moduleKey)
   }, [])
 
-  const handleScheduleModuleReview = useCallback(
-    async (
-      moduleKey: string,
-      params: { pendingReviewCount: number; scheduledFor?: string | null }
-    ) => {
-      try {
-        await scheduleReview({
-          moduleKey,
-          pendingReviewCount: params.pendingReviewCount,
-          scheduledFor: params.scheduledFor ?? null,
-        })
-      } catch {
-        // Errors surface through hook state; nothing additional here.
-      }
-    },
-    [scheduleReview]
-  )
+  const handleCloseModule = useCallback(() => {
+    setActiveModuleKey(null)
+  }, [])
 
   const toastMessages = useMemo(
     () =>
@@ -354,7 +325,6 @@ export function LearningHubPage() {
                       : sectionProgress.status === 'in_progress'
                         ? tokens.learning.accent
                         : tokens.status.neutral
-                  const pendingReviews = sectionProgress.pendingReviewCount
                   const hasContext = Boolean(context)
                   const sentimentBadge = context
                     ? describeSentiment(
@@ -365,7 +335,8 @@ export function LearningHubPage() {
                   const guidanceFocus = context?.guidanceFocus?.trim()
                   const guidanceWhy = context?.guidanceWhyItMatters?.trim()
                   const resumeDisabled = !hasContext
-                  const resumeLabel = progressPercent >= 100 ? 'Review walkthrough' : 'Resume walkthrough'
+                  const resumeLabel =
+                    progressPercent >= 100 ? 'Review walkthrough' : 'Resume walkthrough'
                   const resumeTitle = !hasContext
                     ? 'Launch a filing analysis to unlock contextual practice.'
                     : undefined
@@ -445,7 +416,7 @@ export function LearningHubPage() {
                             )}
                             {context.previousComparison?.pro_tip && (
                               <p className="text-[var(--text-secondary)] mt-3">
-                                {context.previousComparison.pro_tip} Resume the walkthrough for more details.
+                                {`${context.previousComparison.pro_tip} Resume the walkthrough for more details.`}
                               </p>
                             )}
                           </div>
@@ -501,11 +472,6 @@ export function LearningHubPage() {
                             {progressPercent}% complete
                           </span>
                         </div>
-                        {pendingReviews > 0 && (
-                          <p className="text-xs font-semibold text-[var(--status-negative)]">
-                            {pendingReviews} pending review{pendingReviews === 1 ? '' : 's'}
-                          </p>
-                        )}
                         <div className="mt-auto flex flex-wrap items-center justify-center gap-3 pt-1 text-center">
                           <Button
                             type="button"
@@ -622,7 +588,6 @@ export function LearningHubPage() {
           module={activeModule}
           progress={activeProgress}
           sectionProgress={activeSectionProgress}
-          initialFocus={activeModuleFocus}
           onClose={handleCloseModule}
           onResume={async () => {
             try {
@@ -631,8 +596,6 @@ export function LearningHubPage() {
               handleCloseModule()
             }
           }}
-          onScheduleReview={(params) => handleScheduleModuleReview(activeModule.moduleKey, params)}
-          isSchedulingReview={isSchedulingReview}
         />
       ) : null}
     </div>

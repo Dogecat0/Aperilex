@@ -21,7 +21,6 @@ from src.infrastructure.query_services import (
     CompanyQueryService,
     FilingQueryService,
     LearningProgressQueryService,
-    LearningWalkthroughBindingQueryService,
     QuizAttemptQueryService,
     UserQueryService,
 )
@@ -140,11 +139,6 @@ class InfrastructureWiring(containers.DeclarativeContainer):
         factory=repository_factory,
     )
 
-    learning_walkthrough_binding_repository = providers.Factory(
-        lambda factory: factory.get_learning_walkthrough_binding_repository(),
-        factory=repository_factory,
-    )
-
     quiz_attempt_repository = providers.Factory(
         lambda factory: factory.get_quiz_attempt_repository(),
         factory=repository_factory,
@@ -205,11 +199,6 @@ class InfrastructureWiring(containers.DeclarativeContainer):
 
     learning_progress_query_service = providers.Factory(
         LearningProgressQueryService,
-        session=session_provider,
-    )
-
-    learning_walkthrough_binding_query_service = providers.Factory(
-        LearningWalkthroughBindingQueryService,
         session=session_provider,
     )
 

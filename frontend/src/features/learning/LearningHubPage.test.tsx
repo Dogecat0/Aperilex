@@ -4,22 +4,6 @@ import { apiClient } from '@/lib/apiClient'
 import { renderWithProviders } from '@/test/utils'
 import { learningProgressResponses, quizAttemptResponses } from '@/../tests/fixtures/learning'
 
-const moduleBindingsResponse = [
-  {
-    schema_version: 1,
-    binding_id: 'binding-1',
-    walkthrough_section_id: 'section-1',
-    artifact_id: 'artifact-1',
-    artifact_type: 'COMPREHENSION_CHECK',
-    lesson_id: 'lesson-1',
-    learning_module_key: 'mda_foundations',
-    module_stage: 'fundamentals',
-    lesson_title: 'Margin quiz',
-    status: 'APPROVED',
-    last_reviewed_at: '2025-01-05T12:00:00Z',
-    updated_at: '2025-01-05T12:00:00Z',
-  },
-]
 import { mockPaginatedAnalysesResponse, mockAnalysisDetail } from '@/test/fixtures/analyses'
 import { LearningHubPage } from './LearningHubPage'
 
@@ -47,28 +31,12 @@ beforeEach(() => {
         filing_id: mockPaginatedAnalysesResponse.items[0].filing_id,
       }
     }
-    if (path === '/learning/modules/mda_foundations/bindings') {
-      return moduleBindingsResponse
-    }
     throw new Error(`Unexpected GET path: ${path}`)
   })
 
-  postSpy.mockImplementation(async (path: string, options?: { body?: Record<string, unknown> }) => {
+  postSpy.mockImplementation(async (path: string, _opts?: { body?: Record<string, unknown> }) => {
     if (path === '/learning/quiz-attempts') {
       return quizAttemptResponses[0]
-    }
-    if (path === '/learning/progress/mda_foundations/reviews/schedule') {
-      const pendingCount = options?.body?.pending_review_count ?? 1
-      const scheduledFor = options?.body?.scheduled_for ?? '2025-01-07T09:00:00Z'
-      return {
-        ...learningProgressResponses[0],
-        pending_review_count: pendingCount,
-        last_reviewed_at: scheduledFor,
-        metadata: {
-          ...learningProgressResponses[0].metadata,
-          next_review_at: scheduledFor,
-        },
-      }
     }
     throw new Error(`Unexpected POST path: ${path}`)
   })
@@ -138,7 +106,7 @@ describe('LearningHubPage', () => {
     expect(screen.queryByText('Mark complete')).toBeNull()
   })
 
-  it('opens the module modal and schedules a review', async () => {
+  it('opens the module modal and surfaces resume actions', async () => {
     renderWithProviders(<LearningHubPage />)
 
     const resumeButtons = await screen.findAllByRole('button', { name: /Resume module/i })
@@ -146,21 +114,9 @@ describe('LearningHubPage', () => {
 
     const dialog = await screen.findByRole('dialog')
     expect(dialog).toBeInTheDocument()
-    expect(screen.getByText(/Micro-lessons & review queue/i)).toBeInTheDocument()
-
-    const reviewInput = screen.getByLabelText(/Review date/i)
-    fireEvent.change(reviewInput, { target: { value: '2025-01-09' } })
-
-    fireEvent.click(screen.getByRole('button', { name: /Schedule review/i }))
-
-    await waitFor(() =>
-      expect(postSpy).toHaveBeenCalledWith(
-        '/learning/progress/mda_foundations/reviews/schedule',
-        expect.objectContaining({
-          body: expect.objectContaining({ pending_review_count: 2 }),
-        })
-      )
-    )
+    expect(screen.getByText(/Module overview/i)).toBeInTheDocument()
+    expect(screen.getByText(/Resume the guided walkthrough/i)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Resume walkthrough/i })).toBeInTheDocument()
   })
 
   it('surfaces automatic logging guidance for quiz attempts', async () => {
@@ -204,9 +160,6 @@ describe('LearningHubPage', () => {
           analysis_id: latestAnalysisIdOverride,
           filing_id: mockPaginatedAnalysesResponse.items[0].filing_id,
         }
-      }
-      if (path === '/learning/modules/mda_foundations/bindings') {
-        return moduleBindingsResponse
       }
       throw new Error(`Unexpected GET path: ${path}`)
     })

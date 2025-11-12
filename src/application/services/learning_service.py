@@ -2,23 +2,16 @@
 
 from __future__ import annotations
 
-from collections.abc import Sequence
 from datetime import datetime
 from typing import Any
 from uuid import uuid4
 
 from src.application.interfaces.repositories import (
     ILearningProgressRepository,
-    ILearningWalkthroughBindingRepository,
     IQuizAttemptRepository,
     IRepositoryFactory,
     LearningProgressData,
-    LearningWalkthroughBindingData,
     QuizAttemptData,
-)
-from src.shared.enums.learning import (
-    LearningReviewStatus,
-    LearningWalkthroughArtifactType,
 )
 from src.shared.models.learning import (
     LearningProgress,
@@ -56,8 +49,6 @@ class LearningService:
     def _to_progress_model(
         data: LearningProgressData,
         *,
-        pending_review_count: int | None = None,
-        last_reviewed_at: datetime | None = None,
         is_unlocked: bool | None = None,
         unlocked_at: datetime | None = None,
     ) -> LearningProgress:
@@ -68,10 +59,6 @@ class LearningService:
             progress_percent=data.progress_percent,
             last_interaction_at=data.last_interaction_at,
             completed_at=data.completed_at,
-            pending_review_count=
-            pending_review_count if pending_review_count is not None else data.pending_review_count,
-            last_reviewed_at=
-            last_reviewed_at if last_reviewed_at is not None else data.last_reviewed_at,
             is_unlocked=is_unlocked if is_unlocked is not None else data.is_unlocked,
             unlocked_at=unlocked_at if unlocked_at is not None else data.unlocked_at,
             metadata=data.metadata,
@@ -98,27 +85,13 @@ class LearningService:
             updated_at=data.updated_at,
         )
 
-    @staticmethod
-    def _pending_review_count(
-        bindings: Sequence[LearningWalkthroughBindingData],
-    ) -> int:
-        return sum(
-            1
-            for binding in bindings
-            if binding.artifact_type
-            == LearningWalkthroughArtifactType.COMPREHENSION_CHECK
-            and binding.status != LearningReviewStatus.APPROVED
-        )
-
     async def _refresh_module_progress(
         self,
         progress: LearningProgressData,
         *,
         quiz_id: str | None = None,
         persist: bool,
-        update_pending_reviews: bool = True,
         quiz_repository: IQuizAttemptRepository | None = None,
-        binding_repository: ILearningWalkthroughBindingRepository | None = None,
         learning_repository: ILearningProgressRepository | None = None,
     ) -> LearningProgress:
         if quiz_repository is None:
@@ -128,21 +101,11 @@ class LearningService:
                 await self._repository_factory.get_learning_progress_repository()
             )
 
-        pending_reviews = progress.pending_review_count
-        if update_pending_reviews:
-            if binding_repository is None:
-                binding_repository = (
-                    await self._repository_factory.get_learning_walkthrough_binding_repository()
-                )
-            module_bindings = await binding_repository.list_for_module(progress.module_key)
-            pending_reviews = self._pending_review_count(module_bindings)
-
         effective_quiz_id = quiz_id or progress.module_key
         best_attempt = await quiz_repository.get_best_attempt(
             progress.user_id, effective_quiz_id
         )
 
-        last_reviewed_at = progress.last_reviewed_at
         unlocked_at = progress.unlocked_at
         is_unlocked = progress.is_unlocked
 
@@ -152,8 +115,6 @@ class LearningService:
             passing_attempt = bool(
                 best_attempt.passed or best_attempt.score_percent >= 80.0
             )
-            if best_attempt.is_human_reviewed:
-                last_reviewed_at = best_attempt.attempted_at
 
         walkthrough_complete = (
             progress.progress_percent >= 100 or progress.completed_at is not None
@@ -169,10 +130,6 @@ class LearningService:
                 unlocked_at = best_attempt.attempted_at
 
         updates: dict[str, Any] = {}
-        if update_pending_reviews and progress.pending_review_count != pending_reviews:
-            updates["pending_review_count"] = pending_reviews
-        if progress.last_reviewed_at != last_reviewed_at:
-            updates["last_reviewed_at"] = last_reviewed_at
         if progress.is_unlocked != is_unlocked:
             updates["is_unlocked"] = is_unlocked
         if progress.unlocked_at != unlocked_at:
@@ -186,8 +143,6 @@ class LearningService:
 
         return self._to_progress_model(
             updated_progress,
-            pending_review_count=pending_reviews,
-            last_reviewed_at=last_reviewed_at,
             is_unlocked=is_unlocked,
             unlocked_at=unlocked_at,
         )
@@ -208,8 +163,6 @@ class LearningService:
             completed_at=payload.completed_at,
             metadata=payload.metadata,
             schema_version=payload.schema_version,
-            pending_review_count=payload.pending_review_count or 0,
-            last_reviewed_at=payload.last_reviewed_at,
             is_unlocked=payload.is_unlocked or False,
             unlocked_at=payload.unlocked_at,
         )
@@ -236,10 +189,6 @@ class LearningService:
             await self._repository_factory.get_learning_progress_repository()
         )
         quiz_repository = await self._repository_factory.get_quiz_attempt_repository()
-        binding_repository = (
-            await self._repository_factory.get_learning_walkthrough_binding_repository()
-        )
-
         records = await learning_repository.list_for_user(user_id)
         progress_models: list[LearningProgress] = []
         for record in records:
@@ -247,7 +196,6 @@ class LearningService:
                 record,
                 persist=False,
                 quiz_repository=quiz_repository,
-                binding_repository=binding_repository,
                 learning_repository=learning_repository,
             )
             progress_models.append(progress)
@@ -283,8 +231,6 @@ class LearningService:
                     "section_progress_version": 1,
                 },
                 schema_version=1,
-                pending_review_count=0,
-                last_reviewed_at=None,
                 is_unlocked=False,
                 unlocked_at=None,
         )
@@ -419,57 +365,6 @@ class LearningService:
             learning_repository=learning_repository,
         )
 
-    async def schedule_review(
-        self,
-        user_id: UserId,
-        module_key: str,
-        *,
-        scheduled_for: datetime,
-        pending_review_count: int,
-        notes: str | None = None,
-    ) -> LearningProgress:
-        """Schedule a review quiz for spaced repetition."""
-
-        learning_repository = (
-            await self._repository_factory.get_learning_progress_repository()
-        )
-        progress = await learning_repository.get_for_user_module(user_id, module_key)
-        if progress is None:
-            progress = LearningProgressData(
-                id=LearningProgressId(uuid4()),
-                user_id=user_id,
-                module_key=module_key,
-                progress_percent=0,
-                last_interaction_at=scheduled_for,
-                completed_at=None,
-                metadata={},
-                schema_version=1,
-                pending_review_count=0,
-                last_reviewed_at=None,
-                is_unlocked=False,
-                unlocked_at=None,
-            )
-
-        metadata = dict(progress.metadata or {})
-        metadata["next_review_at"] = scheduled_for.isoformat()
-        if notes:
-            metadata["review_notes"] = notes
-
-        updated_progress = progress.model_copy(
-            update={
-                "pending_review_count": max(pending_review_count, 0),
-                "metadata": metadata,
-            }
-        )
-
-        saved = await learning_repository.upsert(updated_progress)
-        return await self._refresh_module_progress(
-            saved,
-            persist=True,
-            update_pending_reviews=False,
-            learning_repository=learning_repository,
-        )
-
     async def delete_progress(self, progress_id: LearningProgressId) -> bool:
         """Delete a learning progress entry by identifier."""
 
@@ -521,9 +416,6 @@ class LearningService:
                 quiz_id=payload.quiz_id,
                 persist=True,
                 quiz_repository=quiz_repository,
-                binding_repository=(
-                    await self._repository_factory.get_learning_walkthrough_binding_repository()
-                ),
                 learning_repository=learning_repository,
             )
 

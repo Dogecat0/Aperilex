@@ -19,7 +19,6 @@ const sampleHighlights: LearningDashboardHighlights = {
     inProgress: 2,
     queued: 1,
   },
-  pendingReviewTotal: 3,
   activeAnalyses: 2,
   nextLesson: {
     moduleKey: 'mda_foundations',
@@ -29,7 +28,6 @@ const sampleHighlights: LearningDashboardHighlights = {
     duration: '9 min walkthrough',
     progressPercent: 60,
     isUnlocked: true,
-    pendingReviewCount: 2,
   },
 }
 
@@ -51,14 +49,12 @@ describe('LearningProgressHero', () => {
     ).toBeInTheDocument()
     expect(screen.getByText('Sections complete')).toBeInTheDocument()
     expect(screen.getByText('2/5')).toBeInTheDocument()
-    expect(
-      screen.getByText(/Active 4 · In progress 2 · Queued 1 · Pending reviews 3/i)
-    ).toBeInTheDocument()
+    expect(screen.getByText(/Active 4 · In progress 2 · Queued 1/i)).toBeInTheDocument()
     expect(screen.getByText('Next lesson')).toBeInTheDocument()
     expect(screen.getByText('Decode MD&A narratives')).toBeInTheDocument()
     expect(
       screen.getByText(
-        /Connect commentary back to margin changes from your latest filing\. · 9 min walkthrough · 60% complete · Pending reviews 2/i
+        /Connect commentary back to margin changes from your latest filing\. · 9 min walkthrough · 60% complete/i
       )
     ).toBeInTheDocument()
   })

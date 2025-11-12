@@ -18,8 +18,6 @@ export interface LearningProgressRecord {
   progressPercent: number
   lastInteractionAt: string | null
   completedAt: string | null
-  pendingReviewCount: number
-  lastReviewedAt: string | null
   isUnlocked: boolean
   unlockedAt: string | null
   metadata: Record<string, unknown>
@@ -45,13 +43,6 @@ export interface RecordWalkthroughEventInput {
   completedAt?: string | null
 }
 
-export interface ScheduleReviewInput {
-  moduleKey: string
-  pendingReviewCount: number
-  scheduledFor?: string | null
-  notes?: string | null
-}
-
 export type ModuleProgressStatus = 'queued' | 'in_progress' | 'completed'
 
 export interface NextLessonRecommendation {
@@ -62,7 +53,6 @@ export interface NextLessonRecommendation {
   duration: string
   progressPercent: number
   isUnlocked: boolean
-  pendingReviewCount: number
 }
 
 export interface LearningDashboardHighlights {
@@ -80,7 +70,6 @@ export interface LearningDashboardHighlights {
     inProgress: number
     queued: number
   }
-  pendingReviewTotal: number
   activeAnalyses: number
   nextLesson: NextLessonRecommendation | null
 }
@@ -112,11 +101,9 @@ export interface SectionProgressSnapshot {
   sectionKey: string
   analysisId: string | null
   progressPercent: number
-  pendingReviewCount: number
   isUnlocked: boolean
   status: ModuleProgressStatus
   lastInteractionAt: string | null
-  lastReviewedAt: string | null
   completedAt: string | null
 }
 
@@ -229,26 +216,6 @@ function pickString(source: Record<string, unknown> | null, ...keys: string[]): 
   }
 
   return null
-}
-
-function extractSectionPendingReviewCount(
-  sectionEntry: Record<string, unknown> | null,
-  fallback: number
-): number {
-  if (!sectionEntry) {
-    return Math.max(fallback, 0)
-  }
-
-  const pending = coerceNumber(
-    (sectionEntry as { pending_review_count?: unknown }).pending_review_count,
-    (sectionEntry as { pendingReviewCount?: unknown }).pendingReviewCount
-  )
-
-  if (pending === null) {
-    return Math.max(fallback, 0)
-  }
-
-  return Math.max(pending, 0)
 }
 
 function extractSectionLastInteractionAt(
@@ -474,8 +441,6 @@ function normalizeProgress(response: LearningProgressResponse): LearningProgress
     progressPercent: response.progress_percent,
     lastInteractionAt: response.last_interaction_at ?? null,
     completedAt: response.completed_at ?? null,
-    pendingReviewCount: response.pending_review_count,
-    lastReviewedAt: response.last_reviewed_at ?? null,
     isUnlocked: response.is_unlocked,
     unlockedAt: response.unlocked_at ?? null,
     metadata: response.metadata ?? {},
@@ -575,11 +540,6 @@ function resolveSectionProgressSnapshot(
   analysisId: string | null
 ): SectionProgressSnapshot {
   const sectionEntry = getSectionEntry(record, sectionKey)
-  const pendingReviewCount = extractSectionPendingReviewCount(
-    sectionEntry,
-    record?.pendingReviewCount ?? 0
-  )
-  const lastReviewedAt = record?.lastReviewedAt ?? null
   const isUnlocked = record?.isUnlocked ?? false
   const recordProgressPercent = clampPercent(record?.progressPercent ?? 0)
 
@@ -622,11 +582,9 @@ function resolveSectionProgressSnapshot(
     sectionKey,
     analysisId: analysisId ?? null,
     progressPercent,
-    pendingReviewCount,
     isUnlocked,
     status,
     lastInteractionAt,
-    lastReviewedAt,
     completedAt,
   }
 }
@@ -695,12 +653,10 @@ function computeHighlightsFromDescriptors(
   }
   const seenSections = new Set<string>()
   const activeAnalyses = new Set<string>()
-  let pendingReviewTotal = 0
 
   const aggregates = descriptors.map((descriptor) => {
     const record = progressMap[descriptor.key]
     const progressPercent = record?.progressPercent ?? 0
-    const pendingReviewCount = record?.pendingReviewCount ?? 0
     const isUnlocked = record?.isUnlocked ?? false
     const status: ModuleProgressStatus =
       progressPercent >= 100 ? 'completed' : progressPercent > 0 ? 'in_progress' : 'queued'
@@ -709,7 +665,6 @@ function computeHighlightsFromDescriptors(
       descriptor,
       record,
       progressPercent,
-      pendingReviewCount,
       isUnlocked,
       status,
     }
@@ -730,7 +685,6 @@ function computeHighlightsFromDescriptors(
       unlocked += 1
     }
 
-    pendingReviewTotal += aggregate.pendingReviewCount
     accumulateSectionProgress(aggregate.record, sectionSummary, seenSections, activeAnalyses)
   }
 
@@ -776,9 +730,6 @@ function computeHighlightsFromDescriptors(
       if (a.progressPercent !== b.progressPercent) {
         return a.progressPercent - b.progressPercent
       }
-      if (b.pendingReviewCount !== a.pendingReviewCount) {
-        return b.pendingReviewCount - a.pendingReviewCount
-      }
       const aTimestamp = toTimestamp(a.record?.lastInteractionAt)
       const bTimestamp = toTimestamp(b.record?.lastInteractionAt)
       if (aTimestamp !== bTimestamp) {
@@ -796,7 +747,6 @@ function computeHighlightsFromDescriptors(
         duration: nextLessonSource.descriptor.duration,
         progressPercent: nextLessonSource.progressPercent,
         isUnlocked: nextLessonSource.isUnlocked,
-        pendingReviewCount: nextLessonSource.pendingReviewCount,
       }
     : null
 
@@ -810,7 +760,6 @@ function computeHighlightsFromDescriptors(
       locked,
     },
     sectionSummary,
-    pendingReviewTotal,
     activeAnalyses: activeAnalyses.size,
     nextLesson,
   }
@@ -823,9 +772,7 @@ function computeHighlightsFromModules(
   const snapshots: DashboardSectionSnapshot[] = []
   const seenSectionIdentifiers = new Set<string>()
   const activeAnalyses = new Set<string>()
-  const pendingReviewKeys = new Set<string>()
   const unlockedModuleKeys = new Set<string>()
-  let pendingReviewTotal = 0
 
   for (const module of modules) {
     const sectionKey = module.sectionKey
@@ -846,11 +793,6 @@ function computeHighlightsFromModules(
       sectionKey,
       module.context?.analysisId ?? null
     )
-
-    if (!pendingReviewKeys.has(module.moduleKey)) {
-      pendingReviewTotal += snapshot.pendingReviewCount
-      pendingReviewKeys.add(module.moduleKey)
-    }
 
     if (snapshot.isUnlocked) {
       unlockedModuleKeys.add(module.moduleKey)
@@ -901,9 +843,6 @@ function computeHighlightsFromModules(
       if (a.progressPercent !== b.progressPercent) {
         return a.progressPercent - b.progressPercent
       }
-      if (b.pendingReviewCount !== a.pendingReviewCount) {
-        return b.pendingReviewCount - a.pendingReviewCount
-      }
       const aTimestamp = toTimestamp(a.lastInteractionAt)
       const bTimestamp = toTimestamp(b.lastInteractionAt)
       if (aTimestamp !== bTimestamp) {
@@ -924,7 +863,6 @@ function computeHighlightsFromModules(
         duration: nextLessonSource.duration,
         progressPercent: nextLessonSource.progressPercent,
         isUnlocked: nextLessonSource.isUnlocked,
-        pendingReviewCount: nextLessonSource.pendingReviewCount,
       }
     : null
 
@@ -938,7 +876,6 @@ function computeHighlightsFromModules(
       locked,
     },
     sectionSummary,
-    pendingReviewTotal,
     activeAnalyses: activeAnalyses.size,
     nextLesson,
   }
@@ -1099,8 +1036,6 @@ export function useLearningProgress(options?: UseLearningProgressOptions) {
         progressPercent: input.progressPercent,
         lastInteractionAt: baseTimestamp,
         completedAt: completedAt ?? existing?.completedAt ?? null,
-        pendingReviewCount: existing?.pendingReviewCount ?? 0,
-        lastReviewedAt: existing?.lastReviewedAt ?? null,
         isUnlocked: existing?.isUnlocked ?? false,
         unlockedAt: existing?.unlockedAt ?? null,
         metadata: { ...(existing?.metadata ?? {}), ...(input.metadata ?? {}) },
@@ -1168,43 +1103,6 @@ export function useLearningProgress(options?: UseLearningProgressOptions) {
     },
   })
 
-  const reviewMutation = useMutation<LearningProgressRecord, unknown, ScheduleReviewInput>({
-    mutationKey: ['learning-progress', 'schedule-review'],
-    mutationFn: async (input) => {
-      setError(null)
-
-      const body: Record<string, unknown> = {
-        pending_review_count: input.pendingReviewCount,
-      }
-
-      if (input.scheduledFor) {
-        body.scheduled_for = input.scheduledFor
-      }
-
-      if (input.notes) {
-        body.notes = input.notes
-      }
-
-      const response = await apiClient.post<LearningProgressResponse>(
-        `/learning/progress/${input.moduleKey}/reviews/schedule`,
-        {
-          body,
-          schema: learningProgressSchema,
-        }
-      )
-
-      return normalizeProgress(response)
-    },
-    onSuccess: (record) => {
-      queryClient.setQueryData<LearningProgressRecord[]>(PROGRESS_QUERY_KEY, (current) =>
-        upsertRecord(current ?? [], record)
-      )
-    },
-    onError: (err) => {
-      setError(buildErrorMessage(err))
-    },
-  })
-
   const clearError = () => setError(null)
 
   return {
@@ -1216,10 +1114,8 @@ export function useLearningProgress(options?: UseLearningProgressOptions) {
     isRefetching: progressQuery.isRefetching,
     isUpdating: updateMutation.isPending,
     isRecordingWalkthrough: walkthroughMutation.isPending,
-    isSchedulingReview: reviewMutation.isPending,
     updateProgress: updateMutation.mutateAsync,
     recordWalkthroughEvent: walkthroughMutation.mutateAsync,
-    scheduleReview: reviewMutation.mutateAsync,
     error,
     clearError,
     refetch: progressQuery.refetch,

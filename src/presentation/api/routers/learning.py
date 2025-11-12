@@ -10,20 +10,11 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, ConfigDict, Field
 
 from src.application.interfaces.authentication import AuthenticationResult
-from src.application.interfaces.query_services import (
-    ILearningWalkthroughBindingQueryService,
-    LearningWalkthroughBindingQueryResult,
-)
 from src.application.services.learning_service import LearningService
 from src.presentation.api.dependencies import (
     get_learning_service,
-    get_learning_walkthrough_binding_query_service,
 )
 from src.presentation.api.security import get_current_user
-from src.shared.enums.learning import (
-    LearningReviewStatus,
-    LearningWalkthroughArtifactType,
-)
 from src.shared.models.learning import (
     LearningProgress,
     LearningProgressUpsert,
@@ -69,8 +60,6 @@ class LearningProgressResponse(BaseModel):
     progress_percent: int = Field(..., ge=0, le=100)
     last_interaction_at: datetime | None = Field(default=None)
     completed_at: datetime | None = Field(default=None)
-    pending_review_count: int = Field(default=0, ge=0)
-    last_reviewed_at: datetime | None = Field(default=None)
     is_unlocked: bool = Field(default=False)
     unlocked_at: datetime | None = Field(default=None)
     metadata: dict[str, Any] = Field(default_factory=dict)
@@ -89,53 +78,11 @@ class LearningProgressResponse(BaseModel):
             progress_percent=progress.progress_percent,
             last_interaction_at=progress.last_interaction_at,
             completed_at=progress.completed_at,
-            pending_review_count=progress.pending_review_count,
-            last_reviewed_at=progress.last_reviewed_at,
             is_unlocked=progress.is_unlocked,
             unlocked_at=progress.unlocked_at,
             metadata=progress.metadata or {},
             created_at=progress.created_at,
             updated_at=progress.updated_at,
-        )
-
-
-class LearningModuleBindingResponse(BaseModel):
-    """API response for a learning module binding record."""
-
-    schema_version: int = Field(default=1, ge=1)
-    binding_id: str = Field(..., description="Binding identifier")
-    walkthrough_section_id: str = Field(..., description="Source walkthrough section")
-    artifact_id: str = Field(..., description="Associated highlight/comprehension identifier")
-    artifact_type: LearningWalkthroughArtifactType = Field(
-        ..., description="Type of walkthrough artifact"
-    )
-    lesson_id: str = Field(..., description="Linked lesson identifier")
-    learning_module_key: str = Field(..., description="Module key aligned with the binding")
-    module_stage: str = Field(..., description="Module stage for the binding")
-    lesson_title: str | None = Field(default=None, description="Optional lesson title")
-    status: LearningReviewStatus = Field(..., description="Human review status")
-    last_reviewed_at: datetime | None = Field(default=None)
-    updated_at: datetime | None = Field(default=None)
-
-    model_config = ConfigDict(extra="ignore")
-
-    @classmethod
-    def from_result(
-        cls, result: LearningWalkthroughBindingQueryResult
-    ) -> LearningModuleBindingResponse:
-        return cls(
-            schema_version=result.schema_version,
-            binding_id=str(result.binding_id),
-            walkthrough_section_id=result.walkthrough_section_id,
-            artifact_id=result.artifact_id,
-            artifact_type=result.artifact_type,
-            lesson_id=result.lesson_id,
-            learning_module_key=result.learning_module_key,
-            module_stage=result.module_stage,
-            lesson_title=result.lesson_title,
-            status=result.status,
-            last_reviewed_at=result.last_reviewed_at,
-            updated_at=result.updated_at,
         )
 
 
@@ -167,16 +114,6 @@ class WalkthroughCompletionRequest(BaseModel):
     )
     progress_percent: int = Field(..., ge=0, le=100)
     completed_at: datetime | None = Field(default=None)
-
-    model_config = ConfigDict(extra="forbid")
-
-
-class ReviewScheduleRequest(BaseModel):
-    """Request payload for scheduling a review quiz."""
-
-    scheduled_for: datetime | None = Field(default=None)
-    pending_review_count: int = Field(..., ge=0)
-    notes: str | None = Field(default=None)
 
     model_config = ConfigDict(extra="forbid")
 
@@ -326,50 +263,6 @@ async def record_walkthrough_event(
         completed_at=event_time,
     )
     return LearningProgressResponse.from_model(progress)
-
-
-@router.post(
-    "/progress/{module_key}/reviews/schedule",
-    response_model=LearningProgressResponse,
-    summary="Schedule a review quiz for the authenticated user",
-)
-async def schedule_module_review(
-    module_key: str,
-    payload: ReviewScheduleRequest,
-    auth_result: AuthenticationResult = Depends(get_current_user),
-    learning_service: LearningService = Depends(get_learning_service),
-) -> LearningProgressResponse:
-    """Schedule a review window and update pending review metadata."""
-
-    user_id = _require_user_id(auth_result)
-    scheduled_for = payload.scheduled_for or _now()
-    progress = await learning_service.schedule_review(
-        user_id=user_id,
-        module_key=module_key,
-        scheduled_for=scheduled_for,
-        pending_review_count=payload.pending_review_count,
-        notes=payload.notes,
-    )
-    return LearningProgressResponse.from_model(progress)
-
-
-@router.get(
-    "/modules/{module_key}/bindings",
-    response_model=list[LearningModuleBindingResponse],
-    summary="List walkthrough bindings for a learning module",
-)
-async def list_learning_module_bindings(
-    module_key: str,
-    auth_result: AuthenticationResult = Depends(get_current_user),
-    binding_query_service: ILearningWalkthroughBindingQueryService = Depends(
-        get_learning_walkthrough_binding_query_service
-    ),
-) -> list[LearningModuleBindingResponse]:
-    """Return walkthrough bindings (lessons + review status) for the module."""
-
-    _require_user_id(auth_result)
-    bindings = await binding_query_service.list_module_bindings(module_key)
-    return [LearningModuleBindingResponse.from_result(binding) for binding in bindings]
 
 
 @router.get(

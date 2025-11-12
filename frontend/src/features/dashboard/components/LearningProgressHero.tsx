@@ -8,7 +8,7 @@ interface LearningProgressHeroProps {
 }
 
 export function LearningProgressHero({ highlights, isLoading }: LearningProgressHeroProps) {
-  const { completion, sectionSummary, pendingReviewTotal, nextLesson, activeAnalyses } = highlights
+  const { completion, sectionSummary, nextLesson, activeAnalyses } = highlights
   const progressPending = isLoading
 
   const totalModules = Math.max(completion.total, 0)
@@ -31,7 +31,7 @@ export function LearningProgressHero({ highlights, isLoading }: LearningProgress
     value: progressPending ? '—' : `${sectionSummary.completed}/${totalSections}`,
     helper: progressPending
       ? 'Loading section summary…'
-      : `Active ${activeSections} · In progress ${sectionSummary.inProgress} · Queued ${sectionSummary.queued} · Pending reviews ${pendingReviewTotal}`,
+      : `Active ${activeSections} · In progress ${sectionSummary.inProgress} · Queued ${sectionSummary.queued}`,
   }
 
   const nextLessonStat = createNextLessonStat(nextLesson, progressPending)
@@ -84,12 +84,11 @@ function createNextLessonStat(
     }
   }
 
-  const pendingCopy = `Pending reviews ${recommendation.pendingReviewCount}`
   const progressCopy = `${recommendation.progressPercent}% complete`
 
   return {
     label: 'Next lesson',
     value: recommendation.title,
-    helper: `${recommendation.summary} · ${recommendation.duration} · ${progressCopy} · ${pendingCopy}`,
+    helper: `${recommendation.summary} · ${recommendation.duration} · ${progressCopy}`,
   }
 }
