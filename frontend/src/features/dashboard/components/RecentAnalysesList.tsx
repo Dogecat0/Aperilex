@@ -35,7 +35,7 @@ export function RecentAnalysesList({ groups, isLoading }: RecentAnalysesListProp
 
   const showGroupSkeleton = isLoading && groups.length === 0
   const controlBaseClass =
-    'rounded-full border px-4 py-2 transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2'
+    'rounded-full border px-4 py-2 text-xs font-semibold uppercase tracking-wide transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2'
 
   return (
     <section

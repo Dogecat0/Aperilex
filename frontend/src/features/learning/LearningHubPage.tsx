@@ -365,7 +365,7 @@ export function LearningHubPage() {
                   const guidanceFocus = context?.guidanceFocus?.trim()
                   const guidanceWhy = context?.guidanceWhyItMatters?.trim()
                   const resumeDisabled = !hasContext
-                  const resumeLabel = progressPercent >= 100 ? 'Review module' : 'Resume module'
+                  const resumeLabel = progressPercent >= 100 ? 'Review walkthrough' : 'Resume walkthrough'
                   const resumeTitle = !hasContext
                     ? 'Launch a filing analysis to unlock contextual practice.'
                     : undefined
@@ -390,7 +390,7 @@ export function LearningHubPage() {
                                 {statusLabel}
                               </span>
                               <h3
-                                className="text-lg font-semibold"
+                                className="text-2xl font-semibold"
                                 style={{
                                   color: 'var(--text-primary)',
                                   letterSpacing: tokens.typography.letterSpacing.tight,
@@ -404,16 +404,6 @@ export function LearningHubPage() {
                             </span>
                           </div>
                         </div>
-                        <p
-                          className="text-sm"
-                          style={{
-                            color: 'var(--text-secondary)',
-                            lineHeight: 'var(--typography-line-heights-standard)',
-                          }}
-                        >
-                          {module.summary}
-                        </p>
-
                         {context ? (
                           <div
                             className="flex flex-col gap-2 rounded-lg border px-3 py-3 text-sm"
@@ -433,13 +423,8 @@ export function LearningHubPage() {
                                 {context.highlight}
                               </p>
                             )}
-                            {context.previousComparison?.pro_tip && (
-                              <p className="text-xs text-[var(--text-secondary)]">
-                                Pro tip: {context.previousComparison.pro_tip}
-                              </p>
-                            )}
                             {(guidanceFocus || guidanceWhy) && (
-                              <div className="space-y-1 text-xs text-[var(--text-secondary)]">
+                              <div className="space-y-2 mb-3 mt-3 text-[var(--text-secondary)]">
                                 {guidanceFocus && (
                                   <p>
                                     <span className="font-semibold text-[var(--text-primary)]">
@@ -458,13 +443,9 @@ export function LearningHubPage() {
                                 )}
                               </div>
                             )}
-                            {context.lessonBindings.length > 0 && (
-                              <p className="text-xs text-[var(--text-secondary)]">
-                                {context.lessonBindings.length}{' '}
-                                {context.lessonBindings.length === 1
-                                  ? 'linked lesson'
-                                  : 'linked lessons'}{' '}
-                                ready
+                            {context.previousComparison?.pro_tip && (
+                              <p className="text-[var(--text-secondary)] mt-3">
+                                {context.previousComparison.pro_tip} Resume the walkthrough for more details.
                               </p>
                             )}
                           </div>
