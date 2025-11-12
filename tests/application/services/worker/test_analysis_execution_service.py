@@ -563,6 +563,74 @@ async def test_structured_analysis_handles_missing_walkthrough_citations() -> No
 
 @pytest.mark.unit
 @pytest.mark.asyncio
+async def test_structured_analysis_truncates_excess_highlights() -> None:
+    async def fake_analyze_sections(**_: Any) -> ComprehensiveAnalysisResponse:
+        response = _make_comprehensive_response()
+        section = response.section_analyses[0]
+        if section.walkthrough is not None:
+            section.walkthrough.highlights = [
+                WalkthroughHighlight(
+                    id=f"highlight-{index}",
+                    title=f"Highlight {index}",
+                    summary=f"Summary {index}",
+                    source_reference=f"Item 1A - Risk Factors ¶{index + 1}",
+                    confidence=0.5,
+                    severity="Medium",
+                    lesson_reference=WalkthroughLessonReference(
+                        lesson_id=f"lesson-{index}",
+                        learning_module_key="risk_mastery",
+                        module_stage="walkthrough",
+                        title=f"Lesson {index}",
+                    ),
+                    quote=None,
+                    tags=["risk"],
+                )
+                for index in range(4)
+            ]
+        response.section_analyses = [section]
+        return response
+
+    async def fake_model_info() -> SimpleNamespace:
+        return SimpleNamespace(model_name="gpt-4-structured")
+
+    llm_provider = SimpleNamespace(
+        analyze_filing_sections=fake_analyze_sections,
+        get_model_info=fake_model_info,
+    )
+
+    service = AnalysisExecutionService(llm_provider=llm_provider)
+
+    task_data = _make_task_data()
+    request = service.create_analysis_request(task_data)
+
+    result = await service.perform_structured_comprehensive_analysis(
+        request=request,
+        filing_id=task_data.filing_id,
+        filing_type=task_data.filing_type,
+        filing_sections={"Risk Factors": "Section text"},
+        company_name="Acme Corp",
+        template=AnalysisTemplate.COMPREHENSIVE,
+        metadata=task_data.metadata,
+        task_data=task_data,
+    )
+
+    structured_dump = result.structured_data.model_dump()
+    walkthrough_highlights = structured_dump["section_walkthroughs"]["Item 1A - Risk Factors"]["highlights"]
+    assert len(walkthrough_highlights) == 3
+    assert [entry["id"] for entry in walkthrough_highlights] == [
+        "highlight-0",
+        "highlight-1",
+        "highlight-2",
+    ]
+    assert structured_dump["section_analyses"][0]["citations"] == [
+        "Item 1A - Risk Factors ¶1",
+        "Item 1A - Risk Factors ¶2",
+        "Item 1A - Risk Factors ¶3",
+    ]
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
 async def test_structured_analysis_strips_section_walkthrough_payloads() -> None:
     async def fake_analyze_sections(**_: Any) -> ComprehensiveAnalysisResponse:
         return _make_comprehensive_response()

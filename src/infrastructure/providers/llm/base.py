@@ -264,6 +264,7 @@ def _resolve_walkthrough_prompt_context(
     contexts = _walkthrough_prompt_contexts()
     return contexts.get(canonical)
 
+
 class SectionSummaryResponse(BaseModel):
     """Section summary response without sub-sections (for OpenAI structured output)."""
 
@@ -1158,8 +1159,8 @@ def create_section_summary_prompts(
     if walkthrough_context:
         walkthrough_lines = [
             "Guided Walkthrough Requirements:",
-            f"- Emit `walkthrough.learning_module_key` exactly as \"{walkthrough_context.learning_module_key}\" "
-            f"and `walkthrough.module_stage` exactly as \"{walkthrough_context.module_stage}\".",
+            f'- Emit `walkthrough.learning_module_key` exactly as "{walkthrough_context.learning_module_key}" '
+            f'and `walkthrough.module_stage` exactly as "{walkthrough_context.module_stage}".',
             "- Provide `walkthrough.guidance.focus` and `walkthrough.guidance.why_it_matters` as polished, filing-specific prose.",
             "- Populate `walkthrough.highlights` with 1-3 entries; each entry must include `id`, `title`, `summary`, "
             "`source_reference` (section header + paragraph indicator), `confidence` (0-1), optional `severity`, "
@@ -1168,8 +1169,8 @@ def create_section_summary_prompts(
             "`correct_answer`, `distractors` (minimum two), `explanation`, and `lesson_reference` "
             "(lesson_id, learning_module_key, module_stage, optional title).",
             "- Produce a `citations` array listing every `source_reference` surfaced in the highlights (one citation per highlight).",
-            f"- Anchor the learner by covering the focus \"{walkthrough_context.focus}\" and explaining why it matters using "
-            f"\"{walkthrough_context.why_it_matters}\" as context.",
+            f'- Anchor the learner by covering the focus "{walkthrough_context.focus}" and explaining why it matters using '
+            f'"{walkthrough_context.why_it_matters}" as context.',
             "- Use realistic kebab-case identifiers for highlights and checks; never emit placeholders.",
         ]
         if walkthrough_context.estimated_duration_minutes:

@@ -183,12 +183,25 @@ class OpenAILLMProvider(BaseLLMProvider):
 
             if response.usage is not None:
                 try:
-                    logger.debug(
-                        "Tokens used: %d prompt and %d output",
-                        int(response.usage.prompt_tokens),
-                        int(response.usage.completion_tokens),
+                    prompt_tokens = int(response.usage.prompt_tokens)
+                    completion_tokens = int(response.usage.completion_tokens)
+                    prompt_token_details = getattr(
+                        response.usage, "prompt_tokens_details", None
                     )
-                except (TypeError, ValueError):
+                    cached_tokens_value = 0
+                    if prompt_token_details is not None:
+                        cached_raw = getattr(prompt_token_details, "cached_tokens", None)
+                        if cached_raw is not None:
+                            cached_tokens_value = int(cached_raw)
+                    logger.info(
+                        "Tokens used (section=%s subsection=%s): prompt=%d output=%d cached=%d",
+                        section_name,
+                        human_readable_name,
+                        prompt_tokens,
+                        completion_tokens,
+                        cached_tokens_value,
+                    )
+                except (AttributeError, TypeError, ValueError):
                     logger.debug("Token usage info unavailable")
 
             # Get the parsed result from response
