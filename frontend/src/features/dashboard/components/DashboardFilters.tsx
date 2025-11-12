@@ -19,8 +19,8 @@ const filingTypeOptions: { label: string; value: FilingTypeFilter }[] = [
 ]
 
 const dateRangeOptions: { label: string; value: DateRangeFilter }[] = [
-  { label: 'Last 90 days', value: '90d' },
-  { label: 'Last 180 days', value: '180d' },
+  { label: 'Last week', value: '7d' },
+  { label: 'Last month', value: '30d' },
   { label: 'Last 12 months', value: '365d' },
   { label: 'All time', value: 'all' },
 ]

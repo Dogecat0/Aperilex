@@ -11,7 +11,7 @@ import { ApiClientError } from '@/lib/apiClient'
 import type { AnalysisResponse, ListAnalysesParams } from '@/lib/types/analysis'
 
 export type FilingTypeFilter = 'all' | '10-Q' | '10-K'
-export type DateRangeFilter = '90d' | '180d' | '365d' | 'all'
+export type DateRangeFilter = '7d' | '30d' | '365d' | 'all'
 export type SegmentFilter =
   | 'all'
   | 'comprehensive'
@@ -27,7 +27,7 @@ export interface DashboardFiltersState {
 
 const DEFAULT_FILTERS: DashboardFiltersState = {
   filingType: 'all',
-  dateRange: '180d',
+  dateRange: '30d',
   segment: 'all',
 }
 
@@ -37,8 +37,8 @@ const filingTypeSearchMap: Partial<Record<FilingTypeFilter, string>> = {
 }
 
 const DATE_RANGE_IN_DAYS: Record<Exclude<DashboardFiltersState['dateRange'], 'all'>, number> = {
-  '90d': 90,
-  '180d': 180,
+  '7d': 7,
+  '30d': 30,
   '365d': 365,
 }
 
@@ -307,12 +307,12 @@ export function DashboardPage() {
 
   const dateRangeLabel = useMemo(() => {
     switch (filters.dateRange) {
-      case '90d':
-        return '90 days'
-      case '180d':
-        return '180 days'
+      case '7d':
+        return 'Last week'
+      case '30d':
+        return 'Last month'
       case '365d':
-        return '12 months'
+        return 'Last 12 months'
       case 'all':
       default:
         return 'All time'
