@@ -104,6 +104,8 @@ class OpenAILLMProvider(BaseLLMProvider):
         }
         self.extra_body = {
             "usage": {"include": True},
+            "reasoning": {"effort": "low"},
+            "provider": {"order": ["azure"]},
         }
 
     async def _ensure_client(self) -> None:
