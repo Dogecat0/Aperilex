@@ -16,10 +16,10 @@ export function LearningProgressHero({ highlights, isLoading }: LearningProgress
   const notStarted = Math.max(totalModules - activeModules, 0)
 
   const completionStat = {
-    label: 'Module coverage',
-    value: progressPending ? '—' : `${activeModules}/${totalModules}`,
+    label: 'Section coverage',
+    value: progressPending ? '—' : `${totalModules}`,
     helper: progressPending
-      ? 'Loading module coverage…'
+      ? 'Loading section coverage…'
       : `Completed ${completion.completed} · In progress ${completion.inProgress} · Not started ${notStarted} · Active analyses ${activeAnalyses}`,
   }
 

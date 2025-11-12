@@ -445,6 +445,82 @@ export const mockAnalysisDetail: AnalysisResponse = {
                 'Services delivered double-digit growth with expanding contribution margins, stabilising total operating profit.',
               tags: ['md&a', 'margin'],
             },
+            {
+              id: 'highlight-mda-cost-discipline',
+              title: 'Operating expense discipline',
+              summary:
+                'OpEx growth remained below revenue expansion, extending operating leverage despite FX pressure.',
+              display_order: 1,
+              source_reference: 'Item 7 - Management Discussion & Analysis ¶5',
+              confidence: 0.88,
+              severity: null,
+              lesson_reference: {
+                lesson_id: 'lesson-mda-opex',
+                learning_module_key: 'mda_foundations',
+                module_stage: 'walkthrough',
+                title: 'Following OpEx commentary',
+              },
+              quote:
+                'Operating expenses increased 4% while total revenue grew 8%, adding 80 bps of leverage.',
+              tags: ['md&a', 'opex'],
+            },
+            {
+              id: 'highlight-mda-cloud-scale',
+              title: 'Cloud momentum offsets hardware lulls',
+              summary:
+                'Google Cloud and collaboration workloads delivered the largest absolute dollar growth, cushioning device cycles.',
+              display_order: 2,
+              source_reference: 'Item 7 - Management Discussion & Analysis ¶6',
+              confidence: 0.86,
+              severity: null,
+              lesson_reference: {
+                lesson_id: 'lesson-mda-cloud',
+                learning_module_key: 'mda_foundations',
+                module_stage: 'walkthrough',
+                title: 'Connecting segment commentary',
+              },
+              quote:
+                'Cloud revenue advanced 28% with expanding margins as backlog conversions accelerated.',
+              tags: ['md&a', 'cloud'],
+            },
+            {
+              id: 'highlight-mda-ai-investment',
+              title: 'AI infrastructure spend front-loaded',
+              summary:
+                'Capex stepped up for AI-ready data centers, with management flagging near-term margin drag before monetisation catches up.',
+              display_order: 3,
+              source_reference: 'Item 7 - Management Discussion & Analysis ¶7',
+              confidence: 0.83,
+              severity: null,
+              lesson_reference: {
+                lesson_id: 'lesson-mda-ai-investment',
+                learning_module_key: 'mda_foundations',
+                module_stage: 'walkthrough',
+                title: 'Evaluating AI investment pacing',
+              },
+              quote:
+                'We expect elevated AI infrastructure spend through year-end to support Gemini and cloud demand.',
+              tags: ['md&a', 'ai'],
+            },
+            {
+              id: 'highlight-mda-capital-returns',
+              title: 'Capital returns anchored by cash flow strength',
+              summary:
+                'Management reaffirmed buyback cadence citing $105B of cash and securities plus $16B in quarterly operating cash flow.',
+              display_order: 4,
+              source_reference: 'Item 7 - Management Discussion & Analysis ¶8',
+              confidence: 0.87,
+              severity: null,
+              lesson_reference: {
+                lesson_id: 'lesson-mda-capital-returns',
+                learning_module_key: 'mda_foundations',
+                module_stage: 'walkthrough',
+                title: 'Linking cash flow to capital allocation',
+              },
+              quote:
+                'Capital returns remain funded by operating cash flow; no incremental debt is required near term.',
+              tags: ['md&a', 'capital-allocation'],
+            },
           ],
           comprehension_checks: [
             {
@@ -463,6 +539,78 @@ export const mockAnalysisDetail: AnalysisResponse = {
                 learning_module_key: 'mda_foundations',
                 module_stage: 'reinforce',
                 title: 'Linking MD&A commentary to margins',
+              },
+            },
+            {
+              id: 'check-mda-opex-discipline',
+              question: 'How did operating expenses behave relative to revenue growth?',
+              display_order: 1,
+              correct_answer: 'OpEx grew slower than revenue, adding leverage.',
+              distractors: [
+                'Operating expenses spiked faster than revenue growth.',
+                'OpEx declined sharply because of hiring freezes.',
+              ],
+              explanation:
+                'Management highlighted that operating expenses increased only 4% versus 8% revenue growth.',
+              lesson_reference: {
+                lesson_id: 'lesson-mda-opex',
+                learning_module_key: 'mda_foundations',
+                module_stage: 'reinforce',
+                title: 'Tracking operating leverage',
+              },
+            },
+            {
+              id: 'check-mda-cloud-share',
+              question: 'Which segment provided the largest absolute dollar growth this quarter?',
+              display_order: 2,
+              correct_answer: 'Google Cloud and collaboration workloads.',
+              distractors: [
+                'Wearables and accessories.',
+                'Advertising search ads for travel customers.',
+              ],
+              explanation:
+                'The highlight notes that cloud momentum offset device cycles by adding the most dollars.',
+              lesson_reference: {
+                lesson_id: 'lesson-mda-cloud',
+                learning_module_key: 'mda_foundations',
+                module_stage: 'reinforce',
+                title: 'Connecting segment commentary',
+              },
+            },
+            {
+              id: 'check-mda-ai-capex',
+              question: 'What near-term impact does AI infrastructure spending have on margins?',
+              display_order: 3,
+              correct_answer: 'It drags margins until monetisation catches up.',
+              distractors: [
+                'It immediately boosts operating margin by lowering depreciation.',
+                'It eliminates the need for future capital investments entirely.',
+              ],
+              explanation:
+                'Management emphasised front-loaded AI capex that will weigh on near-term operating margin.',
+              lesson_reference: {
+                lesson_id: 'lesson-mda-ai-investment',
+                learning_module_key: 'mda_foundations',
+                module_stage: 'reinforce',
+                title: 'Evaluating AI investment pacing',
+              },
+            },
+            {
+              id: 'check-mda-capital-returns',
+              question: 'Why can Apple sustain buybacks without new debt according to the filing?',
+              display_order: 4,
+              correct_answer: 'Operating cash flow plus cash and securities cover planned returns.',
+              distractors: [
+                'Management plans to suspend dividends to fund repurchases.',
+                'The company sold a manufacturing plant to finance buybacks.',
+              ],
+              explanation:
+                'The highlight states $105B of cash and $16B in operating cash flow fund the capital return program.',
+              lesson_reference: {
+                lesson_id: 'lesson-mda-capital-returns',
+                learning_module_key: 'mda_foundations',
+                module_stage: 'reinforce',
+                title: 'Linking cash flow to capital allocation',
               },
             },
           ],
@@ -500,6 +648,82 @@ export const mockAnalysisDetail: AnalysisResponse = {
                 'Regulatory changes could require materially different App Store economics or distribution terms.',
               tags: ['risk', 'regulation'],
             },
+            {
+              id: 'highlight-risk-privacy',
+              title: 'Privacy frameworks evolving quickly',
+              summary:
+                'Management warns that regional privacy updates could limit signal quality and measurement effectiveness.',
+              display_order: 1,
+              source_reference: 'Item 1A - Risk Factors ¶6',
+              confidence: 0.82,
+              severity: 'Medium-High',
+              lesson_reference: {
+                lesson_id: 'lesson-risk-privacy',
+                learning_module_key: 'risk_mastery',
+                module_stage: 'walkthrough',
+                title: 'Assessing privacy rule changes',
+              },
+              quote:
+                'Consent requirements in the EU continue to evolve and may reduce access to user-level insights.',
+              tags: ['risk', 'privacy'],
+            },
+            {
+              id: 'highlight-risk-supply-chain',
+              title: 'Supply chain concentration creates execution risk',
+              summary:
+                'A handful of ODM partners still account for the majority of device output, exposing launches to regional shocks.',
+              display_order: 2,
+              source_reference: 'Item 1A - Risk Factors ¶7',
+              confidence: 0.81,
+              severity: 'Medium',
+              lesson_reference: {
+                lesson_id: 'lesson-risk-supply-chain',
+                learning_module_key: 'risk_mastery',
+                module_stage: 'walkthrough',
+                title: 'Evaluating supplier concentration',
+              },
+              quote:
+                'Disruptions in a small number of Asian manufacturing partners could delay key launches.',
+              tags: ['risk', 'supply-chain'],
+            },
+            {
+              id: 'highlight-risk-ai-capacity',
+              title: 'AI compute scarcity can cap growth',
+              summary:
+                'Alphabet relies on advanced nodes for TPU production; limited foundry capacity could constrain Gemini rollouts.',
+              display_order: 3,
+              source_reference: 'Item 1A - Risk Factors ¶8',
+              confidence: 0.8,
+              severity: 'Medium',
+              lesson_reference: {
+                lesson_id: 'lesson-risk-ai-capacity',
+                learning_module_key: 'risk_mastery',
+                module_stage: 'walkthrough',
+                title: 'Understanding AI supply constraints',
+              },
+              quote:
+                'Securing next-gen foundry slots remains critical to meeting AI demand curves.',
+              tags: ['risk', 'ai'],
+            },
+            {
+              id: 'highlight-risk-macro-demand',
+              title: 'Macro-driven ad demand volatility',
+              summary:
+                'Advertising budgets track macro health; management flags recessionary slowdowns as a key top-line swing factor.',
+              display_order: 4,
+              source_reference: 'Item 1A - Risk Factors ¶9',
+              confidence: 0.83,
+              severity: 'Medium',
+              lesson_reference: {
+                lesson_id: 'lesson-risk-macro',
+                learning_module_key: 'risk_mastery',
+                module_stage: 'walkthrough',
+                title: 'Linking macro data to ad demand',
+              },
+              quote:
+                'A sustained macro downturn typically reduces advertiser spend, delaying ROI on new formats.',
+              tags: ['risk', 'macro'],
+            },
           ],
           comprehension_checks: [
             {
@@ -518,6 +742,79 @@ export const mockAnalysisDetail: AnalysisResponse = {
                 learning_module_key: 'risk_mastery',
                 module_stage: 'reinforce',
                 title: 'Evaluating severity levels in filings',
+              },
+            },
+            {
+              id: 'check-risk-privacy',
+              question: 'How could evolving privacy rules affect Alphabet’s ad products?',
+              display_order: 1,
+              correct_answer: 'Reduced signal quality that limits targeting and measurement.',
+              distractors: [
+                'Immediate elimination of all third-party partnerships.',
+                'Guaranteed increases in conversion rates.',
+              ],
+              explanation:
+                'The privacy highlight spells out that tougher consent rules impair targeting fidelity.',
+              lesson_reference: {
+                lesson_id: 'lesson-risk-privacy',
+                learning_module_key: 'risk_mastery',
+                module_stage: 'reinforce',
+                title: 'Assessing privacy rule changes',
+              },
+            },
+            {
+              id: 'check-risk-supply-chain',
+              question: 'Why does supplier concentration remain a risk?',
+              display_order: 2,
+              correct_answer:
+                'A few ODM partners build most devices, so disruptions can delay launches.',
+              distractors: [
+                'Alphabet manufactures all hardware internally now.',
+                'Suppliers are diversified across every continent equally.',
+              ],
+              explanation:
+                'The highlight calls out dependence on a small set of Asian manufacturers.',
+              lesson_reference: {
+                lesson_id: 'lesson-risk-supply-chain',
+                learning_module_key: 'risk_mastery',
+                module_stage: 'reinforce',
+                title: 'Evaluating supplier concentration',
+              },
+            },
+            {
+              id: 'check-risk-ai-capacity',
+              question: 'What could limit Gemini and TPU growth according to the filing?',
+              display_order: 3,
+              correct_answer: 'Scarce advanced-node foundry capacity for AI chips.',
+              distractors: [
+                'User demand collapsing for AI experiences.',
+                'Cloud customers refusing to sign multi-year contracts.',
+              ],
+              explanation:
+                'The AI capacity highlight links growth plans to securing leading-edge manufacturing slots.',
+              lesson_reference: {
+                lesson_id: 'lesson-risk-ai-capacity',
+                learning_module_key: 'risk_mastery',
+                module_stage: 'reinforce',
+                title: 'Understanding AI supply constraints',
+              },
+            },
+            {
+              id: 'check-risk-macro-demand',
+              question: 'How does macro softness flow through to Alphabet’s revenue?',
+              display_order: 4,
+              correct_answer: 'Advertisers cut budgets, reducing ad spend and growth.',
+              distractors: [
+                'Macro weakness automatically boosts ad pricing.',
+                'It triggers mandated price floors that lift revenue.',
+              ],
+              explanation:
+                'Management states that advertising demand typically falls during recessions, pressuring growth.',
+              lesson_reference: {
+                lesson_id: 'lesson-risk-macro',
+                learning_module_key: 'risk_mastery',
+                module_stage: 'reinforce',
+                title: 'Linking macro data to ad demand',
               },
             },
           ],

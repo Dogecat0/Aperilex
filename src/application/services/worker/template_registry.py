@@ -49,7 +49,7 @@ class _WalkthroughBlueprint:
 class TemplateRegistry:
     """Resolve template metadata and expose canonical schema mappings."""
 
-    WALKTHROUGH_HIGHLIGHT_LIMIT: ClassVar[int] = 3
+    WALKTHROUGH_HIGHLIGHT_LIMIT: ClassVar[int] = 5
 
     DEFAULT_TEMPLATE_SCHEMAS: Mapping[AnalysisTemplate, tuple[str, ...]] = {
         AnalysisTemplate.COMPREHENSIVE: (
@@ -270,14 +270,20 @@ class TemplateRegistry:
             module_stage_value,
             section_name,
         )
-        if not highlight_models:
+        if len(highlight_models) < self.WALKTHROUGH_HIGHLIGHT_LIMIT:
             raise WalkthroughConstructionError(
-                f"walkthrough for '{section_name}' did not include any highlights"
+                f"walkthrough for '{section_name}' must include at least "
+                f"{self.WALKTHROUGH_HIGHLIGHT_LIMIT} highlights"
             )
         highlight_models = self._limit_highlight_count(
             highlight_models,
             section_name,
         )
+        if len(highlight_models) != self.WALKTHROUGH_HIGHLIGHT_LIMIT:
+            raise WalkthroughConstructionError(
+                f"walkthrough for '{section_name}' must include exactly "
+                f"{self.WALKTHROUGH_HIGHLIGHT_LIMIT} highlights after trimming"
+            )
 
         comprehension_models = self._build_comprehension_checks(
             comprehension_checks,
@@ -285,9 +291,16 @@ class TemplateRegistry:
             module_stage_value,
             section_name,
         )
-        if len(comprehension_models) < 3:
+        if len(comprehension_models) < self.WALKTHROUGH_HIGHLIGHT_LIMIT:
             raise WalkthroughConstructionError(
-                f"walkthrough for '{section_name}' must include at least 3 comprehension checks"
+                f"walkthrough for '{section_name}' must include at least "
+                f"{self.WALKTHROUGH_HIGHLIGHT_LIMIT} comprehension checks"
+            )
+        if len(comprehension_models) != len(highlight_models):
+            raise WalkthroughConstructionError(
+                f"walkthrough for '{section_name}' must return "
+                f"{len(highlight_models)} comprehension checks so each highlight "
+                "has a paired assessment"
             )
 
         duration = estimated_duration_minutes

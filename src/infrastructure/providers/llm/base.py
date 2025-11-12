@@ -199,11 +199,11 @@ class SectionWalkthroughPayload(BaseModel):
         ..., description="Guidance copy anchoring the learner"
     )
     highlights: list[WalkthroughHighlight] = Field(
-        ..., min_length=1, description="Highlights surfaced during the walkthrough"
+        ..., min_length=5, description="Highlights surfaced during the walkthrough"
     )
     comprehension_checks: list[WalkthroughComprehensionCheck] = Field(
         ...,
-        min_length=3,
+        min_length=5,
         description="Comprehension checks validating retention",
     )
     learning_module_key: str = Field(
@@ -1162,12 +1162,13 @@ def create_section_summary_prompts(
             f'- Emit `walkthrough.learning_module_key` exactly as "{walkthrough_context.learning_module_key}" '
             f'and `walkthrough.module_stage` exactly as "{walkthrough_context.module_stage}".',
             "- Provide `walkthrough.guidance.focus` and `walkthrough.guidance.why_it_matters` as polished, filing-specific prose.",
-            "- Populate `walkthrough.highlights` with 1-3 entries; each entry must include `id`, `title`, `summary`, "
+            "- Populate `walkthrough.highlights` with exactly 5 entries; each entry must include `id`, `title`, `summary`, "
             "`source_reference` (section header + paragraph indicator), `confidence` (0-1), optional `severity`, "
             "`lesson_reference` (lesson_id, learning_module_key, module_stage, optional title), and optional `quote` and `tags`.",
-            "- Provide `walkthrough.comprehension_checks` with at least 3 entries; each entry must include `id`, `question`, "
+            "- Provide `walkthrough.comprehension_checks` with exactly 5 entries; each entry must include `id`, `question`, "
             "`correct_answer`, `distractors` (minimum two), `explanation`, and `lesson_reference` "
             "(lesson_id, learning_module_key, module_stage, optional title).",
+            "- Align comprehension checks to highlights one-to-one in the same display order; each check should reinforce the paired highlight's concept so learners review a highlight and immediately answer the related question.",
             "- Produce a `citations` array listing every `source_reference` surfaced in the highlights (one citation per highlight).",
             f'- Anchor the learner by covering the focus "{walkthrough_context.focus}" and explaining why it matters using '
             f'"{walkthrough_context.why_it_matters}" as context.',

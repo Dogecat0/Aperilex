@@ -27,6 +27,8 @@ from src.shared.enums.provider import LLMProvider
 from src.shared.models import AnalysisRequest, AnalysisType, ModelTier, TaskData
 from src.shared.types import AnalysisId, Email, FilingId, TaskId, Ticker, UserId
 
+WALKTHROUGH_ITEM_COUNT = 5
+
 
 def _make_task_data() -> TaskData:
     filing_id = FilingId(uuid.uuid4())
@@ -67,6 +69,69 @@ def _make_analysis_request(task_data: TaskData) -> AnalysisRequest:
         correlation_id=task_data.correlation_id,
         metadata=dict(task_data.metadata),
     )
+
+
+def _build_highlights(
+    section_name: str,
+    slug: str,
+    module_key: str,
+) -> list[WalkthroughHighlight]:
+    """Construct deterministic highlight payloads for the tests."""
+
+    return [
+        WalkthroughHighlight(
+            id=f"{slug}-highlight-{index}",
+            title=f"{section_name} highlight {index + 1}",
+            summary=f"{section_name} insight {index + 1}",
+            source_reference=f"{section_name} ¶{index + 1}",
+            confidence=0.8,
+            severity=None,
+            lesson_reference=WalkthroughLessonReference(
+                lesson_id=f"{slug}-lesson-{index}",
+                learning_module_key=module_key,
+                module_stage="walkthrough",
+                title=f"{section_name} lesson {index + 1}",
+            ),
+            quote=None,
+            tags=[slug],
+        )
+        for index in range(WALKTHROUGH_ITEM_COUNT)
+    ]
+
+
+def _build_comprehension_checks(
+    slug: str,
+    module_key: str,
+) -> list[WalkthroughComprehensionCheck]:
+    """Construct deterministic comprehension checks for the tests."""
+
+    return [
+        WalkthroughComprehensionCheck(
+            id=f"{slug}-check-{index}",
+            question=f"What is the takeaway from {slug} highlight {index + 1}?",
+            correct_answer=f"{slug.title()} insight {index + 1}",
+            distractors=[
+                f"Incorrect {slug} option A{index}",
+                f"Incorrect {slug} option B{index}",
+            ],
+            explanation=f"The {slug} highlight {index + 1} supports this answer.",
+            lesson_reference=WalkthroughLessonReference(
+                lesson_id=f"{slug}-reinforce-{index}",
+                learning_module_key=module_key,
+                module_stage="reinforce",
+                title=f"{slug.title()} reinforcement {index + 1}",
+            ),
+        )
+        for index in range(WALKTHROUGH_ITEM_COUNT)
+    ]
+
+
+def _section_citations(section_name: str) -> list[str]:
+    """Return canonical citation list given a section name."""
+
+    return [
+        f"{section_name} ¶{index + 1}" for index in range(WALKTHROUGH_ITEM_COUNT)
+    ]
 
 
 @pytest.mark.unit
@@ -180,93 +245,32 @@ async def test_perform_llm_analysis_with_sections_translates_response() -> None:
 
 
 def _make_comprehensive_response() -> ComprehensiveAnalysisResponse:
+    section_name = "Item 1A - Risk Factors"
+    highlights = _build_highlights(section_name, "risk", "risk_mastery")
+    comprehension_checks = _build_comprehension_checks("risk", "risk_mastery")
+    citations = [highlight.source_reference for highlight in highlights]
+
     walkthrough = SectionWalkthroughPayload(
         guidance=WalkthroughGuidancePayload(
             focus="Prioritise the highest severity risks and how management plans to respond.",
             why_it_matters="Focusing on severity shifts ensures diligence workstreams focus on real exposure.",
         ),
-        highlights=[
-            WalkthroughHighlight(
-                id="highlight-regulator-focus",
-                title="Regulators intensify enforcement",
-                summary="Multiple jurisdictions expanded probes into platform economics this quarter.",
-                source_reference="Item 1A - Risk Factors ¶4",
-                confidence=0.81,
-                severity="High",
-                lesson_reference=WalkthroughLessonReference(
-                    lesson_id="lesson-risk-regulator-overview",
-                    learning_module_key="risk_mastery",
-                    module_stage="walkthrough",
-                    title="Spotting regulatory escalation",
-                ),
-                quote="Regulators in the EU and US continue to evaluate our platform policies and may impose new operating constraints.",
-                tags=["regulatory", "risk"],
-            )
-        ],
-        comprehension_checks=[
-            WalkthroughComprehensionCheck(
-                id="check-risk-driver",
-                question="Which risk driver does management flag as most severe?",
-                correct_answer="Expanded regulatory investigations into platform economics.",
-                distractors=[
-                    "Significant loss of manufacturing capacity.",
-                    "Immediate decline in recurring revenue.",
-                ],
-                explanation="The section emphasises regulators broadening active reviews across multiple regions.",
-                lesson_reference=WalkthroughLessonReference(
-                    lesson_id="lesson-risk-driver",
-                    learning_module_key="risk_mastery",
-                    module_stage="reinforce",
-                    title="Connecting severity to root drivers",
-                ),
-            ),
-            WalkthroughComprehensionCheck(
-                id="check-risk-mitigation",
-                question="What mitigation does management highlight?",
-                correct_answer="Ongoing engagement with regulators and iterative policy updates.",
-                distractors=[
-                    "Immediate divestiture of the platform business.",
-                    "Accelerated price increases across all customer segments.",
-                ],
-                explanation="Management references proactive dialogue and policy revisions as the mitigation path.",
-                lesson_reference=WalkthroughLessonReference(
-                    lesson_id="lesson-risk-mitigation",
-                    learning_module_key="risk_mastery",
-                    module_stage="reinforce",
-                    title="Interpreting mitigation language",
-                ),
-            ),
-            WalkthroughComprehensionCheck(
-                id="check-risk-outcome",
-                question="What outcome does management worry about?",
-                correct_answer="Potentially stricter platform economics that compress profitability.",
-                distractors=[
-                    "Immediate shutdown of primary suppliers.",
-                    "Forced divestiture of the consumer hardware segment.",
-                ],
-                explanation="The filing notes that enforcement could constrain platform monetisation and margins.",
-                lesson_reference=WalkthroughLessonReference(
-                    lesson_id="lesson-risk-outcome",
-                    learning_module_key="risk_mastery",
-                    module_stage="reinforce",
-                    title="Linking severity to financial outcomes",
-                ),
-            ),
-        ],
+        highlights=highlights,
+        comprehension_checks=comprehension_checks,
         learning_module_key="risk_mastery",
         module_stage="walkthrough",
         estimated_duration_minutes=7,
-        citations=["Item 1A - Risk Factors ¶4"],
+        citations=list(citations),
     )
 
     section = SectionAnalysisResponse(
-        section_name="Item 1A - Risk Factors",
+        section_name=section_name,
         section_summary="Risk summary.",
         consolidated_insights=["Mitigation roadmap"],
         overall_sentiment=-0.1,
         critical_findings=["Finding 1", "Finding 2", "Finding 3"],
         sub_sections=[],
-        citations=["Item 1A - Risk Factors ¶4"],
+        citations=list(citations),
         walkthrough=walkthrough,
         processing_time_ms=600,
         sub_section_count=0,
@@ -335,83 +339,24 @@ async def test_perform_structured_comprehensive_analysis_shapes_result() -> None
 @pytest.mark.unit
 @pytest.mark.asyncio
 async def test_structured_analysis_truncates_subsection_analysis_lists() -> None:
+    mdna_section_name = "Item 7 - Management Discussion & Analysis"
+    mdna_highlights = _build_highlights(
+        mdna_section_name,
+        "mdna",
+        "mda_foundations",
+    )
+    mdna_checks = _build_comprehension_checks("mdna", "mda_foundations")
     mdna_walkthrough = SectionWalkthroughPayload(
         guidance=WalkthroughGuidancePayload(
             focus="Connect commentary back to the underlying drivers.",
             why_it_matters="MD&A walkthroughs reinforce how narrative links to the financial outcomes.",
         ),
-        highlights=[
-            WalkthroughHighlight(
-                id="highlight-mdna-drivers",
-                title="Cost discipline continues to improve margins",
-                summary="Management called out expense controls that expanded operating margin despite revenue volatility.",
-                source_reference="Item 7 - MD&A ¶1",
-                confidence=0.75,
-                severity="Medium",
-                lesson_reference=WalkthroughLessonReference(
-                    lesson_id="lesson-mdna-margins",
-                    learning_module_key="mda_foundations",
-                    module_stage="walkthrough",
-                    title="Linking MD&A commentary to margin movement",
-                ),
-                quote=None,
-                tags=["mdna"],
-            )
-        ],
-        comprehension_checks=[
-            WalkthroughComprehensionCheck(
-                id="mdna-check-1",
-                question="What factor did management cite for margin expansion?",
-                correct_answer="Cost discipline and spending controls.",
-                distractors=[
-                    "A divestiture of the consumer business.",
-                    "Immediate regulatory relief in all markets.",
-                ],
-                explanation="The MD&A section highlights operating expense discipline supporting margins.",
-                lesson_reference=WalkthroughLessonReference(
-                    lesson_id="lesson-mdna-margin-check",
-                    learning_module_key="mda_foundations",
-                    module_stage="walkthrough",
-                    title="Reading margin commentary",
-                ),
-            ),
-            WalkthroughComprehensionCheck(
-                id="mdna-check-2",
-                question="Which section discusses liquidity plans?",
-                correct_answer="The Liquidity Ratios subsection.",
-                distractors=[
-                    "The auditor report.",
-                    "The risk management appendix.",
-                ],
-                explanation="Liquidity ratios coverage appears within the MD&A subsections.",
-                lesson_reference=WalkthroughLessonReference(
-                    lesson_id="lesson-mdna-liquidity",
-                    learning_module_key="mda_foundations",
-                    module_stage="walkthrough",
-                    title="Following liquidity commentary",
-                ),
-            ),
-            WalkthroughComprehensionCheck(
-                id="mdna-check-3",
-                question="What mitigation accompanies the margin discussion?",
-                correct_answer="Maintaining disciplined OpEx as revenue normalizes.",
-                distractors=[
-                    "Issuing additional equity immediately.",
-                    "Halting all product development.",
-                ],
-                explanation="Management emphasises disciplined OpEx as revenue normalises.",
-                lesson_reference=WalkthroughLessonReference(
-                    lesson_id="lesson-mdna-mitigation",
-                    learning_module_key="mda_foundations",
-                    module_stage="walkthrough",
-                    title="Identifying MD&A mitigations",
-                ),
-            ),
-        ],
+        highlights=mdna_highlights,
+        comprehension_checks=mdna_checks,
         learning_module_key="mda_foundations",
         module_stage="walkthrough",
         estimated_duration_minutes=6,
-        citations=["Item 7 - MD&A ¶1"],
+        citations=[highlight.source_reference for highlight in mdna_highlights],
     )
 
     sub_section = SubsectionAnalysisResponse(
@@ -423,13 +368,13 @@ async def test_structured_analysis_truncates_subsection_analysis_lists() -> None
         subsection_focus="liquidity",
     )
     section = SectionAnalysisResponse(
-        section_name="Item 7 - Management Discussion & Analysis",
+        section_name=mdna_section_name,
         section_summary="MD&A summary.",
         consolidated_insights=["Insight 1", "Insight 2", "Insight 3", "Insight 4", "Insight 5"],
         overall_sentiment=0.2,
         critical_findings=["Finding 1", "Finding 2", "Finding 3"],
         sub_sections=[sub_section],
-        citations=[],
+        citations=[highlight.source_reference for highlight in mdna_highlights],
         walkthrough=mdna_walkthrough,
         processing_time_ms=500,
         sub_section_count=1,
@@ -556,9 +501,9 @@ async def test_structured_analysis_handles_missing_walkthrough_citations() -> No
 
     structured_dump = result.structured_data.model_dump()
     assert structured_dump["section_walkthroughs"]
-    assert structured_dump["section_analyses"][0]["citations"] == [
-        "Item 1A - Risk Factors ¶4"
-    ]
+    assert structured_dump["section_analyses"][0]["citations"] == _section_citations(
+        "Item 1A - Risk Factors"
+    )
 
 
 @pytest.mark.unit
@@ -585,7 +530,23 @@ async def test_structured_analysis_truncates_excess_highlights() -> None:
                     quote=None,
                     tags=["risk"],
                 )
-                for index in range(4)
+                for index in range(7)
+            ]
+            section.walkthrough.comprehension_checks = [
+                WalkthroughComprehensionCheck(
+                    id=f"check-{index}",
+                    question=f"Question {index}?",
+                    correct_answer=f"Answer {index}",
+                    distractors=[f"Alt {index}-a", f"Alt {index}-b"],
+                    explanation=f"Explanation {index}",
+                    lesson_reference=WalkthroughLessonReference(
+                        lesson_id=f"lesson-{index}",
+                        learning_module_key="risk_mastery",
+                        module_stage="reinforce",
+                        title=f"Lesson {index}",
+                    ),
+                )
+                for index in range(7)
             ]
         response.section_analyses = [section]
         return response
@@ -616,17 +577,25 @@ async def test_structured_analysis_truncates_excess_highlights() -> None:
 
     structured_dump = result.structured_data.model_dump()
     walkthrough_highlights = structured_dump["section_walkthroughs"]["Item 1A - Risk Factors"]["highlights"]
-    assert len(walkthrough_highlights) == 3
+    assert len(walkthrough_highlights) == WALKTHROUGH_ITEM_COUNT
     assert [entry["id"] for entry in walkthrough_highlights] == [
         "highlight-0",
         "highlight-1",
         "highlight-2",
+        "highlight-3",
+        "highlight-4",
     ]
-    assert structured_dump["section_analyses"][0]["citations"] == [
-        "Item 1A - Risk Factors ¶1",
-        "Item 1A - Risk Factors ¶2",
-        "Item 1A - Risk Factors ¶3",
-    ]
+    assert structured_dump["section_analyses"][0]["citations"] == _section_citations(
+        "Item 1A - Risk Factors"
+    )
+    assert (
+        len(
+            structured_dump["section_walkthroughs"]["Item 1A - Risk Factors"][
+                "comprehension_checks"
+            ]
+        )
+        == WALKTHROUGH_ITEM_COUNT
+    )
 
 
 @pytest.mark.unit
@@ -703,5 +672,5 @@ async def test_structured_analysis_realigns_mismatched_citations() -> None:
     )
 
     structured_dump = result.structured_data.model_dump()
-    expected_citations = ["Item 1A - Risk Factors ¶4"]
+    expected_citations = _section_citations("Item 1A - Risk Factors")
     assert structured_dump["section_analyses"][0]["citations"] == expected_citations

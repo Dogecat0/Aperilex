@@ -46,7 +46,7 @@ class AnalysisExecutionService:
     MAX_PROMPT_LENGTH: Final[int] = 50_000
     HEADLINE_METRIC_LIMIT: Final[int] = 10
     SUBSECTION_ANALYSIS_LIMIT: Final[int] = 5
-    MAX_SECTION_HIGHLIGHTS: Final[int] = 3
+    SECTION_WALKTHROUGH_ITEM_COUNT: Final[int] = 5
 
     def __init__(
         self,
@@ -477,22 +477,28 @@ class AnalysisExecutionService:
                 raise AnalysisExecutionServiceError(
                     f"Walkthrough for section '{section_name}' must expose at least one highlight"
                 )
-            if len(highlights) > self.MAX_SECTION_HIGHLIGHTS:
+            if len(highlights) < self.SECTION_WALKTHROUGH_ITEM_COUNT:
+                raise AnalysisExecutionServiceError(
+                    f"Walkthrough for section '{section_name}' must expose at least "
+                    f"{self.SECTION_WALKTHROUGH_ITEM_COUNT} highlights"
+                )
+            if len(highlights) > self.SECTION_WALKTHROUGH_ITEM_COUNT:
                 logger.warning(
                     "Walkthrough returned %s highlights; truncating to limit",
                     len(highlights),
                     extra={
                         "section_name": section_name,
-                        "highlight_limit": self.MAX_SECTION_HIGHLIGHTS,
+                        "highlight_limit": self.SECTION_WALKTHROUGH_ITEM_COUNT,
                         "highlight_ids": [
                             str(getattr(highlight, "id", "")).strip()
                             for highlight in highlights
                         ],
                     },
                 )
-                highlights = highlights[: self.MAX_SECTION_HIGHLIGHTS]
+                highlights = highlights[: self.SECTION_WALKTHROUGH_ITEM_COUNT]
 
             walkthrough.highlights = list(highlights)
+            required_item_count = len(highlights)
 
             highlight_citations: list[str] = []
             for highlight in highlights:
@@ -522,9 +528,27 @@ class AnalysisExecutionService:
                 highlight_citations.append(source_reference)
 
             comprehension_checks = list(getattr(walkthrough, "comprehension_checks", []))
-            if len(comprehension_checks) < 3:
+            if len(comprehension_checks) < self.SECTION_WALKTHROUGH_ITEM_COUNT:
                 raise AnalysisExecutionServiceError(
-                    f"Walkthrough for section '{section_name}' must include at least 3 comprehension checks"
+                    f"Walkthrough for section '{section_name}' must include at least "
+                    f"{self.SECTION_WALKTHROUGH_ITEM_COUNT} comprehension checks"
+                )
+            if len(comprehension_checks) > required_item_count:
+                logger.warning(
+                    "Walkthrough returned extra comprehension checks; truncating to highlight count",
+                    extra={
+                        "section_name": section_name,
+                        "observed_comprehension_checks": len(comprehension_checks),
+                        "highlight_limit": required_item_count,
+                    },
+                )
+                comprehension_checks = comprehension_checks[:required_item_count]
+            walkthrough.comprehension_checks = list(comprehension_checks)
+
+            if len(comprehension_checks) != required_item_count:
+                raise AnalysisExecutionServiceError(
+                    f"Walkthrough for section '{section_name}' must return "
+                    f"{required_item_count} comprehension checks so each highlight has a paired assessment"
                 )
 
             for check in comprehension_checks:
