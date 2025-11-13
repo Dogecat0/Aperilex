@@ -159,7 +159,7 @@ function buildRecentAnalysisGroups(
     const item = toRecentAnalysisListItem(analysis)
     const companySummary = analysis.summary.company ?? {}
     const companyKey =
-      companySummary.cik ?? companySummary.id ?? companySummary.name ?? analysis.analysis_id
+      companySummary.cik ?? companySummary.ticker ?? companySummary.name ?? analysis.analysis_id
 
     let group = groups.get(companyKey)
     if (!group) {

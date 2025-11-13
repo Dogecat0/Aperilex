@@ -35,13 +35,10 @@ const segmentOptions: { label: string; value: SegmentFilter }[] = [
 
 const filterButtonClass =
   'rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-wide transition-colors duration-150 hover:bg-[var(--surfaces-muted)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2'
-const controlBaseClass =
-  'rounded-full border px-4 py-2 text-xs font-semibold uppercase tracking-wide transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2'
 
 export function DashboardFilters({
   filters,
   onFilterChange,
-  onResetFilters,
   disabled = false,
 }: DashboardFiltersProps) {
   const handleFilterSelect = <Key extends keyof DashboardFiltersState>(
@@ -71,7 +68,7 @@ export function DashboardFilters({
         className={filterButtonClass}
         style={{
           borderColor: isActive ? 'var(--lines-strong)' : 'var(--lines-subtle)',
-          background: isActive ? 'var(--surfaces-muted)' : 'transparent',
+          background: isActive ? 'var(--brand-accent)' : 'transparent',
           color: isActive ? 'var(--text-primary)' : 'var(--text-secondary)',
           outlineColor: 'var(--focus-ring)',
         }}
@@ -93,7 +90,7 @@ export function DashboardFilters({
       }}
     >
       <div
-        className="flex flex-col gap-3 rounded-2xl border p-4"
+        className="flex flex-col gap-3 rounded-2xl border p-4 space-y-5 lg:space-y-2"
         style={{ borderColor: 'var(--lines-subtle)', background: 'var(--surfaces-raised)' }}
       >
         <div className="flex flex-wrap items-center gap-2">
@@ -114,22 +111,6 @@ export function DashboardFilters({
           </span>
           {segmentOptions.map((option) => renderOptionButton('segment', option))}
         </div>
-      </div>
-
-      <div className="flex justify-end">
-        <button
-          type="button"
-          onClick={onResetFilters}
-          className={`${controlBaseClass} hover:bg-[var(--surfaces-muted)]`}
-          style={{
-            borderColor: 'var(--lines-subtle)',
-            color: 'var(--text-secondary)',
-            outlineColor: 'var(--focus-ring)',
-          }}
-          disabled={disabled}
-        >
-          Reset filters
-        </button>
       </div>
     </section>
   )

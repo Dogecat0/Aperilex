@@ -122,6 +122,23 @@ function formatTimestamp(value: string | null): string | null {
   })
 }
 
+function formatDate(value?: string | null): string | null {
+  if (!value) {
+    return null
+  }
+
+  const parsed = new Date(value)
+  if (Number.isNaN(parsed.getTime())) {
+    return value
+  }
+
+  return parsed.toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  })
+}
+
 function buildSearchParams(state: SearchState): FilingSearchParams {
   const trimmedTicker = state.ticker.trim()
   const normalizedTicker = trimmedTicker.toUpperCase()
@@ -291,7 +308,7 @@ export function AnalyzeFilingsPage() {
 
     const fallback = results.find((item) => item.filing_id)
     if (fallback) {
-      setSelectedFilingId(fallback.filing_id)
+      setSelectedFilingId(fallback.filing_id ?? null)
     }
   }, [results, searchParams?.ticker, selectedFilingId, prefillSummary])
 

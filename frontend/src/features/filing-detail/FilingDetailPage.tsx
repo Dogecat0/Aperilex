@@ -122,9 +122,10 @@ function normaliseTab(value?: ModuleFocusTab | string | null): ModuleFocusTab {
 
 export function FilingDetailPage() {
   const { id } = useParams<{ id: string }>()
-  const location = useLocation<FilingDetailLocationState>()
-  const requestedFocusTab = normaliseTab(location.state?.focusTab)
-  const requestedFocusSection = location.state?.focusSection ?? null
+  const location = useLocation()
+  const locationState = location.state as FilingDetailLocationState | undefined
+  const requestedFocusTab = normaliseTab(locationState?.focusTab)
+  const requestedFocusSection = locationState?.focusSection ?? null
   const tokens = useThemeTokens()
   const isLightMode = tokens.name === 'light'
   const detailQuery = useFilingDetail(id)
@@ -225,7 +226,7 @@ export function FilingDetailPage() {
   const headlineMetrics = (analysis.summary.headline_metrics ?? []) as HeadlineMetric[]
   const sentimentRollup = analysis.summary.sentiment_rollup as SentimentRollup | undefined
   const sentimentSections = analysis.summary.sentiment?.sections ?? []
-  const rawSections = (detail.structured?.section_analyses ?? []) as SectionAnalysis[]
+  const rawSections = (detail?.structured?.section_analyses ?? []) as SectionAnalysis[]
 
   function handleTabChange(tab: ModuleFocusTab) {
     setActiveTab(tab)
@@ -315,7 +316,7 @@ export function FilingDetailPage() {
           <GuidedFilingStepper
             analysisId={analysis.analysis_id}
             sections={guidedSections}
-            diffsBySection={detail.diffsBySection}
+            diffsBySection={detail?.diffsBySection}
             initialSectionKey={initialSectionKey}
             focusRequestKey={focusRequestKey}
           />

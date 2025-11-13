@@ -11,6 +11,8 @@ import { submitQuizAttempt } from '@/lib/hooks/useQuizAttempts'
 
 type CompletedChecksBySection = Record<string, Record<string, true>>
 
+const EMPTY_SECTION_CHECKS: Record<string, true> = {}
+
 interface QuestionAttemptStat {
   questionId: string
   moduleKey: string
@@ -723,12 +725,12 @@ export function GuidedFilingStepper({
     const sectionKey = section.section_key
     let shouldMarkComplete = section.comprehension_checks.length === 0
     setCompletedChecks((prev) => {
-      const previousChecks = prev[sectionKey] ?? {}
+      const previousChecks = prev[sectionKey] ?? EMPTY_SECTION_CHECKS
       if (previousChecks[checkId]) {
         return prev
       }
 
-      const updatedSectionChecks = { ...previousChecks, [checkId]: true }
+      const updatedSectionChecks: Record<string, true> = { ...previousChecks, [checkId]: true }
       const allAnswered = section.comprehension_checks.every((check) =>
         Boolean(updatedSectionChecks[check.id])
       )

@@ -5,7 +5,7 @@ import type { SentimentRollup } from '@/lib/types/analysis'
 
 interface SentimentSectionBreakdown {
   section: string
-  score: number | null | undefined
+  score?: number | null
 }
 
 interface SentimentTabProps {
