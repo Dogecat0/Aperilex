@@ -1,5 +1,4 @@
 import { useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
 import { ComprehensionCheckCard } from './ComprehensionCheckCard'
 import { HighlightCallout } from './HighlightCallout'
 import { SectionDiffDrawer } from './SectionDiffDrawer'
@@ -27,36 +26,12 @@ export function GuidedSectionPanel({
   const tokens = useThemeTokens()
   const isLightMode = tokens.name === 'light'
   const diffCalloutStyles = useMemo(() => {
-    const background = hexToRgba(tokens.status.warning, isLightMode ? 0.16 : 0.24)
+    const background = hexToRgba(tokens.learning.surface, isLightMode ? 0.16 : 0.24)
     return {
       background,
-      borderLeftColor: tokens.status.warning,
+      borderLeftColor: tokens.learning.surface,
     }
-  }, [isLightMode, tokens.status.warning])
-
-  const proTipLesson = useMemo(() => {
-    if (!diff) {
-      return null
-    }
-
-    const candidate =
-      diff.new_highlights.find((item) => item.lesson_reference?.lesson_id) ??
-      section.highlights.find((item) => item.lesson_reference?.lesson_id)
-
-    const lesson = candidate?.lesson_reference
-    if (!lesson || !lesson.lesson_id || !lesson.learning_module_key) {
-      return null
-    }
-
-    const params = new URLSearchParams()
-    params.set('module', lesson.learning_module_key)
-    params.set('lesson', lesson.lesson_id)
-
-    return {
-      title: lesson.title ?? 'Review lesson',
-      to: `/learning?${params.toString()}`,
-    }
-  }, [diff, section.highlights])
+  }, [isLightMode, tokens.learning.surface])
 
   return (
     <>
@@ -105,16 +80,16 @@ export function GuidedSectionPanel({
             <div className="flex flex-col gap-2">
               <p
                 className="text-xs font-semibold uppercase tracking-wide"
-                style={{ color: tokens.status.warning, letterSpacing: '0.18em' }}
+                style={{ color: tokens.learning.accent, letterSpacing: '0.18em' }}
               >
                 Prior filing insight
               </p>
               {diff.pro_tip ? (
-                <p className="font-medium" style={{ color: tokens.status.warning }}>
+                <p className="font-medium" style={{ color: tokens.learning.accent }}>
                   Pro tip: {diff.pro_tip}
                 </p>
               ) : null}
-              <p className="text-sm" style={{ color: tokens.status.warning }}>
+              <p className="text-sm" style={{ color: tokens.learning.accent }}>
                 We detected updates since the last filing. Review the changes or revisit the linked
                 lesson to reinforce the concept.
               </p>
@@ -124,22 +99,13 @@ export function GuidedSectionPanel({
                 type="button"
                 className="rounded-full px-4 py-2 text-xs font-semibold uppercase tracking-wide text-[var(--text-on-muted)] transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--focus-ring)]"
                 style={{
-                  background: tokens.status.warning,
-                  color: tokens.text.onMuted,
+                  background: tokens.learning.accent,
+                  color: tokens.text.onBrand,
                 }}
                 onClick={() => setDiffOpen(true)}
               >
                 View changes
               </button>
-              {proTipLesson ? (
-                <Link
-                  to={proTipLesson.to}
-                  className="text-xs font-semibold uppercase tracking-[0.2em] underline-offset-4 hover:underline"
-                  style={{ color: tokens.status.warning }}
-                >
-                  {proTipLesson.title}
-                </Link>
-              ) : null}
             </div>
           </aside>
         ) : null}
