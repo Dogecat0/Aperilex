@@ -35,13 +35,6 @@ export function FilingResultsList({
       <header className="flex items-center justify-between">
         <div>
           <h2 className="text-sm font-semibold text-[var(--text-primary)]">Search results</h2>
-          <p className="text-xs text-[var(--text-secondary)]">
-            {isLoading
-              ? 'Fetching filings from your organization cache…'
-              : hasResults
-                ? `Showing ${results.length} filing${results.length === 1 ? '' : 's'} on page ${currentPage}`
-                : 'No filings yet for this query.'}
-          </p>
         </div>
         <div className="flex items-center gap-2 text-xs text-[var(--text-secondary)]">
           <span>
@@ -93,6 +86,8 @@ export function FilingResultsList({
           <ul className="space-y-3">
             {results.map((result) => {
               const isActive = result.accession_number === selectedAccession
+              const primaryTextColor = isActive ? 'var(--text-on-brand)' : 'var(--text-primary)'
+              const secondaryTextColor = isActive ? 'var(--text-on-brand)' : 'var(--text-secondary)'
               return (
                 <li key={result.accession_number}>
                   <button
@@ -100,27 +95,31 @@ export function FilingResultsList({
                     onClick={() => onSelect(result)}
                     className="w-full rounded-xl border p-4 text-left transition-colors"
                     style={{
-                      borderColor: isActive ? 'var(--status-positive)' : 'var(--lines-subtle)',
-                      background: isActive ? 'rgba(34, 197, 94, 0.1)' : 'var(--surfaces-muted)',
+                      borderColor: isActive ? 'var(--brand-accent)' : 'var(--lines-subtle)',
+                      color: primaryTextColor,
+                      background: isActive ? 'var(--brand-accent)' : 'var(--surfaces-muted)',
                     }}
                   >
                     <div className="flex items-center justify-between gap-4">
                       <div>
-                        <p className="text-sm font-semibold text-[var(--text-primary)]">
+                        <p className="text-sm font-semibold" style={{ color: primaryTextColor }}>
                           {result.company_name}
                         </p>
-                        <p className="text-xs text-[var(--text-secondary)]">
+                        <p className="text-xs" style={{ color: secondaryTextColor }}>
                           {result.ticker ?? '—'} • {result.cik}
                         </p>
                       </div>
-                      <div className="text-right text-xs text-[var(--text-secondary)]">
+                      <div className="text-right text-xs" style={{ color: secondaryTextColor }}>
                         <p className="font-semibold uppercase tracking-wide">
                           {result.filing_type}
                         </p>
                         <p>{new Date(result.filing_date).toLocaleDateString('en-US')}</p>
                       </div>
                     </div>
-                    <div className="mt-3 flex items-center justify-between text-xs text-[var(--text-secondary)]">
+                    <div
+                      className="mt-3 flex items-center justify-between text-xs"
+                      style={{ color: secondaryTextColor }}
+                    >
                       <span>Accession: {result.accession_number}</span>
                       <span>Sections: {result.sections_count}</span>
                     </div>

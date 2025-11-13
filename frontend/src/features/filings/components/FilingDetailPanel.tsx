@@ -83,12 +83,8 @@ export function FilingDetailPanel({
   onTemplateChange,
   prefill,
 }: FilingDetailPanelProps) {
-  const filingId = filing?.filing_id ?? searchResult?.filing_id ?? prefill?.filingId ?? null
   const headerCompany = searchResult?.company_name ?? prefill?.companyName ?? null
-  const headerFilingType = searchResult?.filing_type ?? prefill?.filingType ?? null
-  const headerSubtitle = headerCompany
-    ? `${headerCompany}${headerFilingType ? ` • ${headerFilingType}` : ''}`
-    : 'Select a filing to see full context.'
+
   const companyName = headerCompany ?? '—'
   const tickerValue = searchResult?.ticker ?? prefill?.ticker ?? null
   const cikValue = searchResult?.cik ?? null
@@ -112,16 +108,12 @@ export function FilingDetailPanel({
       <header className="flex items-center justify-between">
         <div>
           <h2 className="text-sm font-semibold text-[var(--text-primary)]">Filing detail</h2>
-          <p className="text-xs text-[var(--text-secondary)]">{headerSubtitle}</p>
-        </div>
-        <div className="text-xs text-[var(--text-secondary)]">
-          {filingId ? `Filing ID: ${filingId}` : 'No filing ID available'}
         </div>
       </header>
 
       <div
         className="flex-1 overflow-y-auto rounded-xl border p-4"
-        style={{ borderColor: 'var(--lines-subtle)', background: 'var(--surfaces-muted)' }}
+        style={{ borderColor: 'var(--lines-subtle)', background: 'var(--surfaces-raised)' }}
       >
         {isLoading ? (
           <div className="space-y-3">
@@ -130,7 +122,7 @@ export function FilingDetailPanel({
             <div className="h-4 w-1/3 animate-pulse rounded bg-[var(--lines-subtle)]" />
           </div>
         ) : searchResult || prefill ? (
-          <div className="space-y-3 text-sm">
+          <div className="space-y-5 text-sm">
             <div>
               <p className="text-xs font-semibold uppercase tracking-wide text-[var(--text-secondary)]">
                 Company
@@ -139,27 +131,27 @@ export function FilingDetailPanel({
               <p className="text-xs text-[var(--text-secondary)]">{tickerLine}</p>
             </div>
 
-            <div className="grid gap-3 md:grid-cols-2">
+            <div className="grid gap-5 md:grid-cols-2">
               <div>
-                <p className="text-xs font-semibold uppercase tracking-wide text-[var(--text-secondary)]">
+                <p className="text-xs font-semibold uppercase tracking-wide text-[var(--text-muted)]">
                   Filing date
                 </p>
                 <p className="text-[var(--text-primary)]">{filingDateDisplay}</p>
               </div>
               <div>
-                <p className="text-xs font-semibold uppercase tracking-wide text-[var(--text-secondary)]">
+                <p className="text-xs font-semibold uppercase tracking-wide text-[var(--text-muted)]">
                   Accession number
                 </p>
                 <p className="text-[var(--text-primary)]">{accessionDisplay}</p>
               </div>
               <div>
-                <p className="text-xs font-semibold uppercase tracking-wide text-[var(--text-secondary)]">
+                <p className="text-xs font-semibold uppercase tracking-wide text-[var(--text-muted)]">
                   Filing type
                 </p>
                 <p className="text-[var(--text-primary)]">{filingTypeDisplay}</p>
               </div>
               <div>
-                <p className="text-xs font-semibold uppercase tracking-wide text-[var(--text-secondary)]">
+                <p className="text-xs font-semibold uppercase tracking-wide text-[var(--text-muted)]">
                   Sections extracted
                 </p>
                 <p className="text-[var(--text-primary)]">{sectionsDisplay}</p>
@@ -167,9 +159,9 @@ export function FilingDetailPanel({
             </div>
 
             {filing ? (
-              <div className="grid gap-3 md:grid-cols-2">
+              <div className="grid gap-5 md:grid-cols-2">
                 <div>
-                  <p className="text-xs font-semibold uppercase tracking-wide text-[var(--text-secondary)]">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-[var(--text-muted)]">
                     Processing status
                   </p>
                   <p className="text-[var(--text-primary)]">
@@ -177,7 +169,7 @@ export function FilingDetailPanel({
                   </p>
                 </div>
                 <div>
-                  <p className="text-xs font-semibold uppercase tracking-wide text-[var(--text-secondary)]">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-[var(--text-muted)]">
                     Latest analysis
                   </p>
                   <p className="text-[var(--text-primary)]">
@@ -223,6 +215,8 @@ export function FilingDetailPanel({
           <div className="flex flex-col gap-2 md:flex-row md:flex-wrap">
             {templateOptions.map((option) => {
               const isActive = option.value === analysisTemplate
+              const primaryTextColor = isActive ? 'var(--text-on-brand)' : 'var(--text-primary)'
+              const secondaryTextColor = isActive ? 'var(--text-on-brand)' : 'var(--text-secondary)'
               return (
                 <button
                   key={option.value}
@@ -230,16 +224,18 @@ export function FilingDetailPanel({
                   onClick={() => onTemplateChange(option.value)}
                   className="w-full rounded-2xl border p-3 text-left transition-colors md:w-auto md:min-w-[12rem]"
                   style={{
-                    borderColor: isActive ? 'var(--status-positive)' : 'var(--lines-subtle)',
-                    background: isActive ? 'rgba(34, 197, 94, 0.12)' : 'var(--surfaces-muted)',
-                    color: 'var(--text-primary)',
+                    borderColor: isActive ? 'var(--brand-accent)' : 'var(--lines-subtle)',
+                    background: isActive ? 'var(--brand-accent)' : 'var(--surfaces-muted)',
+                    color: primaryTextColor,
                     outlineColor: 'var(--focus-ring)',
                   }}
                   aria-pressed={isActive}
                 >
-                  <span className="block text-sm font-semibold">{option.label}</span>
+                  <span className="block text-sm font-semibold" style={{ color: primaryTextColor }}>
+                    {option.label}
+                  </span>
                   {option.helper ? (
-                    <span className="mt-1 block text-xs text-[var(--text-secondary)]">
+                    <span className="mt-1 block text-xs" style={{ color: secondaryTextColor }}>
                       {option.helper}
                     </span>
                   ) : null}
