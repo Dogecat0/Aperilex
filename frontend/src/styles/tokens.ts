@@ -100,7 +100,7 @@ export const lightTokens: ThemeTokens = {
   },
   learning: {
     surface: '#FFF4DE',
-    accent: '#B86307',
+    accent: '#d99751ff',
   },
   action: {
     primary: '#45C388',
@@ -187,13 +187,13 @@ export const lightTokens: ThemeTokens = {
 export const darkTokens: ThemeTokens = {
   name: 'dark',
   brand: {
-    background: '#061125',
+    background: '#020b1a',
     surface: '#0B1628',
-    accent: '#AAB7DD',
+    accent: '#4F5EC5',
   },
   learning: {
     surface: '#2C1F12',
-    accent: '#FFC87A',
+    accent: '#dca558ff',
   },
   action: {
     primary: '#3ED79E',
@@ -202,7 +202,7 @@ export const darkTokens: ThemeTokens = {
   },
   surfaces: {
     base: '#030918',
-    raised: '#091831',
+    raised: '#061021ff',
     muted: '#102136',
     overlay: 'rgba(3, 9, 24, 0.88)',
   },
@@ -223,7 +223,7 @@ export const darkTokens: ThemeTokens = {
     positive: '#3ED79E',
     neutral: '#AFA5FF',
     negative: '#FB7185',
-    warning: '#FFA04D',
+    warning: '#C9733A',
   },
   metrics: {
     up: '#3ED79E',

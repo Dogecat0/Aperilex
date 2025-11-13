@@ -136,7 +136,7 @@
 :root[data-theme="dark"] {
   --brand-background: #061125;
   --brand-surface: #0B1628;
-  --brand-accent: #AAB7DD;
+  --brand-accent: #4F5EC5;
   --learning-surface: #2C1F12;
   --learning-accent: #FFC87A;
   --action-primary: #3ED79E;
@@ -158,7 +158,7 @@
   --status-positive: #3ED79E;
   --status-neutral: #AFA5FF;
   --status-negative: #FB7185;
-  --status-warning: #FFA04D;
+  --status-warning: #C9733A;
   --metrics-up: #3ED79E;
   --metrics-down: #FB7185;
   --metrics-stable: #AAB7DD;
