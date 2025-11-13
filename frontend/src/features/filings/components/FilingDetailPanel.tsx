@@ -154,7 +154,7 @@ export function FilingDetailPanel({
                 <p className="text-xs font-semibold uppercase tracking-wide text-[var(--text-muted)]">
                   Sections extracted
                 </p>
-                <p> className="text-[var(--text-primary)]">{sectionsDisplay}</p>
+                <p className="text-[var(--text-primary)]">{sectionsDisplay}</p>
               </div>
             </div>
 
