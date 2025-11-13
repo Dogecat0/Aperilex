@@ -34,7 +34,7 @@ const segmentOptions: { label: string; value: SegmentFilter }[] = [
 ]
 
 const filterButtonClass =
-  'rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-wide transition-colors duration-150 hover:bg-[var(--surfaces-muted)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2'
+  'rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-wide bg-transparent transition-colors duration-150 hover:bg-[var(--surfaces-muted)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2'
 
 export function DashboardFilters({
   filters,
@@ -67,9 +67,9 @@ export function DashboardFilters({
         onClick={() => handleFilterSelect(key, option.value)}
         className={filterButtonClass}
         style={{
-          borderColor: isActive ? 'var(--lines-strong)' : 'var(--lines-subtle)',
-          background: isActive ? 'var(--brand-accent)' : 'transparent',
-          color: isActive ? 'var(--text-primary)' : 'var(--text-secondary)',
+          borderColor: isActive ? 'var(--brand-accent)' : 'var(--lines-subtle)',
+          background: isActive ? 'var(--brand-accent)' : undefined,
+          color: isActive ? 'var(--text-on-brand)' : 'var(--text-secondary)',
           outlineColor: 'var(--focus-ring)',
         }}
         aria-pressed={isActive}

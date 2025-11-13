@@ -290,7 +290,7 @@ export function AnalysisLibrarySection({
             <li
               key={`${group.filingId}-${group.accessionNumber ?? 'unknown'}`}
               className="rounded-2xl border p-5"
-              style={{ borderColor: 'var(--lines-subtle)', background: 'var(--surfaces-raised)' }}
+              style={{ borderColor: 'var(--lines-subtle)', background: 'var(--surfaces-muted)' }}
             >
               <header className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
                 <div>
@@ -304,7 +304,7 @@ export function AnalysisLibrarySection({
                 </div>
                 <Link
                   to={getLinkTarget(group.analyses[0]?.analysisId)}
-                  className={`${controlBaseClass} hover:bg-[var(--surfaces-muted)]`}
+                  className={`${controlBaseClass} hover:bg-[var(--surfaces-raised)]`}
                   style={{
                     borderColor: 'var(--lines-subtle)',
                     color: 'var(--text-primary)',
@@ -324,22 +324,22 @@ export function AnalysisLibrarySection({
                     run.confidenceBucket
                   )
                   const saveButtonClass = `${controlBaseClass} ${
-                    saved ? 'hover:bg-[rgba(69,195,136,0.16)]' : 'hover:bg-[var(--surfaces-muted)]'
+                    saved ? 'hover:bg-[rgba(69,195,136,0.16)]' : 'hover:bg-[var(--surfaces-raised)]'
                   }`
                   return (
                     <li
                       key={run.analysisId}
                       className="flex flex-col gap-3 rounded-2xl border p-4 md:flex-row md:items-center md:justify-between"
                       style={{
-                        borderColor: index === 0 ? 'var(--status-positive)' : 'var(--lines-subtle)',
+                        borderColor: index === 0 ? 'var(--lines-subtle)' : 'var(--lines-subtle)',
                         background:
-                          index === 0 ? 'rgba(34, 197, 94, 0.07)' : 'var(--surfaces-muted)',
+                          index === 0 ? 'var(--surfaces-raised)' : 'var(--surfaces-muted)',
                       }}
                     >
                       <div className="space-y-1">
                         <div className="flex flex-wrap items-center gap-2">
                           {index === 0 ? (
-                            <span className="inline-flex items-center rounded-full bg-[var(--status-positive)] px-3 py-1 text-[10px] font-semibold uppercase tracking-wide text-white">
+                            <span className="inline-flex items-center rounded-full bg-[var(--brand-accent)] px-3 py-1 text-[10px] font-semibold uppercase tracking-wide text-white">
                               Latest
                             </span>
                           ) : null}
@@ -373,9 +373,9 @@ export function AnalysisLibrarySection({
                           onClick={() => handleToggleSaved(group, run.analysisId)}
                           className={saveButtonClass}
                           style={{
-                            borderColor: saved ? 'var(--status-positive)' : 'var(--lines-subtle)',
-                            color: saved ? 'var(--status-positive)' : 'var(--text-primary)',
-                            background: saved ? 'rgba(69, 195, 136, 0.12)' : 'transparent',
+                            borderColor: saved ? 'var(--status-neutral)' : 'var(--lines-subtle)',
+                            color: saved ? 'var(--text-on-brand)' : 'var(--text-primary)',
+                            background: saved ? 'var(--brand-accent)' : 'transparent',
                             outlineColor: 'var(--focus-ring)',
                           }}
                         >
@@ -388,15 +388,15 @@ export function AnalysisLibrarySection({
                           style={{
                             borderColor:
                               copiedId === run.analysisId
-                                ? 'var(--status-positive)'
+                                ? 'var(--status-neutral)'
                                 : 'var(--lines-subtle)',
                             color:
                               copiedId === run.analysisId
-                                ? 'var(--status-positive)'
+                                ? 'var(--text-on-brand)'
                                 : 'var(--text-primary)',
                             background:
                               copiedId === run.analysisId
-                                ? 'rgba(69, 195, 136, 0.12)'
+                                ? 'var(--brand-accent)'
                                 : 'transparent',
                             outlineColor: 'var(--focus-ring)',
                           }}

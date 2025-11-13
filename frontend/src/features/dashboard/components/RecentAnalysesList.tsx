@@ -166,9 +166,9 @@ export function RecentAnalysesList({ groups, isLoading }: RecentAnalysesListProp
                               : 'hover:bg-[var(--surfaces-muted)]'
                           }`}
                           style={{
-                            borderColor: saved ? 'var(--status-positive)' : 'var(--lines-subtle)',
-                            color: saved ? 'var(--status-positive)' : 'var(--text-primary)',
-                            background: saved ? 'rgba(69, 195, 136, 0.12)' : 'transparent',
+                            borderColor: saved ? 'var(--status-neutral)' : 'var(--lines-subtle)',
+                            color: saved ? 'var(--text-on-brand)' : 'var(--text-primary)',
+                            background: saved ? 'var(--brand-accent)' : 'transparent',
                             outlineColor: 'var(--focus-ring)',
                           }}
                         >

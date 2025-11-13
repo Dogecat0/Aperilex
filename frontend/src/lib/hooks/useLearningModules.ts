@@ -7,6 +7,7 @@ import {
   type LearningModuleMeta,
   type ModuleFocusTab,
 } from '@/lib/learning/moduleCatalog'
+export type { ModuleFocusTab } from '@/lib/learning/moduleCatalog'
 import {
   analysisResponseSchema,
   paginatedAnalysesSchema,
