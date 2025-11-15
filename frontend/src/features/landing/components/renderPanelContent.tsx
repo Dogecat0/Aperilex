@@ -44,7 +44,10 @@ export function renderPanelContent(panel: HeroSlide['panel']) {
           </p>
           <div className="grid gap-3 sm:grid-cols-3">
             {panel.stats.map((stat) => (
-              <div key={stat.label} className="rounded-2xl border border-white/15 bg-[var(--brand-background)]/20 p-3">
+              <div
+                key={stat.label}
+                className="rounded-2xl border border-white/15 bg-[var(--brand-background)]/20 p-3"
+              >
                 <p className="text-xs uppercase tracking-[0.25em] text-white/60">{stat.label}</p>
                 <p className="pt-2 text-sm text-[var(text-on-muted)]">{stat.description}</p>
               </div>

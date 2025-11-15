@@ -1,5 +1,6 @@
 import { useMemo } from 'react'
 import { useThemeTokens } from '@/components/ThemeProvider'
+import { hexToRgba } from '@/lib/color'
 import type { SummarySection } from '@/lib/types/analysis'
 
 interface OverviewTabProps {
@@ -31,6 +32,7 @@ function formatFeaturedMetric(
 
 export function OverviewTab({ segments }: OverviewTabProps) {
   const tokens = useThemeTokens()
+  const isLightMode = tokens.name === 'light'
   const cardStyles = useMemo(
     () => ({
       background: 'var(--surfaces-raised)',
@@ -41,11 +43,11 @@ export function OverviewTab({ segments }: OverviewTabProps) {
   )
   const featuredMetricStyles = useMemo(
     () => ({
-      background: tokens.brand.accent,
-      color: tokens.text.onBrand,
+      background: hexToRgba(tokens.brand.accent, isLightMode ? 0.33 : 0.28),
+      color: isLightMode ? tokens.text.primary : tokens.text.onBrand,
       boxShadow: tokens.shadows.soft,
     }),
-    [tokens]
+    [isLightMode, tokens]
   )
 
   if (!segments || segments.length === 0) {

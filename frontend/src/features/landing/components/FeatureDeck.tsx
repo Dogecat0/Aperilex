@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { TouchEvent } from 'react'
+import { useThemeTokens } from '@/components/ThemeProvider'
 import { FeatureHeroStat } from '@/components/layout/FeatureHeroStat'
 import { Button } from '@/components/ui/Button'
+import { hexToRgba } from '@/lib/color'
 import type {
   DashboardTileContent,
   DetailTileContent,
@@ -379,6 +381,9 @@ export function FeatureDeck({
   isAuthenticating,
   onNavigate,
 }: FeatureDeckProps) {
+  const tokens = useThemeTokens()
+  const isLightMode = tokens.name === 'light'
+  const accentBackground = hexToRgba(tokens.brand.accent, isLightMode ? 0.33 : 0.28)
   const tiles = useMemo(
     () => [
       {
@@ -569,7 +574,7 @@ export function FeatureDeck({
                   onClick={() => handleIndicatorSelect(index)}
                   className="h-2 w-8 rounded-full transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
                   style={{
-                    background: isActive ? 'var(--brand-accent)' : 'var(--lines-subtle)',
+                    background: isActive ? accentBackground : 'var(--lines-subtle)',
                     opacity: isActive ? 1 : 0.5,
                     outlineColor: 'var(--focus-ring)',
                   }}

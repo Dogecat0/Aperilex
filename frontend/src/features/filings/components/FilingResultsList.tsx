@@ -1,3 +1,5 @@
+import { useThemeTokens } from '@/components/ThemeProvider'
+import { hexToRgba } from '@/lib/color'
 import type { FilingSearchResult, PaginatedFilingSearchResponse } from '@/lib/types/filing'
 
 const FILING_RESULTS_SKELETON_KEYS = ['filing-a', 'filing-b', 'filing-c', 'filing-d'] as const
@@ -26,6 +28,11 @@ export function FilingResultsList({
   const canGoNext = pagination?.has_next ?? false
   const currentPage = pagination?.page ?? 1
   const totalPages = pagination?.total_pages ?? 1
+  const tokens = useThemeTokens()
+  const isLightMode = tokens.name === 'light'
+  const accentBackground = hexToRgba(tokens.brand.accent, isLightMode ? 0.33 : 0.28)
+  const accentPrimaryText = isLightMode ? tokens.text.primary : tokens.text.onBrand
+  const accentSecondaryText = isLightMode ? tokens.text.secondary : tokens.text.onBrand
 
   return (
     <section
@@ -86,8 +93,8 @@ export function FilingResultsList({
           <ul className="space-y-3">
             {results.map((result) => {
               const isActive = result.accession_number === selectedAccession
-              const primaryTextColor = isActive ? 'var(--text-on-brand)' : 'var(--text-primary)'
-              const secondaryTextColor = isActive ? 'var(--text-on-brand)' : 'var(--text-secondary)'
+              const primaryTextColor = isActive ? accentPrimaryText : 'var(--text-primary)'
+              const secondaryTextColor = isActive ? accentSecondaryText : 'var(--text-secondary)'
               return (
                 <li key={result.accession_number}>
                   <button
@@ -97,7 +104,7 @@ export function FilingResultsList({
                     style={{
                       borderColor: isActive ? 'var(--brand-accent)' : 'var(--lines-subtle)',
                       color: primaryTextColor,
-                      background: isActive ? 'var(--brand-accent)' : 'var(--surfaces-muted)',
+                      background: isActive ? accentBackground : 'var(--surfaces-muted)',
                     }}
                   >
                     <div className="flex items-center justify-between gap-4">

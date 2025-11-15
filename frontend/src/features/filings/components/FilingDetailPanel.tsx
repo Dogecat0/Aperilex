@@ -1,5 +1,7 @@
+import { useThemeTokens } from '@/components/ThemeProvider'
 import { RequireAuthAction } from '@/components/routing/RequireAuthAction'
 import { Button } from '@/components/ui/Button'
+import { hexToRgba } from '@/lib/color'
 import type { FilingResponse, FilingSearchResult } from '@/lib/types/filing'
 import type { TaskResponse } from '@/lib/types/task'
 
@@ -99,6 +101,11 @@ export function FilingDetailPanel({
   const accessionDisplay = searchResult?.accession_number ?? '—'
   const sectionsDisplay =
     typeof searchResult?.sections_count === 'number' ? `${searchResult.sections_count}` : '—'
+  const tokens = useThemeTokens()
+  const isLightMode = tokens.name === 'light'
+  const accentBackground = hexToRgba(tokens.brand.accent, isLightMode ? 0.33 : 0.28)
+  const accentPrimaryText = isLightMode ? tokens.text.primary : tokens.text.onBrand
+  const accentSecondaryText = isLightMode ? tokens.text.secondary : tokens.text.onBrand
 
   return (
     <section
@@ -215,8 +222,8 @@ export function FilingDetailPanel({
           <div className="flex flex-col gap-2 md:flex-row md:flex-wrap">
             {templateOptions.map((option) => {
               const isActive = option.value === analysisTemplate
-              const primaryTextColor = isActive ? 'var(--text-on-brand)' : 'var(--text-primary)'
-              const secondaryTextColor = isActive ? 'var(--text-on-brand)' : 'var(--text-secondary)'
+              const primaryTextColor = isActive ? accentPrimaryText : 'var(--text-primary)'
+              const secondaryTextColor = isActive ? accentSecondaryText : 'var(--text-secondary)'
               return (
                 <button
                   key={option.value}
@@ -225,7 +232,7 @@ export function FilingDetailPanel({
                   className="w-full rounded-2xl border p-3 text-left transition-colors md:w-auto md:min-w-[12rem]"
                   style={{
                     borderColor: isActive ? 'var(--brand-accent)' : 'var(--lines-subtle)',
-                    background: isActive ? 'var(--brand-accent)' : 'var(--surfaces-muted)',
+                    background: isActive ? accentBackground : 'var(--surfaces-muted)',
                     color: primaryTextColor,
                     outlineColor: 'var(--focus-ring)',
                   }}

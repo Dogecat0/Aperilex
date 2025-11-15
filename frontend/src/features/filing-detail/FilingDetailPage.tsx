@@ -128,6 +128,8 @@ export function FilingDetailPage() {
   const requestedFocusSection = locationState?.focusSection ?? null
   const tokens = useThemeTokens()
   const isLightMode = tokens.name === 'light'
+  const accentBackground = hexToRgba(tokens.brand.accent, isLightMode ? 0.33 : 0.28)
+  const accentTextColor = isLightMode ? tokens.text.primary : tokens.text.onBrand
   const detailQuery = useFilingDetail(id)
   const detail = detailQuery.data ?? null
   const analysis = detail?.analysis ?? null
@@ -237,9 +239,9 @@ export function FilingDetailPage() {
     const isActive = activeTab === tab.key
     if (isActive) {
       return {
-        background: tokens.brand.accent,
+        background: accentBackground,
         borderColor: tokens.brand.accent,
-        color: tokens.text.onBrand,
+        color: accentTextColor,
         boxShadow: tokens.shadows.soft,
         ['--tab-hover' as const]: hexToRgba(tokens.brand.accent, isLightMode ? 0.22 : 0.3),
       }

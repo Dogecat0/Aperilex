@@ -1,3 +1,5 @@
+import { useThemeTokens } from '@/components/ThemeProvider'
+import { hexToRgba } from '@/lib/color'
 import type {
   DashboardFiltersState,
   FilingTypeFilter,
@@ -41,6 +43,11 @@ export function DashboardFilters({
   onFilterChange,
   disabled = false,
 }: DashboardFiltersProps) {
+  const tokens = useThemeTokens()
+  const isLightMode = tokens.name === 'light'
+  const accentBackground = hexToRgba(tokens.brand.accent, isLightMode ? 0.33 : 0.28)
+  const accentTextColor = isLightMode ? tokens.text.primary : tokens.text.onBrand
+
   const handleFilterSelect = <Key extends keyof DashboardFiltersState>(
     key: Key,
     value: DashboardFiltersState[Key]
@@ -68,8 +75,8 @@ export function DashboardFilters({
         className={filterButtonClass}
         style={{
           borderColor: isActive ? 'var(--brand-accent)' : 'var(--lines-subtle)',
-          background: isActive ? 'var(--brand-accent)' : undefined,
-          color: isActive ? 'var(--text-on-brand)' : 'var(--text-secondary)',
+          background: isActive ? accentBackground : undefined,
+          color: isActive ? accentTextColor : 'var(--text-secondary)',
           outlineColor: 'var(--focus-ring)',
         }}
         aria-pressed={isActive}

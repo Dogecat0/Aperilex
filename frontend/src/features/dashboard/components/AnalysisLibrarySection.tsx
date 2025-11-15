@@ -1,10 +1,12 @@
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { useThemeTokens } from '@/components/ThemeProvider'
 import { SectionIntro } from '@/components/ui/SectionIntro'
 import type { PaginationMetadata } from '@/lib/types/analysis'
 import type { AnalysisLibraryGroup, UseAnalysisLibraryReturn } from '@/lib/hooks'
 import type { DashboardFiltersState } from '../DashboardPage'
 import { useSavedAnalyses } from '@/lib/hooks'
+import { hexToRgba } from '@/lib/color'
 
 interface AnalysisLibrarySectionProps {
   query: UseAnalysisLibraryReturn
@@ -145,6 +147,10 @@ export function AnalysisLibrarySection({
   onPageChange,
   isLoading: isLoadingOverride,
 }: AnalysisLibrarySectionProps) {
+  const tokens = useThemeTokens()
+  const isLightMode = tokens.name === 'light'
+  const accentBackground = hexToRgba(tokens.brand.accent, isLightMode ? 0.33 : 0.28)
+  const accentTextColor = isLightMode ? tokens.text.primary : tokens.text.onBrand
   const { groups, isLoading, isFetching, error, data } = query
   const pagination = data?.pagination
   const [copiedId, setCopiedId] = useState<string | null>(null)
@@ -339,7 +345,10 @@ export function AnalysisLibrarySection({
                       <div className="space-y-1">
                         <div className="flex flex-wrap items-center gap-2">
                           {index === 0 ? (
-                            <span className="inline-flex items-center rounded-full bg-[var(--brand-accent)] px-3 py-1 text-[10px] font-semibold uppercase tracking-wide text-white">
+                            <span
+                              className="inline-flex items-center rounded-full px-3 py-1 text-[10px] font-semibold uppercase tracking-wide"
+                              style={{ background: accentBackground, color: accentTextColor }}
+                            >
                               Latest
                             </span>
                           ) : null}
@@ -374,8 +383,8 @@ export function AnalysisLibrarySection({
                           className={saveButtonClass}
                           style={{
                             borderColor: saved ? 'var(--status-neutral)' : 'var(--lines-subtle)',
-                            color: saved ? 'var(--text-on-brand)' : 'var(--text-primary)',
-                            background: saved ? 'var(--brand-accent)' : 'transparent',
+                            color: saved ? accentTextColor : 'var(--text-primary)',
+                            background: saved ? accentBackground : 'transparent',
                             outlineColor: 'var(--focus-ring)',
                           }}
                         >
@@ -391,11 +400,9 @@ export function AnalysisLibrarySection({
                                 ? 'var(--status-neutral)'
                                 : 'var(--lines-subtle)',
                             color:
-                              copiedId === run.analysisId
-                                ? 'var(--text-on-brand)'
-                                : 'var(--text-primary)',
+                              copiedId === run.analysisId ? accentTextColor : 'var(--text-primary)',
                             background:
-                              copiedId === run.analysisId ? 'var(--brand-accent)' : 'transparent',
+                              copiedId === run.analysisId ? accentBackground : 'transparent',
                             outlineColor: 'var(--focus-ring)',
                           }}
                         >

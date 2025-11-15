@@ -231,6 +231,8 @@ export function GuidedFilingStepper({
     const borderColor = hexToRgba(tokens.status.warning, isLightMode ? 0.45 : 0.6)
     return { background, borderColor, color: tokens.status.warning }
   }, [focusNotice, isLightMode, tokens.status.warning])
+  const accentBackground = hexToRgba(tokens.brand.accent, isLightMode ? 0.33 : 0.28)
+  const accentTextColor = isLightMode ? tokens.text.primary : tokens.text.onBrand
   const celebrationOverlayBackground = hexToRgba(tokens.brand.background, isLightMode ? 0.55 : 0.68)
   const notifiedSectionsRef = useRef<Set<string>>(new Set())
   const hasUserNavigatedRef = useRef(false)
@@ -795,9 +797,9 @@ export function GuidedFilingStepper({
 
             if (isActive) {
               stepStyles = {
-                background: tokens.brand.accent,
+                background: accentBackground,
                 borderColor: tokens.brand.accent,
-                color: tokens.text.onBrand,
+                color: accentTextColor,
                 boxShadow: tokens.shadows.soft,
                 ['--step-hover' as const]: hexToRgba(tokens.brand.accent, isLightMode ? 0.22 : 0.3),
               }

@@ -1,7 +1,9 @@
 import { Link } from 'react-router-dom'
+import { useThemeTokens } from '@/components/ThemeProvider'
 import { SectionIntro } from '@/components/ui/SectionIntro'
 import type { RecentAnalysisGroup } from '../DashboardPage'
 import { useSavedAnalyses } from '@/lib/hooks'
+import { hexToRgba } from '@/lib/color'
 
 const FILED_DATE_FORMAT = new Intl.DateTimeFormat('en-US', {
   month: 'short',
@@ -31,6 +33,10 @@ function formatFiledDate(input?: string | null) {
 }
 
 export function RecentAnalysesList({ groups, isLoading }: RecentAnalysesListProps) {
+  const tokens = useThemeTokens()
+  const isLightMode = tokens.name === 'light'
+  const accentBackground = hexToRgba(tokens.brand.accent, isLightMode ? 0.33 : 0.28)
+  const accentTextColor = isLightMode ? tokens.text.primary : tokens.text.onBrand
   const { isSaved, toggle } = useSavedAnalyses()
 
   const showGroupSkeleton = isLoading && groups.length === 0
@@ -167,8 +173,8 @@ export function RecentAnalysesList({ groups, isLoading }: RecentAnalysesListProp
                           }`}
                           style={{
                             borderColor: saved ? 'var(--status-neutral)' : 'var(--lines-subtle)',
-                            color: saved ? 'var(--text-on-brand)' : 'var(--text-primary)',
-                            background: saved ? 'var(--brand-accent)' : 'transparent',
+                            color: saved ? accentTextColor : 'var(--text-primary)',
+                            background: saved ? accentBackground : 'transparent',
                             outlineColor: 'var(--focus-ring)',
                           }}
                         >
