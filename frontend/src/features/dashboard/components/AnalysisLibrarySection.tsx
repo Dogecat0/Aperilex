@@ -395,9 +395,7 @@ export function AnalysisLibrarySection({
                                 ? 'var(--text-on-brand)'
                                 : 'var(--text-primary)',
                             background:
-                              copiedId === run.analysisId
-                                ? 'var(--brand-accent)'
-                                : 'transparent',
+                              copiedId === run.analysisId ? 'var(--brand-accent)' : 'transparent',
                             outlineColor: 'var(--focus-ring)',
                           }}
                         >

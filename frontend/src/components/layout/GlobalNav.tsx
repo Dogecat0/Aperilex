@@ -58,7 +58,7 @@ export function GlobalNav() {
   const secondaryBorder = tokens.lines.subtle
   const outlineColor = tokens.focus.ring
   const navHover = hexToRgba(tokens.brand.accent, isLightMode ? 0.12 : 0.2)
-  const navActiveBackground = hexToRgba(tokens.brand.accent, isLightMode ? 0.18 : 0.28)
+  const navActiveBackground = hexToRgba(tokens.brand.accent, isLightMode ? 0.48 : 0.28)
   const navLinkClasses =
     'inline-flex items-center rounded-full px-3 py-2 text-sm font-medium transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 hover:bg-[var(--nav-hover)] whitespace-nowrap'
 
