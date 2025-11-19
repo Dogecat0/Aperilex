@@ -1,5 +1,3 @@
-import { useThemeTokens } from '@/components/ThemeProvider'
-import { hexToRgba } from '@/lib/color'
 import type {
   DashboardFiltersState,
   FilingTypeFilter,
@@ -35,18 +33,14 @@ const segmentOptions: { label: string; value: SegmentFilter }[] = [
   { label: 'MD&A focus', value: 'business_focused' },
 ]
 
-const filterButtonClass =
-  'rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-wide bg-transparent transition-colors duration-150 hover:bg-[var(--surfaces-muted)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2'
+
 
 export function DashboardFilters({
   filters,
   onFilterChange,
   disabled = false,
 }: DashboardFiltersProps) {
-  const tokens = useThemeTokens()
-  const isLightMode = tokens.name === 'light'
-  const accentBackground = hexToRgba(tokens.brand.accent, isLightMode ? 0.33 : 0.28)
-  const accentTextColor = isLightMode ? tokens.text.primary : tokens.text.onBrand
+
 
   const handleFilterSelect = <Key extends keyof DashboardFiltersState>(
     key: Key,
@@ -72,13 +66,10 @@ export function DashboardFilters({
         key={`${String(key)}-${String(option.value)}`}
         type="button"
         onClick={() => handleFilterSelect(key, option.value)}
-        className={filterButtonClass}
-        style={{
-          borderColor: isActive ? 'var(--brand-accent)' : 'var(--lines-subtle)',
-          background: isActive ? accentBackground : undefined,
-          color: isActive ? accentTextColor : 'var(--text-secondary)',
-          outlineColor: 'var(--focus-ring)',
-        }}
+        className={`rounded-full border px-4 py-1.5 text-xs font-bold uppercase tracking-wide transition-all ${isActive
+          ? 'border-[var(--brand-accent)] bg-[var(--brand-accent)]/10 text-[var(--brand-accent)] shadow-sm'
+          : 'border-[var(--lines-subtle)] text-[var(--text-muted)] hover:border-[var(--text-secondary)] hover:text-[var(--text-secondary)] hover:bg-[var(--surfaces-muted)]'
+          }`}
         aria-pressed={isActive}
         disabled={disabled}
       >
@@ -89,34 +80,43 @@ export function DashboardFilters({
 
   return (
     <section
-      className="flex flex-col gap-3 rounded-3xl border p-6"
+      className="flex flex-col gap-4 rounded-3xl border p-6 backdrop-blur-sm"
       style={{
         borderColor: 'var(--lines-subtle)',
         background: 'var(--surfaces-raised)',
         boxShadow: 'var(--shadows-soft)',
       }}
     >
-      <div
-        className="flex flex-col gap-3 rounded-2xl border p-4 space-y-5 lg:space-y-2"
-        style={{ borderColor: 'var(--lines-subtle)', background: 'var(--surfaces-raised)' }}
-      >
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="text-xs font-semibold uppercase tracking-wide text-[var(--text-secondary)]">
+      <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+        <div className="flex flex-wrap items-center gap-3">
+          <span className="text-[10px] font-bold uppercase tracking-widest text-[var(--text-muted)]">
             Filing type
           </span>
-          {filingTypeOptions.map((option) => renderOptionButton('filingType', option))}
+          <div className="flex flex-wrap gap-2">
+            {filingTypeOptions.map((option) => renderOptionButton('filingType', option))}
+          </div>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="text-xs font-semibold uppercase tracking-wide text-[var(--text-secondary)]">
+
+        <div className="h-px w-full bg-[var(--lines-subtle)] lg:h-8 lg:w-px" />
+
+        <div className="flex flex-wrap items-center gap-3">
+          <span className="text-[10px] font-bold uppercase tracking-widest text-[var(--text-muted)]">
             Date range
           </span>
-          {dateRangeOptions.map((option) => renderOptionButton('dateRange', option))}
+          <div className="flex flex-wrap gap-2">
+            {dateRangeOptions.map((option) => renderOptionButton('dateRange', option))}
+          </div>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="text-xs font-semibold uppercase tracking-wide text-[var(--text-secondary)]">
-            Analysis template
+
+        <div className="h-px w-full bg-[var(--lines-subtle)] lg:h-8 lg:w-px" />
+
+        <div className="flex flex-wrap items-center gap-3">
+          <span className="text-[10px] font-bold uppercase tracking-widest text-[var(--text-muted)]">
+            Template
           </span>
-          {segmentOptions.map((option) => renderOptionButton('segment', option))}
+          <div className="flex flex-wrap gap-2">
+            {segmentOptions.map((option) => renderOptionButton('segment', option))}
+          </div>
         </div>
       </div>
     </section>

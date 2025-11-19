@@ -42,7 +42,7 @@ describe('LearningProgressHero', () => {
     expect(
       screen.getByRole('heading', { name: /learning hub momentum overview/i })
     ).toBeInTheDocument()
-    expect(screen.getByText('Module coverage')).toBeInTheDocument()
+    expect(screen.getByText('Section coverage')).toBeInTheDocument()
     expect(screen.getByText('3/4')).toBeInTheDocument()
     expect(
       screen.getByText(/Completed 1 · In progress 2 · Not started 1 · Active analyses 2/i)

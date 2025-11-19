@@ -19,7 +19,7 @@ export function FeatureHero({ overline, title, description, actions, children }:
 
   return (
     <section
-      className="relative overflow-hidden rounded-2xl border px-6 py-6"
+      className="group relative overflow-hidden rounded-3xl border px-8 py-8 transition-all hover:shadow-xl"
       style={{
         borderColor: tokens.lines.subtle,
         background: tokens.surfaces.raised,
@@ -27,32 +27,34 @@ export function FeatureHero({ overline, title, description, actions, children }:
         boxShadow: tokens.shadows.soft,
       }}
     >
+      <div className="absolute inset-0 bg-gradient-to-br from-transparent via-transparent to-[var(--brand-accent)]/5 opacity-0 transition-opacity group-hover:opacity-100 pointer-events-none" />
+
       <span
         aria-hidden
-        className="absolute inset-x-6 top-0 h-1 rounded-full"
+        className="absolute inset-x-8 top-0 h-1 rounded-full opacity-50"
         style={{ background: accentColor }}
       />
 
-      <div className="relative flex flex-col gap-4">
-        <div className="flex flex-col gap-3">
+      <div className="relative z-10 flex flex-col gap-6">
+        <div className="flex flex-col gap-4">
           <p
-            className="text-xs font-semibold uppercase tracking-[0.24em]"
+            className="text-xs font-bold uppercase tracking-[0.24em]"
             style={{ color: overlineColor }}
           >
             {overline}
           </p>
           <h1
-            className="text-4xl font-semibold"
+            className="text-4xl font-bold lg:text-5xl"
             style={{
               fontFamily: 'var(--typography-serif)',
               lineHeight: 'var(--typography-line-heights-relaxed)',
-              letterSpacing: '-0.015em',
+              letterSpacing: '-0.02em',
             }}
           >
             {title}
           </h1>
           <p
-            className="max-w-2xl text-sm"
+            className="max-w-2xl text-base"
             style={{
               color: descriptionColor,
               lineHeight: 'var(--typography-line-heights-relaxed)',
@@ -62,8 +64,8 @@ export function FeatureHero({ overline, title, description, actions, children }:
           </p>
         </div>
 
-        {actions ? <div className="relative flex flex-wrap gap-2">{actions}</div> : null}
-        {children ? <div className="relative mt-4">{children}</div> : null}
+        {actions ? <div className="relative flex flex-wrap gap-3">{actions}</div> : null}
+        {children ? <div className="relative mt-2">{children}</div> : null}
       </div>
     </section>
   )

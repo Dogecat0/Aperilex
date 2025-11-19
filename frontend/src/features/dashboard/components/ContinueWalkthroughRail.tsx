@@ -79,7 +79,7 @@ export function ContinueWalkthroughRail({ analyses, isLoading }: ContinueWalkthr
                 }}
               >
                 <div className="flex flex-col gap-0.5">
-                  <p className="text-sm font-semibold text-[var(--text-primary)]">
+                  <p className="text-sm font-bold text-[var(--text-primary)]">
                     {item.companyName}
                     {item.ticker ? ` • ${item.ticker}` : ''}
                   </p>

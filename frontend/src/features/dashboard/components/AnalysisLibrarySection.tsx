@@ -1,10 +1,11 @@
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { useThemeTokens } from '@/components/ThemeProvider'
+
 import { SectionIntro } from '@/components/ui/SectionIntro'
 import type { PaginationMetadata } from '@/lib/types/analysis'
 import type { AnalysisLibraryGroup, UseAnalysisLibraryReturn } from '@/lib/hooks'
 import type { DashboardFiltersState } from '../DashboardPage'
+import { useThemeTokens } from '@/components/ThemeProvider'
 import { useSavedAnalyses } from '@/lib/hooks'
 import { hexToRgba } from '@/lib/color'
 
@@ -155,8 +156,7 @@ export function AnalysisLibrarySection({
   const pagination = data?.pagination
   const [copiedId, setCopiedId] = useState<string | null>(null)
   const { toggle, isSaved } = useSavedAnalyses()
-  const controlBaseClass =
-    'rounded-full border px-4 py-2 text-xs font-semibold uppercase tracking-wide transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2'
+
 
   const loadingState = Boolean(isLoadingOverride) || isLoading
 
@@ -240,7 +240,7 @@ export function AnalysisLibrarySection({
   return (
     <section
       id="analysis-library"
-      className="flex flex-col gap-6 rounded-3xl border p-6"
+      className="flex flex-col gap-6 rounded-3xl border p-6 backdrop-blur-sm"
       style={{
         borderColor: 'var(--lines-subtle)',
         background: 'var(--surfaces-raised)',
@@ -252,7 +252,7 @@ export function AnalysisLibrarySection({
         description="Jump into prior runs, compare templates, and keep your favourites pinned for future study sessions."
         actions={
           isFetching && !loadingState ? (
-            <span className="text-xs font-semibold uppercase tracking-wide text-[var(--text-secondary)]">
+            <span className="text-xs font-bold uppercase tracking-wide text-[var(--text-secondary)]">
               Updating…
             </span>
           ) : null
@@ -280,27 +280,27 @@ export function AnalysisLibrarySection({
           className="flex flex-col gap-3 rounded-2xl border p-5 text-sm"
           style={{ borderColor: 'var(--lines-subtle)', background: 'var(--surfaces-raised)' }}
         >
-          <p className="font-semibold text-[var(--text-primary)]">No analyses available yet</p>
+          <p className="font-bold text-[var(--text-primary)]">No analyses available yet</p>
           <p className="text-[var(--text-secondary)]">
             Once your organization completes analyses, they’ll collect here. You can queue a new run
             from the
-            <Link to="/analyze" className="ml-1 underline">
+            <Link to="/analyze" className="ml-1 underline hover:text-[var(--text-primary)]">
               analysis launchpad
             </Link>
             .
           </p>
         </div>
       ) : (
-        <ul className="space-y-5">
+        <ul className="space-y-6">
           {displayGroups.map((group) => (
             <li
               key={`${group.filingId}-${group.accessionNumber ?? 'unknown'}`}
-              className="rounded-2xl border p-5"
+              className="rounded-3xl border p-6 transition-colors hover:bg-[var(--surfaces-muted)]/50"
               style={{ borderColor: 'var(--lines-subtle)', background: 'var(--surfaces-muted)' }}
             >
-              <header className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+              <header className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between mb-4">
                 <div>
-                  <h3 className="text-base font-semibold text-[var(--text-primary)]">
+                  <h3 className="text-base font-bold text-[var(--text-primary)]">
                     {groupSummaryTitle(group)}
                   </h3>
                   <p className="text-xs text-[var(--text-secondary)]">
@@ -310,18 +310,13 @@ export function AnalysisLibrarySection({
                 </div>
                 <Link
                   to={getLinkTarget(group.analyses[0]?.analysisId)}
-                  className={`${controlBaseClass} hover:bg-[var(--surfaces-raised)]`}
-                  style={{
-                    borderColor: 'var(--lines-subtle)',
-                    color: 'var(--text-primary)',
-                    outlineColor: 'var(--focus-ring)',
-                  }}
+                  className="rounded-full border border-[var(--lines-subtle)] px-4 py-1.5 text-xs font-bold uppercase tracking-wide text-[var(--text-primary)] transition-colors hover:bg-[var(--surfaces-raised)]"
                 >
                   View latest
                 </Link>
               </header>
 
-              <ul className="mt-4 space-y-3">
+              <ul className="space-y-3">
                 {group.analyses.map((run, index) => {
                   const saved = isSaved(run.analysisId)
                   const label = formatTemplateLabel(run.analysisTemplate)
@@ -329,82 +324,63 @@ export function AnalysisLibrarySection({
                     run.confidenceScore,
                     run.confidenceBucket
                   )
-                  const saveButtonClass = `${controlBaseClass} ${
-                    saved ? 'hover:bg-[rgba(69,195,136,0.16)]' : 'hover:bg-[var(--surfaces-raised)]'
-                  }`
+
                   return (
                     <li
                       key={run.analysisId}
-                      className="flex flex-col gap-3 rounded-2xl border p-4 md:flex-row md:items-center md:justify-between"
+                      className="group flex flex-col gap-4 rounded-2xl border p-5 transition-all hover:shadow-md hover:translate-y-0.5 hover:-translate-x-0.5 md:flex-row md:items-center md:justify-between"
                       style={{
-                        borderColor: index === 0 ? 'var(--lines-subtle)' : 'var(--lines-subtle)',
-                        background:
-                          index === 0 ? 'var(--surfaces-raised)' : 'var(--surfaces-muted)',
+                        borderColor: 'var(--lines-subtle)',
+                        background: 'var(--surfaces-raised)',
                       }}
                     >
-                      <div className="space-y-1">
+                      <div className="space-y-1.5">
                         <div className="flex flex-wrap items-center gap-2">
                           {index === 0 ? (
                             <span
-                              className="inline-flex items-center rounded-full px-3 py-1 text-[10px] font-semibold uppercase tracking-wide"
+                              className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide"
                               style={{ background: accentBackground, color: accentTextColor }}
                             >
                               Latest
                             </span>
                           ) : null}
-                          <span className="text-sm font-semibold text-[var(--text-primary)]">
+                          <span className="text-sm font-bold text-[var(--text-primary)]">
                             {label}
                           </span>
                         </div>
                         <p className="text-xs text-[var(--text-secondary)]">
                           {formatTimestamp(run.createdAt)}
                         </p>
-                        <p className="text-xs font-semibold text-[var(--text-secondary)]">
+                        <p className="text-xs font-bold text-[var(--text-secondary)]">
                           {confidenceDisplay}
                           {confidenceDisplay !== 'Confidence pending' ? ' confidence' : ''}
                         </p>
                       </div>
 
-                      <div className="flex flex-wrap items-center gap-3 text-xs font-semibold uppercase tracking-wide">
+                      <div className="flex flex-wrap items-center gap-3 text-xs font-bold uppercase tracking-wide opacity-0 transition-opacity group-hover:opacity-100">
                         <Link
                           to={getLinkTarget(run.analysisId)}
-                          className={`${controlBaseClass} hover:bg-[var(--surfaces-muted)]`}
-                          style={{
-                            borderColor: 'var(--lines-subtle)',
-                            color: 'var(--text-primary)',
-                            outlineColor: 'var(--focus-ring)',
-                          }}
+                          className="rounded-full border border-[var(--lines-subtle)] px-4 py-1.5 text-[var(--text-primary)] transition-colors hover:bg-[var(--surfaces-muted)]"
                         >
                           View
                         </Link>
                         <button
                           type="button"
                           onClick={() => handleToggleSaved(group, run.analysisId)}
-                          className={saveButtonClass}
-                          style={{
-                            borderColor: saved ? 'var(--status-neutral)' : 'var(--lines-subtle)',
-                            color: saved ? accentTextColor : 'var(--text-primary)',
-                            background: saved ? accentBackground : 'transparent',
-                            outlineColor: 'var(--focus-ring)',
-                          }}
+                          className={`rounded-full border px-4 py-1.5 transition-colors ${saved
+                            ? 'border-[var(--brand-accent)] bg-[var(--brand-accent)]/10 text-[var(--brand-accent)]'
+                            : 'border-[var(--lines-subtle)] text-[var(--text-primary)] hover:bg-[var(--surfaces-raised)]'
+                            }`}
                         >
                           {saved ? 'Saved' : 'Save'}
                         </button>
                         <button
                           type="button"
                           onClick={() => handleCopy(run.analysisId)}
-                          className={`${controlBaseClass} hover:bg-[var(--surfaces-muted)]`}
-                          style={{
-                            borderColor:
-                              copiedId === run.analysisId
-                                ? 'var(--status-neutral)'
-                                : 'var(--lines-subtle)',
-                            color:
-                              copiedId === run.analysisId ? accentTextColor : 'var(--text-primary)',
-                            background:
-                              copiedId === run.analysisId ? accentBackground : 'transparent',
-                            outlineColor: 'var(--focus-ring)',
-                          }}
+                          className={`rounded-full border px-4 py-1.5 transition-colors ${copiedId === run.analysisId
+                            ? 'border-[var(--status-neutral)] bg-[var(--status-neutral)]/10 text-[var(--status-neutral)]'
+                            : 'border-[var(--lines-subtle)] text-[var(--text-primary)] hover:bg-[var(--surfaces-muted)]'
+                            }`}
                         >
                           {copiedId === run.analysisId ? 'Copied' : 'Copy link'}
                         </button>

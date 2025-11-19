@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Button } from '@/components/ui/Button'
+import { useThemeTokens } from '@/components/ThemeProvider'
 import { FirstRunLaunchpad } from './components/FirstRunLaunchpad'
 import { AnalysisLibrarySection } from './components/AnalysisLibrarySection'
 import { RecentAnalysesList } from './components/RecentAnalysesList'
@@ -292,9 +293,9 @@ export function DashboardPage() {
     const target = libraryAnalyses[0]
     const analyzedAt = formatDate(
       target.summary.processing?.completed_at ??
-        target.summary.filing.date ??
-        target.created_at ??
-        null
+      target.summary.filing.date ??
+      target.created_at ??
+      null
     )
 
     return {
@@ -366,99 +367,115 @@ export function DashboardPage() {
     setLibraryPage(page < 1 ? 1 : page)
   }
 
+  const tokens = useThemeTokens()
+
   return (
-    <div className="flex flex-col gap-6">
-      <FilingProgressHero
-        isLoading={libraryQuery.isLoading || libraryQuery.isFetching}
-        dateRangeLabel={dateRangeLabel}
-        totalCompleted={totalCompletedAnalyses}
-        readySectionCount={readySectionCount}
-        latestAnalysis={heroLatestAnalysis}
-      />
-
-      <DashboardFilters
-        filters={filters}
-        onFilterChange={handleFiltersChange}
-        onResetFilters={handleResetFilters}
-        disabled={filtersBusy}
-      />
-
-      {libraryQuery.error ? (
+    <div className="relative min-h-screen w-full">
+      {/* Ambient Background Mesh */}
+      <div className="fixed inset-0 z-0 pointer-events-none overflow-hidden">
         <div
-          className="rounded-2xl border p-4 text-sm text-red-500"
-          role="alert"
-          style={{ borderColor: 'rgba(239, 68, 68, 0.4)', background: 'rgba(254, 226, 226, 0.2)' }}
-        >
-          Unable to load analyses for the selected filters. Please try again shortly.
-          {summaryErrorMessage ? (
-            <p className="mt-2 text-xs text-red-400">{summaryErrorMessage}</p>
-          ) : null}
-        </div>
-      ) : null}
+          className="absolute -top-[20%] -left-[10%] w-[70%] h-[70%] rounded-full opacity-20 blur-[120px]"
+          style={{ background: tokens.brand.accent }}
+        />
+        <div
+          className="absolute top-[40%] -right-[20%] w-[60%] h-[60%] rounded-full opacity-15 blur-[100px]"
+          style={{ background: tokens.action.primary }}
+        />
+      </div>
 
-      {showFirstRunLaunchpad ? (
-        <FirstRunLaunchpad />
-      ) : showProcessingState ? (
-        <section
-          className="flex flex-col gap-4 rounded-3xl border p-6"
-          style={{
-            borderColor: 'var(--lines-subtle)',
-            background: 'var(--surfaces-muted)',
-            boxShadow: 'var(--shadows-soft)',
-          }}
-        >
-          <div className="space-y-2">
-            <h2 className="text-xl font-semibold text-[var(--text-primary)]">
-              Analyses are still processing
-            </h2>
-            <p className="text-sm text-[var(--text-muted)]">
-              Check back in a moment—fresh filings are moving through the workflow and will populate
-              this dashboard once completed.
-            </p>
+      <div className="relative z-10 mx-auto w-full max-w-7xl px-6 py-8 flex flex-col gap-8">
+        <FilingProgressHero
+          isLoading={libraryQuery.isLoading || libraryQuery.isFetching}
+          dateRangeLabel={dateRangeLabel}
+          totalCompleted={totalCompletedAnalyses}
+          readySectionCount={readySectionCount}
+          latestAnalysis={heroLatestAnalysis}
+        />
+
+        <DashboardFilters
+          filters={filters}
+          onFilterChange={handleFiltersChange}
+          onResetFilters={handleResetFilters}
+          disabled={filtersBusy}
+        />
+
+        {libraryQuery.error ? (
+          <div
+            className="rounded-2xl border p-4 text-sm text-red-500"
+            role="alert"
+            style={{ borderColor: 'rgba(239, 68, 68, 0.4)', background: 'rgba(254, 226, 226, 0.2)' }}
+          >
+            Unable to load analyses for the selected filters. Please try again shortly.
+            {summaryErrorMessage ? (
+              <p className="mt-2 text-xs text-red-400">{summaryErrorMessage}</p>
+            ) : null}
           </div>
-        </section>
-      ) : showFilteredEmptyState ? (
-        <section
-          className="flex flex-col items-start gap-4 rounded-3xl border p-6"
-          style={{
-            borderColor: 'var(--lines-subtle)',
-            background: 'var(--surfaces-raised)',
-            boxShadow: 'var(--shadows-soft)',
-          }}
-        >
-          <div className="space-y-2">
-            <h2 className="text-xl font-semibold text-[var(--text-primary)]">
-              No analyses match these filters
-            </h2>
-            <p className="text-sm text-[var(--text-muted)]">
-              Adjust the filing type, date range, or segment focus to surface your saved analyses.
-            </p>
-          </div>
+        ) : null}
 
-          <Button type="button" variant="secondary" onClick={handleResetFilters} className="px-6">
-            Reset filters
-          </Button>
-        </section>
-      ) : (
-        <>
-          <ContinueWalkthroughRail
-            analyses={libraryAnalyses}
-            isLoading={libraryQuery.isLoading && !hasAnalyses}
-          />
+        {showFirstRunLaunchpad ? (
+          <FirstRunLaunchpad />
+        ) : showProcessingState ? (
+          <section
+            className="flex flex-col gap-4 rounded-3xl border p-6"
+            style={{
+              borderColor: 'var(--lines-subtle)',
+              background: 'var(--surfaces-muted)',
+              boxShadow: 'var(--shadows-soft)',
+            }}
+          >
+            <div className="space-y-2">
+              <h2 className="text-xl font-semibold text-[var(--text-primary)]">
+                Analyses are still processing
+              </h2>
+              <p className="text-sm text-[var(--text-muted)]">
+                Check back in a moment—fresh filings are moving through the workflow and will populate
+                this dashboard once completed.
+              </p>
+            </div>
+          </section>
+        ) : showFilteredEmptyState ? (
+          <section
+            className="flex flex-col items-start gap-4 rounded-3xl border p-6"
+            style={{
+              borderColor: 'var(--lines-subtle)',
+              background: 'var(--surfaces-raised)',
+              boxShadow: 'var(--shadows-soft)',
+            }}
+          >
+            <div className="space-y-2">
+              <h2 className="text-xl font-semibold text-[var(--text-primary)]">
+                No analyses match these filters
+              </h2>
+              <p className="text-sm text-[var(--text-muted)]">
+                Adjust the filing type, date range, or segment focus to surface your saved analyses.
+              </p>
+            </div>
 
-          <RecentAnalysesList
-            groups={recentAnalysisGroups}
-            isLoading={libraryQuery.isLoading && !hasAnalyses}
-          />
+            <Button type="button" variant="secondary" onClick={handleResetFilters} className="px-6">
+              Reset filters
+            </Button>
+          </section>
+        ) : (
+          <>
+            <ContinueWalkthroughRail
+              analyses={libraryAnalyses}
+              isLoading={libraryQuery.isLoading && !hasAnalyses}
+            />
 
-          <AnalysisLibrarySection
-            query={libraryQuery}
-            filters={filters}
-            onPageChange={handleLibraryPageChange}
-            isLoading={libraryQuery.isLoading}
-          />
-        </>
-      )}
+            <RecentAnalysesList
+              groups={recentAnalysisGroups}
+              isLoading={libraryQuery.isLoading && !hasAnalyses}
+            />
+
+            <AnalysisLibrarySection
+              query={libraryQuery}
+              filters={filters}
+              onPageChange={handleLibraryPageChange}
+              isLoading={libraryQuery.isLoading}
+            />
+          </>
+        )}
+      </div>
     </div>
   )
 }
