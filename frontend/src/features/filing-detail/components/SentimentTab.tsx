@@ -45,8 +45,9 @@ export function SentimentTab({ rollup, sections }: SentimentTabProps) {
   const isLightMode = tokens.name === 'light'
   const cardStyles = useMemo(
     () => ({
-      background: 'var(--surfaces-raised)',
-      borderColor: 'var(--lines-subtle)',
+      background: `color-mix(in srgb, ${tokens.surfaces.raised} 60%, transparent)`,
+      borderColor: tokens.lines.subtle,
+      backdropFilter: 'blur(12px)',
       boxShadow: tokens.shadows.soft,
     }),
     [tokens]
@@ -73,56 +74,61 @@ export function SentimentTab({ rollup, sections }: SentimentTabProps) {
     typeof rollup?.prior_analysis_delta === 'number' ? rollup?.prior_analysis_delta : null
 
   return (
-    <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
-      <section className="rounded-3xl border p-6" style={cardStyles}>
-        <header className="flex flex-col gap-1">
+    <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
+      <section className="flex flex-col gap-6 rounded-3xl border p-8" style={cardStyles}>
+        <header className="flex flex-col gap-2">
           <p
-            className="text-xs font-semibold uppercase tracking-wide"
-            style={{ color: 'var(--text-muted)', letterSpacing: '0.2em' }}
+            className="text-xs font-bold uppercase tracking-widest"
+            style={{ color: 'var(--text-muted)' }}
           >
             Sentiment trend
           </p>
-          <h2 className="text-xl font-semibold text-[var(--text-primary)]">
-            Overall tone
-            {trendDescription ? (
-              <span className="ml-2 text-base font-normal text-[var(--text-secondary)]">
-                {trendDescription}
-              </span>
-            ) : null}
-          </h2>
-          <p className="text-sm text-[var(--text-secondary)]">
+          <div className="flex items-baseline justify-between flex-wrap gap-4">
+            <h2 className="text-3xl font-bold text-[var(--text-primary)]">
+              Overall tone
+              {trendDescription ? (
+                <span className="ml-3 text-lg font-medium text-[var(--text-secondary)]">
+                  {trendDescription}
+                </span>
+              ) : null}
+            </h2>
+          </div>
+          <p className="max-w-2xl text-base leading-relaxed text-[var(--text-secondary)]">
             Overall sentiment aggregates guided sections to highlight tone shifts between filings.
           </p>
         </header>
 
-        <div className="mt-6 grid gap-4 sm:grid-cols-2">
-          <div className="rounded-2xl border p-4" style={neutralBlockStyles}>
+        <div className="grid gap-6 sm:grid-cols-2">
+          <div className="flex flex-col gap-4 rounded-2xl border p-6 transition-all hover:bg-[var(--surfaces-muted)]" style={neutralBlockStyles}>
             <p
-              className="text-xs font-semibold uppercase tracking-wide"
-              style={{ color: 'var(--text-muted)', letterSpacing: '0.18em' }}
+              className="text-xs font-bold uppercase tracking-widest"
+              style={{ color: 'var(--text-muted)' }}
             >
               Overall score
             </p>
-            <p className="mt-2 text-3xl font-semibold text-[var(--text-primary)]">
-              {formatSentimentScore(rollup?.overall)}
-            </p>
+            <div className="flex items-baseline gap-2">
+              <p className="text-5xl font-bold tracking-tight text-[var(--text-primary)]">
+                {formatSentimentScore(rollup?.overall)}
+              </p>
+              <span className="text-sm font-medium text-[var(--text-secondary)]">/ 1.0</span>
+            </div>
             {trendDescription ? (
-              <p className="mt-1 text-sm text-[var(--text-secondary)]">{trendDescription}</p>
+              <p className="text-sm font-medium text-[var(--text-secondary)]">{trendDescription}</p>
             ) : null}
           </div>
 
-          <div className="rounded-2xl border p-4" style={neutralBlockStyles}>
+          <div className="flex flex-col gap-4 rounded-2xl border p-6 transition-all hover:bg-[var(--surfaces-muted)]" style={neutralBlockStyles}>
             <p
-              className="text-xs font-semibold uppercase tracking-wide"
-              style={{ color: 'var(--text-muted)', letterSpacing: '0.18em' }}
+              className="text-xs font-bold uppercase tracking-widest"
+              style={{ color: 'var(--text-muted)' }}
             >
               Change from prior filing
             </p>
-            <p className="mt-2 text-3xl font-semibold text-[var(--text-primary)]">
-              {delta !== null ? formatSentimentScore(delta) : '—'}
+            <p className="text-5xl font-bold tracking-tight text-[var(--text-primary)]">
+              {delta !== null ? (delta > 0 ? `+${formatSentimentScore(delta)}` : formatSentimentScore(delta)) : '—'}
             </p>
             {rollup?.previous_overall !== undefined ? (
-              <p className="mt-1 text-sm text-[var(--text-secondary)]">
+              <p className="text-sm font-medium text-[var(--text-secondary)]">
                 Previous overall {formatSentimentScore(rollup?.previous_overall)}
               </p>
             ) : null}
@@ -130,19 +136,22 @@ export function SentimentTab({ rollup, sections }: SentimentTabProps) {
         </div>
 
         {rollup?.weakest_section?.section ? (
-          <div className="mt-6 rounded-2xl border p-4 text-sm" style={weakestSectionStyles}>
-            <p
-              className="text-xs font-semibold uppercase tracking-wide"
-              style={{ color: tokens.status.warning, letterSpacing: '0.18em' }}
-            >
-              Weakest section
-            </p>
-            <p className="mt-1 font-medium" style={{ color: tokens.status.warning }}>
+          <div className="mt-2 rounded-2xl border p-6 text-sm" style={weakestSectionStyles}>
+            <div className="flex items-center gap-2 mb-2">
+              <div className="h-2 w-2 rounded-full bg-current animate-pulse" />
+              <p
+                className="text-xs font-bold uppercase tracking-widest"
+                style={{ color: tokens.status.warning }}
+              >
+                Attention Needed
+              </p>
+            </div>
+            <p className="text-lg font-bold" style={{ color: tokens.status.warning }}>
               {rollup.weakest_section.section} scored{' '}
               {formatSentimentScore(rollup.weakest_section.score)}.
             </p>
             {rollup?.pro_tip ? (
-              <p className="mt-2" style={{ color: tokens.status.warning }}>
+              <p className="mt-2 text-base opacity-90" style={{ color: tokens.status.warning }}>
                 {rollup.pro_tip}
               </p>
             ) : null}
@@ -150,15 +159,15 @@ export function SentimentTab({ rollup, sections }: SentimentTabProps) {
         ) : null}
       </section>
 
-      <section className="rounded-3xl border p-6" style={cardStyles}>
-        <header className="mb-4">
+      <section className="flex flex-col gap-6 rounded-3xl border p-8" style={cardStyles}>
+        <header>
           <p
-            className="text-xs font-semibold uppercase tracking-wide"
-            style={{ color: 'var(--text-muted)', letterSpacing: '0.2em' }}
+            className="text-xs font-bold uppercase tracking-widest"
+            style={{ color: 'var(--text-muted)' }}
           >
             Sections
           </p>
-          <h3 className="text-lg font-semibold text-[var(--text-primary)]">Sentiment by section</h3>
+          <h3 className="mt-2 text-xl font-bold text-[var(--text-primary)]">Sentiment by section</h3>
         </header>
 
         {sections.length === 0 ? (
@@ -171,16 +180,16 @@ export function SentimentTab({ rollup, sections }: SentimentTabProps) {
             {sections.map((section) => (
               <li
                 key={section.section}
-                className="flex items-center justify-between rounded-2xl border px-4 py-3"
+                className="group flex items-center justify-between rounded-xl border px-5 py-4 transition-all hover:scale-[1.02] hover:shadow-md"
                 style={{
                   borderColor: 'var(--lines-subtle)',
                   background: 'var(--surfaces-muted)',
                 }}
               >
-                <span className="text-sm font-medium text-[var(--text-primary)]">
+                <span className="text-sm font-semibold text-[var(--text-primary)]">
                   {section.section}
                 </span>
-                <span className="text-sm font-semibold text-[var(--text-secondary)]">
+                <span className="font-mono text-sm font-bold text-[var(--text-secondary)] group-hover:text-[var(--brand-accent)] transition-colors">
                   {formatSentimentScore(section.score)}
                 </span>
               </li>
@@ -189,7 +198,7 @@ export function SentimentTab({ rollup, sections }: SentimentTabProps) {
         )}
 
         {rollup?.confidence_band ? (
-          <p className="mt-4 text-xs text-[var(--text-muted)]">
+          <p className="mt-auto pt-4 text-xs font-medium text-[var(--text-muted)] border-t border-[var(--lines-subtle)]">
             Confidence band: {rollup.confidence_band}
           </p>
         ) : null}

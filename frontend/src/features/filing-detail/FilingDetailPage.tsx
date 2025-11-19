@@ -257,81 +257,122 @@ export function FilingDetailPage() {
   })
 
   return (
-    <div className="flex flex-col gap-6">
-      <header
-        className="rounded-3xl border p-6"
-        style={{
-          background: 'var(--surfaces-raised)',
-          borderColor: 'var(--lines-subtle)',
-          boxShadow: tokens.shadows.soft,
-        }}
-      >
-        <p
-          className="text-xs font-semibold uppercase tracking-wide"
-          style={{ color: 'var(--text-muted)', letterSpacing: '0.26em' }}
+    <div className="relative min-h-screen">
+      {/* Ambient Background Mesh */}
+      <div className="fixed inset-0 z-0 pointer-events-none overflow-hidden">
+        <div
+          className="absolute -top-[20%] -left-[10%] w-[70%] h-[70%] rounded-full opacity-20 blur-[120px]"
+          style={{ background: tokens.brand.accent }}
+        />
+        <div
+          className="absolute top-[40%] -right-[20%] w-[60%] h-[60%] rounded-full opacity-15 blur-[100px]"
+          style={{ background: tokens.action.primary }}
+        />
+      </div>
+
+      <div className="relative z-10 flex flex-col gap-8 pb-20 ">
+        <header
+          className="sticky top-0 z-20 border-b rounded-3xl backdrop-blur-md transition-all duration-200 "
+          style={{
+            background: `color-mix(in srgb, ${tokens.surfaces.base} 80%, transparent)`,
+            borderColor: tokens.lines.subtle,
+          }}
         >
-          Guided Filing • {filingType}
-        </p>
-        <h1 className="mt-2 text-2xl font-semibold text-[var(--text-primary)]">{companyName}</h1>
-        <div className="mt-4 flex flex-wrap gap-4 text-sm text-[var(--text-secondary)]">
-          <span>
-            <strong className="text-[var(--text-primary)]">{sectionCount}</strong>{' '}
-            {sectionCount === 1 ? 'section' : 'sections'}
-          </span>
-          {typeof estimatedMinutes === 'number' ? (
-            <span>
-              ~{estimatedMinutes} {estimatedMinutes === 1 ? 'minute' : 'minutes'} to complete
-            </span>
+          <div className="mx-auto w-full max-w-7xl px-6 py-6">
+            <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+              <div className="flex flex-col gap-2">
+                <div className="flex items-center gap-3">
+                  <span
+                    className="inline-flex h-6 items-center rounded-full px-2.5 text-[10px] font-bold uppercase tracking-wider"
+                    style={{
+                      background: hexToRgba(tokens.brand.accent, 0.15),
+                      color: tokens.brand.accent,
+                    }}
+                  >
+                    {filingType}
+                  </span>
+                  <span className="text-xs font-medium text-[var(--text-secondary)]">
+                    Generated {formattedCompletionDate}
+                  </span>
+                </div>
+                <h1 className="text-3xl font-bold tracking-tight text-[var(--text-primary)]">
+                  {companyName}
+                </h1>
+              </div>
+
+              <div className="flex items-center gap-6 text-sm text-[var(--text-secondary)]">
+                <div className="flex flex-col items-end gap-1">
+                  <span className="text-xs font-medium uppercase tracking-wider text-[var(--text-muted)]">
+                    Analysis Depth
+                  </span>
+                  <span className="font-semibold text-[var(--text-primary)]">
+                    {sectionCount} Sections
+                  </span>
+                </div>
+                {typeof estimatedMinutes === 'number' ? (
+                  <div className="h-8 w-px bg-[var(--lines-subtle)]" />
+                ) : null}
+                {typeof estimatedMinutes === 'number' ? (
+                  <div className="flex flex-col items-end gap-1">
+                    <span className="text-xs font-medium uppercase tracking-wider text-[var(--text-muted)]">
+                      Est. Time
+                    </span>
+                    <span className="font-semibold text-[var(--text-primary)]">
+                      ~{estimatedMinutes} min
+                    </span>
+                  </div>
+                ) : null}
+              </div>
+            </div>
+
+            <div className="mt-8">
+              <nav role="tablist" aria-label="Filing detail views" className="flex gap-2">
+                {tabItems.map((tab, index) => (
+                  <button
+                    key={tab.key}
+                    type="button"
+                    role="tab"
+                    aria-selected={activeTab === tab.key}
+                    className="relative rounded-full px-5 py-2.5 text-sm font-semibold transition-all focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--focus-ring)]"
+                    onClick={() => handleTabChange(tab.key)}
+                    style={tabButtonStyles[index]}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
+              </nav>
+            </div>
+          </div>
+        </header>
+
+        <main className="mx-auto w-full max-w-7xl px-6">
+          {activeTab === 'overview' ? <OverviewTab segments={summarySections} /> : null}
+
+          {activeTab === 'sections' ? (
+            sectionCount === 0 ? (
+              renderMessageCard(
+                'Guided walkthrough sections are still being prepared for this filing. Check back soon.'
+              )
+            ) : (
+              <GuidedFilingStepper
+                analysisId={analysis.analysis_id}
+                sections={guidedSections}
+                diffsBySection={detail?.diffsBySection}
+                initialSectionKey={initialSectionKey}
+                focusRequestKey={focusRequestKey}
+              />
+            )
           ) : null}
-          <span>Generated {formattedCompletionDate}</span>
-        </div>
-        <p className="mt-4 text-sm text-[var(--text-secondary)]">
-          Move through each section in order, review the guided highlights, and answer the
-          comprehension checks to advance.
-        </p>
-      </header>
 
-      <nav role="tablist" aria-label="Filing detail views" className="flex flex-wrap gap-3">
-        {tabItems.map((tab, index) => (
-          <button
-            key={tab.key}
-            type="button"
-            role="tab"
-            aria-selected={activeTab === tab.key}
-            className="rounded-full border px-4 py-2 text-sm font-semibold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--focus-ring)] hover:bg-[var(--tab-hover)]"
-            onClick={() => handleTabChange(tab.key)}
-            style={tabButtonStyles[index]}
-          >
-            {tab.label}
-          </button>
-        ))}
-      </nav>
+          {activeTab === 'numbers' ? <NumbersTab metrics={headlineMetrics} /> : null}
 
-      {activeTab === 'overview' ? <OverviewTab segments={summarySections} /> : null}
+          {activeTab === 'sentiment' ? (
+            <SentimentTab rollup={sentimentRollup ?? null} sections={sentimentSections} />
+          ) : null}
 
-      {activeTab === 'sections' ? (
-        sectionCount === 0 ? (
-          renderMessageCard(
-            'Guided walkthrough sections are still being prepared for this filing. Check back soon.'
-          )
-        ) : (
-          <GuidedFilingStepper
-            analysisId={analysis.analysis_id}
-            sections={guidedSections}
-            diffsBySection={detail?.diffsBySection}
-            initialSectionKey={initialSectionKey}
-            focusRequestKey={focusRequestKey}
-          />
-        )
-      ) : null}
-
-      {activeTab === 'numbers' ? <NumbersTab metrics={headlineMetrics} /> : null}
-
-      {activeTab === 'sentiment' ? (
-        <SentimentTab rollup={sentimentRollup ?? null} sections={sentimentSections} />
-      ) : null}
-
-      {activeTab === 'raw' ? <RawSectionTab sections={rawSections} /> : null}
+          {activeTab === 'raw' ? <RawSectionTab sections={rawSections} /> : null}
+        </main>
+      </div>
     </div>
   )
 }

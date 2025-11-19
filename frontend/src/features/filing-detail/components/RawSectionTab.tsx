@@ -1,4 +1,6 @@
+import { useMemo } from 'react'
 import { useThemeTokens } from '@/components/ThemeProvider'
+import { hexToRgba } from '@/lib/color'
 import type { SectionAnalysis } from '@/lib/types/analysis'
 
 interface RawSectionTabProps {
@@ -7,6 +9,7 @@ interface RawSectionTabProps {
 
 export function RawSectionTab({ sections }: RawSectionTabProps) {
   const tokens = useThemeTokens()
+  const isLightMode = tokens.name === 'light'
 
   if (!sections || sections.length === 0) {
     return (
@@ -25,94 +28,126 @@ export function RawSectionTab({ sections }: RawSectionTabProps) {
     )
   }
 
+  const cardStyles = useMemo(
+    () => ({
+      background: `color-mix(in srgb, ${tokens.surfaces.raised} 60%, transparent)`,
+      borderColor: tokens.lines.subtle,
+      backdropFilter: 'blur(12px)',
+      boxShadow: tokens.shadows.soft,
+    }),
+    [tokens]
+  )
+  const subSectionStyles = useMemo(
+    () => ({
+      background: 'var(--surfaces-muted)',
+      borderColor: 'var(--lines-subtle)',
+    }),
+    []
+  )
+
   return (
-    <div className="grid gap-6">
-      {sections.map((section) => (
-        <article
-          key={section.section_name}
-          className="rounded-3xl border p-6"
-          style={{
-            background: 'var(--surfaces-raised)',
-            borderColor: 'var(--lines-subtle)',
-            boxShadow: tokens.shadows.soft,
-          }}
+    <div className="flex flex-col gap-8">
+      {sections.map((section, index) => (
+        <section
+          key={section.section_name || index}
+          className="flex flex-col gap-6 rounded-3xl border p-8 transition-all hover:shadow-lg"
+          style={cardStyles}
         >
-          <header className="flex flex-col gap-1">
-            <p
-              className="text-xs font-semibold uppercase tracking-wide"
-              style={{ color: 'var(--text-muted)', letterSpacing: '0.18em' }}
-            >
-              {section.sub_section_count ?? 0} subsections
-            </p>
-            <h2 className="text-lg font-semibold text-[var(--text-primary)]">
-              {section.section_name}
-            </h2>
+          <header className="flex flex-col gap-2 border-b border-[var(--lines-subtle)] pb-6">
+            <div className="flex items-center justify-between">
+              <h2 className="text-2xl font-bold text-[var(--text-primary)]">{section.section_name}</h2>
+              <span className="rounded-full px-3 py-1 text-xs font-bold uppercase tracking-wide bg-[var(--surfaces-muted)] text-[var(--text-secondary)]">
+                {section.sub_section_count ?? 0} Subsections
+              </span>
+            </div>
             {section.section_summary ? (
-              <p className="text-sm text-[var(--text-secondary)]">{section.section_summary}</p>
+              <p className="text-base leading-relaxed text-[var(--text-secondary)]">
+                {section.section_summary}
+              </p>
             ) : null}
           </header>
 
           {section.consolidated_insights && section.consolidated_insights.length > 0 ? (
-            <div className="mt-4">
-              <p
-                className="text-xs font-semibold uppercase tracking-wide"
-                style={{ color: 'var(--text-muted)', letterSpacing: '0.18em' }}
+            <div className="flex flex-col gap-4">
+              <h3
+                className="text-xs font-bold uppercase tracking-widest"
+                style={{ color: 'var(--text-muted)' }}
               >
-                Insights
-              </p>
-              <ul className="mt-2 list-disc space-y-2 pl-5 text-sm text-[var(--text-secondary)]">
-                {section.consolidated_insights.map((insight, index) => (
-                  <li key={`${section.section_name}-insight-${index}`}>{insight}</li>
+                Key Insights
+              </h3>
+              <ul className="grid gap-3 sm:grid-cols-2">
+                {section.consolidated_insights.map((insight, i) => (
+                  <li
+                    key={i}
+                    className="flex items-start gap-3 rounded-xl p-4 text-sm text-[var(--text-secondary)]"
+                    style={subSectionStyles}
+                  >
+                    <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--brand-accent)]" />
+                    <span className="leading-relaxed">{insight}</span>
+                  </li>
                 ))}
               </ul>
             </div>
           ) : null}
 
           {section.critical_findings && section.critical_findings.length > 0 ? (
-            <div className="mt-4">
-              <p className="text-xs font-semibold uppercase tracking-wide text-[var(--status-negative)]">
-                Critical findings
-              </p>
-              <ul className="mt-2 list-disc space-y-2 pl-5 text-sm text-[var(--text-secondary)]">
-                {section.critical_findings.map((finding, index) => (
-                  <li key={`${section.section_name}-finding-${index}`}>{finding}</li>
+            <div className="flex flex-col gap-4">
+              <h3
+                className="text-xs font-bold uppercase tracking-widest"
+                style={{ color: tokens.status.warning }}
+              >
+                Critical Findings
+              </h3>
+              <ul className="flex flex-col gap-3">
+                {section.critical_findings.map((finding, i) => (
+                  <li
+                    key={i}
+                    className="flex gap-4 rounded-xl border border-l-4 p-5 text-sm"
+                    style={{
+                      background: hexToRgba(tokens.status.warning, isLightMode ? 0.08 : 0.16),
+                      borderColor: hexToRgba(tokens.status.warning, 0.3),
+                      borderLeftColor: tokens.status.warning,
+                      color: tokens.text.primary,
+                    }}
+                  >
+                    <span className="font-medium leading-relaxed">{finding}</span>
+                  </li>
                 ))}
               </ul>
             </div>
           ) : null}
 
           {section.sub_sections && section.sub_sections.length > 0 ? (
-            <div className="mt-4 flex flex-col gap-3">
-              <p
-                className="text-xs font-semibold uppercase tracking-wide"
-                style={{ color: 'var(--text-muted)', letterSpacing: '0.18em' }}
+            <div className="flex flex-col gap-5 pt-2">
+              <h3
+                className="text-xs font-bold uppercase tracking-widest"
+                style={{ color: 'var(--text-muted)' }}
               >
-                Subsections
-              </p>
-              {section.sub_sections.map((subSection) => (
-                <div
-                  key={subSection.sub_section_name}
-                  className="rounded-2xl border bg-[var(--surfaces-muted)] p-4"
-                  style={{ borderColor: 'var(--lines-subtle)' }}
-                >
-                  <p className="text-sm font-semibold text-[var(--text-primary)]">
-                    {subSection.sub_section_name}
-                  </p>
-                  {typeof subSection.analysis === 'object' && subSection.analysis !== null ? (
-                    <pre className="mt-2 whitespace-pre-wrap text-xs text-[var(--text-secondary)]">
-                      {JSON.stringify(subSection.analysis, null, 2)}
-                    </pre>
-                  ) : null}
-                  {typeof subSection.analysis === 'string' ? (
-                    <p className="mt-2 text-sm text-[var(--text-secondary)]">
-                      {subSection.analysis}
-                    </p>
-                  ) : null}
-                </div>
-              ))}
+                Detailed Breakdown
+              </h3>
+              <div className="grid gap-4">
+                {section.sub_sections.map((sub, i) => (
+                  <article
+                    key={i}
+                    className="flex flex-col gap-2 rounded-2xl border p-6 transition-colors hover:bg-[var(--surfaces-muted)]"
+                    style={{ borderColor: 'var(--lines-subtle)' }}
+                  >
+                    <h4 className="text-lg font-bold text-[var(--text-primary)]">{sub.sub_section_name}</h4>
+                    {typeof sub.analysis === 'string' ? (
+                      <p className="text-sm leading-relaxed text-[var(--text-secondary)]">
+                        {sub.analysis}
+                      </p>
+                    ) : (
+                      <pre className="whitespace-pre-wrap text-xs text-[var(--text-secondary)]">
+                        {JSON.stringify(sub.analysis, null, 2)}
+                      </pre>
+                    )}
+                  </article>
+                ))}
+              </div>
             </div>
           ) : null}
-        </article>
+        </section>
       ))}
     </div>
   )

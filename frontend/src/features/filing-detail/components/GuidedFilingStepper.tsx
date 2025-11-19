@@ -217,8 +217,9 @@ export function GuidedFilingStepper({
   const isLightMode = tokens.name === 'light'
   const progressCardStyles = useMemo(
     () => ({
-      background: 'var(--surfaces-raised)',
-      borderColor: 'var(--lines-subtle)',
+      background: `color-mix(in srgb, ${tokens.surfaces.raised} 60%, transparent)`,
+      borderColor: tokens.lines.subtle,
+      backdropFilter: 'blur(12px)',
       boxShadow: tokens.shadows.soft,
     }),
     [tokens]
@@ -231,8 +232,8 @@ export function GuidedFilingStepper({
     const borderColor = hexToRgba(tokens.status.warning, isLightMode ? 0.45 : 0.6)
     return { background, borderColor, color: tokens.status.warning }
   }, [focusNotice, isLightMode, tokens.status.warning])
-  const accentBackground = hexToRgba(tokens.brand.accent, isLightMode ? 0.33 : 0.28)
-  const accentTextColor = isLightMode ? tokens.text.primary : tokens.text.onBrand
+  const accentBackground = hexToRgba(tokens.brand.accent, isLightMode ? 0.15 : 0.2)
+  const accentTextColor = tokens.brand.accent
   const celebrationOverlayBackground = hexToRgba(tokens.brand.background, isLightMode ? 0.55 : 0.68)
   const notifiedSectionsRef = useRef<Set<string>>(new Set())
   const hasUserNavigatedRef = useRef(false)
@@ -757,23 +758,31 @@ export function GuidedFilingStepper({
 
   const activeSectionComplete = isSectionComplete(activeSection)
   const atLastSection = activeIndex === sections.length - 1
-  const progressLabel = `${completedCount} of ${sections.length} section${
-    sections.length === 1 ? '' : 's'
-  } completed`
+  const progressLabel = `${completedCount} of ${sections.length} section${sections.length === 1 ? '' : 's'
+    } completed`
 
   return (
-    <div className="grid gap-6 lg:grid-cols-[260px_minmax(0,1fr)]">
-      <aside className="rounded-3xl border p-5" style={progressCardStyles}>
-        <div className="mb-4">
+    <div className="grid gap-6 lg:grid-cols-[280px_minmax(0,1fr)]">
+      <aside className="rounded-3xl border p-6" style={progressCardStyles}>
+        <div className="mb-6">
           <p
-            className="text-xs font-semibold uppercase tracking-wide"
-            style={{ color: 'var(--text-muted)', letterSpacing: '0.2em' }}
+            className="text-xs font-bold uppercase tracking-widest"
+            style={{ color: 'var(--text-muted)' }}
           >
             Progress
           </p>
-          <p className="mt-1 text-sm text-[var(--text-secondary)]">{progressLabel}</p>
+          <p className="mt-2 text-sm font-medium text-[var(--text-secondary)]">{progressLabel}</p>
+          <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-[var(--surfaces-muted)]">
+            <div
+              className="h-full rounded-full transition-all duration-500"
+              style={{
+                width: `${(completedCount / sections.length) * 100}%`,
+                background: tokens.brand.accent,
+              }}
+            />
+          </div>
         </div>
-        <ol className="flex flex-col gap-3">
+        <ol className="flex flex-col gap-2">
           {sections.map((section, index) => {
             const isActive = index === activeIndex
             const isComplete = isSectionComplete(section)
@@ -786,11 +795,11 @@ export function GuidedFilingStepper({
                   ? 'Ready'
                   : 'Locked'
             const stepButtonClasses =
-              'flex w-full flex-col rounded-2xl border px-4 py-3 text-left text-sm transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--focus-ring)] hover:bg-[var(--step-hover)] disabled:cursor-not-allowed disabled:opacity-70'
+              'group flex w-full flex-col rounded-xl border px-4 py-3 text-left text-sm transition-all duration-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--focus-ring)] hover:bg-[var(--step-hover)] disabled:cursor-not-allowed disabled:opacity-50'
             const defaultHover = hexToRgba(tokens.brand.accent, isLightMode ? 0.08 : 0.16)
             let stepStyles: Record<string, string> = {
-              background: 'var(--surfaces-raised)',
-              borderColor: 'var(--lines-subtle)',
+              background: 'transparent',
+              borderColor: 'transparent',
               color: 'var(--text-secondary)',
               ['--step-hover' as const]: defaultHover,
             }

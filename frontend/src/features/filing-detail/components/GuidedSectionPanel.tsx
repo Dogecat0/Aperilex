@@ -30,42 +30,47 @@ export function GuidedSectionPanel({
     return {
       background,
       borderLeftColor: tokens.learning.surface,
+      backdropFilter: 'blur(8px)',
     }
   }, [isLightMode, tokens.learning.surface])
 
   return (
     <>
-      <div className="flex flex-col gap-6">
+      <div className="flex flex-col gap-8 rounded-3xl border p-8 backdrop-blur-md" style={{
+        background: `color-mix(in srgb, ${tokens.surfaces.raised} 60%, transparent)`,
+        borderColor: tokens.lines.subtle,
+        boxShadow: tokens.shadows.soft,
+      }}>
         <header>
           <p
-            className="text-xs font-semibold uppercase tracking-wide"
-            style={{ color: 'var(--text-muted)', letterSpacing: '0.2em' }}
+            className="text-xs font-bold uppercase tracking-widest"
+            style={{ color: 'var(--text-muted)' }}
           >
             {section.learning_module_key}
           </p>
-          <h2 className="mt-1 text-2xl font-semibold text-[var(--text-primary)]">
+          <h2 className="mt-2 text-3xl font-bold text-[var(--text-primary)]">
             {section.title}
           </h2>
-          <dl className="mt-4 grid gap-4 grid-cols-1 pt-5 pb-5">
+          <dl className="mt-6 grid gap-6 sm:grid-cols-2 pt-6 border-t border-[var(--lines-subtle)]">
             <div>
               <dt
-                className="text-xs font-semibold uppercase tracking-wide"
-                style={{ color: 'var(--text-muted)', letterSpacing: '0.18em' }}
+                className="text-xs font-bold uppercase tracking-widest"
+                style={{ color: 'var(--text-muted)' }}
               >
                 Focus
               </dt>
-              <dd className="mt-1 text-sm text-[var(--text-secondary)]">
+              <dd className="mt-2 text-sm leading-relaxed text-[var(--text-secondary)]">
                 {section.guidance.focus}
               </dd>
             </div>
             <div>
               <dt
-                className="text-xs font-semibold uppercase tracking-wide"
-                style={{ color: 'var(--text-muted)', letterSpacing: '0.18em' }}
+                className="text-xs font-bold uppercase tracking-widest"
+                style={{ color: 'var(--text-muted)' }}
               >
                 Why it matters
               </dt>
-              <dd className="mt-1 text-sm text-[var(--text-secondary)]">
+              <dd className="mt-2 text-sm leading-relaxed text-[var(--text-secondary)]">
                 {section.guidance.why_it_matters}
               </dd>
             </div>
@@ -74,13 +79,13 @@ export function GuidedSectionPanel({
 
         {diff ? (
           <aside
-            className="flex flex-col gap-3 rounded-2xl border-l-4 p-4 text-sm"
+            className="flex flex-col gap-3 rounded-2xl border-l-4 p-6 text-sm transition-all hover:bg-[var(--surfaces-muted)]"
             style={diffCalloutStyles}
           >
             <div className="flex flex-col gap-2">
               <p
-                className="text-xs font-semibold uppercase tracking-wide"
-                style={{ color: tokens.learning.accent, letterSpacing: '0.18em' }}
+                className="text-xs font-bold uppercase tracking-widest"
+                style={{ color: tokens.learning.accent }}
               >
                 Prior filing insight
               </p>
@@ -94,13 +99,14 @@ export function GuidedSectionPanel({
                 lesson to reinforce the concept.
               </p>
             </div>
-            <div className="flex flex-wrap items-center gap-3">
+            <div className="flex flex-wrap items-center gap-3 pt-2">
               <button
                 type="button"
-                className="rounded-full px-4 py-2 text-xs font-semibold uppercase tracking-wide text-[var(--text-on-muted)] transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--focus-ring)]"
+                className="rounded-full px-5 py-2 text-xs font-bold uppercase tracking-wide text-[var(--text-on-muted)] transition-transform hover:scale-105 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--focus-ring)]"
                 style={{
                   background: tokens.learning.accent,
                   color: tokens.text.onBrand,
+                  boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
                 }}
                 onClick={() => setDiffOpen(true)}
               >
@@ -110,12 +116,12 @@ export function GuidedSectionPanel({
           </aside>
         ) : null}
 
-        <section aria-labelledby={`highlights-${section.id}`} className="flex flex-col gap-4">
+        <section aria-labelledby={`highlights-${section.id}`} className="flex flex-col gap-5">
           <div>
             <p
               id={`highlights-${section.id}`}
-              className="text-xs font-semibold uppercase tracking-wide"
-              style={{ color: 'var(--text-muted)', letterSpacing: '0.18em' }}
+              className="text-xs font-bold uppercase tracking-widest"
+              style={{ color: 'var(--text-muted)' }}
             >
               Highlights
             </p>
@@ -125,7 +131,7 @@ export function GuidedSectionPanel({
           </div>
           {section.highlights.length === 0 ? (
             <p
-              className="rounded-2xl border border-dashed p-4 text-sm"
+              className="rounded-2xl border border-dashed p-6 text-sm text-center"
               style={{
                 borderColor: 'var(--lines-subtle)',
                 background: 'var(--surfaces-muted)',
@@ -135,23 +141,25 @@ export function GuidedSectionPanel({
               No highlights available for this section yet.
             </p>
           ) : (
-            section.highlights.map((highlight) => (
-              <HighlightCallout key={highlight.id} highlight={highlight} />
-            ))
+            <div className="grid gap-4">
+              {section.highlights.map((highlight) => (
+                <HighlightCallout key={highlight.id} highlight={highlight} />
+              ))}
+            </div>
           )}
         </section>
 
-        <section aria-labelledby={`checks-${section.id}`} className="flex flex-col gap-4">
+        <section aria-labelledby={`checks-${section.id}`} className="flex flex-col gap-5 border-t border-[var(--lines-subtle)] pt-8">
           <p
             id={`checks-${section.id}`}
-            className="text-sm font-semibold uppercase tracking-wide"
-            style={{ color: 'var(--text-muted)', letterSpacing: '0.18em' }}
+            className="text-sm font-bold uppercase tracking-widest"
+            style={{ color: 'var(--text-muted)' }}
           >
             Comprehension
           </p>
           {section.comprehension_checks.length === 0 ? (
             <p
-              className="rounded-2xl border border-dashed p-4 text-sm"
+              className="rounded-2xl border border-dashed p-6 text-sm text-center"
               style={{
                 borderColor: 'var(--lines-subtle)',
                 background: 'var(--surfaces-muted)',
@@ -161,15 +169,17 @@ export function GuidedSectionPanel({
               No comprehension checks for this section. Continue to the next step when ready.
             </p>
           ) : (
-            section.comprehension_checks.map((check) => (
-              <ComprehensionCheckCard
-                key={check.id}
-                check={check}
-                completed={Boolean(completedChecks[check.id])}
-                onCompleted={() => onCheckCompleted(check.id)}
-                onAttempt={(answer, isCorrect) => onAnswer?.(check, answer, isCorrect)}
-              />
-            ))
+            <div className="grid gap-4">
+              {section.comprehension_checks.map((check) => (
+                <ComprehensionCheckCard
+                  key={check.id}
+                  check={check}
+                  completed={Boolean(completedChecks[check.id])}
+                  onCompleted={() => onCheckCompleted(check.id)}
+                  onAttempt={(answer, isCorrect) => onAnswer?.(check, answer, isCorrect)}
+                />
+              ))}
+            </div>
           )}
         </section>
       </div>

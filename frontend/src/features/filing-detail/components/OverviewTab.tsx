@@ -35,17 +35,18 @@ export function OverviewTab({ segments }: OverviewTabProps) {
   const isLightMode = tokens.name === 'light'
   const cardStyles = useMemo(
     () => ({
-      background: 'var(--surfaces-raised)',
-      borderColor: 'var(--lines-subtle)',
+      background: `color-mix(in srgb, ${tokens.surfaces.raised} 60%, transparent)`,
+      borderColor: tokens.lines.subtle,
+      backdropFilter: 'blur(12px)',
       boxShadow: tokens.shadows.soft,
     }),
     [tokens]
   )
   const featuredMetricStyles = useMemo(
     () => ({
-      background: hexToRgba(tokens.brand.accent, isLightMode ? 0.33 : 0.28),
-      color: isLightMode ? tokens.text.primary : tokens.text.onBrand,
-      boxShadow: tokens.shadows.soft,
+      background: hexToRgba(tokens.brand.accent, isLightMode ? 0.15 : 0.2),
+      color: tokens.brand.accent,
+      border: `1px solid ${hexToRgba(tokens.brand.accent, 0.3)}`,
     }),
     [isLightMode, tokens]
   )
@@ -53,7 +54,7 @@ export function OverviewTab({ segments }: OverviewTabProps) {
   if (!segments || segments.length === 0) {
     return (
       <div
-        className="rounded-3xl border p-6 text-sm"
+        className="rounded-3xl border p-8 text-center text-sm"
         style={{ ...cardStyles, color: 'var(--text-secondary)' }}
       >
         Overview copy is not available for this analysis yet. Review the guided walkthrough while we
@@ -75,38 +76,55 @@ export function OverviewTab({ segments }: OverviewTabProps) {
         return (
           <article
             key={segment.id ?? segment.title}
-            className="rounded-3xl border p-6"
+            className="group relative overflow-hidden rounded-3xl border p-8 transition-all duration-300 hover:shadow-lg hover:scale-[1.01]"
             style={cardStyles}
           >
-            <header className="flex flex-col gap-2">
-              <p
-                className="text-xs font-semibold uppercase tracking-wide"
-                style={{ color: 'var(--text-muted)', letterSpacing: '0.2em' }}
-              >
-                {segment.anchor ?? 'overview'}
-              </p>
-              <h2 className="text-xl font-semibold text-[var(--text-primary)]">{segment.title}</h2>
-              {segment.summary ? (
-                <p className="text-sm text-[var(--text-secondary)]">{segment.summary}</p>
+            <div
+              className="absolute inset-0 opacity-0 transition-opacity duration-500 group-hover:opacity-100"
+              style={{
+                background: `linear-gradient(120deg, transparent 40%, ${hexToRgba(
+                  tokens.brand.accent,
+                  0.05
+                )} 100%)`,
+              }}
+            />
+
+            <div className="relative z-10">
+              <header className="flex flex-col gap-3">
+                <div className="flex items-center justify-between">
+                  <p
+                    className="text-xs font-bold uppercase tracking-widest"
+                    style={{ color: 'var(--text-muted)' }}
+                  >
+                    {segment.anchor ?? 'overview'}
+                  </p>
+                  {metricText ? (
+                    <span
+                      className="inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-bold uppercase tracking-wide"
+                      style={featuredMetricStyles}
+                    >
+                      {metricText}
+                    </span>
+                  ) : null}
+                </div>
+                <h2 className="text-2xl font-bold text-[var(--text-primary)]">{segment.title}</h2>
+                {segment.summary ? (
+                  <p className="text-base leading-relaxed text-[var(--text-secondary)]">
+                    {segment.summary}
+                  </p>
+                ) : null}
+              </header>
+
+              {segment.supporting_points && segment.supporting_points.length > 0 ? (
+                <ul className="mt-6 space-y-3 pl-5 text-sm text-[var(--text-secondary)]">
+                  {segment.supporting_points.map((point, index) => (
+                    <li key={`${segment.id ?? segment.title}-point-${index}`} className="pl-2 relative before:absolute before:left-[-1.25em] before:top-[0.6em] before:h-1.5 before:w-1.5 before:rounded-full before:bg-[var(--brand-accent)]">
+                      {point}
+                    </li>
+                  ))}
+                </ul>
               ) : null}
-            </header>
-
-            {metricText ? (
-              <p
-                className="mt-4 inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-wide"
-                style={featuredMetricStyles}
-              >
-                {metricText}
-              </p>
-            ) : null}
-
-            {segment.supporting_points && segment.supporting_points.length > 0 ? (
-              <ul className="mt-4 list-disc space-y-2 pl-5 text-sm text-[var(--text-secondary)]">
-                {segment.supporting_points.map((point, index) => (
-                  <li key={`${segment.id ?? segment.title}-point-${index}`}>{point}</li>
-                ))}
-              </ul>
-            ) : null}
+            </div>
           </article>
         )
       })}

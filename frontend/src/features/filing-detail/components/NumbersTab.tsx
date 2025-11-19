@@ -18,10 +18,11 @@ export function NumbersTab({ metrics }: NumbersTabProps) {
   if (!metrics || metrics.length === 0) {
     return (
       <div
-        className="rounded-3xl border p-6 text-sm"
+        className="rounded-3xl border p-8 text-center text-sm"
         style={{
-          background: 'var(--surfaces-raised)',
-          borderColor: 'var(--lines-subtle)',
+          background: `color-mix(in srgb, ${tokens.surfaces.raised} 60%, transparent)`,
+          borderColor: tokens.lines.subtle,
+          backdropFilter: 'blur(12px)',
           color: 'var(--text-secondary)',
           boxShadow: tokens.shadows.soft,
         }}
@@ -33,51 +34,65 @@ export function NumbersTab({ metrics }: NumbersTabProps) {
   }
 
   return (
-    <div className="grid gap-4 md:grid-cols-2">
+    <div className="grid gap-6 md:grid-cols-2">
       {metrics.map((metric) => {
         const display = metric.display ?? {}
         const category = describeCategory(metric.category)
         return (
           <article
             key={metric.id ?? metric.name}
-            className="flex h-full flex-col gap-3 rounded-3xl border p-5"
+            className="group flex h-full flex-col gap-4 rounded-3xl border p-8 transition-all duration-300 hover:shadow-lg hover:scale-[1.01]"
             style={{
-              background: 'var(--surfaces-raised)',
-              borderColor: 'var(--lines-subtle)',
+              background: `color-mix(in srgb, ${tokens.surfaces.raised} 60%, transparent)`,
+              borderColor: tokens.lines.subtle,
+              backdropFilter: 'blur(12px)',
               boxShadow: tokens.shadows.soft,
             }}
           >
             <div className="flex items-center justify-between">
-              <div className="flex flex-col">
+              <div className="flex flex-col gap-1">
                 {category ? (
                   <span
-                    className="text-xs font-semibold uppercase tracking-wide"
-                    style={{ color: 'var(--text-muted)', letterSpacing: '0.18em' }}
+                    className="text-xs font-bold uppercase tracking-widest"
+                    style={{ color: 'var(--text-muted)' }}
                   >
                     {category}
                   </span>
                 ) : null}
-                <h3 className="text-lg font-semibold text-[var(--text-primary)]">{metric.name}</h3>
+                <h3 className="text-xl font-bold text-[var(--text-primary)]">{metric.name}</h3>
               </div>
               {typeof metric.confidence === 'number' ? (
-                <span className="text-xs font-semibold uppercase tracking-wide text-[var(--text-muted)]">
-                  Confidence {(metric.confidence * 100).toFixed(0)}%
+                <span className="rounded-full px-2 py-1 text-[10px] font-bold uppercase tracking-wide bg-[var(--surfaces-muted)] text-[var(--text-muted)]">
+                  {(metric.confidence * 100).toFixed(0)}% Conf
                 </span>
               ) : null}
             </div>
 
-            <div className="flex flex-col gap-1 text-sm text-[var(--text-secondary)]">
+            <div className="mt-auto flex flex-col gap-2">
               {display.current ? (
-                <span className="text-2xl font-semibold text-[var(--text-primary)]">
-                  {display.current}
-                </span>
+                <div className="flex items-baseline gap-3">
+                  <span className="text-4xl font-bold tracking-tight text-[var(--text-primary)]">
+                    {display.current}
+                  </span>
+                  {display.delta ? (
+                    <span
+                      className="rounded-full px-2.5 py-0.5 text-xs font-bold uppercase tracking-wide"
+                      style={{
+                        background: 'var(--surfaces-muted)',
+                        color: 'var(--metrics-up)', // This should ideally be dynamic based on delta direction
+                      }}
+                    >
+                      {display.delta}
+                    </span>
+                  ) : null}
+                </div>
               ) : null}
-              {display.delta ? (
-                <span className="text-xs font-semibold uppercase tracking-wide text-[var(--metrics-up)]">
-                  {display.delta}
-                </span>
+
+              {display.delta_text ? (
+                <p className="text-sm font-medium text-[var(--text-secondary)]">
+                  {display.delta_text}
+                </p>
               ) : null}
-              {display.delta_text ? <p>{display.delta_text}</p> : null}
             </div>
           </article>
         )
