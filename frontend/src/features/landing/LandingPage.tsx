@@ -68,41 +68,55 @@ export function LandingPage() {
 
   return (
     <div
-      className="min-h-screen"
+      className="min-h-screen overflow-x-hidden"
       style={{ background: 'var(--surfaces-base)', color: 'var(--text-primary)' }}
     >
+      {/* Ambient Background Mesh */}
+      <div className="fixed inset-0 z-0 pointer-events-none overflow-hidden">
+        <div
+          className="absolute -top-[20%] -left-[10%] w-[70%] h-[70%] rounded-full opacity-20 blur-[120px]"
+          style={{ background: tokens.brand.accent }}
+        />
+        <div
+          className="absolute top-[40%] -right-[20%] w-[60%] h-[60%] rounded-full opacity-15 blur-[100px]"
+          style={{ background: tokens.action.primary }}
+        />
+      </div>
+
       <header
-        className="border-b"
-        style={{ background: tokens.surfaces.base, borderColor: tokens.lines.subtle }}
+        className="sticky top-0 z-50 border-b backdrop-blur-md"
+        style={{
+          background: `color-mix(in srgb, ${tokens.surfaces.base} 80%, transparent)`,
+          borderColor: tokens.lines.subtle,
+        }}
       >
-        <div className="mx-auto flex w-full max-w-7xl items-center justify-between gap-4 px-5 py-3 transition">
+        <div className="mx-auto flex w-full max-w-7xl items-center justify-between gap-4 px-5 py-4 transition">
           <div className="flex items-center gap-3">
             <span
-              className="inline-flex h-9 w-9 items-center justify-center rounded-full text-sm font-semibold"
+              className="inline-flex h-10 w-10 items-center justify-center rounded-xl text-sm font-bold shadow-lg"
               style={{
-                background: tokens.learning.surface,
-                color: tokens.text.onLearning,
-                boxShadow: tokens.shadows.soft,
+                background: `linear-gradient(135deg, ${tokens.brand.accent}, ${tokens.action.primary})`,
+                color: '#fff',
               }}
             >
               AX
             </span>
-            <div className="flex flex-col gap-0.5">
-              <span className="text-xs font-semibold uppercase tracking-[0.35em] text-[var(--text-muted)]">
+            <div className="flex flex-col">
+              <span className="text-sm font-bold tracking-wide text-[var(--text-primary)]">
                 Aperilex
               </span>
-              <span className="text-sm font-semibold text-[var(--text-secondary)]">
-                Filing research copilot
+              <span className="text-[10px] font-medium uppercase tracking-wider text-[var(--text-muted)]">
+                Filing Research
               </span>
             </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3">
             <Button
               type="button"
-              size="md"
-              variant="secondary"
+              size="sm"
+              variant="ghost"
               onClick={handleThemeToggle}
-              className="px-3 py-2"
+              className="h-9 w-9 px-0 rounded-full text-[var(--text-primary)] hover:bg-[var(--surfaces-muted)]"
               aria-label={nextThemeLabel}
               title={nextThemeLabel}
             >
@@ -110,10 +124,10 @@ export function LandingPage() {
             </Button>
             <Button
               type="button"
-              size="md"
+              size="sm"
               onClick={() => handleRouteCta('/dashboard')}
               disabled={isAuthenticating}
-              className="px-4 py-2 text-sm"
+              className="font-medium shadow-md hover:shadow-lg transition-all"
             >
               {navActionLabel}
             </Button>
@@ -121,7 +135,7 @@ export function LandingPage() {
         </div>
       </header>
 
-      <main className="space-y-24 pb-32">
+      <main className="relative z-10 space-y-32 pb-32 pt-12">
         <HeroSpotlight
           eyebrow={landingCopy.heroEyebrow}
           headline={landingCopy.heroHeadline}
@@ -167,27 +181,29 @@ export function LandingPage() {
       </main>
 
       <footer
-        className="border-t border-[var(--lines-subtle)]"
+        className="relative z-10 border-t border-[var(--lines-subtle)]"
         style={{ background: 'var(--surfaces-raised)' }}
       >
-        <div className="mx-auto flex w-full max-w-7xl flex-col gap-6 px-6 py-12 lg:flex-row lg:items-center lg:justify-between">
-          <div className="space-y-2">
-            <p className="text-xs font-semibold uppercase tracking-[0.3em] text-[var(--text-muted)]">
+        <div className="mx-auto flex w-full max-w-7xl flex-col gap-8 px-6 py-16 lg:flex-row lg:items-center lg:justify-between">
+          <div className="space-y-3 max-w-md">
+            <p className="text-xs font-bold uppercase tracking-widest text-[var(--brand-accent)]">
               {landingCopy.ctaBanner.title}
             </p>
-            <p className="text-lg text-[var(--text-secondary)]">
+            <p className="text-2xl font-medium text-[var(--text-primary)] leading-tight">
               {landingCopy.ctaBanner.description}
             </p>
           </div>
-          <div className="flex flex-wrap gap-3">
+          <div className="flex flex-wrap gap-4">
             <Button
               type="button"
+              size="md"
               onClick={() => handleRouteCta('/dashboard')}
               disabled={isAuthenticating}
+              className="shadow-lg hover:scale-105 transition-transform"
             >
               {isAuthenticated ? 'Open dashboard' : landingCopy.ctaBanner.action}
             </Button>
-            <Button type="button" variant="ghost" onClick={handleHeaderLogin}>
+            <Button type="button" variant="secondary" onClick={handleHeaderLogin}>
               Contact us
             </Button>
           </div>

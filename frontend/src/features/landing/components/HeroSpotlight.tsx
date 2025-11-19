@@ -89,17 +89,10 @@ export function HeroSpotlight({
   return (
     <section
       aria-labelledby="landing-hero-heading"
-      className="relative overflow-hidden text-[var(--text-on-brand)]"
-      style={{
-        background:
-          'radial-gradient(circle at 20% 20%, rgba(255,255,255,0.15), transparent), var(--brand-background)',
-      }}
+      className="relative overflow-visible text-[var(--text-primary)]"
     >
-      <div className="absolute inset-0 opacity-50 mix-blend-screen" aria-hidden>
-        <div className="absolute -left-32 -top-10 h-96 w-96 rounded-full bg-[var(--learning-surface)] blur-3xl" />
-      </div>
-
-      <div className="relative mx-auto flex w-full max-w-7xl flex-col gap-12 px-6 py-24 lg:flex-row lg:items-center lg:gap-16">
+      <div className="relative mx-auto flex w-full max-w-7xl flex-col gap-16 px-6 py-12 lg:flex-row lg:items-center lg:gap-24">
+        {/* Hidden measurement node for layout stability */}
         <div
           ref={measurementRef}
           className="pointer-events-none absolute left-0 top-0 -z-10 max-w-xl opacity-0"
@@ -117,26 +110,29 @@ export function HeroSpotlight({
             </div>
           ))}
         </div>
-        <div className="flex-1 space-y-6">
-          <p
-            className="text-xs font-semibold uppercase tracking-[0.35em]"
-            style={{ color: 'rgba(255,255,255,0.72)' }}
-          >
-            {eyebrow}
-          </p>
-          <h1 id="landing-hero-heading" className="text-4xl font-semibold leading-tight">
-            {headline}
-          </h1>
-          <p className="text-base" style={{ color: 'rgba(245,247,255,0.85)' }}>
-            {subhead}
-          </p>
 
-          <div className="flex flex-col gap-4 pt-2 sm:flex-row">
+        <div className="flex-1 space-y-8 animate-in fade-in slide-in-from-bottom-8 duration-700">
+          <div className="space-y-4">
+            <p
+              className="text-sm font-bold uppercase tracking-[0.25em] text-[var(--brand-accent)]"
+            >
+              {eyebrow}
+            </p>
+            <h1 id="landing-hero-heading" className="text-5xl font-bold leading-[1.1] tracking-tight lg:text-7xl">
+              {headline}
+            </h1>
+            <p className="text-lg leading-relaxed text-[var(--text-secondary)] max-w-xl">
+              {subhead}
+            </p>
+          </div>
+
+          <div className="flex flex-col gap-4 pt-4 sm:flex-row">
             <Button
               type="button"
+              size="md"
               onClick={onPrimaryCta}
               disabled={isAuthenticating}
-              className="w-full sm:w-auto"
+              className="w-full sm:w-auto px-8 py-4 text-base shadow-[0_0_20px_rgba(69,195,136,0.3)] hover:shadow-[0_0_30px_rgba(69,195,136,0.5)] transition-shadow"
             >
               {isAuthenticating ? 'Preparing workspace…' : primaryLabel}
             </Button>
@@ -144,63 +140,77 @@ export function HeroSpotlight({
               type="button"
               variant="secondary"
               onClick={onSecondaryCta}
-              className="w-full sm:w-auto"
+              className="w-full sm:w-auto px-8 py-4 text-base backdrop-blur-sm"
               style={{
-                background: 'transparent',
-                color: 'var(--text-on-brand)',
-                borderColor: 'rgba(255,255,255,0.25)',
+                background: 'var(--surfaces-raised)',
+                color: 'var(--text-primary)',
+                borderColor: 'var(--lines-subtle)',
               }}
             >
               {secondaryLabel}
             </Button>
           </div>
 
-          <div className="grid gap-4 pt-6 sm:grid-cols-3">
-            {insights.map((insight) => (
+          <div className="grid gap-4 pt-8 sm:grid-cols-3">
+            {insights.map((insight, i) => (
               <article
                 key={insight.title}
-                className="rounded-2xl border border-white/15 bg-white/5 p-4 backdrop-blur"
+                className="group rounded-2xl border border-[var(--lines-subtle)] bg-[var(--surfaces-raised)] p-5 shadow-sm backdrop-blur-md transition-all hover:-translate-y-1 hover:shadow-lg"
+                style={{ animationDelay: `${i * 100}ms` }}
               >
-                <h3 className="text-sm font-semibold text-white">{insight.title}</h3>
-                <p className="pt-2 text-sm text-[var(text-on-muted)]">{insight.description}</p>
+                <h3 className="text-sm font-bold text-[var(--text-primary)] group-hover:text-[var(--brand-accent)] transition-colors">
+                  {insight.title}
+                </h3>
+                <p className="pt-2 text-xs leading-relaxed text-[var(--text-secondary)]">
+                  {insight.description}
+                </p>
               </article>
             ))}
           </div>
         </div>
 
-        <div className="flex-1 space-y-4">
-          <div className="inline-flex rounded-full border border-white/20 bg-white/5 p-1 text-xs font-semibold text-white/70">
-            {slideOptions.map((slide) => {
-              const isActive = slide.id === activeSlide?.id
-              return (
-                <button
-                  key={slide.id}
-                  type="button"
-                  onClick={() => setActiveSlideId(slide.id)}
-                  className={`rounded-full px-3 py-1 transition ${
-                    isActive
-                      ? 'bg-white text-[var(--brand-surface)]'
-                      : 'text-white/70 hover:text-white'
-                  }`}
-                >
-                  {slide.label}
-                </button>
-              )
-            })}
+        <div className="flex-1 space-y-6 animate-in fade-in slide-in-from-right-8 duration-1000 delay-200">
+          <div className="flex justify-end">
+            <div className="inline-flex rounded-full space-x-3 border border-[var(--lines-subtle)] bg-[var(--surfaces-raised)]/80 p-3 backdrop-blur-md shadow-sm">
+              {slideOptions.map((slide) => {
+                const isActive = slide.id === activeSlide?.id
+                return (
+                  <button
+                    key={slide.id}
+                    type="button"
+                    onClick={() => setActiveSlideId(slide.id)}
+                    className={`rounded-full px-4 py-1.5 text-xs font-medium transition-all ${isActive
+                      ? 'bg-[var(--brand-accent)] text-white shadow-md'
+                      : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--surfaces-muted)]'
+                      }`}
+                  >
+                    {slide.label}
+                  </button>
+                )
+              })}
+            </div>
           </div>
 
           <div
             ref={panelRef}
-            className="relative rounded-[32px] border border-white/15 bg-white/5 p-6 shadow-[var(--shadows-medium)] backdrop-blur"
+            className="relative overflow-hidden rounded-[40px] border border-[var(--lines-subtle)] bg-[var(--surfaces-raised)]/40 p-8 shadow-2xl backdrop-blur-xl transition-all duration-500"
             aria-live="polite"
             style={{ minHeight: panelHeight ? `${panelHeight}px` : undefined }}
           >
+            {/* Decorative gradient blob behind the panel content */}
+            <div className="absolute -top-24 -right-24 w-64 h-64 bg-[var(--brand-accent)]/20 rounded-full blur-[80px] pointer-events-none" />
+
             {activeSlide && (
-              <>
-                <div className="rounded-3xl border border-white/15 bg-[var(--brand-surface)] p-4">
-                  {renderSlidePanel()}
+              <div className="relative z-10">
+                <div className="rounded-3xl border border-[var(--lines-subtle)] bg-[var(--surfaces-base)] p-6 shadow-inner">
+                  <div className="rounded-[20px] bg-[var(--surfaces-base)] overflow-hidden">
+                    {renderSlidePanel()}
+                  </div>
                 </div>
-              </>
+                <p className="mt-6 text-center text-sm font-medium text-[var(--text-secondary)]">
+                  {activeSlide.description}
+                </p>
+              </div>
             )}
           </div>
         </div>

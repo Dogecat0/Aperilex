@@ -1,9 +1,6 @@
-import { useEffect, useMemo, useState } from 'react'
-import type { TouchEvent } from 'react'
-import { useThemeTokens } from '@/components/ThemeProvider'
+import { useMemo, useState } from 'react'
 import { FeatureHeroStat } from '@/components/layout/FeatureHeroStat'
 import { Button } from '@/components/ui/Button'
-import { hexToRgba } from '@/lib/color'
 import type {
   DashboardTileContent,
   DetailTileContent,
@@ -32,6 +29,9 @@ type TileFrameProps = {
   children: React.ReactNode
 }
 
+
+
+// Update TileFrame to be more "Bento-like"
 function TileFrame({
   title,
   description,
@@ -42,27 +42,31 @@ function TileFrame({
   children,
 }: TileFrameProps) {
   return (
-    <article className="flex h-full flex-col gap-4 rounded-3xl border border-[var(--lines-subtle)] bg-[var(--surfaces-raised)] p-6 shadow-[var(--shadows-soft)]">
-      <div className="space-y-2">
+    <article className="group relative flex h-full flex-col gap-6 rounded-[32px] border border-[var(--lines-subtle)] bg-[var(--surfaces-raised)] p-8 shadow-sm transition-all hover:shadow-xl hover:-translate-y-1 overflow-hidden">
+      <div className="absolute inset-0 bg-gradient-to-br from-transparent via-transparent to-[var(--brand-accent)]/5 opacity-0 transition-opacity group-hover:opacity-100 pointer-events-none" />
+
+      <div className="relative z-10 space-y-3">
         <div className="flex items-center justify-between gap-3">
-          <h3 className="text-xl font-semibold text-[var(--text-primary)]">{title}</h3>
-          <span className="text-xs uppercase tracking-[0.3em] text-[var(--text-muted)]">
+          <h3 className="text-2xl font-bold text-[var(--text-primary)]">{title}</h3>
+          <span className="text-[10px] font-bold uppercase tracking-widest text-[var(--text-muted)] border border-[var(--lines-subtle)] px-2 py-1 rounded-full">
             {navigationHint}
           </span>
         </div>
-        <p className="text-sm text-[var(--text-muted)]">{description}</p>
+        <p className="text-base text-[var(--text-secondary)] leading-relaxed">{description}</p>
       </div>
-      <div className="flex-1">{children}</div>
-      <div className="flex justify-end">
+
+      <div className="relative z-10 flex-1">{children}</div>
+
+      <div className="relative z-10 flex justify-end pt-4">
         <Button
           type="button"
           size="sm"
           variant="ghost"
-          className="tracking-normal text-[var(--text-primary)] hover:text-[var(--action-primary)]"
+          className="group/btn text-sm font-semibold tracking-wide text-[var(--text-primary)] hover:text-[var(--action-primary)] hover:bg-[var(--surfaces-muted)]"
           onClick={onNavigate}
           disabled={isAuthenticating}
         >
-          {ctaLabel}
+          {ctaLabel} <span className="ml-1 transition-transform group-hover/btn:translate-x-1">→</span>
         </Button>
       </div>
     </article>
@@ -155,11 +159,10 @@ function LaunchpadTile({
                 type="button"
                 onClick={() => setActiveTemplateId(template.id)}
                 aria-pressed={isActive}
-                className={`rounded-full border px-3 py-1 text-xs font-semibold ${
-                  isActive
-                    ? 'border-[var(--action-primary)] bg-[var(--action-primary)]/10 text-[var(--action-primary)]'
-                    : 'border-[var(--lines-subtle)] text-[var(--text-muted)] hover:text-[var(--text-secondary)]'
-                }`}
+                className={`rounded-full border px-3 py-1 text-xs font-semibold ${isActive
+                  ? 'border-[var(--action-primary)] bg-[var(--action-primary)]/10 text-[var(--action-primary)]'
+                  : 'border-[var(--lines-subtle)] text-[var(--text-muted)] hover:text-[var(--text-secondary)]'
+                  }`}
               >
                 {template.name}
               </button>
@@ -218,16 +221,14 @@ function LearningTile({
           {content.toggles.map((toggle) => (
             <span
               key={toggle.label}
-              className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold ${
-                toggle.enabled
-                  ? 'border-[var(--learning-accent)] text-[var(--learning-accent)]'
-                  : 'border-[var(--lines-subtle)] text-[var(--text-muted)]'
-              }`}
+              className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold ${toggle.enabled
+                ? 'border-[var(--learning-accent)] text-[var(--learning-accent)]'
+                : 'border-[var(--lines-subtle)] text-[var(--text-muted)]'
+                }`}
             >
               <span
-                className={`h-2 w-2 rounded-full ${
-                  toggle.enabled ? 'bg-[var(--learning-accent)]' : 'bg-[var(--lines-subtle)]'
-                }`}
+                className={`h-2 w-2 rounded-full ${toggle.enabled ? 'bg-[var(--learning-accent)]' : 'bg-[var(--lines-subtle)]'
+                  }`}
               />
               {toggle.label}
             </span>
@@ -283,11 +284,10 @@ function DetailTile({
                 key={tab}
                 type="button"
                 onClick={() => setActiveTab(tab)}
-                className={`rounded-full border px-3 py-1 text-xs font-semibold ${
-                  isActive
-                    ? 'border-[var(--brand-accent)] text-[var(--brand-accent)]'
-                    : 'border-[var(--lines-subtle)] text-[var(--text-muted)] hover:text-[var(--text-secondary)]'
-                }`}
+                className={`rounded-full border px-3 py-1 text-xs font-semibold ${isActive
+                  ? 'border-[var(--brand-accent)] text-[var(--brand-accent)]'
+                  : 'border-[var(--lines-subtle)] text-[var(--text-muted)] hover:text-[var(--text-secondary)]'
+                  }`}
               >
                 {tab}
               </button>
@@ -305,13 +305,12 @@ function DetailTile({
               </p>
               <p className="text-xl font-semibold text-[var(--text-secondary)]">{metric.value}</p>
               <span
-                className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ${
-                  metric.tone === 'positive'
-                    ? 'bg-[var(--status-positive)]/10 text-[var(--status-positive)]'
-                    : metric.tone === 'caution'
-                      ? 'bg-[var(--status-warning)]/15 text-[var(--status-warning)]'
-                      : 'bg-[var(--surfaces-raised)] text-[var(--text-muted)]'
-                }`}
+                className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ${metric.tone === 'positive'
+                  ? 'bg-[var(--status-positive)]/10 text-[var(--status-positive)]'
+                  : metric.tone === 'caution'
+                    ? 'bg-[var(--status-warning)]/15 text-[var(--status-warning)]'
+                    : 'bg-[var(--surfaces-raised)] text-[var(--text-muted)]'
+                  }`}
               >
                 {activeTab}
               </span>
@@ -381,212 +380,68 @@ export function FeatureDeck({
   isAuthenticating,
   onNavigate,
 }: FeatureDeckProps) {
-  const tokens = useThemeTokens()
-  const isLightMode = tokens.name === 'light'
-  const accentBackground = hexToRgba(tokens.brand.accent, isLightMode ? 0.33 : 0.28)
-  const tiles = useMemo(
-    () => [
-      {
-        id: 'dashboard',
-        label: content.dashboard.title,
-        element: (
-          <DashboardTile
-            content={content.dashboard}
-            isAuthenticating={isAuthenticating}
-            onNavigate={() => onNavigate(content.dashboard.cta.path)}
-          />
-        ),
-      },
-      {
-        id: 'launchpad',
-        label: content.launchpad.title,
-        element: (
-          <LaunchpadTile
-            content={content.launchpad}
-            isAuthenticating={isAuthenticating}
-            onNavigate={() => onNavigate(content.launchpad.cta.path)}
-          />
-        ),
-      },
-      {
-        id: 'learning',
-        label: content.learning.title,
-        element: (
-          <LearningTile
-            content={content.learning}
-            isAuthenticating={isAuthenticating}
-            onNavigate={() => onNavigate(content.learning.cta.path)}
-          />
-        ),
-      },
-      {
-        id: 'detail',
-        label: content.detail.title,
-        element: (
-          <DetailTile
-            content={content.detail}
-            isAuthenticating={isAuthenticating}
-            onNavigate={() => onNavigate(content.detail.cta.path)}
-          />
-        ),
-      },
-      {
-        id: 'saved',
-        label: content.saved.title,
-        element: (
-          <SavedTile
-            content={content.saved}
-            isAuthenticating={isAuthenticating}
-            onNavigate={() => onNavigate(content.saved.cta.path)}
-          />
-        ),
-      },
-    ],
-    [content, isAuthenticating, onNavigate]
-  )
-  const tileCount = tiles.length
-  const [activeIndex, setActiveIndex] = useState(0)
-  const [touchStart, setTouchStart] = useState<number | null>(null)
-
-  useEffect(() => {
-    if (tileCount === 0) {
-      setActiveIndex(0)
-      return
-    }
-
-    setActiveIndex((prev) => {
-      if (prev >= tileCount) {
-        return tileCount - 1
-      }
-      return prev
-    })
-  }, [tileCount])
-
-  const handlePrev = () => {
-    if (tileCount === 0) {
-      return
-    }
-    setActiveIndex((prev) => (prev - 1 + tileCount) % tileCount)
-  }
-
-  const handleNext = () => {
-    if (tileCount === 0) {
-      return
-    }
-    setActiveIndex((prev) => (prev + 1) % tileCount)
-  }
-
-  const handleIndicatorSelect = (index: number) => {
-    if (index < 0 || index >= tileCount) {
-      return
-    }
-    setActiveIndex(index)
-  }
-
-  const handleTouchStart = (event: TouchEvent<HTMLDivElement>) => {
-    const firstTouch = event.touches[0]
-    setTouchStart(firstTouch?.clientX ?? null)
-  }
-
-  const handleTouchEnd = (event: TouchEvent<HTMLDivElement>) => {
-    if (touchStart === null) {
-      return
-    }
-
-    const lastTouch = event.changedTouches[0]
-    const endX = lastTouch?.clientX ?? touchStart
-    const delta = endX - touchStart
-    const threshold = 48
-
-    if (delta > threshold) {
-      handlePrev()
-    } else if (delta < -threshold) {
-      handleNext()
-    }
-
-    setTouchStart(null)
-  }
-
   return (
     <section
       aria-labelledby="landing-feature-deck-heading"
       className="mx-auto w-full max-w-7xl px-6"
     >
-      <div className="mb-12 max-w-3xl space-y-3">
-        <p className="text-xs font-semibold uppercase tracking-[0.3em] text-[var(--text-primary)]">
+      <div className="mb-16 max-w-3xl space-y-4">
+        <p className="text-sm font-bold uppercase tracking-[0.25em] text-[var(--brand-accent)]">
           {eyebrow}
         </p>
         <h2
           id="landing-feature-deck-heading"
-          className="text-3xl font-semibold text-[var(--text-primary)]"
+          className="text-4xl font-bold text-[var(--text-primary)] lg:text-5xl"
         >
           {title}
         </h2>
-        <p className="text-base text-[var(--text-muted)]">{description}</p>
+        <p className="text-lg text-[var(--text-secondary)] max-w-2xl leading-relaxed">{description}</p>
       </div>
 
-      <div className="relative">
-        <div
-          className="overflow-hidden"
-          onTouchStart={handleTouchStart}
-          onTouchEnd={handleTouchEnd}
-        >
-          <div
-            className="flex transition-transform duration-500 ease-out"
-            style={{ transform: `translateX(-${activeIndex * 100}%)` }}
-          >
-            {tiles.map((tile) => (
-              <div key={tile.id} className="w-full flex-shrink-0 px-1">
-                <div className="mx-auto w-full md:w-4/5 lg:w-2/3">{tile.element}</div>
-              </div>
-            ))}
-          </div>
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 lg:auto-rows-[minmax(400px,auto)]">
+        {/* Dashboard Tile - Spans 2 cols on large screens */}
+        <div className="md:col-span-2 lg:col-span-2 row-span-2">
+          <DashboardTile
+            content={content.dashboard}
+            isAuthenticating={isAuthenticating}
+            onNavigate={() => onNavigate(content.dashboard.cta.path)}
+          />
         </div>
 
-        <div className="mt-6 flex flex-col items-center gap-4">
-          <div className="flex items-center gap-2">
-            <Button
-              type="button"
-              variant="secondary"
-              size="sm"
-              onClick={handlePrev}
-              disabled={tileCount <= 1}
-            >
-              Previous
-            </Button>
-            <Button
-              type="button"
-              variant="secondary"
-              size="sm"
-              onClick={handleNext}
-              disabled={tileCount <= 1}
-            >
-              Next
-            </Button>
-          </div>
-          <div className="flex items-center gap-2">
-            {tiles.map((tile, index) => {
-              const isActive = index === activeIndex
-              return (
-                <button
-                  key={tile.id}
-                  type="button"
-                  onClick={() => handleIndicatorSelect(index)}
-                  className="h-2 w-8 rounded-full transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
-                  style={{
-                    background: isActive ? accentBackground : 'var(--lines-subtle)',
-                    opacity: isActive ? 1 : 0.5,
-                    outlineColor: 'var(--focus-ring)',
-                  }}
-                  aria-label={`Show ${tile.label}`}
-                  aria-pressed={isActive}
-                  disabled={tileCount <= 1}
-                >
-                  <span className="sr-only">{tile.label}</span>
-                </button>
-              )
-            })}
-          </div>
+        {/* Launchpad Tile */}
+        <div className="lg:col-span-1">
+          <LaunchpadTile
+            content={content.launchpad}
+            isAuthenticating={isAuthenticating}
+            onNavigate={() => onNavigate(content.launchpad.cta.path)}
+          />
+        </div>
+
+        {/* Learning Tile */}
+        <div className="lg:col-span-1">
+          <LearningTile
+            content={content.learning}
+            isAuthenticating={isAuthenticating}
+            onNavigate={() => onNavigate(content.learning.cta.path)}
+          />
+        </div>
+
+        {/* Detail Tile */}
+        <div className="lg:col-span-1">
+          <DetailTile
+            content={content.detail}
+            isAuthenticating={isAuthenticating}
+            onNavigate={() => onNavigate(content.detail.cta.path)}
+          />
+        </div>
+
+        {/* Saved Tile */}
+        <div className="md:col-span-2 lg:col-span-2">
+          <SavedTile
+            content={content.saved}
+            isAuthenticating={isAuthenticating}
+            onNavigate={() => onNavigate(content.saved.cta.path)}
+          />
         </div>
       </div>
     </section>

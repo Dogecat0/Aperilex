@@ -223,27 +223,34 @@ export const featureDeckContent: FeatureDeckContent = {
   learning: {
     title: 'Learning Hub Walkthroughs',
     description:
-      'Stepper UI mirrors onboarding so every learner knows which primer, quiz, or glossary binding comes next.',
-    walkthroughName: 'Understand MD&A in five steps',
+      'Learning Hub cards reuse the exact guided sections, comprehension checks, and lesson links you resume inside the product.',
+    walkthroughName: 'MD&A guided review workflow',
     steps: [
-      { id: 1, title: 'Frame the outcome', description: 'Lock intent and scope for the analysis.' },
+      {
+        id: 1,
+        title: 'Resume guided module',
+        description: 'Landing CTA routes into the same walkthrough state tracked on Learning Hub cards.',
+      },
       {
         id: 2,
-        title: 'Prime the glossary',
-        description: 'Surface definitions and context for new jargon.',
+        title: 'Study highlights',
+        description: 'Guided section panels surface focus copy plus filing-specific highlight callouts.',
       },
       {
         id: 3,
-        title: 'Checkpoint understanding',
-        description: 'Micro-quizzes confirm concepts before moving on.',
+        title: 'Answer comprehension checks',
+        description: 'Multiple-choice checks validate takeaways before progress advances.',
       },
-      { id: 4, title: 'Highlight callouts', description: 'Layer sentiment and risk chips inline.' },
-      { id: 5, title: 'Return to saved brief', description: 'Store takeaways in Saved workspace.' },
+      {
+        id: 4,
+        title: 'Log progress + reopen detail view',
+        description: 'Finishing a section updates Learning Hub progress and deep-links back to `/filing/:id`.',
+      },
     ],
     toggles: [
-      { label: 'Concept primers', enabled: true },
-      { label: 'Quizzes', enabled: true },
-      { label: 'Glossary bindings', enabled: true },
+      { label: 'Guided sections', enabled: true },
+      { label: 'Comprehension checks', enabled: true },
+      { label: 'Lesson links', enabled: true },
     ],
     navigationHint: 'Nav → Learning Hub',
     cta: { label: 'Open walkthroughs', path: '/learn' },
