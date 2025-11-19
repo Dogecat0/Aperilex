@@ -36,12 +36,16 @@ export function FilingResultsList({
 
   return (
     <section
-      className="flex h-full flex-col gap-4 rounded-2xl border p-4"
-      style={{ borderColor: 'var(--lines-subtle)', background: 'var(--surfaces-raised)' }}
+      className="flex h-full flex-col gap-4 rounded-3xl border p-6"
+      style={{
+        borderColor: 'var(--lines-subtle)',
+        background: 'var(--surfaces-raised)',
+        boxShadow: 'var(--shadows-soft)',
+      }}
     >
       <header className="flex items-center justify-between">
         <div>
-          <h2 className="text-sm font-semibold text-[var(--text-primary)]">Search results</h2>
+          <h2 className="text-base font-semibold text-[var(--text-primary)]">Search results</h2>
         </div>
         <div className="flex items-center gap-2 text-xs text-[var(--text-secondary)]">
           <span>
@@ -49,7 +53,7 @@ export function FilingResultsList({
           </span>
           <button
             type="button"
-            className="rounded-full border px-3 py-1 font-semibold uppercase tracking-wide"
+            className="rounded-full border px-3 py-1 font-semibold uppercase tracking-wide transition-colors hover:bg-[var(--surfaces-muted)]"
             style={{ borderColor: 'var(--lines-subtle)' }}
             onClick={() => onPageChange?.(currentPage - 1)}
             disabled={!onPageChange || !canGoPrevious || isLoading}
@@ -58,7 +62,7 @@ export function FilingResultsList({
           </button>
           <button
             type="button"
-            className="rounded-full border px-3 py-1 font-semibold uppercase tracking-wide"
+            className="rounded-full border px-3 py-1 font-semibold uppercase tracking-wide transition-colors hover:bg-[var(--surfaces-muted)]"
             style={{ borderColor: 'var(--lines-subtle)' }}
             onClick={() => onPageChange?.(currentPage + 1)}
             disabled={!onPageChange || !canGoNext || isLoading}
@@ -68,10 +72,10 @@ export function FilingResultsList({
         </div>
       </header>
 
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1">
         {error ? (
           <div
-            className="rounded-xl border p-4 text-xs"
+            className="rounded-2xl border p-4 text-xs"
             style={{ borderColor: 'rgba(248, 113, 113, 0.35)', color: 'var(--status-negative)' }}
           >
             {error}
@@ -81,7 +85,7 @@ export function FilingResultsList({
             {FILING_RESULTS_SKELETON_KEYS.map((placeholderKey) => (
               <li
                 key={placeholderKey}
-                className="animate-pulse rounded-xl border p-3"
+                className="animate-pulse rounded-2xl border p-4"
                 style={{ borderColor: 'var(--lines-subtle)' }}
               >
                 <div className="h-4 w-2/3 rounded bg-[var(--lines-subtle)]" />
@@ -100,11 +104,12 @@ export function FilingResultsList({
                   <button
                     type="button"
                     onClick={() => onSelect(result)}
-                    className="w-full rounded-xl border p-4 text-left transition-colors"
+                    className="w-full rounded-2xl border p-4 text-left transition-all hover:shadow-md"
                     style={{
                       borderColor: isActive ? 'var(--brand-accent)' : 'var(--lines-subtle)',
                       color: primaryTextColor,
-                      background: isActive ? accentBackground : 'var(--surfaces-muted)',
+                      background: isActive ? accentBackground : 'var(--surfaces-base)',
+                      transform: isActive ? 'scale(1.01)' : 'scale(1)',
                     }}
                   >
                     <div className="flex items-center justify-between gap-4">
@@ -137,8 +142,8 @@ export function FilingResultsList({
           </ul>
         ) : (
           <div
-            className="rounded-xl border p-4 text-sm text-[var(--text-muted)]"
-            style={{ borderColor: 'var(--lines-subtle)' }}
+            className="rounded-2xl border p-6 text-center text-sm text-[var(--text-muted)]"
+            style={{ borderColor: 'var(--lines-subtle)', background: 'var(--surfaces-base)' }}
           >
             Try a different ticker or filing type to find a document worth analyzing.
           </div>

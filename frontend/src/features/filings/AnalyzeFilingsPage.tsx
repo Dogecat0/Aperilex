@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { FeatureHero } from '@/components/layout/FeatureHero'
 import { FeatureHeroStat } from '@/components/layout/FeatureHeroStat'
+import { useThemeTokens } from '@/components/ThemeProvider'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
 import { Button } from '@/components/ui/Button'
@@ -204,6 +205,7 @@ export function AnalyzeFilingsPage() {
   const navigate = useNavigate()
   const location = useLocation()
   const practiceCommands = usePracticeCommands()
+  const tokens = useThemeTokens()
 
   const [formState, setFormState] = useState<SearchState>({
     ticker: '',
@@ -559,93 +561,107 @@ export function AnalyzeFilingsPage() {
   )
 
   return (
-    <div className="flex h-full flex-col gap-6">
-      <FeatureHero
-        overline="Analysis launchpad"
-        title="Queue your next filing analysis"
-        description="Kick off fresh analyses from imported filings so your dashboard stays populated with the latest insights."
-      >
-        <div className="grid gap-3 sm:grid-cols-3">
-          {searchSummaryStats.map((stat) => (
-            <FeatureHeroStat
-              key={stat.id}
-              label={stat.label}
-              value={stat.value}
-              helper={stat.helper}
-            />
-          ))}
-        </div>
-      </FeatureHero>
+    <div className="relative min-h-screen w-full">
+      {/* Ambient Background Mesh */}
+      <div className="fixed inset-0 z-0 pointer-events-none overflow-hidden">
+        <div
+          className="absolute -top-[20%] -left-[10%] w-[70%] h-[70%] rounded-full opacity-20 blur-[120px]"
+          style={{ background: tokens.brand.accent }}
+        />
+        <div
+          className="absolute top-[40%] -right-[20%] w-[60%] h-[60%] rounded-full opacity-15 blur-[100px]"
+          style={{ background: tokens.action.primary }}
+        />
+      </div>
 
-      {duplicateInfo ? (
-        <div className="rounded-3xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
-          <p className="font-medium">{duplicateInfo.message}</p>
-          <div className="mt-2 space-y-1 text-xs sm:text-sm">
-            {duplicateInfo.analysisTemplate ? (
-              <p>
-                Template: <span className="font-medium">{duplicateInfo.analysisTemplate}</span>
-              </p>
-            ) : null}
-            {duplicateInfo.analysisStatus ? <p>Status: {duplicateInfo.analysisStatus}</p> : null}
-            {duplicateInfo.analysisCompletedAt || duplicateInfo.analysisCreatedAt ? (
-              <p>
-                Generated:{' '}
-                {formatTimestamp(duplicateInfo.analysisCompletedAt) ??
-                  formatTimestamp(duplicateInfo.analysisCreatedAt) ??
-                  'Unknown'}
-              </p>
-            ) : null}
+      <div className="relative z-10 mx-auto w-full max-w-7xl px-6 py-8 flex flex-col gap-8">
+        <FeatureHero
+          overline="Analysis launchpad"
+          title="Queue your next filing analysis"
+          description="Kick off fresh analyses from imported filings so your dashboard stays populated with the latest insights."
+        >
+          <div className="grid gap-3 sm:grid-cols-3">
+            {searchSummaryStats.map((stat) => (
+              <FeatureHeroStat
+                key={stat.id}
+                label={stat.label}
+                value={stat.value}
+                helper={stat.helper}
+              />
+            ))}
           </div>
-          <div className="mt-3 flex flex-wrap gap-2">
-            {duplicateInfo.analysisId ? (
-              <Button
-                variant="secondary"
-                onClick={() => navigate(`/filing/${duplicateInfo.analysisId}`)}
-              >
-                View existing analysis
+        </FeatureHero>
+
+        {duplicateInfo ? (
+          <div className="rounded-3xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+            <p className="font-medium">{duplicateInfo.message}</p>
+            <div className="mt-2 space-y-1 text-xs sm:text-sm">
+              {duplicateInfo.analysisTemplate ? (
+                <p>
+                  Template: <span className="font-medium">{duplicateInfo.analysisTemplate}</span>
+                </p>
+              ) : null}
+              {duplicateInfo.analysisStatus ? <p>Status: {duplicateInfo.analysisStatus}</p> : null}
+              {duplicateInfo.analysisCompletedAt || duplicateInfo.analysisCreatedAt ? (
+                <p>
+                  Generated:{' '}
+                  {formatTimestamp(duplicateInfo.analysisCompletedAt) ??
+                    formatTimestamp(duplicateInfo.analysisCreatedAt) ??
+                    'Unknown'}
+                </p>
+              ) : null}
+            </div>
+            <div className="mt-3 flex flex-wrap gap-2">
+              {duplicateInfo.analysisId ? (
+                <Button
+                  variant="secondary"
+                  onClick={() => navigate(`/filing/${duplicateInfo.analysisId}`)}
+                >
+                  View existing analysis
+                </Button>
+              ) : null}
+              <Button disabled={isAnalyzing} onClick={() => void handleAnalyze({ force: true })}>
+                Run again anyway
               </Button>
-            ) : null}
-            <Button disabled={isAnalyzing} onClick={() => void handleAnalyze({ force: true })}>
-              Run again anyway
-            </Button>
+            </div>
           </div>
+        ) : null}
+
+        <FilingSearchForm
+          values={searchValues}
+          onChange={handleFormChange}
+          onSubmit={executeSearch}
+          isSubmitting={filingSearch.isFetching}
+        />
+
+        <div className="grid gap-4 lg:grid-cols-[2fr_3fr]">
+          <FilingResultsList
+            results={results}
+            isLoading={filingSearch.isFetching && !filingSearch.data}
+            selectedAccession={selectedResult?.accession_number}
+            onSelect={handleSelectResult}
+            pagination={filingSearch.data?.pagination}
+            onPageChange={handlePageChange}
+            error={searchError}
+          />
+
+          <FilingDetailPanel
+            searchResult={selectedResult}
+            filing={filingDetailQuery.data}
+            isLoading={filingDetailQuery.isLoading}
+            error={getErrorMessage(filingDetailQuery.error)}
+            onAnalyze={handleAnalyze}
+            isAnalyzeDisabled={!selectedFilingId}
+            isAnalyzing={isAnalyzing}
+            taskStatus={taskStatus}
+            pollError={pollError}
+            mutationError={mutationError}
+            analysisTemplate={analysisTemplate}
+            templateOptions={ANALYSIS_TEMPLATE_OPTIONS}
+            onTemplateChange={setAnalysisTemplate}
+            prefill={prefillSummary}
+          />
         </div>
-      ) : null}
-
-      <FilingSearchForm
-        values={searchValues}
-        onChange={handleFormChange}
-        onSubmit={executeSearch}
-        isSubmitting={filingSearch.isFetching}
-      />
-
-      <div className="grid gap-4 lg:grid-cols-[2fr_3fr]">
-        <FilingResultsList
-          results={results}
-          isLoading={filingSearch.isFetching && !filingSearch.data}
-          selectedAccession={selectedResult?.accession_number}
-          onSelect={handleSelectResult}
-          pagination={filingSearch.data?.pagination}
-          onPageChange={handlePageChange}
-          error={searchError}
-        />
-
-        <FilingDetailPanel
-          searchResult={selectedResult}
-          filing={filingDetailQuery.data}
-          isLoading={filingDetailQuery.isLoading}
-          error={getErrorMessage(filingDetailQuery.error)}
-          onAnalyze={handleAnalyze}
-          isAnalyzeDisabled={!selectedFilingId}
-          isAnalyzing={isAnalyzing}
-          taskStatus={taskStatus}
-          pollError={pollError}
-          mutationError={mutationError}
-          analysisTemplate={analysisTemplate}
-          templateOptions={ANALYSIS_TEMPLATE_OPTIONS}
-          onTemplateChange={setAnalysisTemplate}
-          prefill={prefillSummary}
-        />
       </div>
     </div>
   )

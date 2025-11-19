@@ -109,18 +109,22 @@ export function FilingDetailPanel({
 
   return (
     <section
-      className="flex h-full flex-col gap-4 rounded-2xl border p-4"
-      style={{ borderColor: 'var(--lines-subtle)', background: 'var(--surfaces-raised)' }}
+      className="flex h-full flex-col gap-4 rounded-3xl border p-6"
+      style={{
+        borderColor: 'var(--lines-subtle)',
+        background: 'var(--surfaces-raised)',
+        boxShadow: 'var(--shadows-soft)',
+      }}
     >
       <header className="flex items-center justify-between">
         <div>
-          <h2 className="text-sm font-semibold text-[var(--text-primary)]">Filing detail</h2>
+          <h2 className="text-base font-semibold text-[var(--text-primary)]">Filing detail</h2>
         </div>
       </header>
 
       <div
-        className="flex-1 overflow-y-auto rounded-xl border p-4"
-        style={{ borderColor: 'var(--lines-subtle)', background: 'var(--surfaces-raised)' }}
+        className="flex-1 overflow-y-auto rounded-2xl border p-6"
+        style={{ borderColor: 'var(--lines-subtle)', background: 'var(--surfaces-base)' }}
       >
         {isLoading ? (
           <div className="space-y-3">
@@ -129,36 +133,36 @@ export function FilingDetailPanel({
             <div className="h-4 w-1/3 animate-pulse rounded bg-[var(--lines-subtle)]" />
           </div>
         ) : searchResult || prefill ? (
-          <div className="space-y-5 text-sm">
+          <div className="space-y-6 text-sm">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-wide text-[var(--text-secondary)]">
+              <p className="text-xs font-bold uppercase tracking-wider text-[var(--text-secondary)] mb-1">
                 Company
               </p>
-              <p className="text-[var(--text-primary)]">{companyName}</p>
-              <p className="text-xs text-[var(--text-secondary)]">{tickerLine}</p>
+              <p className="text-lg font-medium text-[var(--text-primary)]">{companyName}</p>
+              <p className="text-sm text-[var(--text-secondary)]">{tickerLine}</p>
             </div>
 
-            <div className="grid gap-5 md:grid-cols-2">
+            <div className="grid gap-6 md:grid-cols-2">
               <div>
-                <p className="text-xs font-semibold uppercase tracking-wide text-[var(--text-muted)]">
+                <p className="text-xs font-bold uppercase tracking-wider text-[var(--text-muted)] mb-1">
                   Filing date
                 </p>
                 <p className="text-[var(--text-primary)]">{filingDateDisplay}</p>
               </div>
               <div>
-                <p className="text-xs font-semibold uppercase tracking-wide text-[var(--text-muted)]">
+                <p className="text-xs font-bold uppercase tracking-wider text-[var(--text-muted)] mb-1">
                   Accession number
                 </p>
-                <p className="text-[var(--text-primary)]">{accessionDisplay}</p>
+                <p className="text-[var(--text-primary)] font-mono text-xs">{accessionDisplay}</p>
               </div>
               <div>
-                <p className="text-xs font-semibold uppercase tracking-wide text-[var(--text-muted)]">
+                <p className="text-xs font-bold uppercase tracking-wider text-[var(--text-muted)] mb-1">
                   Filing type
                 </p>
                 <p className="text-[var(--text-primary)]">{filingTypeDisplay}</p>
               </div>
               <div>
-                <p className="text-xs font-semibold uppercase tracking-wide text-[var(--text-muted)]">
+                <p className="text-xs font-bold uppercase tracking-wider text-[var(--text-muted)] mb-1">
                   Sections extracted
                 </p>
                 <p className="text-[var(--text-primary)]">{sectionsDisplay}</p>
@@ -166,9 +170,9 @@ export function FilingDetailPanel({
             </div>
 
             {filing ? (
-              <div className="grid gap-5 md:grid-cols-2">
+              <div className="grid gap-6 md:grid-cols-2 border-t pt-6" style={{ borderColor: 'var(--lines-subtle)' }}>
                 <div>
-                  <p className="text-xs font-semibold uppercase tracking-wide text-[var(--text-muted)]">
+                  <p className="text-xs font-bold uppercase tracking-wider text-[var(--text-muted)] mb-1">
                     Processing status
                   </p>
                   <p className="text-[var(--text-primary)]">
@@ -176,7 +180,7 @@ export function FilingDetailPanel({
                   </p>
                 </div>
                 <div>
-                  <p className="text-xs font-semibold uppercase tracking-wide text-[var(--text-muted)]">
+                  <p className="text-xs font-bold uppercase tracking-wider text-[var(--text-muted)] mb-1">
                     Latest analysis
                   </p>
                   <p className="text-[var(--text-primary)]">
@@ -187,7 +191,7 @@ export function FilingDetailPanel({
                 </div>
                 {filing.processing_error ? (
                   <div className="md:col-span-2">
-                    <p className="text-xs font-semibold uppercase tracking-wide text-[var(--text-secondary)]">
+                    <p className="text-xs font-bold uppercase tracking-wider text-[var(--text-secondary)] mb-1">
                       Processing notes
                     </p>
                     <p className="text-xs" style={{ color: 'var(--status-negative)' }}>
@@ -208,15 +212,17 @@ export function FilingDetailPanel({
             ) : null}
           </div>
         ) : (
-          <p className="text-sm text-[var(--text-muted)]">
-            Search for a filing to inspect its metadata and queue analysis.
-          </p>
+          <div className="flex h-full flex-col items-center justify-center text-center p-4">
+            <p className="text-sm text-[var(--text-muted)] max-w-xs">
+              Search for a filing to inspect its metadata and queue analysis.
+            </p>
+          </div>
         )}
       </div>
 
-      <footer className="space-y-3">
+      <footer className="space-y-4 pt-2">
         <div className="space-y-2">
-          <p className="text-xs font-semibold uppercase tracking-wide text-[var(--text-secondary)]">
+          <p className="text-xs font-bold uppercase tracking-wider text-[var(--text-secondary)]">
             Analysis template
           </p>
           <div className="flex flex-col gap-2 md:flex-row md:flex-wrap">
@@ -229,12 +235,13 @@ export function FilingDetailPanel({
                   key={option.value}
                   type="button"
                   onClick={() => onTemplateChange(option.value)}
-                  className="w-full rounded-2xl border p-3 text-left transition-colors md:w-auto md:min-w-[12rem]"
+                  className="w-full rounded-2xl border p-3 text-left transition-all md:w-auto md:min-w-[12rem] hover:shadow-sm"
                   style={{
                     borderColor: isActive ? 'var(--brand-accent)' : 'var(--lines-subtle)',
-                    background: isActive ? accentBackground : 'var(--surfaces-muted)',
+                    background: isActive ? accentBackground : 'var(--surfaces-base)',
                     color: primaryTextColor,
                     outlineColor: 'var(--focus-ring)',
+                    transform: isActive ? 'scale(1.02)' : 'scale(1)',
                   }}
                   aria-pressed={isActive}
                 >
@@ -262,11 +269,11 @@ export function FilingDetailPanel({
           {({ onAction, disabled }) => (
             <Button
               type="button"
-              size="sm"
+              size="md"
               variant="primary"
               onClick={onAction}
               disabled={disabled}
-              className="w-full"
+              className="w-full shadow-lg hover:shadow-xl transition-all"
               style={disabled ? { boxShadow: 'none' } : undefined}
             >
               {isAnalyzing ? 'Analyzing…' : 'Analyze this filing'}
@@ -282,7 +289,7 @@ export function FilingDetailPanel({
 
         {taskStatus ? (
           <div
-            className="rounded-xl border p-3 text-xs"
+            className="rounded-2xl border p-4 text-xs"
             style={{ borderColor: 'var(--lines-subtle)', background: 'var(--surfaces-muted)' }}
           >
             <p className="font-semibold text-[var(--text-primary)]">Task {taskStatus.task_id}</p>
