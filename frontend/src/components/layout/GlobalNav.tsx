@@ -47,20 +47,17 @@ export function GlobalNav() {
   const authCtaLabel = isAuthPending ? authCopy.authenticatingLabel : authCopy.loginShortCta
 
   const isLightMode = tokens.name === 'light'
-  const navBackground = isLightMode ? tokens.surfaces.raised : tokens.brand.surface
-  const navBorder = isLightMode ? tokens.lines.subtle : tokens.lines.strong
-  const navShadow = isLightMode ? '0 6px 20px rgba(9, 24, 49, 0.08)' : tokens.shadows.soft
-  const navText = isLightMode ? tokens.text.primary : tokens.text.onBrand
-  const secondaryText = isLightMode ? tokens.text.secondary : tokens.text.onBrand
-  const badgeTextColor = tokens.text.onLearning
-  const badgeBackground = tokens.learning.surface
-  const badgeRing = tokens.learning.accent
-  const secondaryBorder = tokens.lines.subtle
+  // Glassmorphism background similar to LandingPage
+  const navBackground = `color-mix(in srgb, ${tokens.surfaces.base} 80%, transparent)`
+  const navBorder = tokens.lines.subtle
+  const navText = tokens.text.primary
+  const secondaryText = tokens.text.secondary
   const outlineColor = tokens.focus.ring
   const navHover = hexToRgba(tokens.brand.accent, isLightMode ? 0.12 : 0.2)
-  const navActiveBackground = hexToRgba(tokens.brand.accent, isLightMode ? 0.33 : 0.28)
+  const navActiveBackground = hexToRgba(tokens.brand.accent, isLightMode ? 0.15 : 0.2)
+
   const navLinkClasses =
-    'inline-flex items-center rounded-full px-3 py-2 text-sm font-medium transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 hover:bg-[var(--nav-hover)] whitespace-nowrap'
+    'inline-flex items-center rounded-full px-4 py-2 text-sm font-medium transition-all duration-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 hover:bg-[var(--nav-hover)] whitespace-nowrap'
 
   useEffect(() => {
     setIsMobileMenuOpen(false)
@@ -74,7 +71,7 @@ export function GlobalNav() {
         variant="secondary"
         onClick={handleLogout}
         className={`px-4 py-2 ${className}`.trim()}
-        style={{ color: navText, borderColor: secondaryBorder }}
+        style={{ color: navText, borderColor: navBorder }}
       >
         {authCopy.logoutCta}
       </Button>
@@ -94,36 +91,17 @@ export function GlobalNav() {
 
   const ThemeIcon = nextTheme === 'dark' ? Moon : Sun
 
-  const sharedThemeButtonStyles = {
-    color: navText,
-    borderColor: secondaryBorder,
-    background: 'transparent',
-  }
-
-  const desktopThemeButton = (
+  const themeButton = (
     <Button
       type="button"
       size="md"
-      variant="secondary"
+      variant="ghost"
       onClick={handleThemeToggle}
-      className="px-3 py-2"
-      style={sharedThemeButtonStyles}
-      aria-label={nextThemeLabel}
-      title={nextThemeLabel}
-    >
-      <ThemeIcon aria-hidden className="h-5 w-5" />
-      <span className="sr-only">{nextThemeLabel}</span>
-    </Button>
-  )
-
-  const mobileThemeButton = (
-    <Button
-      type="button"
-      size="md"
-      variant="secondary"
-      onClick={handleThemeToggle}
-      className="h-10 w-10 px-0 py-0"
-      style={sharedThemeButtonStyles}
+      className="h-9 w-9 px-0 rounded-full transition-colors"
+      style={{
+        color: navText,
+        background: 'transparent',
+      }}
       aria-label={nextThemeLabel}
       title={nextThemeLabel}
     >
@@ -134,32 +112,38 @@ export function GlobalNav() {
 
   return (
     <header
-      className="relative sticky top-0 z-30 overflow-hidden border-b backdrop-blur-sm"
+      className="relative sticky top-0 z-30 overflow-hidden border-b backdrop-blur-md transition-all duration-300"
       style={{
         background: navBackground,
         borderColor: navBorder,
-        boxShadow: navShadow,
         color: navText,
       }}
     >
-      <div className="relative mx-auto flex w-full max-w-7xl items-center gap-3 px-5 py-3">
-        <div className="flex flex-1 items-center gap-2">
+      <div className="relative mx-auto flex w-full max-w-7xl items-center gap-4 px-5 py-4">
+        {/* Brand Logo */}
+        <NavLink
+          to="/"
+          className="flex flex-1 items-center gap-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 rounded-xl p-1 -ml-1 transition-opacity hover:opacity-80"
+          style={{ '--tw-ring-color': outlineColor } as React.CSSProperties}
+        >
           <span
-            className="inline-flex h-9 w-9 items-center justify-center rounded-full text-sm font-semibold"
+            className="inline-flex h-10 w-10 items-center justify-center rounded-xl text-sm font-bold shadow-lg"
             style={{
-              background: badgeBackground,
-              color: badgeTextColor,
-              boxShadow: `0 0 0 1px ${badgeRing}, 0 6px 18px rgba(0, 0, 0, 0.18)`,
+              background: `linear-gradient(135deg, ${tokens.brand.accent}, ${tokens.action.primary})`,
+              color: '#fff',
             }}
           >
             AX
           </span>
-          <span className="text-base font-semibold" style={{ color: navText }}>
-            Aperilex
-          </span>
-        </div>
+          <div className="flex flex-col">
+            <span className="text-sm font-bold tracking-wide" style={{ color: navText }}>
+              Aperilex
+            </span>
+          </div>
+        </NavLink>
 
-        <nav className="hidden flex-1 items-center justify-center gap-2 md:flex">
+        {/* Desktop Navigation */}
+        <nav className="hidden flex-1 items-center justify-center gap-1 md:flex">
           {NAV_LINKS.map(({ to, label }) => (
             <NavLink
               key={to}
@@ -177,28 +161,30 @@ export function GlobalNav() {
           ))}
         </nav>
 
-        <div className="hidden items-center gap-2 md:flex">
+        {/* Desktop Actions */}
+        <div className="hidden items-center gap-3 md:flex">
           {isAuthenticated ? (
             <span
-              className="text-sm"
-              style={{ color: secondaryText, opacity: 0.8 }}
+              className="text-sm font-medium"
+              style={{ color: secondaryText }}
               data-testid="authenticated-user-email"
             >
               {userEmail}
             </span>
           ) : null}
+          {themeButton}
           {renderAuthButton()}
-          {desktopThemeButton}
         </div>
 
+        {/* Mobile Menu Toggle */}
         <div className="flex items-center gap-2 md:hidden">
-          {mobileThemeButton}
+          {themeButton}
           <button
             type="button"
             onClick={() => setIsMobileMenuOpen((open) => !open)}
             className="inline-flex h-10 w-10 items-center justify-center rounded-full border transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
             style={{
-              borderColor: secondaryBorder,
+              borderColor: navBorder,
               color: navText,
               outlineColor,
               background: isMobileMenuOpen ? navHover : 'transparent',
@@ -207,28 +193,41 @@ export function GlobalNav() {
             aria-controls="global-nav-mobile"
           >
             <span className="sr-only">Toggle navigation</span>
-            <span className="flex flex-col items-center justify-center gap-1">
-              <span className="h-0.5 w-5 rounded-full" style={{ background: 'currentColor' }} />
-              <span className="h-0.5 w-5 rounded-full" style={{ background: 'currentColor' }} />
-              <span className="h-0.5 w-5 rounded-full" style={{ background: 'currentColor' }} />
+            <span className="flex flex-col items-center justify-center gap-1.5">
+              <span
+                className={`h-0.5 w-5 rounded-full transition-transform duration-300 ${isMobileMenuOpen ? 'rotate-45 translate-y-2' : ''}`}
+                style={{ background: 'currentColor' }}
+              />
+              <span
+                className={`h-0.5 w-5 rounded-full transition-opacity duration-300 ${isMobileMenuOpen ? 'opacity-0' : ''}`}
+                style={{ background: 'currentColor' }}
+              />
+              <span
+                className={`h-0.5 w-5 rounded-full transition-transform duration-300 ${isMobileMenuOpen ? '-rotate-45 -translate-y-2' : ''}`}
+                style={{ background: 'currentColor' }}
+              />
             </span>
           </button>
         </div>
       </div>
 
+      {/* Mobile Menu */}
       {isMobileMenuOpen ? (
         <div
           id="global-nav-mobile"
-          className="border-t md:hidden"
-          style={{ borderColor: navBorder, background: hexToRgba(navBackground, 0.98) }}
+          className="border-t md:hidden backdrop-blur-xl"
+          style={{
+            borderColor: navBorder,
+            background: `color-mix(in srgb, ${tokens.surfaces.base} 95%, transparent)`
+          }}
         >
-          <nav className="flex flex-col gap-1 px-5 py-3">
+          <nav className="flex flex-col gap-1 px-5 py-4">
             {NAV_LINKS.map(({ to, label }) => (
               <NavLink
                 key={`mobile-${to}`}
                 to={to}
                 className={({ isActive }) =>
-                  `${navLinkClasses} justify-between ${isActive ? 'font-semibold' : ''}`
+                  `${navLinkClasses} justify-between w-full ${isActive ? 'font-semibold' : ''}`
                 }
                 onClick={() => setIsMobileMenuOpen(false)}
                 style={({ isActive }) => ({
@@ -243,13 +242,16 @@ export function GlobalNav() {
             ))}
           </nav>
           <div
-            className="flex flex-col gap-2 border-t px-5 py-3"
+            className="flex flex-col gap-4 border-t px-5 py-4"
             style={{ borderColor: navBorder }}
           >
             {isAuthenticated ? (
-              <span className="text-sm" style={{ color: secondaryText, opacity: 0.8 }}>
-                {userEmail}
-              </span>
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-muted-foreground">Signed in as</span>
+                <span className="text-sm font-medium" style={{ color: navText }}>
+                  {userEmail}
+                </span>
+              </div>
             ) : null}
             {renderAuthButton('w-full justify-center')}
           </div>
