@@ -63,7 +63,7 @@ describe('LearningHubPage', () => {
   it('renders persisted progress and recent quiz attempts', async () => {
     renderWithProviders(<LearningHubPage />)
 
-    expect(await screen.findByText('60% complete')).toBeInTheDocument()
+    expect(await screen.findByText('60%')).toBeInTheDocument()
     expect(screen.getByText((content) => content.includes('Score 67%'))).toBeInTheDocument()
     const summarySnippets = await screen.findAllByText(/Connect commentary to margin movements/i)
     expect(summarySnippets.length).toBeGreaterThan(0)
@@ -116,7 +116,7 @@ describe('LearningHubPage', () => {
 
   it('does not render manual completion actions', async () => {
     renderWithProviders(<LearningHubPage />)
-    await screen.findByText('60% complete')
+    await screen.findByText('60%')
     expect(screen.queryByText('Mark complete')).toBeNull()
   })
 
@@ -186,6 +186,6 @@ describe('LearningHubPage', () => {
     renderWithProviders(<LearningHubPage />)
 
     expect(await screen.findByText('Queued')).toBeInTheDocument()
-    expect(screen.getByText('0% complete')).toBeInTheDocument()
+    expect(screen.getByText('0%')).toBeInTheDocument()
   })
 })
