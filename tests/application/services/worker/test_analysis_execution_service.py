@@ -600,6 +600,71 @@ async def test_structured_analysis_truncates_excess_highlights() -> None:
 
 @pytest.mark.unit
 @pytest.mark.asyncio
+async def test_structured_analysis_filters_duplicate_correct_answer_in_distractors() -> None:
+    async def fake_analyze_sections(**_: Any) -> ComprehensiveAnalysisResponse:
+        response = _make_comprehensive_response()
+        section = response.section_analyses[0]
+        if section.walkthrough is not None:
+            duplicate_check = WalkthroughComprehensionCheck(
+                id="risk-check-dup",
+                question="Which option is correct?",
+                correct_answer="Unique Answer",
+                distractors=[
+                    "Unique Answer",
+                    "Alt One",
+                    "alt one",
+                    "Alt Two",
+                    "unique answer",
+                ],
+                explanation="Ensure duplicates are removed.",
+                lesson_reference=WalkthroughLessonReference(
+                    lesson_id="risk-reinforce-dup",
+                    learning_module_key="risk_mastery",
+                    module_stage="reinforce",
+                    title="Risk reinforcement duplicate",
+                ),
+            )
+            section.walkthrough.comprehension_checks = [
+                duplicate_check,
+                *_build_comprehension_checks("risk", "risk_mastery")[1:],
+            ]
+        response.section_analyses = [section]
+        return response
+
+    async def fake_model_info() -> SimpleNamespace:
+        return SimpleNamespace(model_name="gpt-4-structured")
+
+    llm_provider = SimpleNamespace(
+        analyze_filing_sections=fake_analyze_sections,
+        get_model_info=fake_model_info,
+    )
+
+    service = AnalysisExecutionService(llm_provider=llm_provider)
+
+    task_data = _make_task_data()
+    request = service.create_analysis_request(task_data)
+
+    result = await service.perform_structured_comprehensive_analysis(
+        request=request,
+        filing_id=task_data.filing_id,
+        filing_type=task_data.filing_type,
+        filing_sections={"Risk Factors": "Section text"},
+        company_name="Acme Corp",
+        template=AnalysisTemplate.COMPREHENSIVE,
+        metadata=task_data.metadata,
+        task_data=task_data,
+    )
+
+    structured_dump = result.structured_data.model_dump()
+    walkthrough_checks = structured_dump["section_walkthroughs"][
+        "Item 1A - Risk Factors"
+    ]["comprehension_checks"]
+    assert walkthrough_checks[0]["id"] == "risk-check-dup"
+    assert walkthrough_checks[0]["distractors"] == ["Alt One", "Alt Two"]
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
 async def test_structured_analysis_strips_section_walkthrough_payloads() -> None:
     async def fake_analyze_sections(**_: Any) -> ComprehensiveAnalysisResponse:
         return _make_comprehensive_response()

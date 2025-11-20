@@ -12,29 +12,21 @@ import pytest
 
 from src.application.interfaces.query_services import AnalysisQueryResult
 from src.application.services.worker.section_diff_service import SectionDiffService
-from src.shared.enums import (
-    AnalysisStatus,
-    FilingType,
-    TaskPriority,
-    TaskStatus,
-    UserTier,
-)
-from src.shared.models import TaskData
+from src.shared.enums import AnalysisStatus
 from src.shared.types import AnalysisId, FilingId, UserId
 
 
 class _StubAnalysisQueryService:
     def __init__(self, result: AnalysisQueryResult | None) -> None:
         self._result = result
-        self.calls: list[tuple[str, FilingType, datetime]] = []
+        self.calls: list[tuple[str, datetime]] = []
 
     async def get_latest_completed(
         self,
         cik: str,
-        filing_type: FilingType,
         before_date: datetime,
     ) -> AnalysisQueryResult | None:
-        self.calls.append((cik, filing_type, before_date))
+        self.calls.append((cik, before_date))
         return self._result
 
 
@@ -47,31 +39,6 @@ class _StubStorageProvider:
         self.requests.append(str(analysis_id))
         data = json.dumps(self._payload).encode("utf-8")
         return SimpleNamespace(data=data)
-
-
-def _make_task_data(**overrides: Any) -> TaskData:
-    defaults: dict[str, Any] = {
-        "task_id": uuid.uuid4(),
-        "filing_id": uuid.uuid4(),
-        "user_id": uuid.uuid4(),
-        "email": {"value": "analyst@example.com"},
-        "user_tier": UserTier.BASIC,
-        "ticker": {"value": "APRX"},
-        "filing_type": FilingType.FORM_10K,
-        "priority": TaskPriority.NORMAL,
-        "status": TaskStatus.PENDING,
-        "retry_count": 0,
-        "max_retries": 3,
-        "deduplication_id": "dedupe",
-        "created_at": datetime.now(UTC),
-        "updated_at": datetime.now(UTC),
-        "metadata": {
-            "company_cik": "0000000001",
-            "filing_date": "2025-04-01",
-        },
-    }
-    defaults.update(overrides)
-    return TaskData.model_validate(defaults)
 
 
 def _make_analysis_query_result() -> AnalysisQueryResult:
@@ -164,12 +131,16 @@ async def test_compute_diffs_detects_new_highlight_and_sentiment_drop() -> None:
         analysis_query_service=query_service,
         storage=storage_provider,
     )
-    task_data = _make_task_data()
-
     diffs = await diff_service.compute_diffs(
-        task_data=task_data,
+        company_cik="0000000001",
+        filing_date=datetime(2025, 4, 1, tzinfo=UTC),
         structured_payload=structured_payload,
     )
+
+    assert len(query_service.calls) == 1
+    cik_call, cutoff_call = query_service.calls[0]
+    assert cik_call == "0000000001"
+    assert cutoff_call.tzinfo is UTC
 
     assert "Item 1A - Risk Factors" in diffs
     risk_diff = diffs["Item 1A - Risk Factors"]
@@ -186,8 +157,6 @@ async def test_compute_diffs_returns_empty_when_no_previous_analysis() -> None:
         analysis_query_service=query_service,
         storage=storage_provider,
     )
-    task_data = _make_task_data()
-
     structured_payload = {
         "section_analyses": [],
         "section_walkthroughs": {
@@ -196,7 +165,8 @@ async def test_compute_diffs_returns_empty_when_no_previous_analysis() -> None:
     }
 
     diffs = await diff_service.compute_diffs(
-        task_data=task_data,
+        company_cik="0000000001",
+        filing_date=datetime(2025, 4, 1, tzinfo=UTC),
         structured_payload=structured_payload,
     )
 

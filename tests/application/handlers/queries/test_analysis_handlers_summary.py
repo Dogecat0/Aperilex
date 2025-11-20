@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 from datetime import UTC, datetime
 from types import SimpleNamespace
+from typing import Any
 from uuid import uuid4
 
 import pytest
@@ -116,6 +117,18 @@ class _StubStorageProvider:
         return self._storage_object
 
 
+class _StubSectionDiffService:
+    """Stub diff service to validate recomputation."""
+
+    def __init__(self, diff_map: dict[str, dict[str, Any]] | None = None) -> None:
+        self.diff_map = diff_map or {}
+        self.calls: list[dict[str, Any]] = []
+
+    async def compute_diffs(self, **kwargs: Any) -> dict[str, dict[str, Any]]:
+        self.calls.append(kwargs)
+        return self.diff_map
+
+
 @pytest.mark.asyncio
 async def test_get_analysis_handler_surfaces_curated_summary() -> None:
     """The detail handler hydrates the curated summary without mining full results."""
@@ -124,7 +137,11 @@ async def test_get_analysis_handler_surfaces_curated_summary() -> None:
     analysis = _make_analysis_data(summary)
     repository = _StubAnalysisRepository(analysis)
     storage_provider = _StubStorageProvider()
-    handler = GetAnalysisQueryHandler(repository, storage_provider)
+    handler = GetAnalysisQueryHandler(
+        repository,
+        storage_provider,
+        _StubSectionDiffService(),
+    )
 
     query = GetAnalysisQuery(
         analysis_id=analysis.id,
@@ -188,7 +205,11 @@ async def test_get_analysis_handler_unwraps_storage_envelope() -> None:
     }
 
     storage_provider = _StubStorageProvider(storage_payload)
-    handler = GetAnalysisQueryHandler(repository, storage_provider)
+    handler = GetAnalysisQueryHandler(
+        repository,
+        storage_provider,
+        _StubSectionDiffService(),
+    )
 
     query = GetAnalysisQuery(
         analysis_id=analysis.id,
@@ -203,6 +224,85 @@ async def test_get_analysis_handler_unwraps_storage_envelope() -> None:
     assert response.full_results is not None
     assert response.full_results["schema_version"] == 2
     assert response.full_results["structured_data"]["filing_summary"] == "Deep artifact"
+
+
+@pytest.mark.asyncio
+async def test_get_analysis_handler_refreshes_previous_comparison() -> None:
+    """Full results expose up-to-date prior filing comparisons."""
+
+    summary = _make_summary_payload()
+    analysis = _make_analysis_data(summary)
+    repository = _StubAnalysisRepository(analysis)
+
+    structured_data = {
+        "section_analyses": [],
+        "section_walkthroughs": {
+            "Part II Item 1A - Risk Factors": {
+                "highlights": [],
+                "previous_comparison": {"stale": True},
+            },
+            "Part I Item 2 - Management Discussion & Analysis": {
+                "highlights": [],
+                "previous_comparison": {"stale": True},
+            },
+        },
+    }
+
+    storage_payload = {
+        "schema_version": 4,
+        "analysis_id": str(analysis.id),
+        "filing_id": str(analysis.filing_id),
+        "analysis_type": analysis.analysis_type,
+        "status": analysis.status.value,
+        "created_at": datetime.now(UTC).isoformat(),
+        "created_by": str(analysis.user_id),
+        "summary": summary,
+        "full_results": {
+            "schema_version": 3,
+            "structured_data": structured_data,
+        },
+    }
+
+    diff_map = {
+        "Part II Item 1A - Risk Factors": {
+            "previous_analysis_id": "prev-analysis",
+            "previous_filing_id": "prev-filing",
+            "previous_sentiment": 0.1,
+            "current_sentiment": 0.2,
+            "sentiment_delta": 0.1,
+            "new_highlights": [],
+            "dropped_highlights": [],
+            "pro_tip": "Updated",
+        }
+    }
+
+    diff_service = _StubSectionDiffService(diff_map)
+    handler = GetAnalysisQueryHandler(
+        repository,
+        _StubStorageProvider(storage_payload),
+        diff_service,
+    )
+
+    query = GetAnalysisQuery(
+        analysis_id=analysis.id,
+        include_full_results=True,
+        include_section_details=False,
+        include_processing_metadata=False,
+    )
+
+    response = await handler.handle(query)
+    assert response.full_results is not None
+    walkthroughs = response.full_results["structured_data"]["section_walkthroughs"]
+    risk_callout = walkthroughs["Part II Item 1A - Risk Factors"]
+    mdna_callout = walkthroughs["Part I Item 2 - Management Discussion & Analysis"]
+
+    assert risk_callout["previous_comparison"]["previous_analysis_id"] == "prev-analysis"
+    assert "stale" not in risk_callout["previous_comparison"]
+    assert "previous_comparison" not in mdna_callout
+
+    assert len(diff_service.calls) == 1
+    call = diff_service.calls[0]
+    assert call["company_cik"] == "0000123456"
 
 
 @pytest.mark.asyncio

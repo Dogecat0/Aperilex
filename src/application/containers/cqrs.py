@@ -71,6 +71,7 @@ class HandlerFactory:
         queue_provider: IQueueProvider,
         storage_provider: IStorageProvider,
         data_source_provider: IDataSourceProvider,
+        section_diff_service: SectionDiffService,
         analysis_query_service_provider: Provider[IAnalysisQueryService] | None = None,
         company_query_service_provider: Provider[ICompanyQueryService] | None = None,
         filing_query_service_provider: Provider[IFilingQueryService] | None = None,
@@ -102,6 +103,7 @@ class HandlerFactory:
         self.queue_provider = queue_provider
         self.storage_provider = storage_provider
         self.data_source_provider = data_source_provider
+        self.section_diff_service = section_diff_service
         self.analysis_query_service_provider = analysis_query_service_provider
         self.company_query_service_provider = company_query_service_provider
         self.filing_query_service_provider = filing_query_service_provider
@@ -183,6 +185,7 @@ class HandlerFactory:
             "queue_provider": self.queue_provider,
             "storage_provider": self.storage_provider,
             "data_source_provider": self.data_source_provider,
+            "section_diff_service": self.section_diff_service,
         }
 
         if analysis_query_service is not None:
@@ -407,6 +410,7 @@ class CQRSContainer(containers.DeclarativeContainer):
         queue_provider=providers_container.queue_provider,
         storage_provider=providers_container.storage_provider,
         data_source_provider=providers_container.data_source_provider,
+        section_diff_service=section_diff_service,
         analysis_query_service_provider=analysis_query_service,
         company_query_service_provider=company_query_service,
         filing_query_service_provider=filing_query_service,

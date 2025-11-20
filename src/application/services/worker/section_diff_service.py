@@ -14,7 +14,6 @@ from src.application.interfaces.query_services import (
     IAnalysisQueryService,
 )
 from src.application.interfaces.storage import IStorageProvider
-from src.shared.models import TaskData
 from src.shared.utils.logging import get_logger
 
 logger = get_logger(__name__)
@@ -39,36 +38,44 @@ class SectionDiffService:
     async def compute_diffs(
         self,
         *,
-        task_data: TaskData,
-        structured_payload: dict[str, Any],
+        company_cik: str | None,
+        filing_date: datetime | None,
+        structured_payload: Mapping[str, Any] | None,
     ) -> dict[str, dict[str, Any]]:
-        """Compute per-section diffs and return structured comparison metadata."""
+        """Compute per-section diffs using explicit filing metadata."""
 
-        metadata = task_data.metadata or {}
-        cik = metadata.get("company_cik") or metadata.get("cik")
-        if not cik:
+        if not company_cik:
             logger.debug("Skipping diff computation: company CIK missing.")
             return {}
 
-        cutoff = self._resolve_cutoff(metadata, task_data.created_at)
+        if filing_date is None:
+            logger.debug(
+                "Skipping diff computation: filing date missing for %s",
+                company_cik,
+            )
+            return {}
+
+        if structured_payload is None:
+            return {}
+
+        cutoff = self._normalize_cutoff(filing_date)
 
         try:
             previous = await self._analysis_queries.get_latest_completed(
-                cik=cik,
-                filing_type=task_data.filing_type,
+                cik=company_cik,
                 before_date=cutoff,
             )
         except Exception as exc:  # noqa: BLE001
             logger.warning(
                 "Unable to fetch previous analysis for diff computation",
-                extra={"cik": cik, "filing_type": task_data.filing_type.value},
+                extra={"cik": company_cik},
             )
             raise SectionDiffServiceError(str(exc)) from exc
 
         if previous is None:
             logger.debug(
                 "No previous completed analysis found",
-                extra={"cik": cik, "filing_type": task_data.filing_type.value},
+                extra={"cik": company_cik},
             )
             return {}
 
@@ -76,46 +83,22 @@ class SectionDiffService:
         if previous_payload is None:
             return {}
 
+        current_structured = self._ensure_mapping(
+            structured_payload.get("section_walkthroughs")
+        )
+        if not current_structured:
+            return {}
+
         prev_structured = (
             previous_payload.get("full_results", {}).get("structured_data") or {}
         )
-        prev_walkthroughs = self._ensure_mapping(
-            prev_structured.get("section_walkthroughs")
+
+        return self._build_diff_map(
+            current_structured=structured_payload,
+            previous_structured=prev_structured,
+            previous_analysis_id=str(previous.analysis_id),
+            previous_filing_id=str(previous.filing_id),
         )
-        current_walkthroughs = self._ensure_mapping(
-            structured_payload.get("section_walkthroughs")
-        )
-        if not current_walkthroughs:
-            return {}
-
-        current_sections = self._map_sections(
-            structured_payload.get("section_analyses")
-        )
-        previous_sections = self._map_sections(
-            prev_structured.get("section_analyses")
-        )
-
-        diff_map: dict[str, dict[str, Any]] = {}
-        for section_key, current_walkthrough in current_walkthroughs.items():
-            if not isinstance(current_walkthrough, Mapping):
-                continue
-
-            previous_walkthrough = prev_walkthroughs.get(section_key)
-            if not isinstance(previous_walkthrough, Mapping):
-                continue
-
-            diff_payload = self._compare_walkthroughs(
-                section_key=section_key,
-                current_walkthrough=current_walkthrough,
-                previous_walkthrough=previous_walkthrough,
-                current_sections=current_sections,
-                previous_sections=previous_sections,
-                previous_query=previous,
-            )
-            if diff_payload:
-                diff_map[section_key] = diff_payload
-
-        return diff_map
 
     async def _load_previous_payload(
         self,
@@ -172,29 +155,44 @@ class SectionDiffService:
             return None
 
     @staticmethod
-    def _resolve_cutoff(
-        metadata: Mapping[str, str],
+    def resolve_filing_timestamp(
+        raw_value: datetime | str | None,
         fallback: datetime,
     ) -> datetime:
-        """Resolve the cutoff date for previous analysis lookups."""
+        """Normalize filing timestamps sourced from metadata or summaries."""
 
-        raw_date = metadata.get("filing_timestamp") or metadata.get("filing_date")
-        if not raw_date:
-            return fallback
-
-        cleaned = raw_date.strip().replace("Z", "+00:00")
-        try:
-            parsed = datetime.fromisoformat(cleaned)
-        except ValueError:
+        if isinstance(raw_value, datetime):
+            parsed = raw_value
+        elif isinstance(raw_value, str):
+            cleaned = raw_value.strip().replace("Z", "+00:00")
             try:
-                parsed_date = datetime.fromisoformat(cleaned[:10])
+                parsed = datetime.fromisoformat(cleaned)
             except ValueError:
-                return fallback
-            parsed = datetime(parsed_date.year, parsed_date.month, parsed_date.day, tzinfo=UTC)
+                try:
+                    parsed_date = datetime.fromisoformat(cleaned[:10])
+                except ValueError:
+                    parsed = fallback
+                else:
+                    parsed = datetime(
+                        parsed_date.year,
+                        parsed_date.month,
+                        parsed_date.day,
+                        tzinfo=UTC,
+                    )
+        else:
+            parsed = fallback
 
         if parsed.tzinfo is None:
-            parsed = parsed.replace(tzinfo=UTC)
-        return parsed
+            return parsed.replace(tzinfo=UTC)
+        return parsed.astimezone(UTC)
+
+    @staticmethod
+    def _normalize_cutoff(filing_date: datetime) -> datetime:
+        """Ensure filing cutoffs always use UTC."""
+
+        if filing_date.tzinfo is None:
+            return filing_date.replace(tzinfo=UTC)
+        return filing_date.astimezone(UTC)
 
     @staticmethod
     def _ensure_mapping(value: Any) -> dict[str, Any]:
@@ -220,6 +218,53 @@ class SectionDiffService:
                 mapped[name] = section
         return mapped
 
+    def _build_diff_map(
+        self,
+        *,
+        current_structured: Mapping[str, Any],
+        previous_structured: Mapping[str, Any],
+        previous_analysis_id: str,
+        previous_filing_id: str,
+    ) -> dict[str, dict[str, Any]]:
+        """Generate diff metadata from structured payloads."""
+
+        current_walkthroughs = self._ensure_mapping(
+            current_structured.get("section_walkthroughs")
+        )
+        previous_walkthroughs = self._ensure_mapping(
+            previous_structured.get("section_walkthroughs")
+        )
+        if not current_walkthroughs or not previous_walkthroughs:
+            return {}
+
+        current_sections = self._map_sections(current_structured.get("section_analyses"))
+        previous_sections = self._map_sections(
+            previous_structured.get("section_analyses")
+        )
+
+        diff_map: dict[str, dict[str, Any]] = {}
+        for section_key, current_walkthrough in current_walkthroughs.items():
+            if not isinstance(current_walkthrough, Mapping):
+                continue
+
+            previous_walkthrough = previous_walkthroughs.get(section_key)
+            if not isinstance(previous_walkthrough, Mapping):
+                continue
+
+            diff_payload = self._compare_walkthroughs(
+                section_key=section_key,
+                current_walkthrough=current_walkthrough,
+                previous_walkthrough=previous_walkthrough,
+                current_sections=current_sections,
+                previous_sections=previous_sections,
+                previous_analysis_id=previous_analysis_id,
+                previous_filing_id=previous_filing_id,
+            )
+            if diff_payload:
+                diff_map[section_key] = diff_payload
+
+        return diff_map
+
     def _compare_walkthroughs(
         self,
         *,
@@ -228,7 +273,8 @@ class SectionDiffService:
         previous_walkthrough: Mapping[str, Any],
         current_sections: Mapping[str, Mapping[str, Any]],
         previous_sections: Mapping[str, Mapping[str, Any]],
-        previous_query: AnalysisQueryResult,
+        previous_analysis_id: str,
+        previous_filing_id: str,
     ) -> dict[str, Any] | None:
         """Compare walkthrough payloads and build diff metadata."""
 
@@ -271,8 +317,8 @@ class SectionDiffService:
         )
 
         return {
-            "previous_analysis_id": str(previous_query.analysis_id),
-            "previous_filing_id": str(previous_query.filing_id),
+            "previous_analysis_id": previous_analysis_id,
+            "previous_filing_id": previous_filing_id,
             "previous_sentiment": previous_sentiment,
             "current_sentiment": current_sentiment,
             "sentiment_delta": sentiment_delta,

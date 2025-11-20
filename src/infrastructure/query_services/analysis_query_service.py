@@ -18,7 +18,7 @@ from src.application.interfaces.query_services import (
 from src.infrastructure.database.models import Analysis as AnalysisModel
 from src.infrastructure.database.models import Company as CompanyModel
 from src.infrastructure.database.models import Filing as FilingModel
-from src.shared.enums import AnalysisStatus, FilingType
+from src.shared.enums import AnalysisStatus
 from src.shared.types import AnalysisId, CompanyId, FilingId, UserId
 
 logger = logging.getLogger(__name__)
@@ -262,7 +262,6 @@ class AnalysisQueryService(IAnalysisQueryService):
     async def get_latest_completed(
         self,
         cik: str,
-        filing_type: FilingType,
         before_date: datetime,
     ) -> AnalysisQueryResult | None:
         """Fetch the most recent completed analysis for the company before the cutoff."""
@@ -276,7 +275,6 @@ class AnalysisQueryService(IAnalysisQueryService):
                 .join(CompanyModel, FilingModel.company_id == CompanyModel.id)
                 .where(
                     CompanyModel.cik == cik,
-                    FilingModel.filing_type == filing_type.value,
                     FilingModel.filing_date < filing_cutoff,
                     AnalysisModel.status == AnalysisStatus.COMPLETED.value,
                 )
@@ -304,7 +302,6 @@ class AnalysisQueryService(IAnalysisQueryService):
                 "Failed to fetch latest completed analysis",
                 extra={
                     "cik": cik,
-                    "filing_type": filing_type.value,
                     "before_date": before_date.isoformat(),
                     "error": str(e),
                 },

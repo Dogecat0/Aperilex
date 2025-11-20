@@ -74,7 +74,7 @@ SubSectionAnalysisResponse = SubsectionAnalysisResponse
 if TYPE_CHECKING:
     CriticalFindings = list[str]
 else:
-    CriticalFindings = conlist(str, min_length=3, max_length=5)
+    CriticalFindings = conlist(str, max_length=5)
 
 
 @dataclass(frozen=True, slots=True)

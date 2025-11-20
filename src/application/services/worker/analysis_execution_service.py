@@ -10,7 +10,7 @@ from __future__ import annotations
 import uuid
 from collections.abc import Awaitable, Callable, Sequence
 from datetime import UTC, datetime
-from typing import TYPE_CHECKING, Any, Final, cast
+from typing import Any, Final, cast
 
 from src.application.handlers.schemas.commands.analyze_filing import AnalysisTemplate
 from src.application.interfaces.llm import ILLMProvider, LLMRequest, LLMResponse
@@ -27,12 +27,8 @@ from src.shared.models import (
 from src.shared.types import AnalysisId, FilingId
 from src.shared.utils.logging import get_logger
 
-from .section_diff_service import SectionDiffServiceError
+from .section_diff_service import SectionDiffService, SectionDiffServiceError
 from .template_registry import TemplateRegistry, WalkthroughConstructionError
-
-if TYPE_CHECKING:
-    from .section_diff_service import SectionDiffService
-
 
 logger = get_logger(__name__)
 
@@ -352,9 +348,19 @@ class AnalysisExecutionService:
         )
 
         if structured_payload["section_walkthroughs"] and self.section_diff_service:
+            metadata = task_data.metadata or {}
+            cik = metadata.get("company_cik") or metadata.get("cik")
+            raw_filing_date = metadata.get("filing_timestamp") or metadata.get(
+                "filing_date"
+            )
+            filing_reference = SectionDiffService.resolve_filing_timestamp(
+                raw_filing_date,
+                task_data.created_at,
+            )
             try:
                 diff_results = await self.section_diff_service.compute_diffs(
-                    task_data=task_data,
+                    company_cik=cik,
+                    filing_date=filing_reference,
                     structured_payload=structured_payload,
                 )
             except SectionDiffServiceError as exc:

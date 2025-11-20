@@ -2,6 +2,7 @@
 
 import json
 import logging
+from datetime import UTC, datetime
 from typing import Any
 
 from src.application.base.exceptions import ResourceNotFoundError
@@ -12,6 +13,10 @@ from src.application.handlers.schemas.responses.analysis_response import (
 )
 from src.application.interfaces.repositories import IAnalysisRepository
 from src.application.interfaces.storage import IStorageProvider
+from src.application.services.worker.section_diff_service import (
+    SectionDiffService,
+    SectionDiffServiceError,
+)
 from src.shared.types import AnalysisId
 
 logger = logging.getLogger(__name__)
@@ -32,6 +37,7 @@ class GetAnalysisQueryHandler(QueryHandler[GetAnalysisQuery, AnalysisResponse]):
         self,
         analysis_repository: IAnalysisRepository,
         storage_provider: IStorageProvider,
+        section_diff_service: SectionDiffService,
     ) -> None:
         """Initialize the handler with required dependencies.
 
@@ -41,6 +47,7 @@ class GetAnalysisQueryHandler(QueryHandler[GetAnalysisQuery, AnalysisResponse]):
         """
         self.analysis_repository = analysis_repository
         self.storage_provider = storage_provider
+        self.section_diff_service = section_diff_service
 
     async def handle(self, query: GetAnalysisQuery) -> AnalysisResponse:
         """Process the get analysis query.
@@ -123,6 +130,17 @@ class GetAnalysisQueryHandler(QueryHandler[GetAnalysisQuery, AnalysisResponse]):
             else:
                 full_results_payload = results
 
+            if (
+                query.include_full_results
+                and full_results_payload
+                and self.section_diff_service
+            ):
+                await self._refresh_previous_comparisons(
+                    analysis=analysis,
+                    summary_payload=summary_payload,
+                    full_results_payload=full_results_payload,
+                )
+
             # Convert to response DTO based on requested detail level
             response = AnalysisResponse.from_data(
                 analysis,
@@ -162,6 +180,100 @@ class GetAnalysisQueryHandler(QueryHandler[GetAnalysisQuery, AnalysisResponse]):
     def query_type(cls) -> type[GetAnalysisQuery]:
         """Return the query type this handler processes."""
         return GetAnalysisQuery
+
+    async def _refresh_previous_comparisons(
+        self,
+        *,
+        analysis: Any,
+        summary_payload: dict[str, Any] | None,
+        full_results_payload: dict[str, Any],
+    ) -> None:
+        """Ensure previous comparison payloads reflect the latest filing order."""
+
+        structured_data = full_results_payload.get("structured_data")
+        if not isinstance(structured_data, dict):
+            return
+
+        context = self._extract_filing_context(
+            summary_payload,
+            getattr(analysis, "created_at", None),
+        )
+        if context is None:
+            return
+
+        try:
+            diff_map = await self.section_diff_service.compute_diffs(
+                company_cik=context["cik"],
+                filing_date=context["filing_date"],
+                structured_payload=structured_data,
+            )
+        except SectionDiffServiceError as exc:
+            logger.warning(
+                "Failed to refresh previous comparisons for analysis %s: %s",
+                getattr(analysis, "id", "unknown"),
+                exc,
+            )
+            return
+        except Exception as exc:  # noqa: BLE001 - defensive guardrail
+            logger.warning(
+                "Unexpected error while refreshing comparisons for analysis %s: %s",
+                getattr(analysis, "id", "unknown"),
+                exc,
+            )
+            return
+
+        self._apply_diff_map(structured_data, diff_map)
+
+    @staticmethod
+    def _extract_filing_context(
+        summary_payload: dict[str, Any] | None,
+        fallback_date: datetime | None,
+    ) -> dict[str, Any] | None:
+        """Derive filing metadata needed to recompute comparisons."""
+
+        if not summary_payload:
+            return None
+
+        company = summary_payload.get("company")
+        filing = summary_payload.get("filing")
+        if not isinstance(company, dict) or not isinstance(filing, dict):
+            return None
+
+        cik = str(company.get("cik") or "").strip()
+        filing_date_raw = filing.get("date")
+        if not cik:
+            return None
+
+        fallback = fallback_date or datetime.now(UTC)
+        filing_date = SectionDiffService.resolve_filing_timestamp(
+            filing_date_raw,
+            fallback,
+        )
+
+        return {
+            "cik": cik,
+            "filing_date": filing_date,
+        }
+
+    @staticmethod
+    def _apply_diff_map(
+        structured_data: dict[str, Any],
+        diff_map: dict[str, dict[str, Any]],
+    ) -> None:
+        """Apply diff metadata to the structured payload in-place."""
+
+        walkthroughs = structured_data.get("section_walkthroughs")
+        if not isinstance(walkthroughs, dict):
+            return
+
+        for section_key, entry in walkthroughs.items():
+            if not isinstance(entry, dict):
+                continue
+            payload = diff_map.get(section_key)
+            if payload:
+                entry["previous_comparison"] = payload
+            else:
+                entry.pop("previous_comparison", None)
 
 
 async def _load_analysis_results(

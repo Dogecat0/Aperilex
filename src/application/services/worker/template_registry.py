@@ -28,6 +28,7 @@ __all__ = ["TemplateRegistry", "WalkthroughConstructionError"]
 
 logger = get_logger(__name__)
 
+
 class WalkthroughConstructionError(ValueError):
     """Raised when guided walkthrough construction fails."""
 
@@ -113,15 +114,21 @@ class TemplateRegistry:
     ) -> None:
         self._template_schemas: dict[AnalysisTemplate, tuple[str, ...]] = {
             template: tuple(value)
-            for template, value in (template_schemas or self.DEFAULT_TEMPLATE_SCHEMAS).items()
+            for template, value in (
+                template_schemas or self.DEFAULT_TEMPLATE_SCHEMAS
+            ).items()
         }
         self._schema_section_keys: dict[str, tuple[str, ...]] = {
             schema: tuple(value)
-            for schema, value in (schema_section_keys or self.DEFAULT_SCHEMA_SECTION_KEYS).items()
+            for schema, value in (
+                schema_section_keys or self.DEFAULT_SCHEMA_SECTION_KEYS
+            ).items()
         }
         self._template_focus: dict[AnalysisTemplate, tuple[str, ...]] = {
             template: tuple(value)
-            for template, value in (template_focus or self.DEFAULT_TEMPLATE_FOCUS).items()
+            for template, value in (
+                template_focus or self.DEFAULT_TEMPLATE_FOCUS
+            ).items()
         }
         self._walkthrough_blueprints = self._initialise_walkthrough_blueprints()
 
@@ -288,7 +295,6 @@ class TemplateRegistry:
         comprehension_models = self._build_comprehension_checks(
             comprehension_checks,
             module_key,
-            module_stage_value,
             section_name,
         )
         if len(comprehension_models) < self.WALKTHROUGH_HIGHLIGHT_LIMIT:
@@ -343,9 +349,7 @@ class TemplateRegistry:
             except json.JSONDecodeError:
                 loaded = None
             if isinstance(loaded, list):
-                parsed.extend(
-                    str(item).strip() for item in loaded if str(item).strip()
-                )
+                parsed.extend(str(item).strip() for item in loaded if str(item).strip())
                 return parsed
 
             parsed.extend(part.strip() for part in raw_focus.split(",") if part.strip())
@@ -485,7 +489,6 @@ class TemplateRegistry:
     def _build_comprehension_checks(
         comprehension_checks: Sequence[Mapping[str, Any]],
         expected_module_key: str,
-        expected_module_stage: str,
         section_name: str,
     ) -> list[ComprehensionCheck]:
         """Convert raw comprehension checks into typed models."""
@@ -513,6 +516,42 @@ class TemplateRegistry:
                     f"'{lesson_model.learning_module_key}' but expected '{expected_module_key}'"
                 )
             data["lesson_reference"] = lesson_model
+
+            correct_answer = str(data.get("correct_answer") or "").strip()
+            raw_distractors = data.get("distractors")
+            if not isinstance(raw_distractors, Sequence) or isinstance(
+                raw_distractors, (str | bytes)
+            ):
+                raise WalkthroughConstructionError(
+                    f"comprehension check '{data.get('id')}' for section '{section_name}' must provide distractors as a list"
+                )
+
+            cleaned_distractors: list[str] = []
+            seen: set[str] = set()
+            correct_normalized = correct_answer.lower()
+
+            for distractor in raw_distractors:
+                text = str(distractor).strip()
+                if not text:
+                    continue
+
+                normalized = text.lower()
+                if normalized == correct_normalized:
+                    continue
+                if normalized in seen:
+                    continue
+
+                seen.add(normalized)
+                cleaned_distractors.append(text)
+
+            if len(cleaned_distractors) < 2:
+                raise WalkthroughConstructionError(
+                    f"comprehension check '{data.get('id')}' for section '{section_name}' "
+                    "must provide at least two distractors distinct from the correct answer"
+                )
+
+            data["correct_answer"] = correct_answer
+            data["distractors"] = cleaned_distractors
 
             checks.append(ComprehensionCheck.model_validate(data))
 
