@@ -1,11 +1,9 @@
-import { useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Moon, Sun } from 'lucide-react'
 import { landingCopy } from '@/copy/landing'
 import { Button } from '@/components/ui/Button'
 import { useAuth } from '@/hooks/useAuth'
 import { useThemeTokens } from '@/components/ThemeProvider'
-import { useAppStore } from '@/lib/store'
+import { ThemeToggleButton } from '@/components/layout/ThemeToggleButton'
 import { HeroSpotlight } from './components/HeroSpotlight'
 import { FeatureDeck } from './components/FeatureDeck'
 import { GuidedJourney } from './components/GuidedJourney'
@@ -22,8 +20,6 @@ export function LandingPage() {
   const { status, isAuthenticated, loginWithGoogle } = useAuth()
   const navigate = useNavigate()
   const tokens = useThemeTokens()
-  const theme = useAppStore((state) => state.theme)
-  const setTheme = useAppStore((state) => state.setTheme)
 
   const isAuthenticating = status === 'initializing' || status === 'authenticating'
   const navActionLabel = isAuthenticated
@@ -31,13 +27,6 @@ export function LandingPage() {
     : isAuthenticating
       ? 'Preparing workspace…'
       : 'Sign in'
-  const nextTheme = useMemo<'light' | 'dark'>(() => (theme === 'dark' ? 'light' : 'dark'), [theme])
-  const nextThemeLabel = theme === 'system' ? `System → ${nextTheme}` : `Switch to ${nextTheme}`
-  const ThemeIcon = nextTheme === 'dark' ? Moon : Sun
-
-  const handleThemeToggle = () => {
-    setTheme(theme === 'system' ? 'dark' : nextTheme)
-  }
 
   const handleRouteCta = (path: string) => {
     if (isAuthenticated) {
@@ -85,12 +74,12 @@ export function LandingPage() {
 
       <header
         className="sticky top-0 z-50 border-b backdrop-blur-md"
-        style={{
-          background: `color-mix(in srgb, ${tokens.surfaces.base} 80%, transparent)`,
-          borderColor: tokens.lines.subtle,
-        }}
-      >
-        <div className="mx-auto flex w-full max-w-7xl items-center justify-between gap-4 px-3 py-4 transition md:px-5">
+      style={{
+        background: `color-mix(in srgb, ${tokens.surfaces.base} 80%, transparent)`,
+        borderColor: tokens.lines.subtle,
+      }}
+    >
+        <div className="mx-auto flex h-20 w-full max-w-7xl items-center justify-between gap-4 px-3 transition md:px-5">
           <div className="flex items-center gap-3">
             <span
               className="inline-flex h-10 w-10 items-center justify-center rounded-xl text-sm font-bold shadow-lg"
@@ -111,17 +100,7 @@ export function LandingPage() {
             </div>
           </div>
           <div className="flex items-center gap-3">
-            <Button
-              type="button"
-              size="sm"
-              variant="ghost"
-              onClick={handleThemeToggle}
-              className="h-9 w-9 px-0 rounded-full text-[var(--text-primary)] hover:bg-[var(--surfaces-muted)]"
-              aria-label={nextThemeLabel}
-              title={nextThemeLabel}
-            >
-              <ThemeIcon aria-hidden className="h-5 w-5" />
-            </Button>
+            <ThemeToggleButton />
             <Button
               type="button"
               size="sm"

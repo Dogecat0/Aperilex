@@ -1,12 +1,11 @@
 import { NavLink, useLocation } from 'react-router-dom'
-import { useEffect, useMemo, useState } from 'react'
-import { Moon, Sun } from 'lucide-react'
-import { useAppStore } from '@/lib/store'
+import { useEffect, useState } from 'react'
 import { useThemeTokens } from '@/components/ThemeProvider'
 import { Button } from '@/components/ui/Button'
 import { hexToRgba } from '@/lib/color'
 import { useAuth } from '@/hooks/useAuth'
 import { authCopy } from '@/copy/auth'
+import { ThemeToggleButton } from './ThemeToggleButton'
 
 const NAV_LINKS = [
   { to: '/dashboard', label: 'Filing Dashboard' },
@@ -17,18 +16,9 @@ const NAV_LINKS = [
 
 export function GlobalNav() {
   const location = useLocation()
-  const theme = useAppStore((state) => state.theme)
-  const setTheme = useAppStore((state) => state.setTheme)
   const tokens = useThemeTokens()
   const { status: authStatus, isAuthenticated, session, loginWithGoogle, logout } = useAuth()
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
-
-  const nextTheme = useMemo<'light' | 'dark'>(() => (theme === 'dark' ? 'light' : 'dark'), [theme])
-  const nextThemeLabel = theme === 'system' ? `System → ${nextTheme}` : `Switch to ${nextTheme}`
-
-  const handleThemeToggle = () => {
-    setTheme(theme === 'system' ? 'dark' : nextTheme)
-  }
 
   const handleLogin = () => {
     const redirectTarget =
@@ -89,27 +79,6 @@ export function GlobalNav() {
       </Button>
     )
 
-  const ThemeIcon = nextTheme === 'dark' ? Moon : Sun
-
-  const themeButton = (
-    <Button
-      type="button"
-      size="md"
-      variant="ghost"
-      onClick={handleThemeToggle}
-      className="h-9 w-9 px-0 rounded-full transition-colors"
-      style={{
-        color: navText,
-        background: 'transparent',
-      }}
-      aria-label={nextThemeLabel}
-      title={nextThemeLabel}
-    >
-      <ThemeIcon aria-hidden className="h-5 w-5" />
-      <span className="sr-only">{nextThemeLabel}</span>
-    </Button>
-  )
-
   return (
     <header
       className="relative sticky top-0 z-30 overflow-hidden border-b backdrop-blur-md transition-all duration-300"
@@ -119,11 +88,11 @@ export function GlobalNav() {
         color: navText,
       }}
     >
-      <div className="relative mx-auto flex w-full max-w-7xl items-center gap-4 px-2 py-4 md:px-5">
+      <div className="relative mx-auto flex h-20 w-full max-w-7xl items-center gap-4 px-3 md:px-5">
         {/* Brand Logo */}
         <NavLink
           to="/"
-          className="flex flex-1 items-center gap-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 rounded-xl p-1 -ml-1 transition-opacity hover:opacity-80"
+          className="flex flex-1 items-center gap-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 rounded-xl -ml-1 transition-opacity hover:opacity-80"
           style={{ '--tw-ring-color': outlineColor } as React.CSSProperties}
         >
           <span
@@ -172,13 +141,13 @@ export function GlobalNav() {
               {userEmail}
             </span>
           ) : null}
-          {themeButton}
+          <ThemeToggleButton />
           {renderAuthButton()}
         </div>
 
         {/* Mobile Menu Toggle */}
         <div className="flex items-center gap-2 md:hidden">
-          {themeButton}
+          <ThemeToggleButton />
           <button
             type="button"
             onClick={() => setIsMobileMenuOpen((open) => !open)}
@@ -221,7 +190,7 @@ export function GlobalNav() {
             background: `color-mix(in srgb, ${tokens.surfaces.base} 95%, transparent)`
           }}
         >
-          <nav className="flex flex-col gap-1 px-2 py-4 md:px-5">
+          <nav className="flex flex-col gap-1 px-3 py-4 md:px-5">
             {NAV_LINKS.map(({ to, label }) => (
               <NavLink
                 key={`mobile-${to}`}
@@ -242,7 +211,7 @@ export function GlobalNav() {
             ))}
           </nav>
           <div
-            className="flex flex-col gap-4 border-t px-2 py-4 md:px-5"
+            className="flex flex-col gap-4 border-t px-3 py-4 md:px-5"
             style={{ borderColor: navBorder }}
           >
             {isAuthenticated ? (

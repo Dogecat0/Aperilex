@@ -21,10 +21,10 @@ function formatSearchResult(analysis: AnalysisResponse) {
   const formattedDate = Number.isNaN(createdAt.getTime())
     ? 'Date pending'
     : new Intl.DateTimeFormat('en-US', {
-        month: 'short',
-        day: 'numeric',
-        year: 'numeric',
-      }).format(createdAt)
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+    }).format(createdAt)
 
   return {
     companyName,
@@ -138,7 +138,7 @@ export function SearchBar({
 
       {showResults ? (
         <div
-          className="absolute left-0 right-0 z-10 mt-2 rounded-2xl border p-3"
+          className="absolute left-0 right-0 z-50 mt-2 rounded-2xl border p-3"
           style={{
             borderColor: tokens.lines.subtle,
             background: 'var(--surfaces-overlay)',
