@@ -10,7 +10,7 @@ export function AppShell() {
     >
       <GlobalNav />
 
-      <div className="relative mx-auto w-full max-w-7xl px-5 py-6">
+      <div className="relative mx-auto w-full max-w-7xl px-2 py-4 md:px-5 md:py-6">
         <div className="flex flex-col gap-4 lg:gap-5">
           <div className="flex flex-col gap-3">
             <SearchBar />

@@ -90,7 +90,7 @@ export function LandingPage() {
           borderColor: tokens.lines.subtle,
         }}
       >
-        <div className="mx-auto flex w-full max-w-7xl items-center justify-between gap-4 px-5 py-4 transition">
+        <div className="mx-auto flex w-full max-w-7xl items-center justify-between gap-4 px-3 py-4 transition md:px-5">
           <div className="flex items-center gap-3">
             <span
               className="inline-flex h-10 w-10 items-center justify-center rounded-xl text-sm font-bold shadow-lg"
@@ -184,7 +184,7 @@ export function LandingPage() {
         className="relative z-10 border-t border-[var(--lines-subtle)]"
         style={{ background: 'var(--surfaces-raised)' }}
       >
-        <div className="mx-auto flex w-full max-w-7xl flex-col gap-8 px-6 py-16 lg:flex-row lg:items-center lg:justify-between">
+        <div className="mx-auto flex w-full max-w-7xl flex-col gap-8 px-4 py-16 lg:flex-row lg:items-center lg:justify-between md:px-6">
           <div className="space-y-3 max-w-md">
             <p className="text-xs font-bold uppercase tracking-widest text-[var(--brand-accent)]">
               {landingCopy.ctaBanner.title}

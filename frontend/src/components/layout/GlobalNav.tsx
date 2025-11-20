@@ -119,7 +119,7 @@ export function GlobalNav() {
         color: navText,
       }}
     >
-      <div className="relative mx-auto flex w-full max-w-7xl items-center gap-4 px-5 py-4">
+      <div className="relative mx-auto flex w-full max-w-7xl items-center gap-4 px-2 py-4 md:px-5">
         {/* Brand Logo */}
         <NavLink
           to="/"
@@ -221,7 +221,7 @@ export function GlobalNav() {
             background: `color-mix(in srgb, ${tokens.surfaces.base} 95%, transparent)`
           }}
         >
-          <nav className="flex flex-col gap-1 px-5 py-4">
+          <nav className="flex flex-col gap-1 px-2 py-4 md:px-5">
             {NAV_LINKS.map(({ to, label }) => (
               <NavLink
                 key={`mobile-${to}`}
@@ -242,7 +242,7 @@ export function GlobalNav() {
             ))}
           </nav>
           <div
-            className="flex flex-col gap-4 border-t px-5 py-4"
+            className="flex flex-col gap-4 border-t px-2 py-4 md:px-5"
             style={{ borderColor: navBorder }}
           >
             {isAuthenticated ? (

@@ -39,7 +39,7 @@ export function RecentAnalysesList({ groups, isLoading }: RecentAnalysesListProp
 
   return (
     <section
-      className="flex flex-col gap-6 rounded-3xl border p-6 backdrop-blur-sm"
+      className="flex flex-col gap-6 rounded-3xl border p-4 md:p-6 backdrop-blur-sm"
       style={{
         borderColor: 'var(--lines-subtle)',
         background: 'var(--surfaces-raised)',
@@ -90,7 +90,7 @@ export function RecentAnalysesList({ groups, isLoading }: RecentAnalysesListProp
           {groups.map((group) => (
             <li
               key={group.id}
-              className="rounded-3xl border p-6 transition-colors hover:bg-[var(--surfaces-muted)]/50"
+              className="rounded-3xl border p-4 md:p-6 transition-colors hover:bg-[var(--surfaces-muted)]/50"
               style={{
                 borderColor: 'var(--lines-subtle)',
                 background: 'var(--surfaces-muted)',
@@ -147,7 +147,7 @@ export function RecentAnalysesList({ groups, isLoading }: RecentAnalysesListProp
                         </div>
                       </div>
 
-                      <div className="flex flex-wrap items-center gap-2 opacity-0 transition-opacity group-hover:opacity-100">
+                      <div className="flex flex-wrap items-center gap-2 opacity-100 transition-opacity md:opacity-0 md:group-hover:opacity-100">
                         <Link
                           to={`/filing/${item.analysisId}`}
                           className="rounded-full border border-[var(--lines-subtle)] px-4 py-1.5 text-xs font-bold uppercase tracking-wide text-[var(--text-primary)] transition-colors hover:bg-[var(--surfaces-muted)]"

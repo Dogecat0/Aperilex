@@ -91,7 +91,7 @@ export function HeroSpotlight({
       aria-labelledby="landing-hero-heading"
       className="relative overflow-visible text-[var(--text-primary)]"
     >
-      <div className="relative mx-auto flex w-full max-w-7xl flex-col gap-16 px-6 py-12 lg:flex-row lg:items-center lg:gap-24">
+      <div className="relative mx-auto flex w-full max-w-7xl flex-col gap-16 px-3 py-8 lg:flex-row lg:items-center lg:gap-24 md:px-6 md:py-12">
         {/* Hidden measurement node for layout stability */}
         <div
           ref={measurementRef}
@@ -193,7 +193,7 @@ export function HeroSpotlight({
 
           <div
             ref={panelRef}
-            className="relative overflow-hidden rounded-[40px] border border-[var(--lines-subtle)] bg-[var(--surfaces-raised)]/40 p-8 shadow-2xl backdrop-blur-xl transition-all duration-500"
+            className="relative overflow-hidden rounded-[40px] border border-[var(--lines-subtle)] bg-[var(--surfaces-raised)]/40 p-4 shadow-2xl backdrop-blur-xl transition-all duration-500 md:p-8"
             aria-live="polite"
             style={{ minHeight: panelHeight ? `${panelHeight}px` : undefined }}
           >

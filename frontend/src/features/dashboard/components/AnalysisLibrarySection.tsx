@@ -240,7 +240,7 @@ export function AnalysisLibrarySection({
   return (
     <section
       id="analysis-library"
-      className="flex flex-col gap-6 rounded-3xl border p-6 backdrop-blur-sm"
+      className="flex flex-col gap-6 rounded-3xl border p-4 md:p-6 backdrop-blur-sm"
       style={{
         borderColor: 'var(--lines-subtle)',
         background: 'var(--surfaces-raised)',
@@ -295,7 +295,7 @@ export function AnalysisLibrarySection({
           {displayGroups.map((group) => (
             <li
               key={`${group.filingId}-${group.accessionNumber ?? 'unknown'}`}
-              className="rounded-3xl border p-6 transition-colors hover:bg-[var(--surfaces-muted)]/50"
+              className="rounded-3xl border p-4 md:p-6 transition-colors hover:bg-[var(--surfaces-muted)]/50"
               style={{ borderColor: 'var(--lines-subtle)', background: 'var(--surfaces-muted)' }}
             >
               <header className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between mb-4">
@@ -357,7 +357,7 @@ export function AnalysisLibrarySection({
                         </p>
                       </div>
 
-                      <div className="flex flex-wrap items-center gap-3 text-xs font-bold uppercase tracking-wide opacity-0 transition-opacity group-hover:opacity-100">
+                      <div className="flex flex-wrap items-center gap-3 text-xs font-bold uppercase tracking-wide opacity-100 transition-opacity md:opacity-0 md:group-hover:opacity-100">
                         <Link
                           to={getLinkTarget(run.analysisId)}
                           className="rounded-full border border-[var(--lines-subtle)] px-4 py-1.5 text-[var(--text-primary)] transition-colors hover:bg-[var(--surfaces-muted)]"
