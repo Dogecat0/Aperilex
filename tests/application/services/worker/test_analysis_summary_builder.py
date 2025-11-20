@@ -231,6 +231,7 @@ def test_summary_builder_curates_structured_artifacts() -> None:
         "delta": None,
         "trend": "flat",
     }
+    assert sections_segment["supporting_points"] == summary["critical_findings"]
 
     sentiment_segment = summary_sections[-1]
     assert sentiment_segment["featured_metric"]["id"] == "sentiment-overall"
@@ -239,8 +240,8 @@ def test_summary_builder_curates_structured_artifacts() -> None:
 
 
 @pytest.mark.unit
-def test_summary_builder_caps_critical_findings_at_five() -> None:
-    """Critical findings are truncated at five unique entries across sections."""
+def test_summary_builder_collects_all_critical_findings_across_sections() -> None:
+    """Critical findings cover each section and retain order with no cap."""
 
     structured_data = {
         "section_analyses": [
@@ -279,12 +280,13 @@ def test_summary_builder_caps_critical_findings_at_five() -> None:
 
     assert summary["critical_findings"] == [
         "Finding 1",
+        "Finding 5",
         "Finding 2",
         "Finding 3",
         "Finding 4",
-        "Finding 5",
+        "Finding 6",
     ]
-    assert summary["insight_counts"]["critical_findings"] == 5
+    assert summary["insight_counts"]["critical_findings"] == 6
 
 
 @pytest.mark.unit

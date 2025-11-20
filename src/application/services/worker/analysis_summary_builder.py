@@ -191,20 +191,37 @@ class AnalysisSummaryBuilder:
 
         findings: list[str] = []
         seen: set[str] = set()
+
+        # Collect the first critical finding from each section to ensure coverage,
+        # then append remaining unique findings in order of appearance.
+        staged_remaining: list[str] = []
         for section in sections:
             values = section.get("critical_findings")
             if not isinstance(values, list):
                 continue
-            for entry in values:
+            cleaned_entries = [
+                entry.strip()
+                for entry in values
+                if isinstance(entry, str) and entry.strip()
+            ]
+            if not cleaned_entries:
+                continue
+
+            first_entry = cleaned_entries[0]
+            if first_entry not in seen:
+                seen.add(first_entry)
+                findings.append(first_entry)
+
+            for entry in cleaned_entries[1:]:
                 if not isinstance(entry, str):
                     continue
                 text = entry.strip()
                 if not text or text in seen:
                     continue
                 seen.add(text)
-                findings.append(text)
-                if len(findings) >= 5:
-                    return findings
+                staged_remaining.append(text)
+
+        findings.extend(staged_remaining)
         return findings
 
     @staticmethod
@@ -498,17 +515,13 @@ class AnalysisSummaryBuilder:
     ) -> dict[str, Any] | None:
         """Construct the section deep-dive segment from findings and sentiment."""
 
-        summary_text = None
-        points: list[str] = []
-
         if critical_findings:
             summary_text = clip_summary_text(critical_findings[0])
-            for finding in critical_findings:
-                append_unique(points, finding, limit=3)
-                if len(points) >= 3:
-                    break
+            points = list(critical_findings)
+        else:
+            summary_text = None
+            points: list[str] = []
 
-        if summary_text is None:
             sentiment_description = self._describe_notable_sentiment_section(
                 sentiment_sections,
                 strongest=False,
@@ -517,10 +530,9 @@ class AnalysisSummaryBuilder:
                 summary_text = clip_summary_text(sentiment_description)
                 append_unique(points, sentiment_description, limit=3)
 
-        if summary_text is None:
-            return None
+            if summary_text is None:
+                return None
 
-        if len(points) < 3:
             strongest_sentiment = self._describe_notable_sentiment_section(
                 sentiment_sections,
                 strongest=True,
