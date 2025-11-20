@@ -441,7 +441,7 @@ export interface ListAnalysesParams {
   created_after?: string
   created_before?: string
   created_by?: string
-  sort?: 'created_at' | 'confidence_score' | 'insight_counts.critical_findings'
+  sort?: 'created_at' | 'confidence_score' | 'insight_counts.critical_findings' | 'filing_date'
   direction?: 'asc' | 'desc'
   page?: number
   page_size?: number

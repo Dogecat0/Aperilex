@@ -27,6 +27,7 @@ class AnalysisSortField(str, Enum):
     CREATED_AT = "created_at"
     CONFIDENCE_SCORE = "confidence_score"
     CRITICAL_FINDINGS = "insight_counts.critical_findings"
+    FILING_DATE = "filing_date"
 
 
 class SortDirection(str, Enum):

@@ -656,6 +656,8 @@ class AnalysisRepository(IAnalysisRepository):
             sort_expr: ColumnElement[Any] = summary_confidence_expr
         elif sort_by == "insight_counts.critical_findings":
             sort_expr = summary_critical_expr
+        elif sort_by == "filing_date":
+            sort_expr = cast(ColumnElement[Any], FilingModel.filing_date)
         else:
             sort_expr = cast(ColumnElement[Any], AnalysisModel.created_at)
 

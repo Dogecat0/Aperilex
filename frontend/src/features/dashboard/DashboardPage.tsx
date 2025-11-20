@@ -216,7 +216,7 @@ export function DashboardPage() {
     const dateFilters = deriveDateFilters(filters.dateRange)
     const params: ListAnalysesParams = {
       status: 'COMPLETED',
-      sort: 'created_at',
+      sort: 'filing_date',
       direction: 'desc',
       ...dateFilters,
     }

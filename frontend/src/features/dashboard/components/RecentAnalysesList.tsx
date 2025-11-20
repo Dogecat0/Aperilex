@@ -127,7 +127,7 @@ export function RecentAnalysesList({ groups, isLoading }: RecentAnalysesListProp
                             {item.analyzedAt}
                           </p>
                         </div>
-                        <p className="text-xs text-[var(--text-muted)]">
+                        <p className="text-xs font-bold text-[var(--text-primary)] pb-2">
                           Filed at {formatFiledDate(item.filingDate)}
                         </p>
                         <div className="flex items-center gap-2">
