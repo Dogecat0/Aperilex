@@ -94,9 +94,6 @@ export function LandingPage() {
               <span className="text-sm font-bold tracking-wide text-[var(--text-primary)]">
                 Aperilex
               </span>
-              <span className="text-[10px] font-medium uppercase tracking-wider text-[var(--text-muted)]">
-                Filing Research
-              </span>
             </div>
           </div>
           <div className="flex items-center gap-3">

@@ -98,7 +98,7 @@ export function SavedItemsPage() {
         />
       </div>
 
-      <div className="relative z-10 mx-auto w-full max-w-7xl px-6 py-8 flex flex-col gap-8">
+      <div className="relative z-10 mx-auto w-full max-w-7xl px-2 py-8 flex flex-col gap-8">
         <FeatureHero
           overline="Saved items"
           title="Keep your research within reach"

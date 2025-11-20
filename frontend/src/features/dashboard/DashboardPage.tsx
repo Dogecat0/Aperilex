@@ -383,7 +383,7 @@ export function DashboardPage() {
         />
       </div>
 
-      <div className="relative z-10 mx-auto w-full max-w-7xl px-6 py-8 flex flex-col gap-8">
+      <div className="relative z-10 mx-auto w-full max-w-7xl px-2 py-8 flex flex-col gap-8">
         <FilingProgressHero
           isLoading={libraryQuery.isLoading || libraryQuery.isFetching}
           dateRangeLabel={dateRangeLabel}
