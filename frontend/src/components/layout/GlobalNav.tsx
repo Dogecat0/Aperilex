@@ -187,7 +187,7 @@ export function GlobalNav() {
           className="border-t md:hidden backdrop-blur-xl"
           style={{
             borderColor: navBorder,
-            background: `color-mix(in srgb, ${tokens.surfaces.base} 95%, transparent)`
+            background: `color-mix(in srgb, ${tokens.surfaces.base} 95%, transparent)`,
           }}
         >
           <nav className="flex flex-col gap-1 px-3 py-4 md:px-5">

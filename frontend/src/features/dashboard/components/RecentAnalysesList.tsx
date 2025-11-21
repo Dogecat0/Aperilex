@@ -3,7 +3,6 @@ import { SectionIntro } from '@/components/ui/SectionIntro'
 import type { RecentAnalysisGroup } from '../DashboardPage'
 import { useSavedAnalyses } from '@/lib/hooks'
 
-
 const FILED_DATE_FORMAT = new Intl.DateTimeFormat('en-US', {
   month: 'short',
   day: 'numeric',
@@ -32,7 +31,6 @@ function formatFiledDate(input?: string | null) {
 }
 
 export function RecentAnalysesList({ groups, isLoading }: RecentAnalysesListProps) {
-
   const { isSaved, toggle } = useSavedAnalyses()
 
   const showGroupSkeleton = isLoading && groups.length === 0
@@ -134,7 +132,8 @@ export function RecentAnalysesList({ groups, isLoading }: RecentAnalysesListProp
                           <span className="inline-flex items-center rounded-full bg-[var(--brand-accent)]/25 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-[var(--text-primary)]">
                             {item.confidenceLabel}
                           </span>
-                          {typeof item.criticalFindings === 'number' && item.criticalFindings > 0 ? (
+                          {typeof item.criticalFindings === 'number' &&
+                          item.criticalFindings > 0 ? (
                             <span className="inline-flex items-center rounded-full bg-[var(--status-negative)]/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-[var(--status-negative)]">
                               {item.criticalFindings} critical
                             </span>
@@ -166,10 +165,11 @@ export function RecentAnalysesList({ groups, isLoading }: RecentAnalysesListProp
                               filingDate: item.filingDate ?? undefined,
                             })
                           }
-                          className={`rounded-full border px-4 py-1.5 text-xs font-bold uppercase tracking-wide transition-colors ${saved
-                            ? 'border-[var(--brand-accent)] bg-[var(--brand-accent)]/10 text-[var(--brand-accent)]'
-                            : 'border-[var(--lines-subtle)] text-[var(--text-primary)] hover:bg-[var(--surfaces-muted)]'
-                            }`}
+                          className={`rounded-full border px-4 py-1.5 text-xs font-bold uppercase tracking-wide transition-colors ${
+                            saved
+                              ? 'border-[var(--brand-accent)] bg-[var(--brand-accent)]/10 text-[var(--brand-accent)]'
+                              : 'border-[var(--lines-subtle)] text-[var(--text-primary)] hover:bg-[var(--surfaces-muted)]'
+                          }`}
                         >
                           {saved ? 'Saved' : 'Save'}
                         </button>

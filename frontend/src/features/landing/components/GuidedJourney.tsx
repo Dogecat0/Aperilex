@@ -23,7 +23,9 @@ export function GuidedJourney({ eyebrow, title, description, steps }: GuidedJour
         >
           {title}
         </h2>
-        <p className="text-lg text-[var(--text-secondary)] max-w-2xl leading-relaxed">{description}</p>
+        <p className="text-lg text-[var(--text-secondary)] max-w-2xl leading-relaxed">
+          {description}
+        </p>
       </div>
 
       <div className="relative space-y-12 lg:space-y-24">
@@ -35,8 +37,9 @@ export function GuidedJourney({ eyebrow, title, description, steps }: GuidedJour
           return (
             <article
               key={step.id}
-              className={`relative flex flex-col gap-8 lg:flex-row lg:items-center ${isEven ? 'lg:flex-row-reverse' : ''
-                }`}
+              className={`relative flex flex-col gap-8 lg:flex-row lg:items-center ${
+                isEven ? 'lg:flex-row-reverse' : ''
+              }`}
             >
               {/* Timeline Node */}
               <div className="absolute left-8 -translate-x-1/2 lg:left-1/2 flex h-16 w-16 items-center justify-center rounded-full border-4 border-[var(--surfaces-base)] bg-[var(--brand-surface)] shadow-xl z-10">
@@ -61,8 +64,9 @@ export function GuidedJourney({ eyebrow, title, description, steps }: GuidedJour
               {/* Visual Side */}
               <div className="ml-20 lg:ml-0 lg:w-1/2 lg:px-16">
                 <div
-                  className={`rounded-3xl border border-[var(--lines-subtle)] bg-[var(--surfaces-raised)] p-6 shadow-lg backdrop-blur-sm transition-transform hover:scale-[1.02] ${isEven ? 'lg:origin-right' : 'lg:origin-left'
-                    }`}
+                  className={`rounded-3xl border border-[var(--lines-subtle)] bg-[var(--surfaces-raised)] p-6 shadow-lg backdrop-blur-sm transition-transform hover:scale-[1.02] ${
+                    isEven ? 'lg:origin-right' : 'lg:origin-left'
+                  }`}
                 >
                   <div className="flex flex-wrap gap-3">
                     {step.snippet.pills.map((pill) => (

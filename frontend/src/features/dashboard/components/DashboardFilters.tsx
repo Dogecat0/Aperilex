@@ -33,15 +33,11 @@ const segmentOptions: { label: string; value: SegmentFilter }[] = [
   { label: 'MD&A focus', value: 'business_focused' },
 ]
 
-
-
 export function DashboardFilters({
   filters,
   onFilterChange,
   disabled = false,
 }: DashboardFiltersProps) {
-
-
   const handleFilterSelect = <Key extends keyof DashboardFiltersState>(
     key: Key,
     value: DashboardFiltersState[Key]
@@ -66,10 +62,11 @@ export function DashboardFilters({
         key={`${String(key)}-${String(option.value)}`}
         type="button"
         onClick={() => handleFilterSelect(key, option.value)}
-        className={`rounded-full border px-4 py-1.5 text-xs font-bold uppercase tracking-wide transition-all ${isActive
-          ? 'border-[var(--brand-accent)] bg-[var(--brand-accent)]/10 text-[var(--brand-accent)] shadow-sm'
-          : 'border-[var(--lines-subtle)] text-[var(--text-muted)] hover:border-[var(--text-secondary)] hover:text-[var(--text-secondary)] hover:bg-[var(--surfaces-muted)]'
-          }`}
+        className={`rounded-full border px-4 py-1.5 text-xs font-bold uppercase tracking-wide transition-all ${
+          isActive
+            ? 'border-[var(--brand-accent)] bg-[var(--brand-accent)]/10 text-[var(--brand-accent)] shadow-sm'
+            : 'border-[var(--lines-subtle)] text-[var(--text-muted)] hover:border-[var(--text-secondary)] hover:text-[var(--text-secondary)] hover:bg-[var(--surfaces-muted)]'
+        }`}
         aria-pressed={isActive}
         disabled={disabled}
       >

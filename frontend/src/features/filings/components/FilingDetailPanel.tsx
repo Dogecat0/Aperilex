@@ -170,7 +170,10 @@ export function FilingDetailPanel({
             </div>
 
             {filing ? (
-              <div className="grid gap-6 md:grid-cols-2 border-t pt-6" style={{ borderColor: 'var(--lines-subtle)' }}>
+              <div
+                className="grid gap-6 md:grid-cols-2 border-t pt-6"
+                style={{ borderColor: 'var(--lines-subtle)' }}
+              >
                 <div>
                   <p className="text-xs font-bold uppercase tracking-wider text-[var(--text-muted)] mb-1">
                     Processing status

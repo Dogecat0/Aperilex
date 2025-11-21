@@ -11,23 +11,6 @@ export function RawSectionTab({ sections }: RawSectionTabProps) {
   const tokens = useThemeTokens()
   const isLightMode = tokens.name === 'light'
 
-  if (!sections || sections.length === 0) {
-    return (
-      <div
-        className="rounded-3xl border p-6 text-sm"
-        style={{
-          background: 'var(--surfaces-raised)',
-          borderColor: 'var(--lines-subtle)',
-          color: 'var(--text-secondary)',
-          boxShadow: tokens.shadows.soft,
-        }}
-      >
-        Structured section analyses are not available for this filing. Use the guided walkthrough to
-        review highlights.
-      </div>
-    )
-  }
-
   const cardStyles = useMemo(
     () => ({
       background: `color-mix(in srgb, ${tokens.surfaces.raised} 60%, transparent)`,
@@ -45,6 +28,23 @@ export function RawSectionTab({ sections }: RawSectionTabProps) {
     []
   )
 
+  if (!sections || sections.length === 0) {
+    return (
+      <div
+        className="rounded-3xl border p-6 text-sm"
+        style={{
+          background: 'var(--surfaces-raised)',
+          borderColor: 'var(--lines-subtle)',
+          color: 'var(--text-secondary)',
+          boxShadow: tokens.shadows.soft,
+        }}
+      >
+        Structured section analyses are not available for this filing. Use the guided walkthrough to
+        review highlights.
+      </div>
+    )
+  }
+
   return (
     <div className="flex flex-col gap-8">
       {sections.map((section, index) => (
@@ -55,7 +55,9 @@ export function RawSectionTab({ sections }: RawSectionTabProps) {
         >
           <header className="flex flex-col gap-2 border-b border-[var(--lines-subtle)] pb-6">
             <div className="flex items-center justify-between">
-              <h2 className="text-2xl font-bold text-[var(--text-primary)]">{section.section_name}</h2>
+              <h2 className="text-2xl font-bold text-[var(--text-primary)]">
+                {section.section_name}
+              </h2>
               <span className="rounded-full px-3 py-1 text-xs font-bold uppercase tracking-wide bg-[var(--surfaces-muted)] text-[var(--text-secondary)]">
                 {section.sub_section_count ?? 0} Subsections
               </span>
@@ -132,7 +134,9 @@ export function RawSectionTab({ sections }: RawSectionTabProps) {
                     className="flex flex-col gap-2 rounded-2xl border p-6 transition-colors hover:bg-[var(--surfaces-muted)]"
                     style={{ borderColor: 'var(--lines-subtle)' }}
                   >
-                    <h4 className="text-lg font-bold text-[var(--text-primary)]">{sub.sub_section_name}</h4>
+                    <h4 className="text-lg font-bold text-[var(--text-primary)]">
+                      {sub.sub_section_name}
+                    </h4>
                     {typeof sub.analysis === 'string' ? (
                       <p className="text-sm leading-relaxed text-[var(--text-secondary)]">
                         {sub.analysis}

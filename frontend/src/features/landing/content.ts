@@ -229,12 +229,14 @@ export const featureDeckContent: FeatureDeckContent = {
       {
         id: 1,
         title: 'Resume guided module',
-        description: 'Landing CTA routes into the same walkthrough state tracked on Learning Hub cards.',
+        description:
+          'Landing CTA routes into the same walkthrough state tracked on Learning Hub cards.',
       },
       {
         id: 2,
         title: 'Study highlights',
-        description: 'Guided section panels surface focus copy plus filing-specific highlight callouts.',
+        description:
+          'Guided section panels surface focus copy plus filing-specific highlight callouts.',
       },
       {
         id: 3,
@@ -244,7 +246,8 @@ export const featureDeckContent: FeatureDeckContent = {
       {
         id: 4,
         title: 'Log progress + reopen detail view',
-        description: 'Finishing a section updates Learning Hub progress and deep-links back to `/filing/:id`.',
+        description:
+          'Finishing a section updates Learning Hub progress and deep-links back to `/filing/:id`.',
       },
     ],
     toggles: [

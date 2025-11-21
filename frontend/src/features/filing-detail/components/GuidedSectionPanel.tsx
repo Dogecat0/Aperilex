@@ -36,11 +36,14 @@ export function GuidedSectionPanel({
 
   return (
     <>
-      <div className="flex flex-col gap-8 rounded-3xl border p-8 backdrop-blur-md" style={{
-        background: `color-mix(in srgb, ${tokens.surfaces.raised} 60%, transparent)`,
-        borderColor: tokens.lines.subtle,
-        boxShadow: tokens.shadows.soft,
-      }}>
+      <div
+        className="flex flex-col gap-8 rounded-3xl border p-8 backdrop-blur-md"
+        style={{
+          background: `color-mix(in srgb, ${tokens.surfaces.raised} 60%, transparent)`,
+          borderColor: tokens.lines.subtle,
+          boxShadow: tokens.shadows.soft,
+        }}
+      >
         <header>
           <p
             className="text-xs font-bold uppercase tracking-widest"
@@ -48,9 +51,7 @@ export function GuidedSectionPanel({
           >
             {section.learning_module_key}
           </p>
-          <h2 className="mt-2 text-3xl font-bold text-[var(--text-primary)]">
-            {section.title}
-          </h2>
+          <h2 className="mt-2 text-3xl font-bold text-[var(--text-primary)]">{section.title}</h2>
           <dl className="mt-6 grid gap-6 sm:grid-cols-2 pt-6 border-t border-[var(--lines-subtle)]">
             <div>
               <dt
@@ -149,7 +150,10 @@ export function GuidedSectionPanel({
           )}
         </section>
 
-        <section aria-labelledby={`checks-${section.id}`} className="flex flex-col gap-5 border-t border-[var(--lines-subtle)] pt-8">
+        <section
+          aria-labelledby={`checks-${section.id}`}
+          className="flex flex-col gap-5 border-t border-[var(--lines-subtle)] pt-8"
+        >
           <p
             id={`checks-${section.id}`}
             className="text-sm font-bold uppercase tracking-widest"

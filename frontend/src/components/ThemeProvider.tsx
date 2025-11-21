@@ -86,6 +86,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   return <ThemeTokensContext.Provider value={tokens}>{children}</ThemeTokensContext.Provider>
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function useThemeTokens() {
   return useContext(ThemeTokensContext)
 }

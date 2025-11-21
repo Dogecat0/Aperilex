@@ -153,7 +153,7 @@ export function SavedItemsPage() {
                           className="text-xl font-bold"
                           style={{
                             color: 'var(--text-primary)',
-                            letterSpacing: tokens.typography.letterSpacing.tight
+                            letterSpacing: tokens.typography.letterSpacing.tight,
                           }}
                         >
                           {analysis.companyName ?? 'Unknown company'}
@@ -162,7 +162,7 @@ export function SavedItemsPage() {
                           className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-bold uppercase tracking-wide w-fit"
                           style={{
                             background: 'var(--surfaces-muted)',
-                            color: 'var(--text-secondary)'
+                            color: 'var(--text-secondary)',
                           }}
                         >
                           {analysis.filingType ?? 'Filing'}
@@ -178,13 +178,26 @@ export function SavedItemsPage() {
                       )}
                     </div>
 
-                    <div className="flex flex-col gap-1 text-sm" style={{ color: 'var(--text-secondary)' }}>
+                    <div
+                      className="flex flex-col gap-1 text-sm"
+                      style={{ color: 'var(--text-secondary)' }}
+                    >
                       <p>
-                        Saved {new Date(analysis.savedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                        Saved{' '}
+                        {new Date(analysis.savedAt).toLocaleDateString('en-US', {
+                          month: 'short',
+                          day: 'numeric',
+                          year: 'numeric',
+                        })}
                       </p>
                       <p className="text-xs opacity-80">
-                        Filing date: {analysis.filingDate
-                          ? new Date(analysis.filingDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+                        Filing date:{' '}
+                        {analysis.filingDate
+                          ? new Date(analysis.filingDate).toLocaleDateString('en-US', {
+                              month: 'short',
+                              day: 'numeric',
+                              year: 'numeric',
+                            })
                           : 'Pending'}
                       </p>
                     </div>
@@ -226,7 +239,9 @@ export function SavedItemsPage() {
               <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-[var(--surfaces-raised)] shadow-sm">
                 <span className="text-2xl">🔖</span>
               </div>
-              <h3 className="mb-2 text-lg font-semibold text-[var(--text-primary)]">No saved items yet</h3>
+              <h3 className="mb-2 text-lg font-semibold text-[var(--text-primary)]">
+                No saved items yet
+              </h3>
               <p className="text-sm text-[var(--text-secondary)]">
                 Save analyses from the dashboard library to keep them handy here.
               </p>

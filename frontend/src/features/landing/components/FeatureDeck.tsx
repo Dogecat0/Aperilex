@@ -29,8 +29,6 @@ type TileFrameProps = {
   children: React.ReactNode
 }
 
-
-
 // Update TileFrame to be more "Bento-like"
 function TileFrame({
   title,
@@ -66,7 +64,8 @@ function TileFrame({
           onClick={onNavigate}
           disabled={isAuthenticating}
         >
-          {ctaLabel} <span className="ml-1 transition-transform group-hover/btn:translate-x-1">→</span>
+          {ctaLabel}{' '}
+          <span className="ml-1 transition-transform group-hover/btn:translate-x-1">→</span>
         </Button>
       </div>
     </article>
@@ -159,10 +158,11 @@ function LaunchpadTile({
                 type="button"
                 onClick={() => setActiveTemplateId(template.id)}
                 aria-pressed={isActive}
-                className={`rounded-full border px-3 py-1 text-xs font-semibold ${isActive
-                  ? 'border-[var(--action-primary)] bg-[var(--action-primary)]/10 text-[var(--action-primary)]'
-                  : 'border-[var(--lines-subtle)] text-[var(--text-muted)] hover:text-[var(--text-secondary)]'
-                  }`}
+                className={`rounded-full border px-3 py-1 text-xs font-semibold ${
+                  isActive
+                    ? 'border-[var(--action-primary)] bg-[var(--action-primary)]/10 text-[var(--action-primary)]'
+                    : 'border-[var(--lines-subtle)] text-[var(--text-muted)] hover:text-[var(--text-secondary)]'
+                }`}
               >
                 {template.name}
               </button>
@@ -221,14 +221,16 @@ function LearningTile({
           {content.toggles.map((toggle) => (
             <span
               key={toggle.label}
-              className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold ${toggle.enabled
-                ? 'border-[var(--learning-accent)] text-[var(--learning-accent)]'
-                : 'border-[var(--lines-subtle)] text-[var(--text-muted)]'
-                }`}
+              className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold ${
+                toggle.enabled
+                  ? 'border-[var(--learning-accent)] text-[var(--learning-accent)]'
+                  : 'border-[var(--lines-subtle)] text-[var(--text-muted)]'
+              }`}
             >
               <span
-                className={`h-2 w-2 rounded-full ${toggle.enabled ? 'bg-[var(--learning-accent)]' : 'bg-[var(--lines-subtle)]'
-                  }`}
+                className={`h-2 w-2 rounded-full ${
+                  toggle.enabled ? 'bg-[var(--learning-accent)]' : 'bg-[var(--lines-subtle)]'
+                }`}
               />
               {toggle.label}
             </span>
@@ -284,10 +286,11 @@ function DetailTile({
                 key={tab}
                 type="button"
                 onClick={() => setActiveTab(tab)}
-                className={`rounded-full border px-3 py-1 text-xs font-semibold ${isActive
-                  ? 'border-[var(--brand-accent)] text-[var(--brand-accent)]'
-                  : 'border-[var(--lines-subtle)] text-[var(--text-muted)] hover:text-[var(--text-secondary)]'
-                  }`}
+                className={`rounded-full border px-3 py-1 text-xs font-semibold ${
+                  isActive
+                    ? 'border-[var(--brand-accent)] text-[var(--brand-accent)]'
+                    : 'border-[var(--lines-subtle)] text-[var(--text-muted)] hover:text-[var(--text-secondary)]'
+                }`}
               >
                 {tab}
               </button>
@@ -305,12 +308,13 @@ function DetailTile({
               </p>
               <p className="text-xl font-semibold text-[var(--text-secondary)]">{metric.value}</p>
               <span
-                className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ${metric.tone === 'positive'
-                  ? 'bg-[var(--status-positive)]/10 text-[var(--status-positive)]'
-                  : metric.tone === 'caution'
-                    ? 'bg-[var(--status-warning)]/15 text-[var(--status-warning)]'
-                    : 'bg-[var(--surfaces-raised)] text-[var(--text-muted)]'
-                  }`}
+                className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ${
+                  metric.tone === 'positive'
+                    ? 'bg-[var(--status-positive)]/10 text-[var(--status-positive)]'
+                    : metric.tone === 'caution'
+                      ? 'bg-[var(--status-warning)]/15 text-[var(--status-warning)]'
+                      : 'bg-[var(--surfaces-raised)] text-[var(--text-muted)]'
+                }`}
               >
                 {activeTab}
               </span>
@@ -395,7 +399,9 @@ export function FeatureDeck({
         >
           {title}
         </h2>
-        <p className="text-lg text-[var(--text-secondary)] max-w-2xl leading-relaxed">{description}</p>
+        <p className="text-lg text-[var(--text-secondary)] max-w-2xl leading-relaxed">
+          {description}
+        </p>
       </div>
 
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 lg:auto-rows-[minmax(400px,auto)]">

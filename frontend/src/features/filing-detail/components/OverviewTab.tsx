@@ -118,7 +118,10 @@ export function OverviewTab({ segments }: OverviewTabProps) {
               {segment.supporting_points && segment.supporting_points.length > 0 ? (
                 <ul className="mt-6 space-y-3 pl-5 text-sm text-[var(--text-secondary)]">
                   {segment.supporting_points.map((point, index) => (
-                    <li key={`${segment.id ?? segment.title}-point-${index}`} className="pl-2 relative before:absolute before:left-[-1.25em] before:top-[0.6em] before:h-1.5 before:w-1.5 before:rounded-full before:bg-[var(--brand-accent)]">
+                    <li
+                      key={`${segment.id ?? segment.title}-point-${index}`}
+                      className="pl-2 relative before:absolute before:left-[-1.25em] before:top-[0.6em] before:h-1.5 before:w-1.5 before:rounded-full before:bg-[var(--brand-accent)]"
+                    >
                       {point}
                     </li>
                   ))}

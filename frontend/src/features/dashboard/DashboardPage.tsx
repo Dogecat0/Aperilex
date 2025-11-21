@@ -293,9 +293,9 @@ export function DashboardPage() {
     const target = libraryAnalyses[0]
     const analyzedAt = formatDate(
       target.summary.processing?.completed_at ??
-      target.summary.filing.date ??
-      target.created_at ??
-      null
+        target.summary.filing.date ??
+        target.created_at ??
+        null
     )
 
     return {
@@ -403,7 +403,10 @@ export function DashboardPage() {
           <div
             className="rounded-2xl border p-4 text-sm text-red-500"
             role="alert"
-            style={{ borderColor: 'rgba(239, 68, 68, 0.4)', background: 'rgba(254, 226, 226, 0.2)' }}
+            style={{
+              borderColor: 'rgba(239, 68, 68, 0.4)',
+              background: 'rgba(254, 226, 226, 0.2)',
+            }}
           >
             Unable to load analyses for the selected filters. Please try again shortly.
             {summaryErrorMessage ? (
@@ -428,8 +431,8 @@ export function DashboardPage() {
                 Analyses are still processing
               </h2>
               <p className="text-sm text-[var(--text-muted)]">
-                Check back in a moment—fresh filings are moving through the workflow and will populate
-                this dashboard once completed.
+                Check back in a moment—fresh filings are moving through the workflow and will
+                populate this dashboard once completed.
               </p>
             </div>
           </section>

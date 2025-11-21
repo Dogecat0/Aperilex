@@ -43,7 +43,9 @@ export function SocialProof({
         >
           {title}
         </h2>
-        <p className="text-lg text-[var(--text-secondary)] max-w-2xl leading-relaxed">{description}</p>
+        <p className="text-lg text-[var(--text-secondary)] max-w-2xl leading-relaxed">
+          {description}
+        </p>
       </div>
 
       <div className="grid gap-8 lg:grid-cols-12">
@@ -68,8 +70,20 @@ export function SocialProof({
                   className="flex items-center gap-3 text-base font-medium text-[var(--text-secondary)]"
                 >
                   <span className="flex h-6 w-6 items-center justify-center rounded-full bg-[var(--action-primary)]/20 text-[var(--action-primary)]">
-                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
-                      <path d="M10 3L4.5 8.5L2 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                    <svg
+                      width="12"
+                      height="12"
+                      viewBox="0 0 12 12"
+                      fill="none"
+                      xmlns="http://www.w3.org/2000/svg"
+                    >
+                      <path
+                        d="M10 3L4.5 8.5L2 6"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
                     </svg>
                   </span>
                   {highlight}
@@ -116,9 +130,11 @@ export function SocialProof({
                 key={testimonial.quote}
                 className="rounded-3xl border border-[var(--lines-subtle)] bg-[var(--surfaces-muted)] p-6 relative overflow-hidden"
               >
-                <div className="absolute top-4 right-6 text-6xl font-serif text-[var(--lines-subtle)] opacity-20">”</div>
+                <div className="absolute top-4 right-6 text-6xl font-serif text-[var(--lines-subtle)] opacity-20">
+                  ”
+                </div>
                 <p className="relative z-10 text-base font-medium text-[var(--text-secondary)] leading-relaxed">
-                  "{testimonial.quote}"
+                  &ldquo;{testimonial.quote}&rdquo;
                 </p>
                 <footer className="relative z-10 mt-4 flex items-center gap-3 border-t border-[var(--lines-subtle)] pt-4">
                   <div className="h-10 w-10 rounded-full bg-[var(--brand-surface)] flex items-center justify-center text-[var(--text-on-brand)] font-bold text-sm">

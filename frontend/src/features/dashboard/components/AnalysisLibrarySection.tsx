@@ -157,7 +157,6 @@ export function AnalysisLibrarySection({
   const [copiedId, setCopiedId] = useState<string | null>(null)
   const { toggle, isSaved } = useSavedAnalyses()
 
-
   const loadingState = Boolean(isLoadingOverride) || isLoading
 
   const errorMessage = useMemo(() => {
@@ -367,20 +366,22 @@ export function AnalysisLibrarySection({
                         <button
                           type="button"
                           onClick={() => handleToggleSaved(group, run.analysisId)}
-                          className={`rounded-full border px-4 py-1.5 transition-colors ${saved
-                            ? 'border-[var(--brand-accent)] bg-[var(--brand-accent)]/10 text-[var(--brand-accent)]'
-                            : 'border-[var(--lines-subtle)] text-[var(--text-primary)] hover:bg-[var(--surfaces-raised)]'
-                            }`}
+                          className={`rounded-full border px-4 py-1.5 transition-colors ${
+                            saved
+                              ? 'border-[var(--brand-accent)] bg-[var(--brand-accent)]/10 text-[var(--brand-accent)]'
+                              : 'border-[var(--lines-subtle)] text-[var(--text-primary)] hover:bg-[var(--surfaces-raised)]'
+                          }`}
                         >
                           {saved ? 'Saved' : 'Save'}
                         </button>
                         <button
                           type="button"
                           onClick={() => handleCopy(run.analysisId)}
-                          className={`rounded-full border px-4 py-1.5 transition-colors ${copiedId === run.analysisId
-                            ? 'border-[var(--status-neutral)] bg-[var(--status-neutral)]/10 text-[var(--status-neutral)]'
-                            : 'border-[var(--lines-subtle)] text-[var(--text-primary)] hover:bg-[var(--surfaces-muted)]'
-                            }`}
+                          className={`rounded-full border px-4 py-1.5 transition-colors ${
+                            copiedId === run.analysisId
+                              ? 'border-[var(--status-neutral)] bg-[var(--status-neutral)]/10 text-[var(--status-neutral)]'
+                              : 'border-[var(--lines-subtle)] text-[var(--text-primary)] hover:bg-[var(--surfaces-muted)]'
+                          }`}
                         >
                           {copiedId === run.analysisId ? 'Copied' : 'Copy link'}
                         </button>

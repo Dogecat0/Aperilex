@@ -99,7 +99,10 @@ export function SentimentTab({ rollup, sections }: SentimentTabProps) {
         </header>
 
         <div className="grid gap-6 sm:grid-cols-2">
-          <div className="flex flex-col gap-4 rounded-2xl border p-6 transition-all hover:bg-[var(--surfaces-muted)]" style={neutralBlockStyles}>
+          <div
+            className="flex flex-col gap-4 rounded-2xl border p-6 transition-all hover:bg-[var(--surfaces-muted)]"
+            style={neutralBlockStyles}
+          >
             <p
               className="text-xs font-bold uppercase tracking-widest"
               style={{ color: 'var(--text-muted)' }}
@@ -117,7 +120,10 @@ export function SentimentTab({ rollup, sections }: SentimentTabProps) {
             ) : null}
           </div>
 
-          <div className="flex flex-col gap-4 rounded-2xl border p-6 transition-all hover:bg-[var(--surfaces-muted)]" style={neutralBlockStyles}>
+          <div
+            className="flex flex-col gap-4 rounded-2xl border p-6 transition-all hover:bg-[var(--surfaces-muted)]"
+            style={neutralBlockStyles}
+          >
             <p
               className="text-xs font-bold uppercase tracking-widest"
               style={{ color: 'var(--text-muted)' }}
@@ -125,7 +131,11 @@ export function SentimentTab({ rollup, sections }: SentimentTabProps) {
               Change from prior filing
             </p>
             <p className="text-5xl font-bold tracking-tight text-[var(--text-primary)]">
-              {delta !== null ? (delta > 0 ? `+${formatSentimentScore(delta)}` : formatSentimentScore(delta)) : '—'}
+              {delta !== null
+                ? delta > 0
+                  ? `+${formatSentimentScore(delta)}`
+                  : formatSentimentScore(delta)
+                : '—'}
             </p>
             {rollup?.previous_overall !== undefined ? (
               <p className="text-sm font-medium text-[var(--text-secondary)]">
@@ -167,7 +177,9 @@ export function SentimentTab({ rollup, sections }: SentimentTabProps) {
           >
             Sections
           </p>
-          <h3 className="mt-2 text-xl font-bold text-[var(--text-primary)]">Sentiment by section</h3>
+          <h3 className="mt-2 text-xl font-bold text-[var(--text-primary)]">
+            Sentiment by section
+          </h3>
         </header>
 
         {sections.length === 0 ? (

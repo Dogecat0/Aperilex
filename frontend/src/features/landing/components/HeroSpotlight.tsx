@@ -113,12 +113,13 @@ export function HeroSpotlight({
 
         <div className="flex-1 space-y-8 animate-in fade-in slide-in-from-bottom-8 duration-700">
           <div className="space-y-4">
-            <p
-              className="text-sm font-bold uppercase tracking-[0.25em] text-[var(--brand-accent)]"
-            >
+            <p className="text-sm font-bold uppercase tracking-[0.25em] text-[var(--brand-accent)]">
               {eyebrow}
             </p>
-            <h1 id="landing-hero-heading" className="text-5xl font-bold leading-[1.1] tracking-tight lg:text-7xl">
+            <h1
+              id="landing-hero-heading"
+              className="text-5xl font-bold leading-[1.1] tracking-tight lg:text-7xl"
+            >
               {headline}
             </h1>
             <p className="text-lg leading-relaxed text-[var(--text-secondary)] max-w-xl">
@@ -179,10 +180,11 @@ export function HeroSpotlight({
                     key={slide.id}
                     type="button"
                     onClick={() => setActiveSlideId(slide.id)}
-                    className={`rounded-full px-4 py-1.5 text-xs font-medium transition-all ${isActive
-                      ? 'bg-[var(--brand-accent)] text-white shadow-md'
-                      : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--surfaces-muted)]'
-                      }`}
+                    className={`rounded-full px-4 py-1.5 text-xs font-medium transition-all ${
+                      isActive
+                        ? 'bg-[var(--brand-accent)] text-white shadow-md'
+                        : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--surfaces-muted)]'
+                    }`}
                   >
                     {slide.label}
                   </button>

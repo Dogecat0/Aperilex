@@ -74,11 +74,11 @@ export function LandingPage() {
 
       <header
         className="sticky top-0 z-50 border-b backdrop-blur-md"
-      style={{
-        background: `color-mix(in srgb, ${tokens.surfaces.base} 80%, transparent)`,
-        borderColor: tokens.lines.subtle,
-      }}
-    >
+        style={{
+          background: `color-mix(in srgb, ${tokens.surfaces.base} 80%, transparent)`,
+          borderColor: tokens.lines.subtle,
+        }}
+      >
         <div className="mx-auto flex h-20 w-full max-w-7xl items-center justify-between gap-4 px-3 transition md:px-5">
           <div className="flex items-center gap-3">
             <span

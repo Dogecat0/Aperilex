@@ -21,14 +21,18 @@ export function renderPanelContent(panel: HeroSlide['panel']) {
             </dl>
           </div>
           <div className="rounded-2xl border border-white/15 bg-[var(--surfaces-muted)]/30 p-4">
-            <p className="text-xs uppercase tracking-[0.25em] text-[var(--text-primary)]">Templates</p>
+            <p className="text-xs uppercase tracking-[0.25em] text-[var(--text-primary)]">
+              Templates
+            </p>
             <div className="mt-2 grid gap-3 sm:grid-cols-2">
               {panel.templates.map((template) => (
                 <article
                   key={template.name}
                   className="rounded-xl border border-white/15 bg-[var(--surfaces-muted)] p-3 text-sm"
                 >
-                  <h4 className="text-sm font-semibold text-[var(--text-primary)]">{template.name}</h4>
+                  <h4 className="text-sm font-semibold text-[var(--text-primary)]">
+                    {template.name}
+                  </h4>
                   <p className="pt-1 text-xs text-[var(--text-primary)]/50">{template.helper}</p>
                 </article>
               ))}
@@ -48,13 +52,17 @@ export function renderPanelContent(panel: HeroSlide['panel']) {
                 key={stat.label}
                 className="rounded-2xl border border-white/15 bg-[var(--surfaces-muted)] p-3"
               >
-                <p className="text-xs uppercase tracking-[0.25em] text-[var(--text-primary)]">{stat.label}</p>
+                <p className="text-xs uppercase tracking-[0.25em] text-[var(--text-primary)]">
+                  {stat.label}
+                </p>
                 <p className="pt-2 text-sm text-[var(--text-primary)]/50">{stat.description}</p>
               </div>
             ))}
           </div>
           <div className="rounded-2xl border border-white/15 bg-[var(--surfaces-muted)] p-4">
-            <p className="text-xs uppercase tracking-[0.25em] text-[var(--text-primary)]/70">Filters</p>
+            <p className="text-xs uppercase tracking-[0.25em] text-[var(--text-primary)]/70">
+              Filters
+            </p>
             <div className="space-y-2 pt-3">
               {panel.filters.map((filter) => (
                 <div

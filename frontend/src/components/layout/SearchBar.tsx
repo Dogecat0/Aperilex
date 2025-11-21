@@ -21,10 +21,10 @@ function formatSearchResult(analysis: AnalysisResponse) {
   const formattedDate = Number.isNaN(createdAt.getTime())
     ? 'Date pending'
     : new Intl.DateTimeFormat('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-    }).format(createdAt)
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+      }).format(createdAt)
 
   return {
     companyName,
