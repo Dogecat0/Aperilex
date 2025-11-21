@@ -46,7 +46,7 @@ export function FeatureHero({ overline, title, description, actions, children }:
           <h1
             className="text-4xl font-bold lg:text-5xl"
             style={{
-              fontFamily: 'var(--typography-serif)',
+              fontFamily: 'var(--typography-sans)',
               lineHeight: 'var(--typography-line-heights-relaxed)',
               letterSpacing: '-0.02em',
             }}
