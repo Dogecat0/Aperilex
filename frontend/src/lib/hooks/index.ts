@@ -71,6 +71,7 @@ export {
   useLearningModules,
   type LearningModule,
   type LearningModuleContext,
+  type ModuleAnalysisOption,
   type ModuleFocusTab,
   type UseLearningModulesReturn,
 } from './useLearningModules'

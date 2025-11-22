@@ -71,6 +71,21 @@ export interface LearningModuleContext {
   estimatedDurationMinutes?: number | null
 }
 
+export interface ModuleAnalysisOption {
+  optionId: string
+  cardKey: string
+  moduleKey: string
+  sectionKey: string
+  analysisId: string
+  title: string
+  duration: string
+  summary: string
+  focusTab: ModuleFocusTab
+  focusSection?: string
+  context?: LearningModuleContext
+  ctas: LearningModuleCta[]
+}
+
 export interface LearningModule {
   key: string
   moduleKey: string
@@ -82,6 +97,7 @@ export interface LearningModule {
   focusSection?: string
   context?: LearningModuleContext
   ctas: LearningModuleCta[]
+  analysisOptions: ModuleAnalysisOption[]
 }
 
 interface UseLearningModulesOptions {
@@ -118,22 +134,65 @@ async function fetchLearningModules(limit: number): Promise<LearningModule[]> {
 
   const candidates = listResponse.items ?? []
   const detailCache = new Map<string, FilingDetailData | null>()
-  const moduleMap = new Map<string, LearningModule>()
+  const primaryByCardKey = new Map<string, ModuleAnalysisOption>()
+  const optionsByCardKey = new Map<string, ModuleAnalysisOption[]>()
   const orderedKeys: string[] = []
 
   for (const candidate of candidates) {
     const modules = await deriveModulesFromAnalysis(candidate, detailCache)
     for (const module of modules) {
-      if (!moduleMap.has(module.key)) {
-        moduleMap.set(module.key, module)
+      const option = toAnalysisOption(module)
+      const existingOptions = optionsByCardKey.get(module.key) ?? []
+      optionsByCardKey.set(module.key, [...existingOptions, option])
+
+      if (!primaryByCardKey.has(module.key)) {
+        primaryByCardKey.set(module.key, option)
         orderedKeys.push(module.key)
       }
     }
   }
 
   return orderedKeys
-    .map((identifier) => moduleMap.get(identifier))
+    .map((cardKey) => {
+      const primary = primaryByCardKey.get(cardKey)
+      const options = optionsByCardKey.get(cardKey) ?? []
+      if (!primary) {
+        return null
+      }
+
+      return {
+        key: primary.cardKey,
+        moduleKey: primary.moduleKey,
+        sectionKey: primary.sectionKey,
+        title: primary.title,
+        duration: primary.duration,
+        summary: primary.summary,
+        focusTab: primary.focusTab,
+        focusSection: primary.focusSection,
+        context: primary.context,
+        ctas: primary.ctas,
+        analysisOptions: options,
+      }
+    })
     .filter((value): value is LearningModule => Boolean(value))
+}
+
+function toAnalysisOption(module: LearningModule): ModuleAnalysisOption {
+  const analysisId = module.context?.analysisId ?? ''
+  return {
+    optionId: `${module.key}::${analysisId || 'unknown'}`,
+    cardKey: module.key,
+    moduleKey: module.moduleKey,
+    sectionKey: module.sectionKey,
+    analysisId,
+    title: module.title,
+    duration: module.duration,
+    summary: module.summary,
+    focusTab: module.focusTab,
+    focusSection: module.focusSection,
+    context: module.context,
+    ctas: module.ctas,
+  }
 }
 
 async function deriveModulesFromAnalysis(
@@ -219,6 +278,7 @@ function buildModuleFromSection(
     focusSection,
     context,
     ctas,
+    analysisOptions: [],
   }
 }
 
