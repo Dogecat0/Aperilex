@@ -79,6 +79,7 @@ class LearningService:
             passed=data.passed,
             is_human_reviewed=data.is_human_reviewed,
             attempted_at=data.attempted_at,
+            responses=data.responses or {},
             metadata=data.metadata,
             schema_version=data.schema_version,
             created_at=data.created_at,
@@ -109,19 +110,12 @@ class LearningService:
         unlocked_at = progress.unlocked_at
         is_unlocked = progress.is_unlocked
 
-        passing_attempt = False
-
-        if best_attempt is not None:
-            passing_attempt = bool(
-                best_attempt.passed or best_attempt.score_percent >= 80.0
-            )
-
         walkthrough_complete = (
             progress.progress_percent >= 100 or progress.completed_at is not None
         )
-        quiz_passed = (
+        quiz_passed = bool(
             best_attempt is not None
-            and passing_attempt
+            and best_attempt.score_percent >= 80.0
         )
 
         if walkthrough_complete and quiz_passed:
@@ -380,7 +374,7 @@ class LearningService:
         """Persist a quiz attempt for a learner."""
 
         attempt_id = payload.attempt_id or QuizAttemptId(uuid4())
-        passed = bool(payload.passed or payload.score_percent >= 80.0)
+        passed = payload.score_percent >= 80.0
         data = QuizAttemptData(
             id=attempt_id,
             user_id=payload.user_id,

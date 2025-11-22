@@ -113,6 +113,7 @@ class QuizAttempt(BaseModel):
         description="Whether the attempt has been human-reviewed and approved",
     )
     attempted_at: datetime = Field(description="Timestamp when the attempt occurred")
+    responses: dict[str, Any] = Field(default_factory=dict)
     metadata: dict[str, Any] = Field(default_factory=dict)
     created_at: datetime | None = None
     updated_at: datetime | None = None

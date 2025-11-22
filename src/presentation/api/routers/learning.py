@@ -131,6 +131,7 @@ class QuizAttemptResponse(BaseModel):
     passed: bool = Field(...)
     is_human_reviewed: bool = Field(default=False)
     attempted_at: datetime = Field(...)
+    responses: dict[str, Any] = Field(default_factory=dict)
     metadata: dict[str, Any] = Field(default_factory=dict)
     created_at: datetime | None = Field(default=None)
     updated_at: datetime | None = Field(default=None)
@@ -150,6 +151,7 @@ class QuizAttemptResponse(BaseModel):
             passed=attempt.passed,
             is_human_reviewed=attempt.is_human_reviewed,
             attempted_at=attempt.attempted_at,
+            responses=attempt.responses or {},
             metadata=attempt.metadata or {},
             created_at=attempt.created_at,
             updated_at=attempt.updated_at,
@@ -297,6 +299,8 @@ async def record_quiz_attempt(
 
     user_id = _require_user_id(auth_result)
 
+    derived_passed = payload.score_percent >= 80.0
+
     attempt_payload = QuizAttemptCreate(
         schema_version=payload.schema_version,
         attempt_id=QuizAttemptCreateRequest._convert_attempt_id(payload.attempt_id),
@@ -305,7 +309,7 @@ async def record_quiz_attempt(
         question_count=payload.question_count,
         correct_count=payload.correct_count,
         score_percent=payload.score_percent,
-        passed=payload.passed,
+        passed=derived_passed,
         is_human_reviewed=payload.is_human_reviewed,
         attempted_at=payload.attempted_at or _now(),
         responses=payload.responses,

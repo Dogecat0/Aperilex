@@ -95,6 +95,7 @@ class FakeLearningService:
         self.last_attempt_payload = payload
 
         attempt_id = payload.attempt_id or QuizAttemptId(uuid4())
+        derived_passed = payload.score_percent >= 80
         attempt = QuizAttempt(
             schema_version=payload.schema_version,
             attempt_id=attempt_id,
@@ -103,8 +104,9 @@ class FakeLearningService:
             question_count=payload.question_count,
             correct_count=payload.correct_count,
             score_percent=payload.score_percent,
-            passed=payload.passed,
+            passed=derived_passed,
             is_human_reviewed=payload.is_human_reviewed,
+            responses=payload.responses or {},
             attempted_at=payload.attempted_at,
             metadata=payload.metadata or {},
             created_at=payload.attempted_at,
