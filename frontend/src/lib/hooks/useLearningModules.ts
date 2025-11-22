@@ -103,23 +103,50 @@ export interface LearningModule {
 interface UseLearningModulesOptions {
   analysisLimit?: number
   enabled?: boolean
+  analysisIds?: string[]
 }
 
 export function useLearningModules(options?: UseLearningModulesOptions) {
   const analysisLimit = options?.analysisLimit ?? DEFAULT_ANALYSIS_SAMPLE
+  const analysisIds = options?.analysisIds?.filter(Boolean) ?? []
+  const shouldUseProvidedIds = options?.analysisIds !== undefined
+  const isEnabled =
+    (options?.enabled ?? true) && (shouldUseProvidedIds ? analysisIds.length > 0 : true)
 
   return useQuery({
-    queryKey: ['learning-modules', analysisLimit],
-    queryFn: () => fetchLearningModules(analysisLimit),
+    queryKey: ['learning-modules', analysisLimit, analysisIds],
+    queryFn: () => fetchLearningModules(analysisLimit, analysisIds),
     staleTime: DEFAULT_STALE_TIME_MS,
     gcTime: DEFAULT_GC_TIME_MS,
-    enabled: options?.enabled ?? true,
+    enabled: isEnabled,
   })
 }
 
 export type UseLearningModulesReturn = ReturnType<typeof useLearningModules>
 
-async function fetchLearningModules(limit: number): Promise<LearningModule[]> {
+interface AnalysisCandidate {
+  analysisId: string
+  analysis?: AnalysisResponse
+  detail?: FilingDetailData | null
+}
+
+async function fetchAnalysisCandidates(
+  limit: number,
+  analysisIds: string[] | undefined,
+  cache: Map<string, FilingDetailData | null>
+): Promise<AnalysisCandidate[]> {
+  if (analysisIds && analysisIds.length > 0) {
+    const targets = analysisIds.slice(0, limit)
+    const results: AnalysisCandidate[] = []
+
+    for (const id of targets) {
+      const detail = await fetchAnalysisDetail(id, cache)
+      results.push({ analysisId: id, detail })
+    }
+
+    return results
+  }
+
   const listResponse = await apiClient.get<PaginatedAnalysesResponse>('/analyses', {
     query: {
       page: 1,
@@ -132,14 +159,35 @@ async function fetchLearningModules(limit: number): Promise<LearningModule[]> {
     schema: paginatedAnalysesSchema,
   })
 
-  const candidates = listResponse.items ?? []
+  return (listResponse.items ?? []).map((analysis) => ({
+    analysisId: analysis.analysis_id,
+    analysis,
+  }))
+}
+
+async function fetchLearningModules(
+  limit: number,
+  analysisIds?: string[]
+): Promise<LearningModule[]> {
   const detailCache = new Map<string, FilingDetailData | null>()
   const primaryByCardKey = new Map<string, ModuleAnalysisOption>()
   const optionsByCardKey = new Map<string, ModuleAnalysisOption[]>()
   const orderedKeys: string[] = []
 
+  const candidates = await fetchAnalysisCandidates(limit, analysisIds, detailCache)
+
   for (const candidate of candidates) {
-    const modules = await deriveModulesFromAnalysis(candidate, detailCache)
+    const detail =
+      candidate.detail ?? (await fetchAnalysisDetail(candidate.analysisId, detailCache))
+    if (!detail) {
+      continue
+    }
+
+    const modules =
+      candidate.detail && candidate.detail === detail
+        ? deriveModulesFromDetail(detail)
+        : await deriveModulesFromAnalysis(detail.analysis, detailCache)
+
     for (const module of modules) {
       const option = toAnalysisOption(module)
       const existingOptions = optionsByCardKey.get(module.key) ?? []
@@ -204,6 +252,10 @@ async function deriveModulesFromAnalysis(
     return []
   }
 
+  return deriveModulesFromDetail(detail)
+}
+
+function deriveModulesFromDetail(detail: FilingDetailData): LearningModule[] {
   const sections = [...detail.guidedSections].sort((a, b) => a.display_order - b.display_order)
 
   const modules: LearningModule[] = []

@@ -118,7 +118,7 @@ export function QuizAttemptsSection({
         descriptionClassName="text-[var(--text-secondary)] leading-[var(--typography-line-heights-standard)]"
         actions={
           <div className="flex flex-wrap items-center justify-end gap-3">
-            <div className="flex items-center gap-2 rounded-full border border-[var(--lines-subtle)] bg-[var(--surfaces-muted)] px-2 py-1">
+            <div className="flex items-center gap-2 rounded-full border border-[var(--lines-subtle)] bg-[var(--surfaces-muted)] px-3 py-1">
               <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-secondary)]">
                 Filter
               </span>

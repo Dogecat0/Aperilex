@@ -63,6 +63,7 @@ describe('LearningHubPage', () => {
   it('renders persisted progress and recent quiz attempts', async () => {
     renderWithProviders(<LearningHubPage />)
 
+    expect(await screen.findByRole('combobox', { name: /Pick analysis/i })).toBeInTheDocument()
     expect(await screen.findByText('60%')).toBeInTheDocument()
     expect(screen.getByText((content) => content.includes('Score 67%'))).toBeInTheDocument()
     const summarySnippets = await screen.findAllByText(/Connect commentary to margin movements/i)
@@ -107,7 +108,7 @@ describe('LearningHubPage', () => {
     renderWithProviders(<LearningHubPage />)
 
     expect(
-      await screen.findByText(/Launch a filing analysis from the dashboard/i)
+      await screen.findByText(/Adjust the filters or run a new analysis to unlock guided sections/i)
     ).toBeInTheDocument()
     await waitFor(() =>
       expect(screen.queryByRole('button', { name: /Resume walkthrough/i })).toBeNull()

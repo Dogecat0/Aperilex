@@ -17,9 +17,7 @@ interface LearningModulesSectionProps {
   isLoading: boolean
   moduleErrorMessage: string | null
   tokens: ThemeTokens
-  analysisBinding: Record<string, string>
   onRetryModules: () => void
-  onAnalysisChange: (module: LearningModule, analysisId: string) => void
   onResume: (module: LearningModule, option: ModuleAnalysisOption | null) => void
   getSectionProgressSnapshot: (
     moduleKey: string,
@@ -54,19 +52,13 @@ function buildModuleOptions(module: LearningModule): ModuleAnalysisOption[] {
 function ModuleCard({
   module,
   tokens,
-  analysisBinding,
-  onAnalysisChange,
   onResume,
   getSectionProgressSnapshot,
-}: Pick<
-  LearningModulesSectionProps,
-  'tokens' | 'analysisBinding' | 'onAnalysisChange' | 'onResume' | 'getSectionProgressSnapshot'
-> & { module: LearningModule }) {
+}: Pick<LearningModulesSectionProps, 'tokens' | 'onResume' | 'getSectionProgressSnapshot'> & {
+  module: LearningModule
+}) {
   const options = buildModuleOptions(module)
-  const selectedAnalysisId =
-    analysisBinding[module.moduleKey] ?? options[0]?.analysisId ?? module.context?.analysisId ?? ''
-  const activeOption =
-    options.find((option) => option.analysisId === selectedAnalysisId) ?? options[0] ?? null
+  const activeOption = options[0] ?? null
 
   const context = activeOption?.context ?? module.context
   const sectionProgress = getSectionProgressSnapshot(
@@ -145,17 +137,9 @@ function ModuleCard({
           >
             Analysis source
           </span>
-          <select
-            value={activeOption?.analysisId ?? ''}
-            onChange={(event) => onAnalysisChange(module, event.target.value)}
-            className="rounded-lg border border-[var(--lines-subtle)] bg-transparent px-3 py-1 text-xs text-[var(--text-primary)]"
-          >
-            {options.map((option) => (
-              <option key={option.optionId} value={option.analysisId}>
-                {describeAnalysisOption(option)}
-              </option>
-            ))}
-          </select>
+          <span className="rounded-full border border-[var(--lines-subtle)] bg-[var(--surfaces-muted)] px-3 py-1 text-xs text-[var(--text-primary)]">
+            {activeOption ? describeAnalysisOption(activeOption) : 'Pending analysis context'}
+          </span>
         </div>
 
         {context ? (
@@ -289,9 +273,7 @@ export function LearningModulesSection({
   isLoading,
   moduleErrorMessage,
   tokens,
-  analysisBinding,
   onRetryModules,
-  onAnalysisChange,
   onResume,
   getSectionProgressSnapshot,
 }: LearningModulesSectionProps) {
@@ -377,8 +359,6 @@ export function LearningModulesSection({
                   key={module.key}
                   module={module}
                   tokens={tokens}
-                  analysisBinding={analysisBinding}
-                  onAnalysisChange={onAnalysisChange}
                   onResume={onResume}
                   getSectionProgressSnapshot={getSectionProgressSnapshot}
                 />
