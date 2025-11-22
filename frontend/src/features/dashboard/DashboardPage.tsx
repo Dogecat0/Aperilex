@@ -6,57 +6,60 @@ import { AnalysisLibrarySection } from './components/AnalysisLibrarySection'
 import { RecentAnalysesList } from './components/RecentAnalysesList'
 import { ContinueWalkthroughRail } from './components/ContinueWalkthroughRail'
 import { FilingProgressHero } from './components/FilingProgressHero'
-import { DashboardFilters } from './components/DashboardFilters'
+import { AnalysisFilters } from '@/components/analysis/AnalysisFilters'
+import type { AnalysisFiltersState } from '@/components/analysis/types'
 import { useAnalyses, useAnalysisLibrary } from '@/lib/hooks'
 import { ApiClientError } from '@/lib/apiClient'
 import type { AnalysisResponse, ListAnalysesParams } from '@/lib/types/analysis'
 
-export type FilingTypeFilter = 'all' | '10-Q' | '10-K'
-export type DateRangeFilter = '7d' | '30d' | '365d' | 'all'
-export type SegmentFilter =
-  | 'all'
-  | 'comprehensive'
-  | 'financial_focused'
-  | 'risk_focused'
-  | 'business_focused'
+// Types imported from shared location
 
-export interface DashboardFiltersState {
-  filingType: FilingTypeFilter
-  dateRange: DateRangeFilter
-  segment: SegmentFilter
-}
-
-const DEFAULT_FILTERS: DashboardFiltersState = {
-  filingType: 'all',
-  dateRange: '30d',
+const DEFAULT_FILTERS: AnalysisFiltersState = {
+  companyOrTicker: '',
+  filingType: '',
+  dateFrom: '',
+  dateTo: '',
   segment: 'all',
 }
 
-const filingTypeSearchMap: Partial<Record<FilingTypeFilter, string>> = {
-  '10-Q': '10-Q',
-  '10-K': '10-K',
-}
-
-const DATE_RANGE_IN_DAYS: Record<Exclude<DashboardFiltersState['dateRange'], 'all'>, number> = {
-  '7d': 7,
-  '30d': 30,
-  '365d': 365,
-}
-
-function deriveDateFilters(range: DashboardFiltersState['dateRange']) {
-  if (range === 'all') {
-    return {}
+function buildSearchQuery(filters: AnalysisFiltersState): string | null {
+  const terms = [filters.companyOrTicker.trim(), filters.filingType.trim()].filter(Boolean)
+  if (terms.length === 0) {
+    return null
   }
 
-  const now = new Date()
-  const days = DATE_RANGE_IN_DAYS[range]
-  const from = new Date(now)
-  from.setDate(now.getDate() - days)
+  return terms.join(' ')
+}
 
-  return {
-    created_after: from.toISOString(),
-    created_before: now.toISOString(),
+function isWithinFilingDateRange(
+  filingDate: string | null | undefined,
+  filters: AnalysisFiltersState
+) {
+  if (!filters.dateFrom && !filters.dateTo) {
+    return true
   }
+
+  if (!filingDate) {
+    return false
+  }
+
+  const parsed = new Date(filingDate)
+  if (Number.isNaN(parsed.getTime())) {
+    return false
+  }
+
+  const start = toStartOfDay(filters.dateFrom)
+  const end = toEndOfDay(filters.dateTo)
+
+  if (start && parsed < start) {
+    return false
+  }
+
+  if (end && parsed > end) {
+    return false
+  }
+
+  return true
 }
 
 function formatApiError(error: unknown): string | null {
@@ -92,6 +95,47 @@ function formatDate(input?: string | null) {
   }
 
   return DATE_FORMAT.format(parsed)
+}
+
+function formatFilterDate(input?: string | null) {
+  if (!input) {
+    return null
+  }
+
+  const parsed = new Date(input)
+  if (Number.isNaN(parsed.getTime())) {
+    return null
+  }
+
+  return DATE_FORMAT.format(parsed)
+}
+
+function toStartOfDay(input?: string) {
+  if (!input) {
+    return null
+  }
+
+  const parsed = new Date(input)
+  if (Number.isNaN(parsed.getTime())) {
+    return null
+  }
+
+  parsed.setHours(0, 0, 0, 0)
+  return parsed
+}
+
+function toEndOfDay(input?: string) {
+  if (!input) {
+    return null
+  }
+
+  const parsed = new Date(input)
+  if (Number.isNaN(parsed.getTime())) {
+    return null
+  }
+
+  parsed.setHours(23, 59, 59, 999)
+  return parsed
 }
 
 function getConfidenceScore(analysis: AnalysisResponse): number | null {
@@ -187,7 +231,7 @@ function buildRecentAnalysisGroups(
 }
 
 export function DashboardPage() {
-  const [filters, setFilters] = useState<DashboardFiltersState>(DEFAULT_FILTERS)
+  const [filters, setFilters] = useState<AnalysisFiltersState>(DEFAULT_FILTERS)
   const [libraryPage, setLibraryPage] = useState(1)
   const completedAnalysesQuery = useAnalyses(
     {
@@ -213,19 +257,14 @@ export function DashboardPage() {
   )
 
   const baseQueryParams = useMemo<ListAnalysesParams>(() => {
-    const dateFilters = deriveDateFilters(filters.dateRange)
+    const searchTerm = buildSearchQuery(filters)
     const params: ListAnalysesParams = {
       status: 'COMPLETED',
       sort: 'filing_date',
       direction: 'desc',
-      ...dateFilters,
+      segment: 'all',
     }
 
-    if (filters.segment === 'all') {
-      params.segment = 'all'
-    }
-
-    const searchTerm = filingTypeSearchMap[filters.filingType]
     if (searchTerm) {
       params.search = searchTerm
     }
@@ -243,11 +282,16 @@ export function DashboardPage() {
   )
 
   const libraryQuery = useAnalysisLibrary(libraryQueryParams)
-  const filtersBusy = libraryQuery.isLoading || libraryQuery.isFetching
 
   useEffect(() => {
     setLibraryPage(1)
-  }, [filters.filingType, filters.dateRange, filters.segment])
+  }, [
+    filters.companyOrTicker,
+    filters.filingType,
+    filters.dateFrom,
+    filters.dateTo,
+    filters.segment,
+  ])
 
   useEffect(() => {
     if (!libraryQuery.error) {
@@ -264,19 +308,20 @@ export function DashboardPage() {
 
   const libraryAnalyses = useMemo(() => {
     const items = libraryQuery.data?.items ?? []
-    if (filters.segment === 'all') {
-      return items
-    }
-
     return items.filter((analysis) => {
       const template = analysis.summary.filing.analysis_template
-      return typeof template === 'string' && template.toLowerCase() === filters.segment
+      const matchesSegment =
+        filters.segment === 'all'
+          ? true
+          : typeof template === 'string' && template.toLowerCase() === filters.segment
+
+      const filingDate = analysis.summary.filing.date ?? null
+      const matchesDate = isWithinFilingDateRange(filingDate, filters)
+
+      return matchesSegment && matchesDate
     })
-  }, [libraryQuery.data, filters.segment])
-  const totalCompletedAnalyses =
-    filters.segment === 'all'
-      ? (libraryQuery.data?.pagination.total_items ?? 0)
-      : libraryAnalyses.length
+  }, [libraryQuery.data, filters])
+  const totalCompletedAnalyses = libraryAnalyses.length
   const readySectionCount = useMemo(
     () =>
       libraryAnalyses.reduce((total, analysis) => {
@@ -307,18 +352,23 @@ export function DashboardPage() {
   }, [libraryAnalyses])
 
   const dateRangeLabel = useMemo(() => {
-    switch (filters.dateRange) {
-      case '7d':
-        return 'Last week'
-      case '30d':
-        return 'Last month'
-      case '365d':
-        return 'Last 12 months'
-      case 'all':
-      default:
-        return 'All time'
+    const from = formatFilterDate(filters.dateFrom)
+    const to = formatFilterDate(filters.dateTo)
+
+    if (from && to) {
+      return `${from} - ${to}`
     }
-  }, [filters.dateRange])
+
+    if (from) {
+      return `From ${from}`
+    }
+
+    if (to) {
+      return `Through ${to}`
+    }
+
+    return 'All time'
+  }, [filters.dateFrom, filters.dateTo])
 
   const recentAnalysisGroups = useMemo(
     () => buildRecentAnalysisGroups(libraryAnalyses),
@@ -361,7 +411,8 @@ export function DashboardPage() {
     !completedAnalysesQuery.error &&
     !anyAnalysesQuery.error
 
-  const handleFiltersChange = (nextFilters: DashboardFiltersState) => setFilters(nextFilters)
+  const handleFiltersChange = (updates: Partial<AnalysisFiltersState>) =>
+    setFilters((current) => ({ ...current, ...updates }))
   const handleResetFilters = () => setFilters({ ...DEFAULT_FILTERS })
   const handleLibraryPageChange = (page: number) => {
     setLibraryPage(page < 1 ? 1 : page)
@@ -392,12 +443,7 @@ export function DashboardPage() {
           latestAnalysis={heroLatestAnalysis}
         />
 
-        <DashboardFilters
-          filters={filters}
-          onFilterChange={handleFiltersChange}
-          onResetFilters={handleResetFilters}
-          disabled={filtersBusy}
-        />
+        <AnalysisFilters values={filters} onChange={handleFiltersChange} />
 
         {libraryQuery.error ? (
           <div
@@ -450,7 +496,7 @@ export function DashboardPage() {
                 No analyses match these filters
               </h2>
               <p className="text-sm text-[var(--text-muted)]">
-                Adjust the filing type, date range, or segment focus to surface your saved analyses.
+                Adjust the company, form type, or template filters to surface your saved analyses.
               </p>
             </div>
 

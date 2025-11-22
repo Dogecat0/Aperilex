@@ -4,19 +4,76 @@ import { Link } from 'react-router-dom'
 import { SectionIntro } from '@/components/ui/SectionIntro'
 import type { PaginationMetadata } from '@/lib/types/analysis'
 import type { AnalysisLibraryGroup, UseAnalysisLibraryReturn } from '@/lib/hooks'
-import type { DashboardFiltersState } from '../DashboardPage'
+import type { AnalysisFiltersState } from '@/components/analysis/types'
 import { useThemeTokens } from '@/components/ThemeProvider'
 import { useSavedAnalyses } from '@/lib/hooks'
 import { hexToRgba } from '@/lib/color'
 
 interface AnalysisLibrarySectionProps {
   query: UseAnalysisLibraryReturn
-  filters: DashboardFiltersState
+  filters: AnalysisFiltersState
   onPageChange?: (page: number) => void
   isLoading?: boolean
 }
 
 const ANALYSIS_SKELETON_KEYS = ['group-a', 'group-b', 'group-c'] as const
+
+function toStartOfDay(input?: string) {
+  if (!input) {
+    return null
+  }
+
+  const parsed = new Date(input)
+  if (Number.isNaN(parsed.getTime())) {
+    return null
+  }
+
+  parsed.setHours(0, 0, 0, 0)
+  return parsed
+}
+
+function toEndOfDay(input?: string) {
+  if (!input) {
+    return null
+  }
+
+  const parsed = new Date(input)
+  if (Number.isNaN(parsed.getTime())) {
+    return null
+  }
+
+  parsed.setHours(23, 59, 59, 999)
+  return parsed
+}
+
+function isWithinDateRange(
+  filingDate: string | null | undefined,
+  start: Date | null,
+  end: Date | null
+) {
+  if (!start && !end) {
+    return true
+  }
+
+  if (!filingDate) {
+    return false
+  }
+
+  const parsed = new Date(filingDate)
+  if (Number.isNaN(parsed.getTime())) {
+    return false
+  }
+
+  if (start && parsed < start) {
+    return false
+  }
+
+  if (end && parsed > end) {
+    return false
+  }
+
+  return true
+}
 
 function formatTemplateLabel(input?: string | null) {
   if (!input) {
@@ -172,25 +229,31 @@ export function AnalysisLibrarySection({
   }, [error])
 
   const filteredGroups = useMemo(() => {
-    if (filters.segment === 'all') {
-      return groups
-    }
+    const start = toStartOfDay(filters.dateFrom)
+    const end = toEndOfDay(filters.dateTo)
 
     return groups
       .map((group) => {
-        const filteredAnalyses = group.analyses.filter((run) => {
-          const template = run.analysisTemplate
-          return typeof template === 'string' && template.toLowerCase() === filters.segment
-        })
-
-        if (filteredAnalyses.length === 0) {
+        if (!isWithinDateRange(group.filingDate, start, end)) {
           return null
         }
 
-        return { ...group, analyses: filteredAnalyses } as AnalysisLibraryGroup
+        const analyses =
+          filters.segment === 'all'
+            ? group.analyses
+            : group.analyses.filter((run) => {
+                const template = run.analysisTemplate
+                return typeof template === 'string' && template.toLowerCase() === filters.segment
+              })
+
+        if (analyses.length === 0) {
+          return null
+        }
+
+        return { ...group, analyses } as AnalysisLibraryGroup
       })
       .filter((group): group is AnalysisLibraryGroup => group !== null)
-  }, [groups, filters.segment])
+  }, [filters.dateFrom, filters.dateTo, filters.segment, groups])
 
   const displayGroups = filteredGroups
 

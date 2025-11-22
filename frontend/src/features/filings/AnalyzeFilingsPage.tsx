@@ -5,6 +5,8 @@ import { useThemeTokens } from '@/components/ThemeProvider'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
 import { Button } from '@/components/ui/Button'
+import { AnalysisFilters } from '@/components/analysis/AnalysisFilters'
+import type { AnalysisFiltersState } from '@/components/analysis/types'
 import {
   useFilingSearch,
   useFilingById,
@@ -22,10 +24,9 @@ import {
   type AnalysisTemplateValue,
   type FilingPrefillSummary,
 } from './components/FilingDetailPanel'
-import { FilingSearchForm, type FilingSearchFormValues } from './components/FilingSearchForm'
 import { FilingResultsList } from './components/FilingResultsList'
 
-interface SearchState extends FilingSearchFormValues {
+interface SearchState extends AnalysisFiltersState {
   page: number
 }
 
@@ -141,12 +142,12 @@ function formatDate(value?: string | null): string | null {
 }
 
 function buildSearchParams(state: SearchState): FilingSearchParams {
-  const trimmedTicker = state.ticker.trim()
+  const trimmedTicker = state.companyOrTicker.trim()
   const normalizedTicker = trimmedTicker.toUpperCase()
 
   return {
     ticker: normalizedTicker,
-    form_type: state.formType.trim() ? state.formType.trim().toUpperCase() : undefined,
+    form_type: state.filingType.trim() ? state.filingType.trim().toUpperCase() : undefined,
     date_from: state.dateFrom || undefined,
     date_to: state.dateTo || undefined,
     page: state.page,
@@ -208,10 +209,11 @@ export function AnalyzeFilingsPage() {
   const tokens = useThemeTokens()
 
   const [formState, setFormState] = useState<SearchState>({
-    ticker: '',
-    formType: '',
+    companyOrTicker: '',
+    filingType: '',
     dateFrom: '',
     dateTo: '',
+    segment: 'all',
     page: 1,
   })
 
@@ -328,15 +330,16 @@ export function AnalyzeFilingsPage() {
     abortControllerRef.current = null
   }, [selectedFilingId])
 
-  const handleFormChange = (updates: Partial<FilingSearchFormValues>) => {
+  const handleFormChange = (updates: Partial<AnalysisFiltersState>) => {
     setFormState((prev) => ({
       ...prev,
       ...updates,
+      page: 1,
     }))
   }
 
   const executeSearch = () => {
-    const trimmedTicker = formState.ticker.trim()
+    const trimmedTicker = formState.companyOrTicker.trim()
     if (!trimmedTicker) {
       setSearchParams(undefined)
       setSelectedFilingId(null)
@@ -346,7 +349,7 @@ export function AnalyzeFilingsPage() {
 
     const nextState: SearchState = {
       ...formState,
-      ticker: trimmedTicker.toUpperCase(),
+      companyOrTicker: trimmedTicker.toUpperCase(),
       page: 1,
     }
 
@@ -511,20 +514,29 @@ export function AnalyzeFilingsPage() {
   const mutationError = practiceCommands.error ?? getErrorMessage(analyzeMutation.error)
   const searchError = filingSearch.error ? getErrorMessage(filingSearch.error) : null
 
-  const searchValues: FilingSearchFormValues = useMemo(
+  const searchValues: AnalysisFiltersState = useMemo(
     () => ({
-      ticker: formState.ticker,
-      formType: formState.formType,
+      companyOrTicker: formState.companyOrTicker,
+      filingType: formState.filingType,
       dateFrom: formState.dateFrom,
       dateTo: formState.dateTo,
+      segment: formState.segment,
     }),
-    [formState.dateFrom, formState.dateTo, formState.formType, formState.ticker]
+    [
+      formState.companyOrTicker,
+      formState.dateFrom,
+      formState.dateTo,
+      formState.filingType,
+      formState.segment,
+    ]
   )
 
   const totalMatches = filingSearch.data?.pagination?.total_items ?? results.length
 
-  const searchSummaryStats = useMemo(
-    () => [
+  const searchSummaryStats = useMemo(() => {
+    const searchLabel = searchParams?.ticker || formState.companyOrTicker.trim()
+
+    return [
       {
         id: 'results-visible',
         label: 'Results on page',
@@ -535,9 +547,7 @@ export function AnalyzeFilingsPage() {
         id: 'total-matches',
         label: 'Total matches',
         value: totalMatches ? `${totalMatches}` : '—',
-        helper: searchParams?.ticker
-          ? `${searchParams.ticker} filings`
-          : 'Start with a ticker search.',
+        helper: searchLabel ? `${searchLabel} filings` : 'Start with a company or ticker search.',
       },
       {
         id: 'analysis-status',
@@ -549,16 +559,16 @@ export function AnalyzeFilingsPage() {
             ? 'Ready to analyze'
             : 'Select a filing to analyze.',
       },
-    ],
-    [
-      formState.page,
-      isAnalyzing,
-      results.length,
-      searchParams?.ticker,
-      selectedFilingId,
-      totalMatches,
     ]
-  )
+  }, [
+    formState.companyOrTicker,
+    formState.page,
+    isAnalyzing,
+    results.length,
+    searchParams?.ticker,
+    selectedFilingId,
+    totalMatches,
+  ])
 
   return (
     <div className="relative min-h-screen w-full">
@@ -627,11 +637,13 @@ export function AnalyzeFilingsPage() {
           </div>
         ) : null}
 
-        <FilingSearchForm
+        <AnalysisFilters
           values={searchValues}
           onChange={handleFormChange}
           onSubmit={executeSearch}
-          isSubmitting={filingSearch.isFetching}
+          submitLabel={filingSearch.isFetching ? 'Searching...' : 'Search filings'}
+          disabled={filingSearch.isFetching}
+          showSegmentFilter={false}
         />
 
         <div className="grid gap-4 lg:grid-cols-[2fr_3fr]">

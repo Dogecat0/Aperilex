@@ -24,7 +24,7 @@ describe('DashboardPage', () => {
     renderWithProviders(<DashboardPage />)
 
     expect(await screen.findByText(/Stay on top of your filings/i)).toBeInTheDocument()
-    expect(screen.getByText(/Completed analyses/i)).toBeInTheDocument()
+    expect(screen.getAllByText(/Completed analyses/i).length).toBeGreaterThan(0)
     expect(screen.getByText(/Guided sections covered/i)).toBeInTheDocument()
     expect(screen.getByText(/Latest completion/i)).toBeInTheDocument()
     expect(await screen.findByText(/Continue where you left off/i)).toBeInTheDocument()
@@ -41,15 +41,15 @@ describe('DashboardPage', () => {
 
     await screen.findByText(/Stay on top of your filings/i)
 
-    const filterButton = screen.getByRole('button', { name: /10-q snapshot/i })
-    await user.click(filterButton)
+    const searchInput = screen.getByLabelText(/company or ticker/i)
+    await user.type(searchInput, 'AAPL')
 
     await waitFor(() => {
       expect(apiClient.get).toHaveBeenCalledWith(
         '/analyses',
         expect.objectContaining({
           query: expect.objectContaining({
-            search: '10-Q',
+            search: expect.stringContaining('AAPL'),
           }),
         })
       )

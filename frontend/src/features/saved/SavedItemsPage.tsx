@@ -8,8 +8,46 @@ import { useSavedAnalyses } from '@/lib/hooks'
 import { ApiClientError, apiClient } from '@/lib/apiClient'
 import { analysisResponseSchema } from '@/lib/types/analysis'
 import type { SavedAnalysisSummary } from '@/lib/savedAnalysesStore'
+import { AnalysisFilters } from '@/components/analysis/AnalysisFilters'
+import type { AnalysisFiltersState } from '@/components/analysis/types'
 
 const analysisExistenceSchema = analysisResponseSchema.pick({ analysis_id: true })
+
+const DEFAULT_FILTERS: AnalysisFiltersState = {
+  companyOrTicker: '',
+  filingType: '',
+  dateFrom: '',
+  dateTo: '',
+  segment: 'all',
+}
+
+function toStartOfDay(input?: string) {
+  if (!input) {
+    return null
+  }
+
+  const parsed = new Date(input)
+  if (Number.isNaN(parsed.getTime())) {
+    return null
+  }
+
+  parsed.setHours(0, 0, 0, 0)
+  return parsed
+}
+
+function toEndOfDay(input?: string) {
+  if (!input) {
+    return null
+  }
+
+  const parsed = new Date(input)
+  if (Number.isNaN(parsed.getTime())) {
+    return null
+  }
+
+  parsed.setHours(23, 59, 59, 999)
+  return parsed
+}
 
 export function SavedItemsPage() {
   const tokens = useThemeTokens()
@@ -17,7 +55,16 @@ export function SavedItemsPage() {
   const hasSavedAnalyses = savedAnalyses.length > 0
   const [checkingId, setCheckingId] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
+  const [filters, setFilters] = useState<AnalysisFiltersState>(DEFAULT_FILTERS)
   const navigate = useNavigate()
+  const handleFilterChange = useCallback(
+    (updates: Partial<AnalysisFiltersState>) =>
+      setFilters((current) => ({
+        ...current,
+        ...updates,
+      })),
+    []
+  )
 
   const handleOpen = useCallback(
     async (analysis: SavedAnalysisSummary) => {
@@ -45,6 +92,46 @@ export function SavedItemsPage() {
     },
     [navigate, remove]
   )
+
+  const filteredAnalyses = useMemo(() => {
+    return savedAnalyses.filter((analysis) => {
+      const searchTerm = filters.companyOrTicker.trim().toLowerCase()
+      if (searchTerm) {
+        const haystack = `${analysis.companyName ?? ''} ${analysis.ticker ?? ''}`.toLowerCase()
+        if (!haystack.includes(searchTerm)) {
+          return false
+        }
+      }
+
+      const filingTypeTerm = filters.filingType.trim().toLowerCase()
+      if (filingTypeTerm) {
+        const filingType = (analysis.filingType ?? '').toLowerCase()
+        if (!filingType.includes(filingTypeTerm)) {
+          return false
+        }
+      }
+
+      const start = toStartOfDay(filters.dateFrom)
+      if (start && analysis.filingDate) {
+        const filingDate = new Date(analysis.filingDate)
+        if (!Number.isNaN(filingDate.getTime()) && filingDate < start) {
+          return false
+        }
+      }
+
+      const end = toEndOfDay(filters.dateTo)
+      if (end && analysis.filingDate) {
+        const filingDate = new Date(analysis.filingDate)
+        if (!Number.isNaN(filingDate.getTime()) && filingDate > end) {
+          return false
+        }
+      }
+
+      return true
+    })
+  }, [savedAnalyses, filters])
+
+  const hasMatchingAnalyses = filteredAnalyses.length > 0
 
   const savedSummaryStats = useMemo(() => {
     const latestSaved = savedAnalyses.reduce<SavedAnalysisSummary | null>((latest, entry) => {
@@ -130,13 +217,15 @@ export function SavedItemsPage() {
           </div>
         ) : null}
 
+        <AnalysisFilters values={filters} onChange={handleFilterChange} showSegmentFilter={false} />
+
         <section className="flex flex-col gap-4">
           <h2 className="text-sm font-bold uppercase tracking-widest text-[var(--text-secondary)] px-1">
             Saved analyses
           </h2>
-          {hasSavedAnalyses ? (
+          {hasMatchingAnalyses ? (
             <div className="grid gap-4 sm:grid-cols-1 lg:grid-cols-2">
-              {savedAnalyses.map((analysis) => (
+              {filteredAnalyses.map((analysis) => (
                 <article
                   key={analysis.analysisId}
                   className="group flex flex-col justify-between gap-4 rounded-3xl border p-6 transition-all duration-300 hover:scale-[1.01] hover:shadow-lg"
@@ -227,6 +316,32 @@ export function SavedItemsPage() {
                   </div>
                 </article>
               ))}
+            </div>
+          ) : hasSavedAnalyses ? (
+            <div
+              className="rounded-3xl border border-dashed p-12 text-center backdrop-blur-sm"
+              style={{
+                borderColor: 'var(--lines-subtle)',
+                background: 'var(--surfaces-muted)',
+              }}
+            >
+              <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-[var(--surfaces-raised)] shadow-sm">
+                <span className="text-2xl">🔍</span>
+              </div>
+              <h3 className="mb-2 text-lg font-semibold text-[var(--text-primary)]">
+                No matching analyses
+              </h3>
+              <p className="text-sm text-[var(--text-secondary)]">
+                Try adjusting your filters to see your saved items.
+              </p>
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => setFilters(DEFAULT_FILTERS)}
+                className="mt-4"
+              >
+                Reset filters
+              </Button>
             </div>
           ) : (
             <div

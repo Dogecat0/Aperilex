@@ -92,4 +92,42 @@ describe('SavedItemsPage', () => {
 
     expect(mockRemove).toHaveBeenCalledWith('123')
   })
+
+  it('filters by filing type', async () => {
+    renderWithProviders(<SavedItemsPage />)
+
+    expect(screen.getByText('Test Company')).toBeInTheDocument()
+    expect(screen.getByText('Another Company')).toBeInTheDocument()
+
+    const filingTypeInput = screen.getByLabelText(/form type/i)
+    fireEvent.change(filingTypeInput, { target: { value: '10-K' } })
+
+    expect(screen.getByText('Test Company')).toBeInTheDocument()
+    expect(screen.queryByText('Another Company')).not.toBeInTheDocument()
+
+    fireEvent.change(filingTypeInput, { target: { value: '10-Q' } })
+
+    expect(screen.queryByText('Test Company')).not.toBeInTheDocument()
+    expect(screen.getByText('Another Company')).toBeInTheDocument()
+  })
+
+  it('filters by date range', async () => {
+    renderWithProviders(<SavedItemsPage />)
+
+    const dateFromInput = screen.getByLabelText(/date from/i)
+    fireEvent.change(dateFromInput, { target: { value: '2023-02-01' } })
+
+    expect(screen.queryByText('Test Company')).not.toBeInTheDocument()
+    expect(screen.getByText('Another Company')).toBeInTheDocument()
+  })
+
+  it('filters by company or ticker search', async () => {
+    renderWithProviders(<SavedItemsPage />)
+
+    const searchInput = screen.getByLabelText(/company or ticker/i)
+    fireEvent.change(searchInput, { target: { value: 'ABC' } })
+
+    expect(screen.queryByText('Test Company')).not.toBeInTheDocument()
+    expect(screen.getByText('Another Company')).toBeInTheDocument()
+  })
 })
