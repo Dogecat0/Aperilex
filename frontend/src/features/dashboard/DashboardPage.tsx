@@ -322,14 +322,21 @@ export function DashboardPage() {
     })
   }, [libraryQuery.data, filters])
   const totalCompletedAnalyses = libraryAnalyses.length
-  const readySectionCount = useMemo(
-    () =>
-      libraryAnalyses.reduce((total, analysis) => {
-        const sections = analysis.summary.insight_counts?.sections_analyzed
-        return typeof sections === 'number' ? total + sections : total
-      }, 0),
-    [libraryAnalyses]
-  )
+  const analyzedCompanyCount = useMemo(() => {
+    const identifiers = new Set<string>()
+    libraryAnalyses.forEach((analysis) => {
+      const company = analysis.summary.company ?? {}
+      const key =
+        (typeof company.cik === 'string' && company.cik.trim()) ||
+        (typeof company.ticker === 'string' && company.ticker.trim()) ||
+        (typeof company.name === 'string' && company.name.trim()) ||
+        analysis.analysis_id
+
+      identifiers.add(key)
+    })
+
+    return identifiers.size
+  }, [libraryAnalyses])
 
   const heroLatestAnalysis = useMemo(() => {
     if (libraryAnalyses.length === 0) {
@@ -439,7 +446,7 @@ export function DashboardPage() {
           isLoading={libraryQuery.isLoading || libraryQuery.isFetching}
           dateRangeLabel={dateRangeLabel}
           totalCompleted={totalCompletedAnalyses}
-          readySectionCount={readySectionCount}
+          analyzedCompanyCount={analyzedCompanyCount}
           latestAnalysis={heroLatestAnalysis}
         />
 

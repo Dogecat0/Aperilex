@@ -13,7 +13,7 @@ interface FilingProgressHeroProps {
   isLoading: boolean
   dateRangeLabel: string
   totalCompleted: number
-  readySectionCount: number
+  analyzedCompanyCount: number
   latestAnalysis: LatestAnalysisHighlight | null
 }
 
@@ -21,7 +21,7 @@ export function FilingProgressHero({
   isLoading,
   dateRangeLabel,
   totalCompleted,
-  readySectionCount,
+  analyzedCompanyCount,
   latestAnalysis,
 }: FilingProgressHeroProps) {
   const heroCopy = useMemo(() => {
@@ -31,9 +31,9 @@ export function FilingProgressHero({
         ? 'Across all completed analyses'
         : `Past ${dateRangeLabel}`
 
-    const sectionsValue = isLoading ? '—' : `${readySectionCount}`
-    const sectionsHelper =
-      readySectionCount === 1 ? 'Guided section completed' : 'Guided sections completed'
+    const companiesValue = isLoading ? '—' : `${analyzedCompanyCount}`
+    const companiesHelper =
+      analyzedCompanyCount === 1 ? 'Unique company in this view' : 'Unique companies in this view'
 
     const latestValue = isLoading ? 'Loading…' : (latestAnalysis?.companyName ?? 'No filings yet')
     const latestHelper = latestAnalysis
@@ -43,18 +43,18 @@ export function FilingProgressHero({
     return {
       completionValue,
       completionHelper,
-      sectionsValue,
-      sectionsHelper,
+      companiesValue,
+      companiesHelper,
       latestValue,
       latestHelper,
     }
-  }, [dateRangeLabel, isLoading, latestAnalysis, readySectionCount, totalCompleted])
+  }, [analyzedCompanyCount, dateRangeLabel, isLoading, latestAnalysis, totalCompleted])
 
   return (
     <FeatureHero
       overline="Dashboard"
       title="Stay on top of your filings"
-      description="Review recent walkthroughs, monitor sections you have covered, and jump straight back into the filing workspace."
+      description="Review recent walkthroughs, track companies you have analyzed, and jump straight back into the filing workspace."
     >
       <div className="grid gap-3 sm:grid-cols-3">
         <FeatureHeroStat
@@ -63,9 +63,9 @@ export function FilingProgressHero({
           helper={heroCopy.completionHelper}
         />
         <FeatureHeroStat
-          label="Guided sections covered"
-          value={heroCopy.sectionsValue}
-          helper={heroCopy.sectionsHelper}
+          label="Companies analyzed"
+          value={heroCopy.companiesValue}
+          helper={heroCopy.companiesHelper}
         />
         <FeatureHeroStat
           label="Latest completion"

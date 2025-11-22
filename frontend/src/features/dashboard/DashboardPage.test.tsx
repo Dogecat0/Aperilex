@@ -25,7 +25,7 @@ describe('DashboardPage', () => {
 
     expect(await screen.findByText(/Stay on top of your filings/i)).toBeInTheDocument()
     expect(screen.getAllByText(/Completed analyses/i).length).toBeGreaterThan(0)
-    expect(screen.getByText(/Guided sections covered/i)).toBeInTheDocument()
+    expect(screen.getByText(/Companies analyzed/i)).toBeInTheDocument()
     expect(screen.getByText(/Latest completion/i)).toBeInTheDocument()
     expect(await screen.findByText(/Continue where you left off/i)).toBeInTheDocument()
     expect(screen.getAllByRole('button', { name: /Resume walkthrough/i }).length).toBeGreaterThan(0)
