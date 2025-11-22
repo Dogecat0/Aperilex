@@ -20,6 +20,7 @@ interface QuestionAttemptStat {
   attempts: number
   incorrectAttempts: number
   firstAttemptAt: string | null
+  lastAttemptAt: string | null
   completedAt: string | null
   lastSelectedOption: string | null
   finalAnswer: string | null
@@ -213,6 +214,7 @@ export function GuidedFilingStepper({
   const [completedChecks, setCompletedChecks] = useState<CompletedChecksBySection>({})
   const [celebrationSection, setCelebrationSection] = useState<string | null>(null)
   const [focusNotice, setFocusNotice] = useState<string | null>(null)
+  const [attemptVersion, setAttemptVersion] = useState(0)
   const tokens = useThemeTokens()
   const isLightMode = tokens.name === 'light'
   const progressCardStyles = useMemo(
@@ -243,7 +245,7 @@ export function GuidedFilingStepper({
   const queryClient = useQueryClient()
   const questionStatsRef = useRef<Record<string, QuestionAttemptStat>>({})
   const moduleStartTimeRef = useRef<Record<string, number>>({})
-  const recordedModulesRef = useRef<Set<string>>(new Set())
+  const moduleAttemptSignaturesRef = useRef<Record<string, string>>({})
 
   const registerAttempt = useCallback(
     (
@@ -269,46 +271,41 @@ export function GuidedFilingStepper({
         attempts,
         incorrectAttempts: existing?.incorrectAttempts ?? 0,
         firstAttemptAt: existing?.firstAttemptAt ?? null,
+        lastAttemptAt: now.toISOString(),
         completedAt: existing?.completedAt ?? null,
         lastSelectedOption: answer,
-        finalAnswer: existing?.finalAnswer ?? null,
+        finalAnswer: answer,
       }
 
       if (!updated.firstAttemptAt) {
         updated.firstAttemptAt = now.toISOString()
       }
 
-      if (isCorrect) {
+      if (isCorrect && !updated.completedAt) {
         updated.completedAt = now.toISOString()
-        updated.finalAnswer = answer
       } else {
         updated.incorrectAttempts += 1
       }
 
       questionStatsRef.current[check.id] = updated
+      setAttemptVersion((value) => value + 1)
     },
-    []
+    [setAttemptVersion]
   )
 
   const recordModuleQuizAttempt = useCallback(
     async (moduleKey: string, moduleSections: GuidedWalkthroughSection[]) => {
-      const attemptKey = `${analysisId}:${moduleKey}`
-      if (recordedModulesRef.current.has(attemptKey)) {
-        return
-      }
-
       const allChecks = moduleSections.flatMap((item) => item.comprehension_checks)
       const questionCount = allChecks.length
       if (questionCount === 0) {
-        recordedModulesRef.current.add(attemptKey)
         return
       }
 
-      const now = new Date()
-      const attemptedAt = now.toISOString()
-
       const responses: Record<string, unknown> = {}
       let totalIncorrectAttempts = 0
+      let answeredCount = 0
+      let correctCount = 0
+      let lastAttemptAt: string | null = null
 
       for (const check of allChecks) {
         const stats = questionStatsRef.current[check.id]
@@ -316,24 +313,41 @@ export function GuidedFilingStepper({
         const incorrectAttempts = stats?.incorrectAttempts ?? 0
         totalIncorrectAttempts += incorrectAttempts
 
+        if (attempts > 0) {
+          answeredCount += 1
+        }
+        if (stats?.completedAt) {
+          correctCount += 1
+        }
+        if (stats?.lastAttemptAt) {
+          if (!lastAttemptAt || stats.lastAttemptAt > lastAttemptAt) {
+            lastAttemptAt = stats.lastAttemptAt
+          }
+        }
+
         responses[check.id] = {
           question: check.question,
           attempts,
           incorrect_attempts: incorrectAttempts,
-          completed_at: stats?.completedAt,
-          first_attempt_at: stats?.firstAttemptAt,
-          final_answer: stats?.finalAnswer ?? check.correct_answer,
+          completed_at: stats?.completedAt ?? null,
+          first_attempt_at: stats?.firstAttemptAt ?? null,
+          last_attempt_at: stats?.lastAttemptAt ?? null,
+          last_selected_option: stats?.lastSelectedOption ?? null,
+          correct_answer: check.correct_answer,
+          final_answer: stats?.finalAnswer ?? stats?.lastSelectedOption ?? null,
         }
       }
 
-      const correctCount = questionCount
-      const scorePercent =
-        questionCount > 0 ? Number(((correctCount / questionCount) * 100).toFixed(1)) : 0
+      if (answeredCount < questionCount) {
+        return
+      }
+
+      const scorePercent = Number(((correctCount / questionCount) * 100).toFixed(1))
 
       const startTimestamp = moduleStartTimeRef.current[moduleKey]
       const durationSeconds =
         typeof startTimestamp === 'number'
-          ? Math.max(0, Math.round((now.getTime() - startTimestamp) / 1000))
+          ? Math.max(0, Math.round((Date.now() - startTimestamp) / 1000))
           : null
 
       const metadata: Record<string, unknown> = {
@@ -350,6 +364,29 @@ export function GuidedFilingStepper({
         metadata.duration_seconds = durationSeconds
       }
 
+      const attemptFingerprint = JSON.stringify({
+        questionCount,
+        correctCount,
+        incorrectAttemptsTotal: totalIncorrectAttempts,
+        responses: Object.entries(responses)
+          .sort(([a], [b]) => a.localeCompare(b))
+          .map(([questionId, payload]) => {
+            const value = payload as Record<string, unknown>
+            return {
+              id: questionId,
+              attempts: value.attempts ?? 0,
+              incorrect_attempts: value.incorrect_attempts ?? 0,
+              completed_at: value.completed_at ?? null,
+              first_attempt_at: value.first_attempt_at ?? null,
+              last_selected_option: value.last_selected_option ?? null,
+            }
+          }),
+      })
+
+      if (moduleAttemptSignaturesRef.current[moduleKey] === attemptFingerprint) {
+        return
+      }
+
       try {
         await submitQuizAttempt({
           quizId: moduleKey,
@@ -359,9 +396,10 @@ export function GuidedFilingStepper({
           passed: scorePercent >= 80,
           metadata,
           responses,
-          attemptedAt,
+          attemptedAt: lastAttemptAt ?? new Date().toISOString(),
         })
-        recordedModulesRef.current.add(attemptKey)
+        moduleAttemptSignaturesRef.current[moduleKey] = attemptFingerprint
+        moduleStartTimeRef.current[moduleKey] = Date.now()
         await queryClient.invalidateQueries({ queryKey: ['quiz-attempts'] })
       } catch (error) {
         console.error('Failed to record quiz attempt', error)
@@ -461,11 +499,35 @@ export function GuidedFilingStepper({
     setFocusNotice(null)
     hasUserNavigatedRef.current = false
     setActiveIndex(0)
+    setAttemptVersion(0)
     pendingIntendedSectionRef.current = null
     questionStatsRef.current = {}
     moduleStartTimeRef.current = {}
-    recordedModulesRef.current = new Set()
+    moduleAttemptSignaturesRef.current = {}
   }, [analysisId])
+
+  useEffect(() => {
+    if (attemptVersion === 0) {
+      return
+    }
+
+    let cancelled = false
+
+    const persistAttempt = async () => {
+      for (const [moduleKey, moduleSections] of Object.entries(sectionsByModule)) {
+        if (cancelled) {
+          return
+        }
+        await recordModuleQuizAttempt(moduleKey, moduleSections)
+      }
+    }
+
+    void persistAttempt()
+
+    return () => {
+      cancelled = true
+    }
+  }, [attemptVersion, sectionsByModule, recordModuleQuizAttempt])
 
   useEffect(() => {
     for (const key of persistedSectionKeys) {
@@ -501,6 +563,35 @@ export function GuidedFilingStepper({
     }
     return map
   }, [sections, persistedSectionSet, completedChecks])
+
+  const hasPendingSectionAttempts = useMemo(() => {
+    for (const stat of Object.values(questionStatsRef.current)) {
+      if (!stat || stat.attempts <= 0) {
+        continue
+      }
+      if (!completeBySection[stat.sectionKey]) {
+        return true
+      }
+    }
+    return false
+  }, [completeBySection])
+
+  useEffect(() => {
+    if (!hasPendingSectionAttempts) {
+      return
+    }
+
+    const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+      event.preventDefault()
+      event.returnValue =
+        'You have an active section with unanswered or incorrect checks. Progress will be lost.'
+    }
+
+    window.addEventListener('beforeunload', handleBeforeUnload)
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload)
+    }
+  }, [hasPendingSectionAttempts])
 
   const isSectionComplete = useCallback(
     (section: GuidedWalkthroughSection) => {
@@ -606,18 +697,8 @@ export function GuidedFilingStepper({
       } catch {
         // Hook surfaces the error state; no runtime fallback needed here.
       }
-
-      if (progressPercent >= 100) {
-        await recordModuleQuizAttempt(section.learning_module_key, moduleSections)
-      }
     },
-    [
-      analysisId,
-      isSectionComplete,
-      recordModuleQuizAttempt,
-      recordWalkthroughEvent,
-      sectionsByModule,
-    ]
+    [analysisId, isSectionComplete, recordWalkthroughEvent, sectionsByModule]
   )
 
   const notifySectionComplete = useCallback(
@@ -758,8 +839,9 @@ export function GuidedFilingStepper({
 
   const activeSectionComplete = isSectionComplete(activeSection)
   const atLastSection = activeIndex === sections.length - 1
-  const progressLabel = `${completedCount} of ${sections.length} section${sections.length === 1 ? '' : 's'
-    } completed`
+  const progressLabel = `${completedCount} of ${sections.length} section${
+    sections.length === 1 ? '' : 's'
+  } completed`
 
   return (
     <div className="grid gap-6 lg:grid-cols-[280px_minmax(0,1fr)]">
