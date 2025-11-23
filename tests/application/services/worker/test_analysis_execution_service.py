@@ -24,7 +24,13 @@ from src.infrastructure.providers.llm.base import (
 )
 from src.shared.enums import FilingType, TaskPriority, TaskStatus, UserTier
 from src.shared.enums.provider import LLMProvider
-from src.shared.models import AnalysisRequest, AnalysisType, ModelTier, TaskData
+from src.shared.models import (
+    AnalysisRequest,
+    AnalysisType,
+    ModelTier,
+    TaskData,
+    TokenUsage,
+)
 from src.shared.types import AnalysisId, Email, FilingId, TaskId, Ticker, UserId
 
 WALKTHROUGH_ITEM_COUNT = 5
@@ -274,6 +280,10 @@ def _make_comprehensive_response() -> ComprehensiveAnalysisResponse:
         walkthrough=walkthrough,
         processing_time_ms=600,
         sub_section_count=0,
+        token_usage=TokenUsage(
+            prompt_tokens=120, completion_tokens=80, total_tokens=200
+        ),
+        cost=0.5,
     )
 
     return ComprehensiveAnalysisResponse(
@@ -285,6 +295,10 @@ def _make_comprehensive_response() -> ComprehensiveAnalysisResponse:
         total_sections_analyzed=1,
         total_sub_sections_analyzed=0,
         total_processing_time_ms=1200,
+        token_usage=TokenUsage(
+            prompt_tokens=30, completion_tokens=20, total_tokens=50
+        ),
+        cost=0.2,
         filing_type=FilingType.FORM_10K.value,
         company_name="Acme Corp",
         analysis_timestamp=datetime.now(UTC).isoformat(),
@@ -326,8 +340,22 @@ async def test_perform_structured_comprehensive_analysis_shapes_result() -> None
     structured_dump = result.structured_data.model_dump()
     assert structured_dump["section_analyses"][0]["section_summary"] == "Risk summary."
     assert result.quality_metrics["confidence_score"] == 0.82
+    assert result.quality_metrics["estimated_cost_usd"] == pytest.approx(0.7)
     assert result.model_name == "gpt-4-structured"
     assert result.analysis_type == AnalysisType.COMPREHENSIVE
+    assert result.token_usage.prompt_tokens == 150
+    assert result.token_usage.completion_tokens == 100
+    assert result.token_usage.total_tokens == 250
+    assert result.estimated_cost == pytest.approx(0.7)
+    assert result.costs_by_section is not None
+    section_cost = result.costs_by_section["Item 1A - Risk Factors"]
+    assert section_cost.cost == pytest.approx(0.5)
+    assert section_cost.token_usage.total_tokens == 200
+    assert structured_dump["costs_by_section"]["Item 1A - Risk Factors"]["cost"] == pytest.approx(
+        0.5
+    )
+    assert structured_dump["total_token_usage"]["total_tokens"] == 250
+    assert structured_dump["total_estimated_cost"] == pytest.approx(0.7)
     walkthroughs = structured_dump["section_walkthroughs"]
     assert "Item 1A - Risk Factors" in walkthroughs
     assert (

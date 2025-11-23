@@ -15,7 +15,7 @@ from src.application.interfaces.secret import ISecretManager
 from src.shared.config.providers import LLMConfig
 from src.shared.enums import FilingType
 from src.shared.enums import LLMProvider as LLMProviderEnum
-from src.shared.models import LLMModelInfo
+from src.shared.models import LLMModelInfo, TokenUsage
 from src.shared.types import RequestId
 
 from .base import (
@@ -149,6 +149,9 @@ class OpenAILLMProvider(BaseLLMProvider):
         human_readable_name = subsection.human_label or create_human_readable_name(
             subsection.name
         )
+        prompt_tokens = 0
+        completion_tokens = 0
+        usage_available = False
         prompt = create_analysis_prompt(
             human_readable_name,
             company_name,
@@ -193,6 +196,7 @@ class OpenAILLMProvider(BaseLLMProvider):
                         cached_raw = getattr(prompt_token_details, "cached_tokens", None)
                         if cached_raw is not None:
                             cached_tokens_value = int(cached_raw)
+                    usage_available = True
                     logger.info(
                         "Tokens used (section=%s subsection=%s): prompt=%d output=%d cached=%d",
                         section_name,
@@ -221,6 +225,21 @@ class OpenAILLMProvider(BaseLLMProvider):
 
             processing_time_ms = int((time.time() - start_time) * 1000)
 
+            token_usage = (
+                TokenUsage(
+                    prompt_tokens=prompt_tokens,
+                    completion_tokens=completion_tokens,
+                    total_tokens=prompt_tokens + completion_tokens,
+                )
+                if usage_available
+                else None
+            )
+            subsection_cost = (
+                self._calculate_cost(prompt_tokens, completion_tokens)
+                if usage_available
+                else None
+            )
+
             return SubsectionAnalysisResponse(
                 sub_section_name=human_readable_name,
                 processing_time_ms=processing_time_ms,
@@ -228,6 +247,8 @@ class OpenAILLMProvider(BaseLLMProvider):
                 analysis=analysis_payload,
                 parent_section=section_name,
                 subsection_focus=subsection.name,
+                token_usage=token_usage,
+                cost=subsection_cost,
             )
 
         except Exception as e:
@@ -262,6 +283,10 @@ class OpenAILLMProvider(BaseLLMProvider):
             Complete section analysis with sub-section breakdown
         """
         start_time = time.time()
+        section_prompt_tokens = 0
+        section_completion_tokens = 0
+        section_cost_components: list[float] = []
+        usage_tracked = False
 
         # Get the schema for this section type
         section_schema = self._resolve_section_schema(section_name)
@@ -296,6 +321,8 @@ class OpenAILLMProvider(BaseLLMProvider):
         try:
             await self._ensure_client()
             assert self.client is not None  # Type narrowing for mypy
+            summary_prompt_tokens = 0
+            summary_completion_tokens = 0
             summary_response: ParsedChatCompletion[
                 SectionSummaryResponse
             ] = await self.client.chat.completions.parse(
@@ -311,10 +338,22 @@ class OpenAILLMProvider(BaseLLMProvider):
 
             if summary_response.usage is not None:
                 try:
+                    summary_prompt_tokens = int(summary_response.usage.prompt_tokens)
+                    summary_completion_tokens = int(
+                        summary_response.usage.completion_tokens
+                    )
+                    section_prompt_tokens += summary_prompt_tokens
+                    section_completion_tokens += summary_completion_tokens
+                    section_cost_components.append(
+                        self._calculate_cost(
+                            summary_prompt_tokens, summary_completion_tokens
+                        )
+                    )
+                    usage_tracked = True
                     logger.debug(
                         "Tokens used for summary: %d prompt and %d output",
-                        int(summary_response.usage.prompt_tokens),
-                        int(summary_response.usage.completion_tokens),
+                        summary_prompt_tokens,
+                        summary_completion_tokens,
                     )
                 except (TypeError, ValueError):
                     logger.debug("Token usage info unavailable")
@@ -332,6 +371,29 @@ class OpenAILLMProvider(BaseLLMProvider):
 
             processing_time_ms = int((time.time() - start_time) * 1000)
 
+            for subsection in sub_sections:
+                if getattr(subsection, "token_usage", None):
+                    section_prompt_tokens += subsection.token_usage.prompt_tokens
+                    section_completion_tokens += (
+                        subsection.token_usage.completion_tokens
+                    )
+                    usage_tracked = True
+                if getattr(subsection, "cost", None) is not None:
+                    section_cost_components.append(float(subsection.cost))
+
+            section_token_usage = (
+                TokenUsage(
+                    prompt_tokens=section_prompt_tokens,
+                    completion_tokens=section_completion_tokens,
+                    total_tokens=section_prompt_tokens + section_completion_tokens,
+                )
+                if usage_tracked
+                else None
+            )
+            section_cost = (
+                sum(section_cost_components) if section_cost_components else None
+            )
+
             return SectionAnalysisResponse(
                 section_name=section_name,
                 section_summary=summary.section_summary,
@@ -343,6 +405,8 @@ class OpenAILLMProvider(BaseLLMProvider):
                 walkthrough=summary.walkthrough,
                 processing_time_ms=processing_time_ms,
                 sub_section_count=len(sub_sections),
+                token_usage=section_token_usage,
+                cost=section_cost,
             )
 
         except Exception as e:
@@ -384,6 +448,10 @@ class OpenAILLMProvider(BaseLLMProvider):
             Complete analysis result
         """
         start_time = time.time()
+        overall_prompt_tokens = 0
+        overall_completion_tokens = 0
+        overall_cost: float | None = None
+        overall_usage_available = False
 
         # Analyze all sections concurrently
         section_tasks = [
@@ -416,10 +484,20 @@ class OpenAILLMProvider(BaseLLMProvider):
 
             if overall_response.usage is not None:
                 try:
+                    overall_prompt_tokens = int(
+                        overall_response.usage.prompt_tokens or 0
+                    )
+                    overall_completion_tokens = int(
+                        overall_response.usage.completion_tokens or 0
+                    )
+                    overall_cost = self._calculate_cost(
+                        overall_prompt_tokens, overall_completion_tokens
+                    )
+                    overall_usage_available = True
                     logger.debug(
                         "Tokens used for overall analysis: %d prompt and %d output",
-                        int(overall_response.usage.prompt_tokens),
-                        int(overall_response.usage.completion_tokens),
+                        overall_prompt_tokens,
+                        overall_completion_tokens,
                     )
                 except (TypeError, ValueError):
                     logger.debug("Token usage info unavailable")
@@ -452,6 +530,18 @@ class OpenAILLMProvider(BaseLLMProvider):
                 total_sections_analyzed=len(section_analyses),
                 total_sub_sections_analyzed=total_sub_sections,
                 total_processing_time_ms=processing_time_ms,
+                token_usage=(
+                    TokenUsage(
+                        prompt_tokens=overall_prompt_tokens,
+                        completion_tokens=overall_completion_tokens,
+                        total_tokens=(
+                            overall_prompt_tokens + overall_completion_tokens
+                        ),
+                    )
+                    if overall_usage_available
+                    else None
+                ),
+                cost=overall_cost,
                 filing_type=filing_type.value,
                 company_name=company_name,
                 analysis_timestamp=datetime.now(UTC).isoformat(),

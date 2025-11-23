@@ -7,6 +7,7 @@ orchestrator can delegate LLM-specific concerns to a dedicated component.
 
 from __future__ import annotations
 
+import json
 import uuid
 from collections.abc import Awaitable, Callable, Sequence
 from datetime import UTC, datetime
@@ -21,6 +22,7 @@ from src.shared.models import (
     AnalysisResult,
     AnalysisType,
     ModelTier,
+    SectionCostBreakdown,
     TaskData,
     TokenUsage,
 )
@@ -31,6 +33,7 @@ from .section_diff_service import SectionDiffService, SectionDiffServiceError
 from .template_registry import TemplateRegistry, WalkthroughConstructionError
 
 logger = get_logger(__name__)
+
 
 class AnalysisExecutionServiceError(Exception):
     """Base exception for analysis execution operations."""
@@ -247,6 +250,55 @@ class AnalysisExecutionService:
         )
         self._validate_walkthrough_payloads(comprehensive_response)
 
+        section_costs: dict[str, SectionCostBreakdown] = {}
+        total_prompt_tokens = 0
+        total_completion_tokens = 0
+        total_cost = 0.0
+        cost_recorded = False
+
+        for section in getattr(comprehensive_response, "section_analyses", []):
+            section_name = (
+                str(getattr(section, "section_name", "") or "").strip() or "Unknown"
+            )
+            section_usage = getattr(section, "token_usage", None)
+            section_cost = getattr(section, "cost", None)
+
+            if section_usage:
+                total_prompt_tokens += section_usage.prompt_tokens
+                total_completion_tokens += section_usage.completion_tokens
+
+            if section_cost is not None:
+                total_cost += float(section_cost)
+                cost_recorded = True
+
+            if section_usage or section_cost is not None:
+                section_costs[section_name] = SectionCostBreakdown(
+                    token_usage=section_usage,
+                    cost=section_cost if section_cost is not None else None,
+                )
+
+        overall_usage = getattr(comprehensive_response, "token_usage", None)
+        if overall_usage:
+            total_prompt_tokens += overall_usage.prompt_tokens
+            total_completion_tokens += overall_usage.completion_tokens
+
+        overall_cost = getattr(comprehensive_response, "cost", None)
+        if overall_cost is not None:
+            total_cost += float(overall_cost)
+            cost_recorded = True
+
+        costs_by_section_payload = {
+            name: {
+                "cost": breakdown.cost,
+                "token_usage": (
+                    breakdown.token_usage.model_dump(mode="json")
+                    if breakdown.token_usage
+                    else None
+                ),
+            }
+            for name, breakdown in section_costs.items()
+        }
+
         try:
             model_info = await self.llm.get_model_info()
             model_name = model_info.model_name
@@ -335,9 +387,10 @@ class AnalysisExecutionService:
                     if not isinstance(sub_section, dict):
                         continue
                     analysis_entries = sub_section.get("analysis")
-                    if isinstance(analysis_entries, list) and len(
-                        analysis_entries
-                    ) > self.SUBSECTION_ANALYSIS_LIMIT:
+                    if (
+                        isinstance(analysis_entries, list)
+                        and len(analysis_entries) > self.SUBSECTION_ANALYSIS_LIMIT
+                    ):
                         sub_section["analysis"] = analysis_entries[
                             : self.SUBSECTION_ANALYSIS_LIMIT
                         ]
@@ -380,6 +433,17 @@ class AnalysisExecutionService:
                     if isinstance(walkthrough_entry, dict):
                         walkthrough_entry["previous_comparison"] = diff_payload
 
+        if costs_by_section_payload:
+            structured_payload["costs_by_section"] = costs_by_section_payload
+        if cost_recorded:
+            structured_payload["total_estimated_cost"] = total_cost
+        if total_prompt_tokens or total_completion_tokens:
+            structured_payload["total_token_usage"] = {
+                "prompt_tokens": total_prompt_tokens,
+                "completion_tokens": total_completion_tokens,
+                "total_tokens": total_prompt_tokens + total_completion_tokens,
+            }
+
         narrative_parts: list[str] = []
         summary_text = (comprehensive_response.filing_summary or "").strip()
         if summary_text:
@@ -404,6 +468,8 @@ class AnalysisExecutionService:
         focus_metadata = dict(request.metadata)
         if analysis_focus:
             focus_metadata["analysis_focus"] = ",".join(analysis_focus)
+        if costs_by_section_payload:
+            focus_metadata["costs_by_section"] = json.dumps(costs_by_section_payload)
 
         quality_metrics = {
             "total_sections_analyzed": float(
@@ -414,6 +480,16 @@ class AnalysisExecutionService:
             ),
             "confidence_score": comprehensive_response.confidence_score,
         }
+
+        aggregate_token_usage = TokenUsage(
+            prompt_tokens=total_prompt_tokens,
+            completion_tokens=total_completion_tokens,
+            total_tokens=total_prompt_tokens + total_completion_tokens,
+        )
+        estimated_cost = total_cost if cost_recorded else None
+
+        if cost_recorded:
+            quality_metrics["estimated_cost_usd"] = float(total_cost)
 
         return AnalysisResult(
             analysis_id=request.analysis_id,
@@ -427,18 +503,15 @@ class AnalysisExecutionService:
             status=AnalysisStatus.COMPLETED,
             llm_provider=request.llm_provider,
             model_name=model_name,
-            token_usage=TokenUsage(
-                prompt_tokens=0,
-                completion_tokens=0,
-                total_tokens=0,
-            ),
+            token_usage=aggregate_token_usage,
             processing_time_ms=processing_time_ms,
-            estimated_cost=None,
+            estimated_cost=estimated_cost,
             confidence_score=comprehensive_response.confidence_score,
             quality_metrics=quality_metrics,
             created_at=start_time,
             completed_at=datetime.now(UTC),
             metadata=focus_metadata,
+            costs_by_section=section_costs or None,
         )
 
     def _validate_walkthrough_payloads(self, comprehensive_response: Any) -> None:
@@ -451,7 +524,9 @@ class AnalysisExecutionService:
             )
 
         for section in sections:
-            section_name = str(getattr(section, "section_name", "") or "").strip() or "Unknown"
+            section_name = (
+                str(getattr(section, "section_name", "") or "").strip() or "Unknown"
+            )
 
             walkthrough = getattr(section, "walkthrough", None)
             if walkthrough is None:
@@ -511,7 +586,9 @@ class AnalysisExecutionService:
                 highlight_id = str(getattr(highlight, "id", "")).strip()
                 title = str(getattr(highlight, "title", "")).strip()
                 summary = str(getattr(highlight, "summary", "")).strip()
-                source_reference = str(getattr(highlight, "source_reference", "")).strip()
+                source_reference = str(
+                    getattr(highlight, "source_reference", "")
+                ).strip()
                 if not highlight_id or not title or not summary or not source_reference:
                     raise AnalysisExecutionServiceError(
                         f"Highlight metadata incomplete for section '{section_name}'"
@@ -523,8 +600,12 @@ class AnalysisExecutionService:
                         f"Highlight '{highlight_id}' for section '{section_name}' is missing lesson_reference"
                     )
 
-                lr_module_key = str(getattr(lesson_reference, "learning_module_key", "")).strip()
-                lr_module_stage = str(getattr(lesson_reference, "module_stage", "")).strip()
+                lr_module_key = str(
+                    getattr(lesson_reference, "learning_module_key", "")
+                ).strip()
+                lr_module_stage = str(
+                    getattr(lesson_reference, "module_stage", "")
+                ).strip()
                 lr_lesson_id = str(getattr(lesson_reference, "lesson_id", "")).strip()
                 if not lr_module_key or not lr_module_stage or not lr_lesson_id:
                     raise AnalysisExecutionServiceError(
@@ -533,7 +614,9 @@ class AnalysisExecutionService:
 
                 highlight_citations.append(source_reference)
 
-            comprehension_checks = list(getattr(walkthrough, "comprehension_checks", []))
+            comprehension_checks = list(
+                getattr(walkthrough, "comprehension_checks", [])
+            )
             if len(comprehension_checks) < self.SECTION_WALKTHROUGH_ITEM_COUNT:
                 raise AnalysisExecutionServiceError(
                     f"Walkthrough for section '{section_name}' must include at least "
@@ -564,7 +647,12 @@ class AnalysisExecutionService:
                 explanation = str(getattr(check, "explanation", "")).strip()
                 distractors = getattr(check, "distractors", [])
 
-                if not check_id or not question or not correct_answer or not explanation:
+                if (
+                    not check_id
+                    or not question
+                    or not correct_answer
+                    or not explanation
+                ):
                     raise AnalysisExecutionServiceError(
                         f"Comprehension check metadata incomplete for section '{section_name}'"
                     )
@@ -580,8 +668,12 @@ class AnalysisExecutionService:
                         f"Comprehension check '{check_id}' for section '{section_name}' is missing lesson_reference"
                     )
 
-                lr_module_key = str(getattr(lesson_reference, "learning_module_key", "")).strip()
-                lr_module_stage = str(getattr(lesson_reference, "module_stage", "")).strip()
+                lr_module_key = str(
+                    getattr(lesson_reference, "learning_module_key", "")
+                ).strip()
+                lr_module_stage = str(
+                    getattr(lesson_reference, "module_stage", "")
+                ).strip()
                 lr_lesson_id = str(getattr(lesson_reference, "lesson_id", "")).strip()
                 if not lr_module_key or not lr_module_stage or not lr_lesson_id:
                     raise AnalysisExecutionServiceError(
@@ -653,7 +745,9 @@ class AnalysisExecutionService:
 
             try:
                 walkthrough_model = self.template_registry.build_walkthrough(
-                    section_name=getattr(section, "section_name", f"Section {index + 1}"),
+                    section_name=getattr(
+                        section, "section_name", f"Section {index + 1}"
+                    ),
                     guidance=guidance_dict,
                     highlights=highlight_payloads,
                     comprehension_checks=comprehension_payloads,
@@ -706,7 +800,9 @@ class AnalysisExecutionService:
 
         start_time = datetime.now(UTC)
         llm_response: LLMResponse = await self.llm.complete(llm_request)
-        processing_time_ms = int((datetime.now(UTC) - start_time).total_seconds() * 1000)
+        processing_time_ms = int(
+            (datetime.now(UTC) - start_time).total_seconds() * 1000
+        )
 
         return AnalysisResult(
             schema_version=1,

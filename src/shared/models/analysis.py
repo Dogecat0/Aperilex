@@ -118,24 +118,17 @@ class TokenUsage(BaseModel):
     completion_tokens: int = Field(description="Number of tokens in the completion")
     total_tokens: int = Field(description="Total tokens used")
 
-    @property
-    def estimated_cost(self) -> float | None:
-        """
-        Estimate cost based on token usage.
 
-        Note: This is a placeholder - actual pricing should be
-        retrieved from provider configuration.
-        """
-        # Placeholder pricing per 1K tokens
-        pricing = {
-            "prompt": 0.01,  # $0.01 per 1K prompt tokens
-            "completion": 0.03,  # $0.03 per 1K completion tokens
-        }
+class SectionCostBreakdown(BaseModel):
+    """Cost and token usage details for a single section analysis."""
 
-        prompt_cost = (self.prompt_tokens / 1000) * pricing["prompt"]
-        completion_cost = (self.completion_tokens / 1000) * pricing["completion"]
-
-        return prompt_cost + completion_cost
+    cost: float | None = Field(
+        default=None,
+        description="Estimated cost in USD attributed to this section",
+    )
+    token_usage: TokenUsage | None = Field(
+        default=None, description="Tokens consumed while analyzing this section"
+    )
 
 
 class LessonReference(BaseModel):
@@ -723,6 +716,9 @@ class AnalysisResult(BaseModel):
     quality_metrics: dict[str, float] | None = Field(
         default=None, description="Additional quality metrics"
     )
+    costs_by_section: dict[str, SectionCostBreakdown] | None = Field(
+        default=None, description="Token usage and cost by section"
+    )
 
     # Timestamps
     created_at: datetime = Field(description="Result creation timestamp")
@@ -758,22 +754,6 @@ class AnalysisResult(BaseModel):
     def processing_time_seconds(self) -> float:
         """Get processing time in seconds."""
         return self.processing_time_ms / 1000.0
-
-    def calculate_actual_cost(self) -> float:
-        """
-        Calculate actual cost based on token usage and provider pricing.
-
-        Returns:
-            Actual cost in USD
-        """
-        if self.estimated_cost is not None:
-            return self.estimated_cost
-
-        # Use token usage to calculate if available
-        if self.token_usage:
-            return self.token_usage.estimated_cost or 0.0
-
-        return 0.0
 
     class Config:
         """Pydantic configuration."""

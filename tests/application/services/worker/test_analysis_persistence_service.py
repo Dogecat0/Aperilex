@@ -20,7 +20,12 @@ from src.shared.enums import (
     TaskStatus,
     UserTier,
 )
-from src.shared.models import AnalysisRequest, AnalysisResult, TaskData
+from src.shared.models import (
+    AnalysisRequest,
+    AnalysisResult,
+    SectionCostBreakdown,
+    TaskData,
+)
 from src.shared.models.analysis import ModelTier, TokenUsage
 from src.shared.types import (
     AnalysisId,
@@ -102,6 +107,16 @@ def _make_analysis_result(task_data: TaskData) -> AnalysisResult:
         ),
         processing_time_ms=60000,
         estimated_cost=4.25,
+        costs_by_section={
+            "Item 1A - Risk Factors": SectionCostBreakdown(
+                cost=1.0,
+                token_usage=TokenUsage(
+                    prompt_tokens=600,
+                    completion_tokens=400,
+                    total_tokens=1000,
+                ),
+            )
+        },
         confidence_score=0.85,
         quality_metrics={"fluency": 0.95},
         created_at=datetime(2024, 1, 1, 10, 0, tzinfo=UTC),
@@ -208,6 +223,8 @@ def test_build_completion_metadata_includes_cost_and_tokens() -> None:
     assert metadata["analysis_status"] == result.status.value
     assert metadata["token_usage_total"] == 2000
     assert metadata["estimated_cost"] == pytest.approx(4.25)
+    assert metadata["analysis_schema_version"] == 5
+    assert metadata["summary_schema_version"] == 4
 
 
 @pytest.mark.unit
@@ -221,7 +238,16 @@ def test_serialize_analysis_artifact_contains_summary_and_results() -> None:
 
     assert payload["analysis_id"] == str(result.analysis_id)
     assert payload["summary"] == summary_payload
-    assert payload["full_results"]["provider"]["name"] == result.llm_provider.value
+    assert payload["schema_version"] == 5
+    provider = payload["full_results"]["provider"]
+    assert provider["name"] == result.llm_provider.value
+    assert provider["estimated_cost"] == pytest.approx(result.estimated_cost)
+    costs_by_section = provider["costs_by_section"]
+    assert costs_by_section["Item 1A - Risk Factors"]["cost"] == pytest.approx(1.0)
+    assert (
+        costs_by_section["Item 1A - Risk Factors"]["token_usage"]["total_tokens"]
+        == 1000
+    )
     assert payload["full_results"]["structured_data"]["key_insights"] == ["Insight A", "Insight B"]
 
 
@@ -251,6 +277,14 @@ async def test_store_analysis_persists_payload_to_storage(tmp_path: pytest.TempP
     assert storage_key == StorageKey("analysis/456.json")
     assert stored_contents["analysis_id"] == result.analysis_id
     assert stored_contents["raw"]["summary"] == summary_payload
+    provider = stored_contents["raw"]["full_results"]["provider"]
+    assert provider["estimated_cost"] == pytest.approx(result.estimated_cost)
+    assert (
+        provider["costs_by_section"]["Item 1A - Risk Factors"]["token_usage"][
+            "total_tokens"
+        ]
+        == 1000
+    )
     provider_metadata = stored_contents["raw"]["full_results"]["provider"].get("metadata", {})
     assert provider_metadata["analysis_focus"] == "Financial performance,Capital allocation"
 

@@ -11,6 +11,7 @@ from .analysis import (
     HighlightCallout,
     LessonReference,
     ModelTier,
+    SectionCostBreakdown,
     SectionWalkthrough,
     StructuredAnalysisData,
     TokenUsage,
@@ -64,6 +65,7 @@ __all__ = [
     "WalkthroughGuidance",
     "STRUCTURED_ANALYSIS_SCHEMA_VERSION",
     "TokenUsage",
+    "SectionCostBreakdown",
     # Task data models
     "TaskData",
     # Learning models

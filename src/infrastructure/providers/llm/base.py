@@ -31,7 +31,7 @@ from src.application.interfaces.llm import (
 )
 from src.shared.config.providers import LLMConfig
 from src.shared.enums import FilingType
-from src.shared.models import LLMModelInfo
+from src.shared.models import LLMModelInfo, TokenUsage
 from src.shared.models.analysis import build_default_section_walkthrough
 
 from . import schemas
@@ -64,6 +64,12 @@ class SubsectionAnalysisResponse(BaseSubSectionAnalysisResponse):
     parent_section: str = Field(..., description="Name of parent section")
     subsection_focus: str = Field(
         ..., description="Specific focus area of this subsection"
+    )
+    token_usage: TokenUsage | None = Field(
+        default=None, description="Token usage for this subsection call"
+    )
+    cost: float | None = Field(
+        default=None, description="Estimated cost for this subsection call in USD"
     )
 
 
@@ -326,6 +332,14 @@ class SectionAnalysisResponse(BaseModel):
         None, description="Processing time in milliseconds"
     )
     sub_section_count: int = Field(..., description="Number of sub-sections analyzed")
+    token_usage: TokenUsage | None = Field(
+        default=None,
+        description="Token usage for analyzing this section including subsections",
+    )
+    cost: float | None = Field(
+        default=None,
+        description="Estimated cost for analyzing this section in USD",
+    )
 
 
 class OverallAnalysisResponse(BaseModel):
@@ -378,6 +392,14 @@ class ComprehensiveAnalysisResponse(BaseModel):
     )
     total_processing_time_ms: int | None = Field(
         None, description="Total processing time in milliseconds"
+    )
+    token_usage: TokenUsage | None = Field(
+        default=None,
+        description="Token usage for the overall aggregation call",
+    )
+    cost: float | None = Field(
+        default=None,
+        description="Estimated cost for the overall aggregation call in USD",
     )
     filing_type: str = Field(..., description="Type of SEC filing")
     company_name: str = Field(..., description="Name of the company")

@@ -15,7 +15,12 @@ from typing import Any, cast
 from src.application.interfaces.repositories import AnalysisData, IRepositoryFactory
 from src.application.interfaces.storage import IStorageProvider
 from src.shared.enums import AnalysisStatus, TaskStatus
-from src.shared.models import AnalysisRequest, AnalysisResult, TaskData
+from src.shared.models import (
+    AnalysisRequest,
+    AnalysisResult,
+    SectionCostBreakdown,
+    TaskData,
+)
 from src.shared.models.storage import StorageMetadataFields
 from src.shared.types import AnalysisId, StorageKey, TaskId
 from src.shared.utils.logging import get_logger
@@ -192,12 +197,12 @@ class AnalysisPersistenceService:
 
         metadata: dict[str, str | int | float | bool] = {
             "storage_key": str(storage_key),
-            "analysis_schema_version": 3,
+            "analysis_schema_version": 5,
             "full_results_schema_version": result.schema_version,
             "analysis_processing_time_ms": result.processing_time_ms,
             "analysis_status": result.status.value,
             "analysis_completed_at": result.completed_at.isoformat(),
-            "summary_schema_version": 3,
+            "summary_schema_version": 4,
         }
 
         metadata["llm_provider"] = result.llm_provider.value
@@ -250,6 +255,23 @@ class AnalysisPersistenceService:
 
         if result.estimated_cost is not None:
             provider["estimated_cost"] = result.estimated_cost
+        if result.costs_by_section:
+            costs_by_section: dict[str, Any] = {}
+            for section, breakdown in result.costs_by_section.items():
+                normalized = (
+                    breakdown
+                    if isinstance(breakdown, SectionCostBreakdown)
+                    else SectionCostBreakdown.model_validate(breakdown)
+                )
+                entry: dict[str, Any] = {}
+                if normalized.cost is not None:
+                    entry["cost"] = normalized.cost
+                if normalized.token_usage:
+                    entry["token_usage"] = normalized.token_usage.model_dump(
+                        mode="json"
+                    )
+                costs_by_section[section] = entry
+            provider["costs_by_section"] = costs_by_section
         if result.confidence_score is not None:
             provider["confidence_score"] = result.confidence_score
         if result.quality_metrics:
@@ -274,7 +296,7 @@ class AnalysisPersistenceService:
             full_results["narrative"]["citations"] = result.citations
 
         payload: dict[str, Any] = {
-            "schema_version": 4,
+            "schema_version": 5,
             "analysis_id": str(result.analysis_id),
             "filing_id": str(result.filing_id),
             "analysis_type": result.analysis_type.value,
