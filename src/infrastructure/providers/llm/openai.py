@@ -193,7 +193,9 @@ class OpenAILLMProvider(BaseLLMProvider):
                     )
                     cached_tokens_value = 0
                     if prompt_token_details is not None:
-                        cached_raw = getattr(prompt_token_details, "cached_tokens", None)
+                        cached_raw = getattr(
+                            prompt_token_details, "cached_tokens", None
+                        )
                         if cached_raw is not None:
                             cached_tokens_value = int(cached_raw)
                     usage_available = True
@@ -669,7 +671,7 @@ class OpenAILLMProvider(BaseLLMProvider):
         Returns:
             Cost in dollars
         """
-        # GPT-4 pricing (approximate)
-        prompt_cost = (prompt_tokens / 1000) * 0.03
-        completion_cost = (completion_tokens / 1000) * 0.06
+        # GPT-5-Nano price per million
+        prompt_cost = (prompt_tokens / 1000) * 0.00005
+        completion_cost = (completion_tokens / 1000) * 0.0004
         return prompt_cost + completion_cost
