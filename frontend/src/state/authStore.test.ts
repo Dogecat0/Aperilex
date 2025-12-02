@@ -19,7 +19,7 @@ describe('authStore', () => {
       user: {
         id: 'user-123',
         email: 'investor@example.com',
-        tier: 'BASIC',
+        tier: 'ESSENTIAL',
         permissions: ['analyze:filings'],
       },
       issuedAt: 1700000000000,
@@ -44,7 +44,7 @@ describe('authStore', () => {
       user: {
         id: 'user-123',
         email: 'investor@example.com',
-        tier: 'BASIC',
+        tier: 'ESSENTIAL',
         permissions: [],
       },
       issuedAt: 1700000000000,
@@ -71,7 +71,7 @@ describe('authStore', () => {
       user: {
         id: 'user-123',
         email: 'investor@example.com',
-        tier: 'BASIC',
+        tier: 'ESSENTIAL',
         permissions: [],
       },
       issuedAt: 1700000000000,

@@ -119,7 +119,7 @@ describe('useAuth', () => {
       user: {
         id: 'user-42',
         email: 'investor@example.com',
-        tier: 'BASIC',
+        tier: 'ESSENTIAL',
         permissions: ['analyze:filings'],
       },
     }
@@ -172,7 +172,7 @@ describe('useAuth', () => {
       user: {
         id: 'user-42',
         email: 'investor@example.com',
-        tier: 'BASIC',
+        tier: 'ESSENTIAL',
         permissions: [],
       },
     }
@@ -233,7 +233,7 @@ describe('useAuth', () => {
       user: {
         id: 'user-42',
         email: 'investor@example.com',
-        tier: 'BASIC',
+        tier: 'ESSENTIAL',
         permissions: [],
       },
     }

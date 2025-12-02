@@ -209,6 +209,66 @@ export interface paths {
     patch?: never
     trace?: never
   }
+  '/api/filings/by-id/{filing_id}/practice/kpi-extract': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Queue KPI extract walkthrough
+     * @description Trigger a KPI-focused guided analysis run for the selected filing.
+     */
+    post: operations['trigger_kpi_extract_practice_api_filings_by_id__filing_id__practice_kpi_extract_post']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/filings/by-id/{filing_id}/practice/risk-delta': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Queue risk delta walkthrough
+     * @description Trigger a risk-focused guided analysis run for the selected filing.
+     */
+    post: operations['trigger_risk_delta_practice_api_filings_by_id__filing_id__practice_risk_delta_post']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/filings/by-id/{filing_id}/practice/mda-quiz': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Queue MD&A quiz walkthrough
+     * @description Trigger an MD&A-focused guided analysis run for the selected filing.
+     */
+    post: operations['trigger_mda_quiz_practice_api_filings_by_id__filing_id__practice_mda_quiz_post']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
   '/api/filings/by-id/{filing_id}': {
     parameters: {
       query?: never
@@ -520,6 +580,26 @@ export interface paths {
     patch?: never
     trace?: never
   }
+  '/api/learning/progress/{module_key}/walkthrough-events': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Record a walkthrough completion event for the authenticated user
+     * @description Record a walkthrough completion milestone and return updated progress.
+     */
+    post: operations['record_walkthrough_event_api_learning_progress__module_key__walkthrough_events_post']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
   '/api/learning/quiz-attempts': {
     parameters: {
       query?: never
@@ -595,7 +675,7 @@ export interface components {
     AnalysesListResponse: {
       /**
        * Schema Version
-       * @default 3
+       * @default 4
        */
       schema_version: number
       /**
@@ -613,7 +693,7 @@ export interface components {
     AnalysisResponse: {
       /**
        * Schema Version
-       * @default 3
+       * @default 4
        */
       schema_version: number
       /**
@@ -664,7 +744,11 @@ export interface components {
      * @description Fields available for ordering analysis results.
      * @enum {string}
      */
-    AnalysisSortField: 'created_at' | 'confidence_score' | 'insight_counts.critical_findings'
+    AnalysisSortField:
+      | 'created_at'
+      | 'confidence_score'
+      | 'insight_counts.critical_findings'
+      | 'filing_date'
     /**
      * AnalysisStatus
      * @description Analysis processing status.
@@ -733,11 +817,8 @@ export interface components {
        * @description Verified email address
        */
       email: string
-      /**
-       * Tier
-       * @description User subscription tier (BASIC, PROFESSIONAL, etc.)
-       */
-      tier?: string | null
+      /** @description User subscription tier (ESSENTIAL or PLUS) */
+      tier?: components['schemas']['UserTier'] | null
       /**
        * Permissions
        * @description Granted permission codes
@@ -1075,6 +1156,13 @@ export interface components {
       last_interaction_at?: string | null
       /** Completed At */
       completed_at?: string | null
+      /**
+       * Is Unlocked
+       * @default false
+       */
+      is_unlocked: boolean
+      /** Unlocked At */
+      unlocked_at?: string | null
       /** Metadata */
       metadata?: {
         [key: string]: unknown
@@ -1261,6 +1349,11 @@ export interface components {
        * @default false
        */
       passed: boolean
+      /**
+       * Is Human Reviewed
+       * @default false
+       */
+      is_human_reviewed: boolean
       /** Attempted At */
       attempted_at?: string | null
       /** Responses */
@@ -1303,10 +1396,19 @@ export interface components {
       /** Passed */
       passed: boolean
       /**
+       * Is Human Reviewed
+       * @default false
+       */
+      is_human_reviewed: boolean
+      /**
        * Attempted At
        * Format: date-time
        */
       attempted_at: string
+      /** Responses */
+      responses?: {
+        [key: string]: unknown
+      }
       /** Metadata */
       metadata?: {
         [key: string]: unknown
@@ -1534,6 +1636,75 @@ export interface components {
       completed_at?: string | null
     }
     /**
+     * SummarySectionSegment
+     * @description Segmented overview card powering the filing summary surface.
+     */
+    SummarySectionSegment: {
+      /**
+       * Id
+       * @description Stable identifier for the summary segment
+       */
+      id?: string | null
+      /**
+       * Title
+       * @description Headline describing the segment focus
+       */
+      title: string
+      /**
+       * Anchor
+       * @description Destination tab anchor (overview|sections|numbers|sentiment)
+       */
+      anchor: string
+      /**
+       * Summary
+       * @description Short narrative aligned to the segment
+       */
+      summary?: string | null
+      /**
+       * Supporting Points
+       * @description Supporting highlights reinforcing the segment narrative
+       */
+      supporting_points?: string[]
+      /** @description Optional quantitative metric to feature within the segment */
+      featured_metric?: components['schemas']['SummarySegmentFeaturedMetric'] | null
+      /**
+       * Cta Label
+       * @description Optional call-to-action label overriding default button copy
+       */
+      cta_label?: string | null
+    }
+    /**
+     * SummarySegmentFeaturedMetric
+     * @description Quantitative highlight rendered within a summary segment.
+     */
+    SummarySegmentFeaturedMetric: {
+      /**
+       * Id
+       * @description Stable identifier for the metric
+       */
+      id: string
+      /**
+       * Label
+       * @description Human readable metric label
+       */
+      label: string
+      /**
+       * Current
+       * @description Formatted representation of the current value
+       */
+      current?: string | null
+      /**
+       * Delta
+       * @description Formatted representation of the change versus prior period
+       */
+      delta?: string | null
+      /**
+       * Trend
+       * @description Directional trend derived from the metric delta
+       */
+      trend?: ('up' | 'down' | 'flat') | null
+    }
+    /**
      * SummarySentiment
      * @description Aggregate sentiment metrics for an analysis.
      */
@@ -1681,6 +1852,12 @@ export interface components {
        */
       total_count: number
     }
+    /**
+     * UserTier
+     * @description User subscription tier levels.
+     * @enum {string}
+     */
+    UserTier: 'ESSENTIAL' | 'PLUS'
     /** ValidationError */
     ValidationError: {
       /** Location */
@@ -1689,6 +1866,27 @@ export interface components {
       msg: string
       /** Error Type */
       type: string
+    }
+    /**
+     * WalkthroughCompletionRequest
+     * @description Request payload for recording a walkthrough completion event.
+     */
+    WalkthroughCompletionRequest: {
+      /**
+       * Analysis Id
+       * Format: uuid
+       * @description Analysis identifier that emitted the walkthrough event
+       */
+      analysis_id: string
+      /**
+       * Section Key
+       * @description Canonical section key for the walkthrough segment
+       */
+      section_key?: string | null
+      /** Progress Percent */
+      progress_percent: number
+      /** Completed At */
+      completed_at?: string | null
     }
     /**
      * AnalysisSummary
@@ -1707,6 +1905,11 @@ export interface components {
       insight_counts?: components['schemas']['SummaryInsightCounts']
       /** @description Analyst pipeline processing metadata */
       processing?: components['schemas']['SummaryProcessing']
+      /**
+       * Summary Sections
+       * @description Segmented overview cards for the summary surface
+       */
+      summary_sections?: components['schemas']['SummarySectionSegment'][]
       /**
        * Filing Summary
        * @description Canonical filing summary narrative
@@ -2016,6 +2219,8 @@ export interface operations {
   analyze_filing_by_id_api_filings_by_id__filing_id__analyze_post: {
     parameters: {
       query?: {
+        /** @description Force regeneration even if a recent analysis already exists */
+        force_reprocess?: boolean
         application_service?: unknown
         auth_provider?: unknown
       }
@@ -2032,6 +2237,159 @@ export interface operations {
     responses: {
       /** @description Successful Response */
       202: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['TaskResponse']
+        }
+      }
+      /** @description Filing not found */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Invalid accession number or filing ID format */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Internal server error */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+    }
+  }
+  trigger_kpi_extract_practice_api_filings_by_id__filing_id__practice_kpi_extract_post: {
+    parameters: {
+      query?: {
+        /** @description Force regeneration even if a recent practice task already exists */
+        force_reprocess?: boolean
+        application_service?: unknown
+        auth_provider?: unknown
+      }
+      header?: {
+        Authorization?: string | null
+      }
+      path: {
+        /** @description Filing UUID identifier */
+        filing_id: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['TaskResponse']
+        }
+      }
+      /** @description Filing not found */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Invalid accession number or filing ID format */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Internal server error */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+    }
+  }
+  trigger_risk_delta_practice_api_filings_by_id__filing_id__practice_risk_delta_post: {
+    parameters: {
+      query?: {
+        /** @description Force regeneration even if a recent practice task already exists */
+        force_reprocess?: boolean
+        application_service?: unknown
+        auth_provider?: unknown
+      }
+      header?: {
+        Authorization?: string | null
+      }
+      path: {
+        /** @description Filing UUID identifier */
+        filing_id: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['TaskResponse']
+        }
+      }
+      /** @description Filing not found */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Invalid accession number or filing ID format */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Internal server error */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+    }
+  }
+  trigger_mda_quiz_practice_api_filings_by_id__filing_id__practice_mda_quiz_post: {
+    parameters: {
+      query?: {
+        /** @description Force regeneration even if a recent practice task already exists */
+        force_reprocess?: boolean
+        application_service?: unknown
+        auth_provider?: unknown
+      }
+      header?: {
+        Authorization?: string | null
+      }
+      path: {
+        /** @description Filing UUID identifier */
+        filing_id: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      200: {
         headers: {
           [name: string]: unknown
         }
@@ -2722,6 +3080,46 @@ export interface operations {
     responses: {
       /** @description Successful Response */
       200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['LearningProgressResponse']
+        }
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  record_walkthrough_event_api_learning_progress__module_key__walkthrough_events_post: {
+    parameters: {
+      query?: {
+        auth_provider?: unknown
+        learning_service?: unknown
+      }
+      header?: {
+        Authorization?: string | null
+      }
+      path: {
+        module_key: string
+      }
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['WalkthroughCompletionRequest']
+      }
+    }
+    responses: {
+      /** @description Successful Response */
+      201: {
         headers: {
           [name: string]: unknown
         }

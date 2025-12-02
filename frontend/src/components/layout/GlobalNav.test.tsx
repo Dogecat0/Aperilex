@@ -84,7 +84,7 @@ describe('GlobalNav authentication controls', () => {
         user: {
           id: 'user-1',
           email: 'investor@example.com',
-          tier: 'BASIC',
+          tier: 'ESSENTIAL',
           permissions: [],
         },
         issuedAt: Date.now(),
