@@ -124,7 +124,7 @@ class UserData(BaseModel):
         description="Lifecycle state for the user",
     )
     tier: UserTier = Field(
-        default=UserTier.BASIC,
+        default=UserTier.ESSENTIAL,
         description="Subscription tier for the user",
     )
     created_at: datetime | None = None

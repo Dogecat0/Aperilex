@@ -28,7 +28,7 @@ def _make_task_data() -> TaskData:
         filing_id=FilingId(uuid.uuid4()),
         user_id=UserId(uuid.uuid4()),
         email=Email(value="analyst@example.com"),
-        user_tier=UserTier.PROFESSIONAL,
+        user_tier=UserTier.PLUS,
         ticker=Ticker(value="APXL"),
         filing_type=FilingType.FORM_10K,
         priority=TaskPriority.HIGH,

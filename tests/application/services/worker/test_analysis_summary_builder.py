@@ -32,7 +32,7 @@ def _make_task_data(metadata: dict[str, str]) -> TaskData:
         filing_id=filing_id,
         user_id=user_id,
         email="analyst@example.com",
-        user_tier=UserTier.PROFESSIONAL,
+        user_tier=UserTier.PLUS,
         ticker="ACME",
         filing_type=FilingType.FORM_10Q,
         priority=TaskPriority.NORMAL,

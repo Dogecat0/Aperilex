@@ -25,7 +25,7 @@ class AnalysisTaskBuilder:
     """Construct `TaskData` instances for worker processing."""
 
     DEFAULT_PRIORITY: Final[TaskPriority] = TaskPriority.NORMAL
-    DEFAULT_TIER: Final[UserTier] = UserTier.BASIC
+    DEFAULT_TIER: Final[UserTier] = UserTier.ESSENTIAL
     DEFAULT_FILING_TYPE: Final[FilingType] = FilingType.FORM_10K
 
     def build_task_data(

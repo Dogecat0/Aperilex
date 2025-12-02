@@ -78,22 +78,19 @@ class AnalysisExecutionService:
     def get_model_tier_for_user(self, user_tier: UserTier | str) -> ModelTier:
         """Resolve the LLM model tier based on the provided user tier."""
 
-        if isinstance(user_tier, str):
-            try:
-                user_tier_enum = UserTier(user_tier)
-            except ValueError:
-                return ModelTier.STANDARD
-        else:
-            user_tier_enum = user_tier
+        user_tier_enum = (
+            user_tier if isinstance(user_tier, UserTier) else UserTier(user_tier)
+        )
 
         tier_mapping = {
-            UserTier.DEMO: ModelTier.ECONOMY,
-            UserTier.BASIC: ModelTier.STANDARD,
-            UserTier.PROFESSIONAL: ModelTier.PREMIUM,
-            UserTier.ENTERPRISE: ModelTier.ULTRA,
+            UserTier.ESSENTIAL: ModelTier.STANDARD,
+            UserTier.PLUS: ModelTier.PREMIUM,
         }
 
-        return tier_mapping.get(user_tier_enum, ModelTier.STANDARD)
+        try:
+            return tier_mapping[user_tier_enum]
+        except KeyError as exc:
+            raise ValueError(f"Unsupported user tier: {user_tier_enum}") from exc
 
     def build_analysis_prompt(
         self,

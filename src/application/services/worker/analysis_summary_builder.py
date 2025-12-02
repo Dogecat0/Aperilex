@@ -515,12 +515,13 @@ class AnalysisSummaryBuilder:
     ) -> dict[str, Any] | None:
         """Construct the section deep-dive segment from findings and sentiment."""
 
+        points: list[str]
         if critical_findings:
             summary_text = clip_summary_text(critical_findings[0])
             points = list(critical_findings)
         else:
             summary_text = None
-            points: list[str] = []
+            points = []
 
             sentiment_description = self._describe_notable_sentiment_section(
                 sentiment_sections,

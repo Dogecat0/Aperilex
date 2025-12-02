@@ -152,7 +152,7 @@ class GoogleOAuthAuthenticationProvider(IAuthenticationProvider):
             "authentication.jwt_audience", "aperilex"
         )
         default_tier = self._config_provider.get_string(
-            "authentication.default_user_tier", UserTier.BASIC.value
+            "authentication.default_user_tier", UserTier.ESSENTIAL.value
         )
         self._default_user_tier = UserTier(default_tier)
 
@@ -773,21 +773,16 @@ class GoogleOAuthAuthenticationProvider(IAuthenticationProvider):
 
     def _permissions_for_tier(self, tier: UserTier) -> list[str]:
         mapping: dict[UserTier, list[str]] = {
-            UserTier.DEMO: ["analysis:read"],
-            UserTier.BASIC: ["analysis:read", "analysis:submit"],
-            UserTier.PROFESSIONAL: [
-                "analysis:read",
-                "analysis:submit",
-                "queue:priority",
-            ],
-            UserTier.ENTERPRISE: [
-                "analysis:read",
-                "analysis:submit",
-                "queue:*",
-                "*:*",
-            ],
+            UserTier.ESSENTIAL: ["analysis:read", "analysis:submit"],
+            UserTier.PLUS: ["analysis:read", "analysis:submit", "queue:priority"],
         }
-        base = mapping.get(tier, mapping[UserTier.BASIC])
+        try:
+            base = mapping[tier]
+        except KeyError as exc:
+            raise AuthenticationError(
+                f"Unknown user tier '{tier}'",
+                code="auth.tier.invalid",
+            ) from exc
         return list(base)
 
     async def _ensure_google_client(self) -> str:

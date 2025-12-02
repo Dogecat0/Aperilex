@@ -29,7 +29,7 @@ class MdaQuizCommand(BaseCommand):
     )
     user_tier: UserTier | None = Field(
         default=None,
-        description="Subscription tier of the requester",
+        description="Subscription tier of the requester (ESSENTIAL or PLUS)",
     )
 
     def _validate(self) -> None:

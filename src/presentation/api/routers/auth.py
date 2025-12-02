@@ -27,6 +27,7 @@ from src.presentation.api.dependencies import (
     get_secret_manager,
 )
 from src.shared.config.settings import settings
+from src.shared.enums import UserTier
 from src.shared.utils.logging import get_logger
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -60,9 +61,9 @@ class AuthenticatedUserPayload(BaseModel):
 
     id: str = Field(..., description="User identifier")
     email: str = Field(..., description="Verified email address")
-    tier: str | None = Field(
+    tier: UserTier | None = Field(
         default=None,
-        description="User subscription tier (BASIC, PROFESSIONAL, etc.)",
+        description="User subscription tier (ESSENTIAL or PLUS)",
     )
     permissions: list[str] = Field(
         default_factory=list,
@@ -313,10 +314,23 @@ def _build_user_payload(result: AuthenticationResult) -> AuthenticatedUserPayloa
             ),
         )
 
+    tier: UserTier | None = None
+    if result.user_tier is not None:
+        try:
+            tier = UserTier(result.user_tier)
+        except ValueError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=_auth_error_detail(
+                    "auth.tier.invalid",
+                    "Authentication provider returned an invalid user tier",
+                ),
+            ) from exc
+
     return AuthenticatedUserPayload(
         id=str(result.user_id),
         email=result.user_email,
-        tier=result.user_tier,
+        tier=tier,
         permissions=result.permissions or [],
     )
 

@@ -70,7 +70,9 @@ class AuthenticationResult(BaseModel):
     authenticated: bool = Field(..., description="Whether authentication succeeded")
     user_id: UserId | None = Field(None, description="Authenticated user ID")
     user_email: str | None = Field(None, description="User email address")
-    user_tier: str | None = Field(None, description="User subscription tier")
+    user_tier: str | None = Field(
+        None, description="User subscription tier (ESSENTIAL or PLUS)"
+    )
     permissions: list[str] = Field(default_factory=list, description="User permissions")
     access_token: str | None = Field(
         default=None,

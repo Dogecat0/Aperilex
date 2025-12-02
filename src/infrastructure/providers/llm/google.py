@@ -362,14 +362,14 @@ class GoogleLLMProvider(BaseLLMProvider):
             processing_time_ms = int((time.time() - start_time) * 1000)
 
             for subsection in sub_sections:
-                if getattr(subsection, "token_usage", None):
-                    section_prompt_tokens += subsection.token_usage.prompt_tokens
-                    section_completion_tokens += (
-                        subsection.token_usage.completion_tokens
-                    )
+                token_usage = getattr(subsection, "token_usage", None)
+                if token_usage is not None:
+                    section_prompt_tokens += token_usage.prompt_tokens
+                    section_completion_tokens += token_usage.completion_tokens
                     usage_tracked = True
-                if getattr(subsection, "cost", None) is not None:
-                    section_cost_components.append(float(subsection.cost))
+                subsection_cost = getattr(subsection, "cost", None)
+                if subsection_cost is not None:
+                    section_cost_components.append(float(subsection_cost))
 
             section_token_usage = (
                 TokenUsage(

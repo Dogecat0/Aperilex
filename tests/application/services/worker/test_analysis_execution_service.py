@@ -48,7 +48,7 @@ def _make_task_data() -> TaskData:
         filing_id=filing_id,
         user_id=user_id,
         email=email,
-        user_tier=UserTier.PROFESSIONAL,
+        user_tier=UserTier.PLUS,
         ticker=ticker,
         filing_type=FilingType.FORM_10K,
         priority=TaskPriority.HIGH,
@@ -157,7 +157,7 @@ def test_create_analysis_request_populates_expected_fields(
     assert request.task_id == task_data.task_id
     assert request.user_id == task_data.user_id
     assert request.analysis_type == AnalysisType.COMPREHENSIVE
-    assert request.model_tier == ModelTier.PREMIUM  # professional users map to premium
+    assert request.model_tier == ModelTier.PREMIUM  # plus users map to premium
     assert request.metadata == task_data.metadata
     assert request.correlation_id == task_data.correlation_id
 
@@ -166,11 +166,8 @@ def test_create_analysis_request_populates_expected_fields(
 @pytest.mark.parametrize(
     ("tier", "expected"),
     [
-        (UserTier.DEMO, ModelTier.ECONOMY),
-        (UserTier.BASIC, ModelTier.STANDARD),
-        (UserTier.PROFESSIONAL, ModelTier.PREMIUM),
-        (UserTier.ENTERPRISE, ModelTier.ULTRA),
-        ("invalid-tier", ModelTier.STANDARD),
+        (UserTier.ESSENTIAL, ModelTier.STANDARD),
+        (UserTier.PLUS, ModelTier.PREMIUM),
     ],
 )
 def test_get_model_tier_for_user_maps_known_tiers(
@@ -179,6 +176,13 @@ def test_get_model_tier_for_user_maps_known_tiers(
 ) -> None:
     service = AnalysisExecutionService()
     assert service.get_model_tier_for_user(tier) == expected
+
+
+@pytest.mark.unit
+def test_get_model_tier_for_user_rejects_unknown_tier() -> None:
+    service = AnalysisExecutionService()
+    with pytest.raises(ValueError):
+        service.get_model_tier_for_user("invalid-tier")
 
 
 @pytest.mark.unit

@@ -8,10 +8,8 @@ from enum import Enum
 class UserTier(str, Enum):
     """User subscription tier levels."""
 
-    DEMO = "DEMO"
-    BASIC = "BASIC"
-    PROFESSIONAL = "PROFESSIONAL"
-    ENTERPRISE = "ENTERPRISE"
+    ESSENTIAL = "ESSENTIAL"
+    PLUS = "PLUS"
 
 
 class UserStatus(str, Enum):

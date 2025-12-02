@@ -70,7 +70,7 @@ def _make_task_data() -> TaskData:
         filing_id=filing_id,
         user_id=user_id,
         email=email,
-        user_tier=UserTier.PROFESSIONAL,
+        user_tier=UserTier.PLUS,
         ticker=ticker,
         filing_type=FilingType.FORM_10Q,
         priority=TaskPriority.NORMAL,

@@ -7,7 +7,11 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Path, Query
 from fastapi.responses import StreamingResponse
-from starlette.status import HTTP_404_NOT_FOUND, HTTP_500_INTERNAL_SERVER_ERROR
+from starlette.status import (
+    HTTP_400_BAD_REQUEST,
+    HTTP_404_NOT_FOUND,
+    HTTP_500_INTERNAL_SERVER_ERROR,
+)
 
 from src.application.containers.orchestrator import SSEConnectionManager
 from src.application.handlers.schemas.responses.task_response import TaskResponse
@@ -20,6 +24,7 @@ from src.presentation.api.dependencies import (
     get_sse_connection_manager,
 )
 from src.presentation.api.security import get_current_user, user_id_str
+from src.shared.enums import UserTier
 
 logger = logging.getLogger(__name__)
 
@@ -177,7 +182,20 @@ async def stream_task_updates(
     if current_user.user_email:
         metadata["user_email"] = current_user.user_email
     if current_user.user_tier:
-        metadata["user_tier"] = current_user.user_tier
+        try:
+            metadata["user_tier"] = UserTier(current_user.user_tier).value
+        except ValueError as exc:
+            logger.warning(
+                "Received unknown user tier from authentication result",
+                extra={"user_tier": current_user.user_tier},
+            )
+            raise HTTPException(
+                status_code=HTTP_400_BAD_REQUEST,
+                detail={
+                    "code": "auth.user.invalid_tier",
+                    "message": "User tier is invalid",
+                },
+            ) from exc
     if current_user.permissions:
         metadata["permissions"] = ",".join(sorted(set(current_user.permissions)))
 

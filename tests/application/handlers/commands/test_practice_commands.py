@@ -101,7 +101,7 @@ async def test_practice_handlers_queue_expected_template(
         force_reprocess=True,
         user_id=str(raw_user_id),
         user_email="user@example.com",
-        user_tier=UserTier.BASIC,
+        user_tier=UserTier.ESSENTIAL,
     )
 
     result = await handler.handle(command)
@@ -118,7 +118,7 @@ async def test_practice_handlers_queue_expected_template(
     assert queued_command.accession_number == command.accession_number
     assert queue_call.kwargs["company"] is company
     assert queue_call.kwargs["filing"] is filing
-    assert queue_call.kwargs["user_tier"] == UserTier.BASIC
+    assert queue_call.kwargs["user_tier"] == UserTier.ESSENTIAL
     assert isinstance(queue_call.kwargs["user_email"], Email)
     assert queue_call.kwargs["user_email"].value == command.user_email
     assert queue_call.kwargs["user_id"] == UserId(raw_user_id)

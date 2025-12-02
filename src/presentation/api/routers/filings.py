@@ -397,11 +397,18 @@ async def analyze_filing_by_id(
         if current_user.user_tier:
             try:
                 tier_value = UserTier(current_user.user_tier)
-            except ValueError:
+            except ValueError as exc:
                 logger.warning(
                     "Received unknown user tier from authentication result",
                     extra={"user_tier": current_user.user_tier},
-        )
+                )
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail={
+                        "code": "auth.user.invalid_tier",
+                        "message": "User tier is invalid",
+                    },
+                ) from exc
 
         command = AnalyzeFilingCommand(
             accession_number=accession_number,
@@ -523,11 +530,18 @@ async def trigger_kpi_extract_practice(
         if current_user.user_tier:
             try:
                 tier_value = UserTier(current_user.user_tier)
-            except ValueError:
+            except ValueError as exc:
                 logger.warning(
                     "Received unknown user tier from authentication result",
                     extra={"user_tier": current_user.user_tier},
                 )
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail={
+                        "code": "auth.user.invalid_tier",
+                        "message": "User tier is invalid",
+                    },
+                ) from exc
 
         command = KPIExtractCommand(
             company_cik=company_cik,
@@ -651,11 +665,18 @@ async def trigger_risk_delta_practice(
         if current_user.user_tier:
             try:
                 tier_value = UserTier(current_user.user_tier)
-            except ValueError:
+            except ValueError as exc:
                 logger.warning(
                     "Received unknown user tier from authentication result",
                     extra={"user_tier": current_user.user_tier},
                 )
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail={
+                        "code": "auth.user.invalid_tier",
+                        "message": "User tier is invalid",
+                    },
+                ) from exc
 
         command = RiskDeltaCommand(
             company_cik=company_cik,
@@ -779,11 +800,18 @@ async def trigger_mda_quiz_practice(
         if current_user.user_tier:
             try:
                 tier_value = UserTier(current_user.user_tier)
-            except ValueError:
+            except ValueError as exc:
                 logger.warning(
                     "Received unknown user tier from authentication result",
                     extra={"user_tier": current_user.user_tier},
                 )
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail={
+                        "code": "auth.user.invalid_tier",
+                        "message": "User tier is invalid",
+                    },
+                ) from exc
 
         command = MdaQuizCommand(
             company_cik=company_cik,

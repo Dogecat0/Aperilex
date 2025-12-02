@@ -368,7 +368,7 @@ def provider(monkeypatch: pytest.MonkeyPatch) -> GoogleOAuthAuthenticationProvid
             "authentication.rate_limits.refresh.window_seconds": 60,
             "authentication.rate_limits.request.limit": 3,
             "authentication.rate_limits.request.window_seconds": 30,
-            "authentication.default_user_tier": UserTier.BASIC.value,
+            "authentication.default_user_tier": UserTier.ESSENTIAL.value,
             "authentication.jwt_issuer": "https://test-issuer",
             "authentication.jwt_audience": "test-audience",
             "authentication.jwt_key_id": "test-key",

@@ -261,7 +261,7 @@ def learning_app(
             authenticated=True,
             user_id=user_id,
             user_email="learner@example.com",
-            user_tier="BASIC",
+            user_tier="ESSENTIAL",
             permissions=[],
         )
 

@@ -104,7 +104,7 @@ def test_builder_constructs_expected_task_data(monkeypatch: pytest.MonkeyPatch) 
         filing=filing,
         user_email=email,
         user_id=user_id,
-        user_tier=UserTier.PROFESSIONAL,
+        user_tier=UserTier.PLUS,
         priority=TaskPriority.HIGH,
         source="api-test",
         correlation_id="corr-123",
@@ -122,7 +122,7 @@ def test_builder_constructs_expected_task_data(monkeypatch: pytest.MonkeyPatch) 
     assert builder_result.filing_id == filing.id
     assert builder_result.user_id == user_id
     assert builder_result.email == email
-    assert builder_result.user_tier is UserTier.PROFESSIONAL
+    assert builder_result.user_tier is UserTier.PLUS
     assert builder_result.priority is TaskPriority.HIGH
     assert builder_result.source == "api-test"
     assert builder_result.correlation_id == "corr-123"
@@ -130,7 +130,7 @@ def test_builder_constructs_expected_task_data(monkeypatch: pytest.MonkeyPatch) 
     assert builder_result.metadata["analysis_template"] == AnalysisTemplate.COMPREHENSIVE.value
     assert builder_result.metadata["company_name"] == company.name
     assert builder_result.metadata["filing_type"] == filing.filing_type.value
-    assert builder_result.metadata["user_tier"] == UserTier.PROFESSIONAL.value
+    assert builder_result.metadata["user_tier"] == UserTier.PLUS.value
     assert builder_result.status is TaskStatus.PENDING
 
 

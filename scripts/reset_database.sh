@@ -60,7 +60,7 @@ echo -e "${GREEN}✅ Local storage data cleared${NC}"
 
 # Step 4: Run Alembic Migrations inside Docker container
 echo -e "\n${YELLOW}🔄 Running Alembic migrations...${NC}"
-docker exec aperilex-app-1 alembic upgrade head
+docker compose run --rm --no-deps app alembic upgrade head
 
 if [ $? -eq 0 ]; then
     echo -e "${GREEN}✅ Migrations completed successfully${NC}"

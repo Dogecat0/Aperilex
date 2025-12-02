@@ -34,8 +34,8 @@ class MockAuthenticationProvider:
         """
         self.mock_user_id = UserId(uuid.uuid4())
         self.mock_email = "test@example.com"
-        self.mock_tier = "BASIC"
-        self.mock_permissions = ["read", "write"]
+        self.mock_tier = "ESSENTIAL"
+        self.mock_permissions = ["analysis:read", "analysis:submit"]
         self.request_counts: dict[str, int] = {}
 
     async def authenticate(

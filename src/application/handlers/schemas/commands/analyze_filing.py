@@ -59,7 +59,7 @@ class AnalyzeFilingCommand(BaseCommand):
     )
     user_tier: UserTier | None = Field(
         default=None,
-        description="Subscription tier of the user initiating the analysis",
+        description="Subscription tier of the user initiating the analysis (ESSENTIAL or PLUS)",
     )
 
     def _validate(self) -> None:

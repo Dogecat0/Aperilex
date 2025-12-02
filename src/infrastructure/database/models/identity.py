@@ -61,8 +61,8 @@ class User(Base):
     tier: Mapped[str] = mapped_column(
         String(50),
         nullable=False,
-        default=UserTier.BASIC.value,
-        server_default=text("'BASIC'"),
+        default=UserTier.ESSENTIAL.value,
+        server_default=text("'ESSENTIAL'"),
     )
 
     identities: Mapped[list[UserIdentity]] = relationship(

@@ -31,7 +31,7 @@ class TaskData(BaseModel):
     # User information
     email: Email = Field(description="Validated email for notifications")
     user_tier: UserTier = Field(
-        default=UserTier.BASIC,
+        default=UserTier.ESSENTIAL,
         description="User subscription tier for priority handling",
     )
 
@@ -140,10 +140,8 @@ class TaskData(BaseModel):
         """
         # Tier-based priority boost
         tier_boost = {
-            UserTier.ENTERPRISE: -3,
-            UserTier.PROFESSIONAL: -2,
-            UserTier.BASIC: 0,
-            UserTier.DEMO: 2,
+            UserTier.ESSENTIAL: 0,
+            UserTier.PLUS: -1,
         }
 
         base_priority = self.priority.value
