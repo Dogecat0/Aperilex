@@ -444,6 +444,8 @@ async def analyze_filing_by_id(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Filing with ID {filing_id} not found",
         ) from e
+    except HTTPException:
+        raise
     except ValueError as e:
         logger.warning(
             "Invalid filing data for analysis",

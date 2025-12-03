@@ -61,7 +61,11 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
 
         rate_limiter = await self._resolve_rate_limiter()
         if rate_limiter is None or rate_limiter.provider is None:
-            return await call_next(request)
+            return self._reject_request(
+                resource=request.url.path,
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                message="Rate limiter unavailable",
+            )
 
         client_id = self._extract_client_id(request)
         user_id = await self._resolve_user_id(request)
@@ -73,17 +77,28 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
                 resource=resource,
                 user_id=user_id,
             )
-        except Exception as exc:  # noqa: BLE001 - continue processing on failure
+        except Exception as exc:  # noqa: BLE001 - fail closed on provider failure
             logger.error(
-                "Rate limit evaluation failed; continuing without enforcement",
+                "Rate limit evaluation failed; rejecting request",
                 exc_info=True,
                 extra={"client_id": client_id, "resource": resource, "error": str(exc)},
             )
-            return await call_next(request)
+            return self._reject_request(
+                resource=resource,
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                message="Rate limiting unavailable",
+            )
 
         headers = await rate_limiter.get_rate_limit_headers(result)
 
-        if result is not None and not result.allowed:
+        if result is None:
+            return self._reject_request(
+                resource=resource,
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                message="Rate limiter returned no result",
+            )
+
+        if not result.allowed:
             error_payload = {
                 "error": {
                     "message": "Rate limit exceeded",
@@ -209,6 +224,24 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
             return client_host
 
         return "unknown-client"
+
+    @staticmethod
+    def _reject_request(
+        *,
+        resource: str,
+        status_code: int,
+        message: str,
+    ) -> JSONResponse:
+        return JSONResponse(
+            status_code=status_code,
+            content={
+                "error": {
+                    "message": message,
+                    "status_code": status_code,
+                    "path": resource,
+                }
+            },
+        )
 
     async def cleanup_expired_clients(self, max_idle_time: int = 86400) -> int:
         rate_limiter = await self._resolve_rate_limiter()
