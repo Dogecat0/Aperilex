@@ -83,13 +83,14 @@ class AnalysisRepository(IAnalysisRepository):
                 AnalysisStatus.PARSING.value,
                 AnalysisStatus.ANALYZING.value,
                 AnalysisStatus.STORING.value,
-                AnalysisStatus.ERROR.value,
-                AnalysisStatus.EXPIRED.value,
             }
         elif normalized_segment == "ready_for_review":
             segment_statuses = {AnalysisStatus.COMPLETED.value}
         elif normalized_segment == "flagged":
-            segment_statuses = {AnalysisStatus.COMPLETED.value}
+            segment_statuses = {
+                AnalysisStatus.COMPLETED.value,
+                AnalysisStatus.ERROR.value,
+            }
             requires_flagged = True
         else:
             segment_statuses = None
@@ -445,11 +446,15 @@ class AnalysisRepository(IAnalysisRepository):
         model.status = status.value
 
         if error_message:
-            if not model.meta_data:
-                model.meta_data = {}
-            model.meta_data["error_message"] = error_message
+            existing_meta = (
+                dict(model.meta_data) if isinstance(model.meta_data, dict) else {}
+            )
+            existing_meta["error_message"] = error_message
+            model.meta_data = existing_meta
         elif model.meta_data and "error_message" in model.meta_data:
-            model.meta_data.pop("error_message")
+            updated_meta = dict(model.meta_data)
+            updated_meta.pop("error_message", None)
+            model.meta_data = updated_meta
 
         await self.session.flush()
         await self.session.commit()

@@ -152,7 +152,7 @@ class SQLAlchemyDatabaseProvider(IDatabaseProvider):
                         user_id=user_id,
                         filing_id=filing_id,
                         status=status.value,
-                        metadata=metadata,
+                        task_metadata=metadata,
                     )
                     session.add(task)
 

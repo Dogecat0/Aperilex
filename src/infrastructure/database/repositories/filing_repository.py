@@ -382,6 +382,8 @@ class FilingRepository(IFilingRepository):
             model.processing_error = error
 
         await self.session.flush()
+        await self.session.refresh(model)
+        await self.session.commit()
 
         # Invalidate caches
         cache_key = f"filing:id:{filing_id}"

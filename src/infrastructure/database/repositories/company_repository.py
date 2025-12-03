@@ -187,6 +187,9 @@ class CompanyRepository(ICompanyRepository):
         model.meta_data = metadata
 
         await self.session.flush()
+        await self.session.refresh(
+            model, attribute_names=["meta_data", "created_at", "updated_at"]
+        )
 
         # Invalidate caches
         cache_key = f"company:id:{company.id}"

@@ -83,6 +83,8 @@ services:
       - ./src:/app/src
       - ./tests:/app/tests
       - ./scripts:/app/scripts
+      - ./alembic:/app/alembic
+      - ./alembic.ini:/app/alembic.ini
       - ./data:/app/data
     command: ["app"]
     secrets:

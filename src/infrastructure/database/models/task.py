@@ -25,7 +25,9 @@ class Task(Base):
         index=True,
     )
     filing_id: Mapped[UUIDType] = mapped_column(
-        UUID(as_uuid=True), nullable=False, index=True
+        ForeignKey("filings.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
     status: Mapped[str] = mapped_column(String(50), nullable=False, index=True)
     task_metadata: Mapped[dict[str, Any] | None] = mapped_column(
