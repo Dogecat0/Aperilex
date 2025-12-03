@@ -132,11 +132,9 @@ class DockerSecretManager(ISecretManager):
         if not paths.secret_file.exists():
             raise KeyError(f"Secret '{secret_name}' not found")
 
-        versions = (
-            list(paths.versions_dir.glob("version-*"))
-            if paths.versions_dir.exists()
-            else []
-        )
+        self._validate_secret_value(secret_value)
+
+        versions = self._load_version_metadata(paths)
         next_version = len(versions) + 1
         self._write_secret(paths.secret_file, secret_value)
         metadata = SecretMetadata(
@@ -191,6 +189,10 @@ class DockerSecretManager(ISecretManager):
         paths = self._resolve_paths(secret_name)
         if not paths.secret_file.exists():
             raise KeyError(f"Secret '{secret_name}' not found")
+        versions = self._load_version_metadata(paths)
+        if versions:
+            return versions[-1]
+
         stat = paths.secret_file.stat()
         return SecretMetadata(
             schema_version=1,
@@ -209,16 +211,33 @@ class DockerSecretManager(ISecretManager):
         paths = self._resolve_paths(secret_name)
         if not paths.secret_file.exists():
             raise KeyError(f"Secret '{secret_name}' not found")
-        stat = paths.secret_file.stat()
-        return [
-            SecretVersion(
-                schema_version=1,
-                version_id="v1",
-                version_stage="AWSCURRENT",
-                created_at=datetime.fromtimestamp(stat.st_ctime, tz=UTC),
-                is_current=True,
+        versions = self._load_version_metadata(paths)
+        if not versions:
+            stat = paths.secret_file.stat()
+            return [
+                SecretVersion(
+                    schema_version=1,
+                    version_id="v1",
+                    version_stage="AWSCURRENT",
+                    created_at=datetime.fromtimestamp(stat.st_ctime, tz=UTC),
+                    is_current=True,
+                )
+            ]
+
+        secret_versions: list[SecretVersion] = []
+        for index, metadata in enumerate(versions):
+            is_current = index == len(versions) - 1
+            secret_versions.append(
+                SecretVersion(
+                    schema_version=1,
+                    version_id=metadata.version or "v1",
+                    version_stage="AWSCURRENT" if is_current else "AWSPREVIOUS",
+                    created_at=metadata.created_at,
+                    is_current=is_current,
+                )
             )
-        ]
+
+        return secret_versions
 
     async def tag_secret(
         self,
@@ -256,6 +275,7 @@ class DockerSecretManager(ISecretManager):
             yield candidate
 
     def _write_secret(self, secret_file: Path, value: str | bytes) -> None:
+        self._validate_secret_value(value)
         secret_file.parent.mkdir(parents=True, exist_ok=True)
         if isinstance(value, bytes):
             secret_file.write_bytes(value)
@@ -268,3 +288,35 @@ class DockerSecretManager(ISecretManager):
         version_file = paths.versions_dir / f"version-{metadata.version}.meta"
         version_file.write_text(metadata.model_dump_json(indent=2), encoding="utf-8")
         os.chmod(version_file, 0o600)
+
+    def _load_version_metadata(self, paths: _SecretPaths) -> list[SecretMetadata]:
+        if not paths.versions_dir.exists():
+            return []
+
+        metadata: list[SecretMetadata] = []
+        for version_file in paths.versions_dir.glob("version-*.meta"):
+            try:
+                metadata.append(
+                    SecretMetadata.model_validate_json(version_file.read_text())
+                )
+            except Exception:
+                continue
+
+        metadata.sort(key=self._parse_version_number)
+        return metadata
+
+    @staticmethod
+    def _parse_version_number(metadata: SecretMetadata) -> int:
+        version = metadata.version or ""
+        digits = "".join(ch for ch in str(version) if ch.isdigit())
+        return int(digits) if digits else 0
+
+    @staticmethod
+    def _validate_secret_value(secret_value: str | bytes) -> None:
+        if isinstance(secret_value, bytes):
+            if len(secret_value) == 0:
+                raise ValueError("Secret value cannot be empty")
+            return
+
+        if not secret_value or not secret_value.strip():
+            raise ValueError("Secret value cannot be empty")
