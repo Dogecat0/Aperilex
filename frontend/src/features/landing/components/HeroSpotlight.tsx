@@ -1,7 +1,7 @@
-import { useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { Button } from '@/components/ui/Button'
 import type { HeroInsight, HeroSlide } from '../content'
-import { renderPanelContent } from './renderPanelContent'
+import { HeroGraphic } from './HeroGraphic'
 
 type HeroSpotlightProps = {
   eyebrow: string
@@ -34,57 +34,6 @@ export function HeroSpotlight({
     () => slideOptions.find((slide) => slide.id === activeSlideId) ?? slideOptions[0],
     [activeSlideId, slideOptions]
   )
-  const panelRef = useRef<HTMLDivElement | null>(null)
-  const measurementRef = useRef<HTMLDivElement | null>(null)
-  const [panelHeight, setPanelHeight] = useState(0)
-
-  useLayoutEffect(() => {
-    const measurementNode = measurementRef.current
-    if (measurementNode) {
-      const heights = Array.from(measurementNode.children)
-        .map((child) => (child instanceof HTMLElement ? child.offsetHeight : 0))
-        .filter((value) => value > 0)
-      const maxHeight = heights.length ? Math.max(...heights) : 0
-      if (maxHeight > 0) {
-        setPanelHeight((prev) =>
-          prev === 0 ? Math.ceil(maxHeight) : Math.max(prev, Math.ceil(maxHeight))
-        )
-      }
-    }
-
-    if (typeof window === 'undefined' || typeof ResizeObserver === 'undefined') {
-      return
-    }
-
-    const node = panelRef.current
-    if (!node) {
-      return
-    }
-
-    const observer = new ResizeObserver((entries) => {
-      const entry = entries[0]
-      if (!entry) {
-        return
-      }
-
-      const measured = Math.ceil(entry.contentRect.height)
-      setPanelHeight((prev) => {
-        if (measured === 0) {
-          return prev
-        }
-        return prev === 0 ? measured : Math.max(prev, measured)
-      })
-    })
-
-    observer.observe(node)
-    return () => observer.disconnect()
-  }, [slideOptions])
-  const renderSlidePanel = () => {
-    if (!activeSlide) {
-      return null
-    }
-    return renderPanelContent(activeSlide.panel)
-  }
 
   return (
     <section
@@ -92,25 +41,6 @@ export function HeroSpotlight({
       className="relative overflow-visible text-[var(--text-primary)]"
     >
       <div className="relative mx-auto flex w-full max-w-7xl flex-col gap-16 px-3 py-8 lg:flex-row lg:items-center lg:gap-24 md:px-6 md:py-12">
-        {/* Hidden measurement node for layout stability */}
-        <div
-          ref={measurementRef}
-          className="pointer-events-none absolute left-0 top-0 -z-10 max-w-xl opacity-0"
-          aria-hidden
-        >
-          {slideOptions.map((slide) => (
-            <div
-              key={`${slide.id}-measurement`}
-              className="rounded-[32px] border border-white/15 bg-white/5 p-6"
-            >
-              <div className="rounded-3xl border border-white/15 bg-[var(--brand-background)] p-4">
-                {renderPanelContent(slide.panel)}
-              </div>
-              <p className="pt-4 text-sm text-white/80">{slide.description}</p>
-            </div>
-          ))}
-        </div>
-
         <div className="flex-1 space-y-8 animate-in fade-in slide-in-from-bottom-8 duration-700">
           <div className="space-y-4">
             <p className="text-sm font-bold uppercase tracking-[0.25em] text-[var(--brand-accent)]">
@@ -193,27 +123,17 @@ export function HeroSpotlight({
             </div>
           </div>
 
-          <div
-            ref={panelRef}
-            className="relative overflow-hidden rounded-[40px] border border-[var(--lines-subtle)] bg-[var(--surfaces-raised)]/40 p-4 shadow-2xl backdrop-blur-xl transition-all duration-500 md:p-8"
-            aria-live="polite"
-            style={{ minHeight: panelHeight ? `${panelHeight}px` : undefined }}
-          >
-            {/* Decorative gradient blob behind the panel content */}
-            <div className="absolute -top-24 -right-24 w-64 h-64 bg-[var(--brand-accent)]/20 rounded-full blur-[80px] pointer-events-none" />
+          <div className="relative">
+            <HeroGraphic activeSlideId={activeSlideId} />
 
-            {activeSlide && (
-              <div className="relative z-10">
-                <div className="rounded-3xl border border-[var(--lines-subtle)] bg-[var(--surfaces-base)] p-6 shadow-inner">
-                  <div className="rounded-[20px] bg-[var(--surfaces-base)] overflow-hidden">
-                    {renderSlidePanel()}
-                  </div>
-                </div>
-                <p className="mt-6 text-center text-sm font-medium text-[var(--text-secondary)]">
-                  {activeSlide.description}
-                </p>
-              </div>
-            )}
+            <div className="mt-6 text-center">
+              <p
+                key={activeSlideId}
+                className="text-sm font-medium text-[var(--text-primary)] animate-in fade-in slide-in-from-bottom-2 duration-300"
+              >
+                {activeSlide?.description}
+              </p>
+            </div>
           </div>
         </div>
       </div>
