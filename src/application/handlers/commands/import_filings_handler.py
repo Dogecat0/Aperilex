@@ -180,9 +180,13 @@ class ImportFilingsCommandHandler(CommandHandler[ImportFilingsCommand, TaskRespo
             task_ids.append(str(task_id))
 
             # Build payload dict without None values
+            filing_types = [
+                ft.value if hasattr(ft, "value") else str(ft)
+                for ft in (command.filing_types or [])
+            ]
             payload: dict[str, MetadataValue] = {
-                "cik": str(cik),
-                "filing_types": command.filing_types if command.filing_types else [],
+                "cik": cik.padded(),
+                "filing_types": filing_types,
                 "limit_per_company": command.limit_per_company,
                 "batch_id": batch_id,
             }

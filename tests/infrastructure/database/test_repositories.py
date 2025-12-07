@@ -1,15 +1,23 @@
 from __future__ import annotations
 
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.application.interfaces.repositories import AnalysisData, CompanyData, FilingData
+from src.application.interfaces.repositories import (
+    AnalysisData,
+    CompanyData,
+    FilingData,
+)
 from src.infrastructure.database.models.identity import User
-from src.infrastructure.database.repositories.analysis_repository import AnalysisRepository
-from src.infrastructure.database.repositories.company_repository import CompanyRepository
+from src.infrastructure.database.repositories.analysis_repository import (
+    AnalysisRepository,
+)
+from src.infrastructure.database.repositories.company_repository import (
+    CompanyRepository,
+)
 from src.infrastructure.database.repositories.filing_repository import FilingRepository
 from src.shared.enums import (
     AnalysisStatus,
@@ -20,9 +28,9 @@ from src.shared.enums import (
     UserTier,
 )
 from src.shared.types import (
+    CIK,
     AccessionNumber,
     AnalysisId,
-    CIK,
     CompanyId,
     FilingId,
     Ticker,
@@ -67,7 +75,7 @@ async def test_company_repository_crud_and_lookup(db_session: AsyncSession) -> N
     assert normalized_lookup is not None
     assert normalized_lookup.id == company_id
 
-    updated = await repo.update(
+    _ = await repo.update(
         CompanyData(
             id=company_id,
             cik=CIK(value="320193"),
@@ -114,7 +122,7 @@ async def test_filing_repository_latest_and_status(db_session: AsyncSession) -> 
             company_id=company.id,
             filing_type=FilingType.FORM_10K,
             accession_number=AccessionNumber(value="0001067983-23-000001"),
-            filing_date=datetime(2023, 1, 1, tzinfo=timezone.utc),
+            filing_date=datetime(2023, 1, 1, tzinfo=UTC),
             processing_status=TaskStatus.PENDING,
             metadata={"source": "edgar"},
         )
@@ -125,7 +133,7 @@ async def test_filing_repository_latest_and_status(db_session: AsyncSession) -> 
             company_id=company.id,
             filing_type=FilingType.FORM_10K,
             accession_number=AccessionNumber(value="0001067983-24-000001"),
-            filing_date=datetime(2024, 1, 1, tzinfo=timezone.utc),
+            filing_date=datetime(2024, 1, 1, tzinfo=UTC),
             processing_status=TaskStatus.PENDING,
             metadata={"source": "edgar"},
         )
@@ -189,14 +197,14 @@ async def test_analysis_repository_lifecycle_and_filters(
             company_id=company.id,
             filing_type=FilingType.FORM_10Q,
             accession_number=AccessionNumber(value="0000835070-24-000001"),
-            filing_date=datetime(2024, 4, 1, tzinfo=timezone.utc),
+            filing_date=datetime(2024, 4, 1, tzinfo=UTC),
             processing_status=TaskStatus.PENDING,
             metadata={"source": "edgar"},
         )
     )
     await db_session.commit()
 
-    completed_at = datetime.now(timezone.utc).isoformat()
+    completed_at = datetime.now(UTC).isoformat()
     flagged_analysis = await analysis_repo.create(
         AnalysisData(
             id=AnalysisId(uuid.uuid4()),
@@ -266,7 +274,10 @@ async def test_analysis_repository_lifecycle_and_filters(
 
     refreshed = await analysis_repo.get_by_id(flagged_analysis.id)
     assert refreshed is not None
-    assert refreshed.summary and refreshed.summary["insight_counts"]["critical_findings"] == 3
+    assert (
+        refreshed.summary
+        and refreshed.summary["insight_counts"]["critical_findings"] == 3
+    )
 
     flagged_results = await analysis_repo.find_with_filters(
         segment="flagged",
@@ -274,5 +285,8 @@ async def test_analysis_repository_lifecycle_and_filters(
         sort_direction="desc",
         page_size=10,
     )
-    assert [result.summary["insight_counts"]["critical_findings"] for result in flagged_results] == [5, 3]
+    assert [
+        result.summary["insight_counts"]["critical_findings"]
+        for result in flagged_results
+    ] == [5, 3]
     assert await analysis_repo.count_with_filters(segment="attention") == 1

@@ -22,7 +22,7 @@ class StubIncomingMessage:
         message: aio_pika.Message,
         routing_key: str,
         exchange_name: str,
-        queue: "StubQueue",
+        queue: StubQueue,
     ) -> None:
         self.body = message.body
         self.headers = message.headers
@@ -52,7 +52,7 @@ class StubQueue:
         self.bound_keys: set[str] = set()
         self.declared_args: dict[str, object] | None = None
 
-    async def bind(self, _exchange: "StubExchange", routing_key: str) -> None:
+    async def bind(self, _exchange: StubExchange, routing_key: str) -> None:
         self.bound_keys.add(routing_key)
 
     def iterator(self, timeout: int = 0) -> object:
@@ -60,7 +60,7 @@ class StubQueue:
         queue = self
 
         class _Iterator:
-            async def __aenter__(self) -> "_Iterator":
+            async def __aenter__(self) -> _Iterator:
                 return self
 
             async def __aexit__(
@@ -68,7 +68,7 @@ class StubQueue:
             ) -> None:
                 return None
 
-            def __aiter__(self) -> "_Iterator":
+            def __aiter__(self) -> _Iterator:
                 return self
 
             async def __anext__(self) -> StubIncomingMessage:
@@ -78,7 +78,7 @@ class StubQueue:
 
         return _Iterator()
 
-    async def declare(self) -> "StubQueue":
+    async def declare(self) -> StubQueue:
         self.message_count = len(self.messages)
         return self
 
@@ -87,7 +87,7 @@ class StubQueue:
 
 
 class StubExchange:
-    def __init__(self, name: str, channel: "StubChannel") -> None:
+    def __init__(self, name: str, channel: StubChannel) -> None:
         self.name = name
         self.channel = channel
 

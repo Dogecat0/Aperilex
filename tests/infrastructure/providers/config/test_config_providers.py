@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import pytest
-
 from src.application.interfaces.config import (
     ConfigNamespace,
     ConfigValidationRule,
@@ -39,7 +37,7 @@ class InMemoryConfigProvider:
 
     def get_float(self, key: str, default: float | None = None) -> float:
         value = self.get(key, default)
-        if not isinstance(value, (int, float)):
+        if not isinstance(value, int | float):
             raise TypeError("Value is not a float")
         return float(value)
 
@@ -161,7 +159,9 @@ def test_environment_config_parses_types_and_masks_sensitive(monkeypatch) -> Non
     assert validation["timeout_seconds"] is True
 
 
-def test_composite_config_provider_prefers_first_and_sets_on_primary(monkeypatch) -> None:
+def test_composite_config_provider_prefers_first_and_sets_on_primary(
+    monkeypatch,
+) -> None:
     primary = InMemoryConfigProvider({"feature_flag": True})
     fallback = InMemoryConfigProvider({"feature_flag": False, "timeout": 10})
     composite = CompositeConfigProvider([primary, fallback])

@@ -3,12 +3,14 @@
 from __future__ import annotations
 
 import uuid
+from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime
-from typing import Any, Awaitable, Callable
+from typing import Any
 
 import pytest
+
 from src.application.interfaces.worker import WorkerContext
-from src.application.services.worker_service import TaskResult, WorkerService
+from src.application.services.worker_service import WorkerService
 from src.shared.enums import (
     AnalysisStatus,
     FilingType,
@@ -23,9 +25,9 @@ from src.shared.models import (
     AnalysisRequest,
     AnalysisResult,
     ModelTier,
-    TokenUsage,
     TaskData,
     TaskQueueMessage,
+    TokenUsage,
 )
 from src.shared.types import (
     AnalysisId,

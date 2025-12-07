@@ -14,6 +14,7 @@ from pydantic import BaseModel, Field
 
 from src.application.interfaces.queue import IQueueProvider
 from src.shared.enums import TaskPriority, TaskStatus
+from src.shared.models.base import MetadataValue
 from src.shared.models.queue import TaskQueueMessage
 from src.shared.models.task_data import TaskData
 from src.shared.types import CorrelationId
@@ -213,11 +214,27 @@ class PriorityQueueService:
         try:
             from src.shared.models.queue import TaskMessage
 
-            payload = (
+            task_payload = (
                 task_data.model_dump_json()
                 if hasattr(task_data, "model_dump_json")
                 else task_data.json()
             )
+
+            payload: dict[str, MetadataValue] = {"task_data": task_payload}
+            metadata = task_data.metadata or {}
+            for key in (
+                "filing_id",
+                "company_id",
+                "company_cik",
+                "cik",
+                "accession_number",
+                "analysis_template",
+            ):
+                value = metadata.get(key)
+                if value:
+                    payload[key] = str(value)
+
+            payload.setdefault("filing_id", str(task_data.filing_id))
 
             task_message = TaskMessage(
                 schema_version=1,
@@ -225,7 +242,7 @@ class PriorityQueueService:
                 task_type="analysis",  # Could be from task_data metadata
                 priority=task_data.priority,
                 status=task_data.status,
-                payload={"task_data": payload},
+                payload=payload,
                 correlation_id=(
                     CorrelationId(task_data.correlation_id)
                     if task_data.correlation_id

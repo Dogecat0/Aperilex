@@ -23,9 +23,9 @@ from src.application.services.worker.analysis_task_builder import AnalysisTaskBu
 from src.application.services.worker_service import TaskResult
 from src.shared.enums import AnalysisStatus, TaskStatus, UserTier
 from src.shared.types import (
+    CIK,
     AccessionNumber,
     AnalysisId,
-    CIK,
     Email,
     FilingId,
     QueueMessageId,

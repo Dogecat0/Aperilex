@@ -33,6 +33,7 @@ from src.application.interfaces.repositories import (
     IFilingRepository,
     IRepositoryFactory,
 )
+from src.application.services.analysis_template_service import AnalysisTemplateService
 from src.application.services.application_service import ApplicationService
 from src.application.services.background_task_coordinator import (
     BackgroundTaskCoordinator,
@@ -72,6 +73,7 @@ class HandlerFactory:
         storage_provider: IStorageProvider,
         data_source_provider: IDataSourceProvider,
         section_diff_service: SectionDiffService,
+        template_service: AnalysisTemplateService | None = None,
         analysis_query_service_provider: Provider[IAnalysisQueryService] | None = None,
         company_query_service_provider: Provider[ICompanyQueryService] | None = None,
         filing_query_service_provider: Provider[IFilingQueryService] | None = None,
@@ -104,6 +106,7 @@ class HandlerFactory:
         self.storage_provider = storage_provider
         self.data_source_provider = data_source_provider
         self.section_diff_service = section_diff_service
+        self.template_service = template_service
         self.analysis_query_service_provider = analysis_query_service_provider
         self.company_query_service_provider = company_query_service_provider
         self.filing_query_service_provider = filing_query_service_provider
@@ -188,6 +191,8 @@ class HandlerFactory:
             "section_diff_service": self.section_diff_service,
         }
 
+        if self.template_service is not None:
+            dependencies["template_service"] = self.template_service
         if analysis_query_service is not None:
             dependencies["analysis_query_service"] = analysis_query_service
         if company_query_service is not None:
@@ -411,6 +416,7 @@ class CQRSContainer(containers.DeclarativeContainer):
         storage_provider=providers_container.storage_provider,
         data_source_provider=providers_container.data_source_provider,
         section_diff_service=section_diff_service,
+        template_service=providers.Singleton(AnalysisTemplateService),
         analysis_query_service_provider=analysis_query_service,
         company_query_service_provider=company_query_service,
         filing_query_service_provider=filing_query_service,

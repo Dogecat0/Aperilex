@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
+import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
-import pytest
 
 from src.application.containers.orchestrator import ApiRateLimiter
 from src.application.interfaces.rate_limiting import (

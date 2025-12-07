@@ -1,8 +1,9 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from datetime import date
-from typing import Any, Callable
-from uuid import UUID, uuid4
+from typing import Any
+from uuid import uuid4
 
 import pytest
 from fastapi import FastAPI
@@ -23,7 +24,6 @@ from src.application.handlers.schemas.responses.filing_search_response import (
 from src.application.handlers.schemas.responses.task_response import TaskResponse
 from src.application.interfaces.authentication import AuthenticationResult
 from src.domain.value_objects.processing_status import ProcessingStatus
-from src.shared.enums import FilingType
 from src.shared.types import UserId
 
 FilingsClientFactory = Callable[

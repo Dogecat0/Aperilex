@@ -5,13 +5,14 @@ from __future__ import annotations
 import asyncio
 import os
 import subprocess
+from collections.abc import AsyncGenerator
 from pathlib import Path
-from typing import AsyncGenerator
 
 import pytest
 import pytest_asyncio
 from sqlalchemy import inspect, text
 from sqlalchemy.ext.asyncio import (
+    AsyncConnection,
     AsyncEngine,
     AsyncSession,
     async_sessionmaker,
@@ -90,6 +91,21 @@ async def _wait_for_database(engine: AsyncEngine) -> None:
             await asyncio.sleep(1)
 
 
+async def _terminate_blocking_sessions(connection: AsyncConnection) -> None:
+    """Terminate external connections so truncates do not block."""
+
+    await connection.execute(
+        text(
+            """
+            SELECT pg_terminate_backend(pid)
+            FROM pg_stat_activity
+            WHERE pid <> pg_backend_pid()
+              AND datname = current_database()
+            """
+        )
+    )
+
+
 async def _truncate_tables(engine: AsyncEngine) -> None:
     """Truncate all application tables to ensure clean state per test."""
 
@@ -110,6 +126,8 @@ async def _truncate_tables(engine: AsyncEngine) -> None:
 
     table_list = ", ".join(f'"{name}"' for name in table_names)
     async with engine.begin() as connection:
+        await connection.execute(text("SET LOCAL lock_timeout = '5s'"))
+        await _terminate_blocking_sessions(connection)
         await connection.execute(
             text(f"TRUNCATE TABLE {table_list} RESTART IDENTITY CASCADE;")
         )

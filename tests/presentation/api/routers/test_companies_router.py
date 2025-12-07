@@ -1,7 +1,8 @@
 from __future__ import annotations
 
-from datetime import UTC, datetime, date
-from typing import Any, Callable
+from collections.abc import Callable
+from datetime import UTC, date, datetime
+from typing import Any
 from uuid import uuid4
 
 import pytest
@@ -27,7 +28,7 @@ from src.application.handlers.schemas.responses.paginated_response import (
 )
 from src.application.interfaces.authentication import AuthenticationResult
 from src.domain.value_objects.processing_status import ProcessingStatus
-from src.shared.enums import AnalysisStatus, AnalysisType, FilingType
+from src.shared.enums import AnalysisStatus, AnalysisType
 from src.shared.types import UserId
 
 CompaniesClientFactory = Callable[
