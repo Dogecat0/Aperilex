@@ -6,11 +6,15 @@ import json
 import uuid
 from datetime import UTC, datetime
 from types import SimpleNamespace
-from typing import Any
+from typing import Any, cast
 
 import pytest
 
-from src.application.interfaces.query_services import AnalysisQueryResult
+from src.application.interfaces.query_services import (
+    AnalysisQueryResult,
+    IAnalysisQueryService,
+)
+from src.application.interfaces.storage import IStorageProvider
 from src.application.services.worker.section_diff_service import SectionDiffService
 from src.shared.enums import AnalysisStatus
 from src.shared.types import AnalysisId, FilingId, UserId
@@ -128,8 +132,8 @@ async def test_compute_diffs_detects_new_highlight_and_sentiment_drop() -> None:
     query_service = _StubAnalysisQueryService(_make_analysis_query_result())
     storage_provider = _StubStorageProvider(previous_payload)
     diff_service = SectionDiffService(
-        analysis_query_service=query_service,
-        storage=storage_provider,
+        analysis_query_service=cast(IAnalysisQueryService, query_service),
+        storage=cast(IStorageProvider, storage_provider),
     )
     diffs = await diff_service.compute_diffs(
         company_cik="0000000001",
@@ -154,8 +158,8 @@ async def test_compute_diffs_returns_empty_when_no_previous_analysis() -> None:
     query_service = _StubAnalysisQueryService(result=None)
     storage_provider = _StubStorageProvider(payload={})
     diff_service = SectionDiffService(
-        analysis_query_service=query_service,
-        storage=storage_provider,
+        analysis_query_service=cast(IAnalysisQueryService, query_service),
+        storage=cast(IStorageProvider, storage_provider),
     )
     structured_payload = {
         "section_analyses": [],

@@ -175,7 +175,7 @@ def _make_task_message(task_id: TaskId | None = None) -> TaskMessage:
     )
 
 
-def _build_provider(monkeypatch) -> tuple[RabbitMQQueueProvider, StubChannel]:
+def _build_provider(monkeypatch: pytest.MonkeyPatch) -> tuple[RabbitMQQueueProvider, StubChannel]:
     channel = StubChannel()
     connection = StubConnection(channel)
 
@@ -188,7 +188,7 @@ def _build_provider(monkeypatch) -> tuple[RabbitMQQueueProvider, StubChannel]:
 
 
 @pytest.mark.asyncio
-async def test_send_receive_and_delete_task_with_dedup(monkeypatch) -> None:
+async def test_send_receive_and_delete_task_with_dedup(monkeypatch: pytest.MonkeyPatch) -> None:
     provider, channel = _build_provider(monkeypatch)
     task_message = _make_task_message()
 
@@ -213,13 +213,14 @@ async def test_send_receive_and_delete_task_with_dedup(monkeypatch) -> None:
 
 
 @pytest.mark.asyncio
-async def test_change_visibility_requeues_message(monkeypatch) -> None:
+async def test_change_visibility_requeues_message(monkeypatch: pytest.MonkeyPatch) -> None:
     provider, channel = _build_provider(monkeypatch)
     task_message = _make_task_message()
 
     await provider.send_task(task_message)
     first_receive = await provider.receive_tasks(max_messages=1)
     handle = first_receive[0].receipt_handle
+    assert handle is not None
     queue = channel.queues[provider.config.queue_name]
     assert len(queue.messages) == 0
 
@@ -231,7 +232,7 @@ async def test_change_visibility_requeues_message(monkeypatch) -> None:
 
 
 @pytest.mark.asyncio
-async def test_health_check_reports_failure(monkeypatch) -> None:
+async def test_health_check_reports_failure(monkeypatch: pytest.MonkeyPatch) -> None:
     async def _failing_connect(url: str, loop: object) -> None:
         raise ConnectionError("broker unavailable")
 

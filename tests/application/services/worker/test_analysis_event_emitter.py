@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import UTC, datetime
-from typing import Any
+from typing import Any, cast
 from unittest.mock import AsyncMock
 
 import pytest
@@ -20,7 +20,7 @@ from src.shared.enums import (
     UserTier,
 )
 from src.shared.models import AnalysisRequest, AnalysisResult, TaskData
-from src.shared.models.analysis import ModelTier, TokenUsage
+from src.shared.models.analysis import ModelTier, StructuredAnalysisData, TokenUsage
 from src.shared.types import (
     AnalysisId,
     Email,
@@ -38,8 +38,9 @@ class FixedDateTime(datetime):
     _fixed_now = datetime(2024, 2, 1, 15, 30, tzinfo=UTC)
 
     @classmethod
-    def now(cls, tz: Any | None = None) -> datetime:  # pragma: no cover - helper
-        return cls._fixed_now if tz else cls._fixed_now.replace(tzinfo=None)
+    def now(cls, tz: Any | None = None) -> FixedDateTime:  # pragma: no cover - helper
+        base = cls._fixed_now if tz else cls._fixed_now.replace(tzinfo=None)
+        return cast(FixedDateTime, base)
 
 
 @pytest.fixture()
@@ -110,7 +111,9 @@ def _make_analysis_result(task_data: TaskData) -> AnalysisResult:
         user_id=task_data.user_id,
         content="Detailed narrative content.",
         summary=None,
-        structured_data={"key_insights": ["Insight 1"]},
+        structured_data=StructuredAnalysisData.model_validate(
+            {"key_insights": ["Insight 1"]}
+        ),
         analysis_type=AnalysisType.COMPREHENSIVE,
         status=AnalysisStatus.COMPLETED,
         llm_provider=LLMProvider.OPENAI,

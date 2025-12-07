@@ -47,4 +47,5 @@ def test_extract_subsection_definitions_marks_collections() -> None:
     assert collection.schema_label == "ChildSchema"
 
     parsed = collection.schema.model_validate([{"name": "Example"}])
-    assert [entry.model_dump() for entry in parsed.items] == [{"name": "Example"}]
+    payload = parsed.model_dump(mode="python")
+    assert payload["items"] == [{"name": "Example"}]

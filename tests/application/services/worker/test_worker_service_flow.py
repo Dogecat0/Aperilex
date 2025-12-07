@@ -5,11 +5,22 @@ from __future__ import annotations
 import uuid
 from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime
-from typing import Any
+from typing import Any, cast
 
 import pytest
 
+from src.application.interfaces.repositories import IRepositoryFactory
 from src.application.interfaces.worker import WorkerContext
+from src.application.services.worker import (
+    AnalysisEventEmitter,
+    AnalysisExecutionService,
+    AnalysisPersistenceService,
+    AnalysisSummaryBuilder,
+    AnalysisTaskBuilder,
+    FilingLifecycleService,
+    TemplateRegistry,
+    WorkerRetryCoordinator,
+)
 from src.application.services.worker_service import WorkerService
 from src.shared.enums import (
     AnalysisStatus,
@@ -31,9 +42,11 @@ from src.shared.models import (
 )
 from src.shared.types import (
     AnalysisId,
+    CorrelationId,
     Email,
     FilingId,
     QueueMessageId,
+    RequestId,
     StorageKey,
     TaskId,
     Ticker,
@@ -152,6 +165,16 @@ class _StubTemplateRegistry:
 
     def resolve_template(self, metadata: dict[str, str] | None) -> str:
         return metadata.get("analysis_template", self.template_key) if metadata else self.template_key
+
+
+class _StubAnalysisTaskBuilder:
+    def __init__(self, *, task_data: TaskData | None = None) -> None:
+        self.task_data = task_data or _make_task_data()
+        self.calls: list[tuple[tuple[Any, ...], dict[str, Any]]] = []
+
+    def build_task_data(self, *args: Any, **kwargs: Any) -> TaskData:
+        self.calls.append((args, kwargs))
+        return self.task_data
 
 
 class _StubFilingLifecycleService:
@@ -339,7 +362,7 @@ def _make_task_data(
         max_retries=3,
         deduplication_id="dedupe-key",
         metadata=base_metadata,
-        correlation_id="corr-123",
+        correlation_id=CorrelationId("corr-123"),
         created_at=datetime(2024, 1, 1, tzinfo=UTC),
         updated_at=datetime(2024, 1, 1, tzinfo=UTC),
     )
@@ -355,18 +378,22 @@ def _build_worker_service(
     retry_coordinator: _StubWorkerRetryCoordinator,
     template_registry: _StubTemplateRegistry | None = None,
     filing_lifecycle: _StubFilingLifecycleService | None = None,
+    task_builder: _StubAnalysisTaskBuilder | None = None,
 ) -> WorkerService:
+    task_builder = task_builder or _StubAnalysisTaskBuilder()
     return WorkerService(
         worker_provider_type=WorkerProvider.DOCKER,
-        repository_factory=repository_factory,
-        analysis_task_builder=None,  # type: ignore[arg-type]
-        filing_lifecycle_service=filing_lifecycle or _StubFilingLifecycleService(),
-        analysis_execution_service=execution_service,
-        analysis_summary_builder=summary_builder,
-        template_registry=template_registry or _StubTemplateRegistry(),
-        analysis_persistence_service=persistence_service,
-        analysis_event_emitter=event_emitter,
-        worker_retry_coordinator=retry_coordinator,
+        repository_factory=cast(IRepositoryFactory, repository_factory),
+        analysis_task_builder=cast(AnalysisTaskBuilder, task_builder),
+        filing_lifecycle_service=cast(
+            FilingLifecycleService, filing_lifecycle or _StubFilingLifecycleService()
+        ),
+        analysis_execution_service=cast(AnalysisExecutionService, execution_service),
+        analysis_summary_builder=cast(AnalysisSummaryBuilder, summary_builder),
+        template_registry=cast(TemplateRegistry, template_registry or _StubTemplateRegistry()),
+        analysis_persistence_service=cast(AnalysisPersistenceService, persistence_service),
+        analysis_event_emitter=cast(AnalysisEventEmitter, event_emitter),
+        worker_retry_coordinator=cast(WorkerRetryCoordinator, retry_coordinator),
         priority_queue=None,
     )
 
@@ -566,9 +593,9 @@ async def test_process_task_moves_to_dlq_on_max_receive_failure() -> None:
         max_receive_count=3,
     )
     context = WorkerContext(
-        correlation_id="corr-1",
+        correlation_id=CorrelationId("corr-1"),
         task_id=task_data.task_id,
-        request_id="req-1",
+        request_id=RequestId("req-1"),
         provider=WorkerProvider.DOCKER,
         start_time=datetime.now(UTC),
     )

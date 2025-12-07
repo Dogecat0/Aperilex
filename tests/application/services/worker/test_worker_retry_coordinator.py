@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import UTC, datetime, timedelta
-from typing import Any
+from typing import Any, cast
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -20,10 +20,12 @@ from src.shared.enums import (
 )
 from src.shared.models import TaskData, TaskQueueMessage
 from src.shared.types import (
+    CorrelationId,
     Email,
     FilingId,
     QueueMessageId,
     ReceiptHandle,
+    RequestId,
     TaskId,
     Ticker,
     UserId,
@@ -36,8 +38,9 @@ class FixedDateTime(datetime):
     _fixed_now = datetime(2024, 3, 1, 9, 45, tzinfo=UTC)
 
     @classmethod
-    def now(cls, tz: Any | None = None) -> datetime:  # pragma: no cover - helper
-        return cls._fixed_now if tz else cls._fixed_now.replace(tzinfo=None)
+    def now(cls, tz: Any | None = None) -> FixedDateTime:  # pragma: no cover - helper
+        base = cls._fixed_now if tz else cls._fixed_now.replace(tzinfo=None)
+        return cast(FixedDateTime, base)
 
 
 @pytest.fixture()
@@ -71,7 +74,7 @@ def _make_task_data() -> TaskData:
         retry_count=0,
         deduplication_id=f"{filing_id}:{email.value}",
         metadata={"analysis_template": "comprehensive"},
-        correlation_id="retry-corr",
+        correlation_id=CorrelationId("retry-corr"),
         created_at=FixedDateTime._fixed_now,
         updated_at=FixedDateTime._fixed_now,
     )
@@ -79,9 +82,9 @@ def _make_task_data() -> TaskData:
 
 def _make_worker_context(task_data: TaskData) -> WorkerContext:
     return WorkerContext(
-        correlation_id=task_data.correlation_id or "",
+        correlation_id=CorrelationId(task_data.correlation_id or ""),
         task_id=task_data.task_id,
-        request_id="req-123",
+        request_id=RequestId("req-123"),
         provider=WorkerProvider.DOCKER,
         start_time=FixedDateTime._fixed_now,
     )

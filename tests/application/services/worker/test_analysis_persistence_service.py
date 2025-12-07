@@ -24,9 +24,10 @@ from src.shared.models import (
     AnalysisRequest,
     AnalysisResult,
     SectionCostBreakdown,
+    StorageMetadataFields,
     TaskData,
 )
-from src.shared.models.analysis import ModelTier, TokenUsage
+from src.shared.models.analysis import ModelTier, StructuredAnalysisData, TokenUsage
 from src.shared.types import (
     AnalysisId,
     Email,
@@ -90,10 +91,12 @@ def _make_analysis_result(task_data: TaskData) -> AnalysisResult:
         user_id=task_data.user_id,
         content="Comprehensive narrative content.",
         summary=None,
-        structured_data={
-            "key_insights": ["Insight A", "Insight B"],
-            "total_sections_analyzed": 3,
-        },
+        structured_data=StructuredAnalysisData.model_validate(
+            {
+                "key_insights": ["Insight A", "Insight B"],
+                "total_sections_analyzed": 3,
+            }
+        ),
         citations=[{"section": "Item 1", "page": 12}],
         analysis_type=AnalysisType.COMPREHENSIVE,
         status=AnalysisStatus.COMPLETED,
@@ -260,7 +263,12 @@ async def test_store_analysis_persists_payload_to_storage(tmp_path: pytest.TempP
 
     stored_contents: dict[str, Any] = {}
 
-    async def fake_store_analysis(*, analysis_id, content, metadata) -> StorageKey:
+    async def fake_store_analysis(
+        *,
+        analysis_id: AnalysisId,
+        content: bytes,
+        metadata: StorageMetadataFields,
+    ) -> StorageKey:
         stored_contents["analysis_id"] = analysis_id
         stored_contents["raw"] = json.loads(content.decode("utf-8"))
         stored_contents["metadata"] = metadata.model_dump()

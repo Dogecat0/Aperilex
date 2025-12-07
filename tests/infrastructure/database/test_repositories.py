@@ -285,8 +285,9 @@ async def test_analysis_repository_lifecycle_and_filters(
         sort_direction="desc",
         page_size=10,
     )
-    assert [
-        result.summary["insight_counts"]["critical_findings"]
-        for result in flagged_results
-    ] == [5, 3]
+    critical_counts: list[int] = []
+    for result in flagged_results:
+        assert result.summary is not None
+        critical_counts.append(result.summary["insight_counts"]["critical_findings"])
+    assert critical_counts == [5, 3]
     assert await analysis_repo.count_with_filters(segment="attention") == 1

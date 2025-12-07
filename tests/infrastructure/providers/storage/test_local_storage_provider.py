@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+from pathlib import Path
 from uuid import uuid4
 
 import pytest
@@ -17,7 +18,7 @@ from src.shared.types import AnalysisId, FilingId, StorageKey
 
 
 @pytest.mark.asyncio
-async def test_store_and_retrieve_filing_round_trip(tmp_path) -> None:
+async def test_store_and_retrieve_filing_round_trip(tmp_path: Path) -> None:
     provider = LocalStorageProvider(base_path=str(tmp_path))
     filing_id = FilingId(uuid4())
     content = b'{"document":"content"}'
@@ -49,7 +50,7 @@ async def test_store_and_retrieve_filing_round_trip(tmp_path) -> None:
 
 
 @pytest.mark.asyncio
-async def test_store_and_retrieve_analysis_preserves_metadata(tmp_path) -> None:
+async def test_store_and_retrieve_analysis_preserves_metadata(tmp_path: Path) -> None:
     provider = LocalStorageProvider(base_path=str(tmp_path))
     analysis_id = AnalysisId(uuid4())
     content = b'{"analysis":"ok"}'
@@ -67,7 +68,7 @@ async def test_store_and_retrieve_analysis_preserves_metadata(tmp_path) -> None:
 
 
 @pytest.mark.asyncio
-async def test_missing_objects_raise_not_found(tmp_path) -> None:
+async def test_missing_objects_raise_not_found(tmp_path: Path) -> None:
     provider = LocalStorageProvider(base_path=str(tmp_path))
     with pytest.raises(NotFoundError):
         await provider.get_filing(FilingId(uuid4()))
@@ -80,7 +81,7 @@ async def test_missing_objects_raise_not_found(tmp_path) -> None:
 
 
 @pytest.mark.asyncio
-async def test_health_check_writes_probe_file(tmp_path) -> None:
+async def test_health_check_writes_probe_file(tmp_path: Path) -> None:
     provider = LocalStorageProvider(base_path=str(tmp_path))
     assert await provider.health_check() is True
     assert (tmp_path / "health_check.tmp").exists() is False

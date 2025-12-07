@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import uuid
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import pytest
 
@@ -12,16 +12,20 @@ from src.application.handlers.schemas.commands.analyze_filing import (
     AnalysisTemplate,
     AnalyzeFilingCommand,
 )
-from src.application.interfaces.events import TaskQueuedEvent
+from src.application.interfaces.events import IEventPublisher, TaskQueuedEvent
 from src.application.interfaces.repositories import AnalysisData
-from src.application.interfaces.worker import WorkerTaskStatus
+from src.application.interfaces.worker import IWorkerProvider, WorkerTaskStatus
 from src.application.services.background_task_coordinator import (
     BackgroundTaskCoordinator,
 )
-from src.application.services.priority_queue_service import DuplicationError
+from src.application.services.priority_queue_service import (
+    DuplicationError,
+    PriorityQueueService,
+)
 from src.application.services.worker.analysis_task_builder import AnalysisTaskBuilder
-from src.application.services.worker_service import TaskResult
+from src.application.services.worker_service import TaskResult, WorkerService
 from src.shared.enums import AnalysisStatus, TaskStatus, UserTier
+from src.shared.models import TaskData
 from src.shared.types import (
     CIK,
     AccessionNumber,
@@ -120,7 +124,7 @@ class _StubWorkerService:
         user_tier: UserTier | None = None,
         priority: Any = None,
         source: str | None = "API",
-    ):
+    ) -> TaskData:
         return self.task_builder.build_task_data(
             command,
             company=company,
@@ -132,10 +136,32 @@ class _StubWorkerService:
             source=source,
         )
 
-    async def process_task_data(self, task_data: Any, *, queue_name: str = "synchronous"):
+    async def process_task_data(
+        self, task_data: Any, *, queue_name: str = "synchronous"
+    ) -> TaskResult:
         if isinstance(self._process_result, Exception):
             raise self._process_result
         return self._process_result
+
+
+def _make_coordinator(
+    *,
+    worker_service: _StubWorkerService,
+    priority_queue: _StubPriorityQueue,
+    worker_provider: _StubWorkerProvider,
+    event_publisher: _StubEventPublisher | None = None,
+    use_background: bool | None = None,
+) -> BackgroundTaskCoordinator:
+    kwargs: dict[str, Any] = {}
+    if use_background is not None:
+        kwargs["use_background"] = use_background
+    return BackgroundTaskCoordinator(
+        worker_service=cast(WorkerService, worker_service),
+        priority_queue=cast(PriorityQueueService, priority_queue),
+        worker_provider=cast(IWorkerProvider, worker_provider),
+        event_publisher=cast(IEventPublisher | None, event_publisher),
+        **kwargs,
+    )
 
 
 def _make_command() -> AnalyzeFilingCommand:
@@ -173,7 +199,7 @@ async def test_duplicate_analysis_short_circuits_with_existing_result(tmp_path: 
             processing_time_ms=0,
         ),
     )
-    coordinator = BackgroundTaskCoordinator(
+    coordinator = _make_coordinator(
         worker_service=worker_service,
         priority_queue=_StubPriorityQueue(message_id=QueueMessageId("queued-id")),
         worker_provider=_StubWorkerProvider(tmp_path / "status-store"),
@@ -209,7 +235,7 @@ async def test_queue_path_publishes_event_and_records_status(tmp_path: Path) -> 
         ),
     )
 
-    coordinator = BackgroundTaskCoordinator(
+    coordinator = _make_coordinator(
         worker_service=worker_service,
         priority_queue=priority_queue,
         worker_provider=worker_provider,
@@ -247,7 +273,7 @@ async def test_queue_duplicate_from_provider_returns_duplicate_status(tmp_path: 
         ),
     )
 
-    coordinator = BackgroundTaskCoordinator(
+    coordinator = _make_coordinator(
         worker_service=worker_service,
         priority_queue=priority_queue,
         worker_provider=worker_provider,
@@ -268,7 +294,7 @@ async def test_queue_duplicate_from_provider_returns_duplicate_status(tmp_path: 
 
 @pytest.mark.asyncio
 async def test_get_task_status_invalid_uuid(tmp_path: Path) -> None:
-    coordinator = BackgroundTaskCoordinator(
+    coordinator = _make_coordinator(
         worker_service=_StubWorkerService(
             repository_factory=_StubRepositoryFactory(_StubAnalysisRepository([])),
             process_result=TaskResult(
@@ -288,7 +314,7 @@ async def test_get_task_status_invalid_uuid(tmp_path: Path) -> None:
 @pytest.mark.asyncio
 async def test_cancel_task_paths(tmp_path: Path) -> None:
     provider = _StubWorkerProvider(tmp_path / "status-store", cancel_result=False)
-    coordinator = BackgroundTaskCoordinator(
+    coordinator = _make_coordinator(
         worker_service=_StubWorkerService(
             repository_factory=_StubRepositoryFactory(_StubAnalysisRepository([])),
             process_result=TaskResult(
@@ -313,7 +339,7 @@ async def test_cancel_task_paths(tmp_path: Path) -> None:
 @pytest.mark.asyncio
 async def test_retry_failed_task_requeues_with_metadata(tmp_path: Path) -> None:
     retry_task_id = TaskId(uuid.uuid4())
-    task_metadata = {
+    task_metadata: dict[str, object] = {
         "company_cik": "0000123456",
         "accession_number": "0000123456-23-000111",
         "analysis_template": AnalysisTemplate.FINANCIAL_FOCUSED.value,
@@ -335,7 +361,7 @@ async def test_retry_failed_task_requeues_with_metadata(tmp_path: Path) -> None:
     worker_provider = _StubWorkerProvider(
         tmp_path / "status-store", task_status=worker_status
     )
-    coordinator = BackgroundTaskCoordinator(
+    coordinator = _make_coordinator(
         worker_service=_StubWorkerService(
             repository_factory=repository_factory,
             process_result=TaskResult(
@@ -367,7 +393,7 @@ async def test_retry_failed_task_ignored_when_not_failed(tmp_path: Path) -> None
         message="pending",
         analysis_stage=None,
     )
-    coordinator = BackgroundTaskCoordinator(
+    coordinator = _make_coordinator(
         worker_service=_StubWorkerService(
             repository_factory=_StubRepositoryFactory(_StubAnalysisRepository([])),
             process_result=TaskResult(
@@ -392,7 +418,7 @@ async def test_initial_status_record_failure_does_not_break_queue(tmp_path: Path
     repository_factory = _StubRepositoryFactory(_StubAnalysisRepository([]))
     priority_queue = _StubPriorityQueue(message_id=QueueMessageId("queued-xyz"))
     worker_provider = _StubWorkerProvider(tmp_path / "status-store")
-    coordinator = BackgroundTaskCoordinator(
+    coordinator = _make_coordinator(
         worker_service=_StubWorkerService(
             repository_factory=repository_factory,
             process_result=TaskResult(
@@ -435,7 +461,7 @@ async def test_synchronous_execution_returns_worker_result(tmp_path: Path) -> No
         ),
     )
 
-    coordinator = BackgroundTaskCoordinator(
+    coordinator = _make_coordinator(
         worker_service=worker_service,
         priority_queue=_StubPriorityQueue(message_id=QueueMessageId("unused")),
         worker_provider=worker_provider,

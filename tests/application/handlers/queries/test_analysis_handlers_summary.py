@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from datetime import UTC, datetime
 from types import SimpleNamespace
-from typing import Any
+from typing import Any, cast
 from uuid import uuid4
 
 import pytest
@@ -18,7 +18,9 @@ from src.application.handlers.queries.list_analyses_handler import (
 )
 from src.application.handlers.schemas.queries.get_analysis import GetAnalysisQuery
 from src.application.handlers.schemas.queries.list_analyses import ListAnalysesQuery
-from src.application.interfaces.repositories import AnalysisData
+from src.application.interfaces.repositories import AnalysisData, IAnalysisRepository
+from src.application.interfaces.storage import IStorageProvider
+from src.application.services.worker.section_diff_service import SectionDiffService
 from src.shared.enums import AnalysisStatus, AnalysisType
 from src.shared.types import AnalysisId, FilingId, UserId
 
@@ -138,9 +140,9 @@ async def test_get_analysis_handler_surfaces_curated_summary() -> None:
     repository = _StubAnalysisRepository(analysis)
     storage_provider = _StubStorageProvider()
     handler = GetAnalysisQueryHandler(
-        repository,
-        storage_provider,
-        _StubSectionDiffService(),
+        cast(IAnalysisRepository, repository),
+        cast(IStorageProvider, storage_provider),
+        cast(SectionDiffService, _StubSectionDiffService()),
     )
 
     query = GetAnalysisQuery(
@@ -154,6 +156,7 @@ async def test_get_analysis_handler_surfaces_curated_summary() -> None:
 
     metric = response.summary.headline_metrics[0]
     assert metric.name == "Revenue YoY Growth"
+    assert metric.display.delta_text is not None
     assert metric.display.delta_text.startswith("Revenue growth accelerated")
     assert response.summary.sentiment_rollup.overall == 0.18
     assert "risk_highlights" not in response.summary.model_dump()
@@ -206,9 +209,9 @@ async def test_get_analysis_handler_unwraps_storage_envelope() -> None:
 
     storage_provider = _StubStorageProvider(storage_payload)
     handler = GetAnalysisQueryHandler(
-        repository,
-        storage_provider,
-        _StubSectionDiffService(),
+        cast(IAnalysisRepository, repository),
+        cast(IStorageProvider, storage_provider),
+        cast(SectionDiffService, _StubSectionDiffService()),
     )
 
     query = GetAnalysisQuery(
@@ -278,9 +281,9 @@ async def test_get_analysis_handler_refreshes_previous_comparison() -> None:
 
     diff_service = _StubSectionDiffService(diff_map)
     handler = GetAnalysisQueryHandler(
-        repository,
-        _StubStorageProvider(storage_payload),
-        diff_service,
+        cast(IAnalysisRepository, repository),
+        cast(IStorageProvider, _StubStorageProvider(storage_payload)),
+        cast(SectionDiffService, diff_service),
     )
 
     query = GetAnalysisQuery(
@@ -312,7 +315,7 @@ async def test_list_analyses_handler_includes_summary_widgets() -> None:
     summary = _make_summary_payload()
     analysis = _make_analysis_data(summary)
     repository = _StubAnalysisRepository(analysis)
-    handler = ListAnalysesQueryHandler(repository)
+    handler = ListAnalysesQueryHandler(cast(IAnalysisRepository, repository))
 
     query = ListAnalysesQuery()
 
@@ -322,7 +325,9 @@ async def test_list_analyses_handler_includes_summary_widgets() -> None:
     assert len(response.items) == 1
     item = response.items[0]
     assert item.summary.headline_metrics[0].id == "revenue_yoy"
-    assert item.summary.sentiment_rollup.weakest_section.section == "Risk Factors"
+    weakest_section = item.summary.sentiment_rollup.weakest_section
+    assert weakest_section is not None
+    assert weakest_section.section == "Risk Factors"
     summary_dump = item.summary.model_dump()
     assert "risk_highlights" not in summary_dump
     assert "insight_timeline" not in summary_dump

@@ -341,12 +341,16 @@ async def test_perform_structured_comprehensive_analysis_shapes_result() -> None
     assert result.analysis_id == request.analysis_id
     assert result.filing_id == task_data.filing_id
     assert result.summary == "Overall positive outlook."
-    structured_dump = result.structured_data.model_dump()
+    structured_data = result.structured_data
+    assert structured_data is not None
+    structured_dump = structured_data.model_dump()
     assert structured_dump["section_analyses"][0]["section_summary"] == "Risk summary."
+    assert result.quality_metrics is not None
     assert result.quality_metrics["confidence_score"] == 0.82
     assert result.quality_metrics["estimated_cost_usd"] == pytest.approx(0.7)
     assert result.model_name == "gpt-4-structured"
     assert result.analysis_type == AnalysisType.COMPREHENSIVE
+    assert result.token_usage is not None
     assert result.token_usage.prompt_tokens == 150
     assert result.token_usage.completion_tokens == 100
     assert result.token_usage.total_tokens == 250
@@ -354,6 +358,7 @@ async def test_perform_structured_comprehensive_analysis_shapes_result() -> None
     assert result.costs_by_section is not None
     section_cost = result.costs_by_section["Item 1A - Risk Factors"]
     assert section_cost.cost == pytest.approx(0.5)
+    assert section_cost.token_usage is not None
     assert section_cost.token_usage.total_tokens == 200
     assert structured_dump["costs_by_section"]["Item 1A - Risk Factors"]["cost"] == pytest.approx(
         0.5
@@ -449,7 +454,9 @@ async def test_structured_analysis_truncates_subsection_analysis_lists() -> None
         task_data=task_data,
     )
 
-    structured_dump = result.structured_data.model_dump(mode="json")
+    structured_data = result.structured_data
+    assert structured_data is not None
+    structured_dump = structured_data.model_dump(mode="json")
     analysis_entries = structured_dump["section_analyses"][0]["sub_sections"][0][
         "analysis"
     ]
@@ -531,7 +538,9 @@ async def test_structured_analysis_handles_missing_walkthrough_citations() -> No
         task_data=task_data,
     )
 
-    structured_dump = result.structured_data.model_dump()
+    structured_data = result.structured_data
+    assert structured_data is not None
+    structured_dump = structured_data.model_dump()
     assert structured_dump["section_walkthroughs"]
     assert structured_dump["section_analyses"][0]["citations"] == _section_citations(
         "Item 1A - Risk Factors"
@@ -607,7 +616,9 @@ async def test_structured_analysis_truncates_excess_highlights() -> None:
         task_data=task_data,
     )
 
-    structured_dump = result.structured_data.model_dump()
+    structured_data = result.structured_data
+    assert structured_data is not None
+    structured_dump = structured_data.model_dump()
     walkthrough_highlights = structured_dump["section_walkthroughs"]["Item 1A - Risk Factors"]["highlights"]
     assert len(walkthrough_highlights) == WALKTHROUGH_ITEM_COUNT
     assert [entry["id"] for entry in walkthrough_highlights] == [
@@ -687,7 +698,9 @@ async def test_structured_analysis_filters_duplicate_correct_answer_in_distracto
         task_data=task_data,
     )
 
-    structured_dump = result.structured_data.model_dump()
+    structured_data = result.structured_data
+    assert structured_data is not None
+    structured_dump = structured_data.model_dump()
     walkthrough_checks = structured_dump["section_walkthroughs"][
         "Item 1A - Risk Factors"
     ]["comprehension_checks"]
@@ -725,7 +738,9 @@ async def test_structured_analysis_strips_section_walkthrough_payloads() -> None
         task_data=task_data,
     )
 
-    structured_dump = result.structured_data.model_dump()
+    structured_data = result.structured_data
+    assert structured_data is not None
+    structured_dump = structured_data.model_dump()
     assert "walkthrough" not in structured_dump["section_analyses"][0]
 
 
@@ -768,6 +783,8 @@ async def test_structured_analysis_realigns_mismatched_citations() -> None:
         task_data=task_data,
     )
 
-    structured_dump = result.structured_data.model_dump()
+    structured_data = result.structured_data
+    assert structured_data is not None
+    structured_dump = structured_data.model_dump()
     expected_citations = _section_citations("Item 1A - Risk Factors")
     assert structured_dump["section_analyses"][0]["citations"] == expected_citations

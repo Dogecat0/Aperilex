@@ -46,6 +46,7 @@ def test_structured_analysis_migration_preserves_existing_walkthroughs() -> None
         "Item 7 - Management Discussion & Analysis",
         display_order=0,
     )
+    assert existing is not None
     payload = {
         "schema_version": 2,
         "section_walkthroughs": {

@@ -1,4 +1,5 @@
 """Unit tests for the FastAPI security helpers."""
+# mypy: ignore-errors
 
 from typing import Any
 

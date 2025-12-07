@@ -5,6 +5,7 @@ from __future__ import annotations
 import uuid
 from datetime import UTC, datetime
 from types import SimpleNamespace
+from typing import Any, cast
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -46,7 +47,6 @@ def _make_filing_content() -> FilingContent:
     metadata = FilingMetadata(
         filing_id=FilingId(uuid.uuid4()),
         filing_type=FilingType.FORM_10K,
-        company_name="Acme Corp",
         company_cik=CIK(value="0000123456"),
         filing_date=datetime(2024, 1, 1, tzinfo=UTC),
     )
@@ -223,7 +223,7 @@ async def test_extract_filing_sections_returns_concatenated_text() -> None:
     service = _build_service()
 
     filing = _make_filing_content()
-    storage = service.storage
+    storage = cast(Any, service.storage)
     storage.get_filing = AsyncMock(
         return_value=SimpleNamespace(data=service.encode_filing_content(filing))
     )

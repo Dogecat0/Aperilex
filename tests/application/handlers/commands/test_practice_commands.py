@@ -69,9 +69,9 @@ def _build_company_and_filing() -> tuple[CompanyData, FilingData]:
     ],
 )
 async def test_practice_handlers_queue_expected_template(
-    command_cls,
-    handler_cls,
-    expected_template,
+    command_cls: type,
+    handler_cls: type,
+    expected_template: AnalysisTemplate,
 ) -> None:
     """Handlers should translate practice commands into AnalyzeFilingCommand queueing."""
     company, filing = _build_company_and_filing()

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+# mypy: ignore-errors
 from datetime import UTC, datetime
 from typing import Any
 from uuid import UUID, uuid4
@@ -9,10 +10,7 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 import src.presentation.api.routers.analyses as analyses_router
-from src.application.handlers.schemas.queries import (
-    GetAnalysisQuery,
-    ListAnalysesQuery,
-)
+from src.application.handlers.schemas.queries import GetAnalysisQuery, ListAnalysesQuery
 from src.application.handlers.schemas.responses.analysis_response import (
     AnalysesListResponse,
     AnalysisResponse,

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+# mypy: ignore-errors
 from collections.abc import Callable
 from datetime import date
 from typing import Any

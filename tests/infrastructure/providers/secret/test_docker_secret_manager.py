@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+from pathlib import Path
 
 import pytest
 
@@ -10,7 +11,7 @@ from src.application.interfaces.secret import SecretVersion
 from src.infrastructure.secret.docker_secret_manager import DockerSecretManager
 
 
-def test_requires_existing_secrets_dir(tmp_path) -> None:
+def test_requires_existing_secrets_dir(tmp_path: Path) -> None:
     with pytest.raises(RuntimeError):
         DockerSecretManager(None)
 
@@ -20,7 +21,7 @@ def test_requires_existing_secrets_dir(tmp_path) -> None:
 
 
 @pytest.mark.asyncio
-async def test_create_update_and_list_secrets(tmp_path) -> None:
+async def test_create_update_and_list_secrets(tmp_path: Path) -> None:
     manager = DockerSecretManager(tmp_path)
 
     created = await manager.create_secret("API_TOKEN", "initial", tags={"env": "test"})
@@ -49,7 +50,7 @@ async def test_create_update_and_list_secrets(tmp_path) -> None:
 
 
 @pytest.mark.asyncio
-async def test_rejects_empty_secret_values(tmp_path) -> None:
+async def test_rejects_empty_secret_values(tmp_path: Path) -> None:
     manager = DockerSecretManager(tmp_path)
 
     with pytest.raises(ValueError):

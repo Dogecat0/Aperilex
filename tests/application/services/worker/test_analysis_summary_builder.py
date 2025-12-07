@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import uuid
+from collections.abc import Mapping
 from datetime import UTC, datetime
 
 import pytest
@@ -18,22 +19,25 @@ from src.shared.enums import (
 )
 from src.shared.enums.provider import LLMProvider
 from src.shared.models import AnalysisResult, TaskData, TokenUsage
+from src.shared.models.analysis import StructuredAnalysisData
+from src.shared.types import AnalysisId, FilingId, TaskId, Ticker, UserId
+from src.shared.types.web import Email
 
 
 def _make_task_data(metadata: dict[str, str]) -> TaskData:
     """Helper to construct TaskData with common defaults."""
 
-    task_id = uuid.uuid4()
-    filing_id = uuid.uuid4()
-    user_id = uuid.uuid4()
+    task_id = TaskId(uuid.uuid4())
+    filing_id = FilingId(uuid.uuid4())
+    user_id = UserId(uuid.uuid4())
 
     return TaskData(
         task_id=task_id,
         filing_id=filing_id,
         user_id=user_id,
-        email="analyst@example.com",
+        email=Email(value="analyst@example.com"),
         user_tier=UserTier.PLUS,
-        ticker="ACME",
+        ticker=Ticker(value="ACME"),
         filing_type=FilingType.FORM_10Q,
         priority=TaskPriority.NORMAL,
         status=TaskStatus.PENDING,
@@ -44,14 +48,17 @@ def _make_task_data(metadata: dict[str, str]) -> TaskData:
     )
 
 
-def _make_analysis_result(structured_data: dict[str, object]) -> AnalysisResult:
+def _make_analysis_result(structured_data: Mapping[str, object]) -> AnalysisResult:
     """Helper to craft an AnalysisResult for summary tests."""
 
-    analysis_id = uuid.uuid4()
-    filing_id = uuid.uuid4()
-    task_id = uuid.uuid4()
-    user_id = uuid.uuid4()
+    analysis_id = AnalysisId(uuid.uuid4())
+    filing_id = FilingId(uuid.uuid4())
+    task_id = TaskId(uuid.uuid4())
+    user_id = UserId(uuid.uuid4())
     now = datetime.now(UTC)
+    structured_payload: StructuredAnalysisData | None = StructuredAnalysisData.model_validate(
+        structured_data
+    )
 
     return AnalysisResult(
         analysis_id=analysis_id,
@@ -60,7 +67,7 @@ def _make_analysis_result(structured_data: dict[str, object]) -> AnalysisResult:
         user_id=user_id,
         content="Full analysis narrative",
         summary="Legacy fallback summary",
-        structured_data=structured_data,
+        structured_data=structured_payload,
         citations=None,
         analysis_type=AnalysisType.COMPREHENSIVE,
         status=AnalysisStatus.COMPLETED,

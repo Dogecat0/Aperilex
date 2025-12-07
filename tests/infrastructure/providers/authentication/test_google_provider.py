@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
-from typing import Any
+from typing import Any, cast
 from uuid import uuid4
 
 import pytest
@@ -11,12 +11,15 @@ from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
 
 from src.application.interfaces.authentication import AuthenticationCredentials
+from src.application.interfaces.config import IConfigProvider
+from src.application.interfaces.database import IDatabaseProvider
 from src.application.interfaces.repositories import (
     AuthRateLimitData,
     AuthSessionData,
     UserData,
     UserIdentityData,
 )
+from src.application.interfaces.secret import ISecretManager
 from src.infrastructure.providers.authentication.google_oauth_provider import (
     GoogleOAuthAuthenticationProvider,
 )
@@ -383,9 +386,9 @@ def provider(monkeypatch: pytest.MonkeyPatch) -> GoogleOAuthAuthenticationProvid
         }
     )
     provider = GoogleOAuthAuthenticationProvider(
-        config_provider=config,
-        secret_manager=secret_manager,
-        database_provider=StubDatabaseProvider(factory),
+        config_provider=cast(IConfigProvider, config),
+        secret_manager=cast(ISecretManager, secret_manager),
+        database_provider=cast(IDatabaseProvider, StubDatabaseProvider(factory)),
     )
 
     async def fake_exchange(**_: Any) -> dict[str, Any]:
@@ -423,7 +426,7 @@ async def test_authenticate_creates_user_and_session(
     assert result.access_token
     assert result.refresh_token
 
-    factory: InMemoryRepositoryFactory = provider._repository_factory  # type: ignore[attr-defined]
+    factory = cast(InMemoryRepositoryFactory, provider._repository_factory)
     session = next(iter(factory.auth_session_repository.sessions.values()))
     expected_hash = provider._hash_refresh_token(result.refresh_token or "")
     assert session.refresh_token_hash == expected_hash
@@ -444,7 +447,7 @@ async def test_refresh_rotates_token(provider: GoogleOAuthAuthenticationProvider
     assert refreshed.token != auth.access_token
     assert refreshed.refresh_token != auth.refresh_token
 
-    factory: InMemoryRepositoryFactory = provider._repository_factory  # type: ignore[attr-defined]
+    factory = cast(InMemoryRepositoryFactory, provider._repository_factory)
     session = next(iter(factory.auth_session_repository.sessions.values()))
     old_hash = provider._hash_refresh_token(auth.refresh_token or "")
     new_hash = provider._hash_refresh_token(refreshed.refresh_token or "")

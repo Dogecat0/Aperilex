@@ -2,26 +2,34 @@
 
 from __future__ import annotations
 
+from typing import TypeVar, cast
+
+import pytest
+
 from src.application.interfaces.config import (
     ConfigNamespace,
     ConfigValidationRule,
     ConfigValue,
+    IConfigProvider,
 )
 from src.infrastructure.config.composite_config_provider import CompositeConfigProvider
 from src.infrastructure.config.env_config_provider import EnvironmentConfigProvider
 
+ConfigValueType = str | int | float | bool | list[str] | dict[str, str]
+T = TypeVar("T", bound=ConfigValueType)
+
 
 class InMemoryConfigProvider:
-    def __init__(self, values: dict[str, object]):
+    def __init__(self, values: dict[str, ConfigValueType]):
         self.values = {k.lower(): v for k, v in values.items()}
 
-    def get(self, key: str, default: object | None = None) -> object:
+    def get(self, key: str, default: T | None = None) -> T:
         normalized = key.lower()
         if normalized not in self.values:
             if default is not None:
                 return default
             raise ValueError(f"Configuration key '{key}' not found")
-        return self.values[normalized]
+        return cast(T, self.values[normalized])
 
     def get_string(self, key: str, default: str | None = None) -> str:
         value = self.get(key, default)
@@ -61,7 +69,7 @@ class InMemoryConfigProvider:
             raise TypeError("Value is not a dict")
         return value
 
-    def set(self, key: str, value: object) -> bool:
+    def set(self, key: str, value: ConfigValueType) -> bool:
         self.values[key.lower()] = value
         return True
 
@@ -125,7 +133,9 @@ class InMemoryConfigProvider:
         }
 
 
-def test_environment_config_parses_types_and_masks_sensitive(monkeypatch) -> None:
+def test_environment_config_parses_types_and_masks_sensitive(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     monkeypatch.setenv("APERILEX_SERVICE_ENABLED", "true")
     monkeypatch.setenv("APERILEX_TIMEOUT_SECONDS", "30")
     monkeypatch.setenv("APERILEX_ALLOWED_ORIGINS", "https://a,https://b")
@@ -160,11 +170,13 @@ def test_environment_config_parses_types_and_masks_sensitive(monkeypatch) -> Non
 
 
 def test_composite_config_provider_prefers_first_and_sets_on_primary(
-    monkeypatch,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     primary = InMemoryConfigProvider({"feature_flag": True})
     fallback = InMemoryConfigProvider({"feature_flag": False, "timeout": 10})
-    composite = CompositeConfigProvider([primary, fallback])
+    composite = CompositeConfigProvider(
+        [cast(IConfigProvider, primary), cast(IConfigProvider, fallback)]
+    )
 
     assert composite.get_bool("feature_flag") is True
     assert composite.get_int("timeout") == 10

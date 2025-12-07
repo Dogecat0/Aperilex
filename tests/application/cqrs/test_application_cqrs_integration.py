@@ -1,4 +1,5 @@
 """Integration coverage for CQRS command/query handlers via the DI container."""
+# mypy: ignore-errors
 
 from __future__ import annotations
 

@@ -144,9 +144,9 @@ def test_build_walkthrough_constructs_expected_payload() -> None:
     assert walkthrough.learning_module_key == "risk_mastery"
     assert walkthrough.module_stage == "walkthrough"
     assert len(walkthrough.highlights) == TemplateRegistry.WALKTHROUGH_HIGHLIGHT_LIMIT
-    assert (
-        walkthrough.highlights[0].lesson_reference.learning_module_key == "risk_mastery"
-    )
+    lesson_ref = walkthrough.highlights[0].lesson_reference
+    assert lesson_ref is not None
+    assert lesson_ref.learning_module_key == "risk_mastery"
     assert (
         len(walkthrough.comprehension_checks)
         == TemplateRegistry.WALKTHROUGH_HIGHLIGHT_LIMIT

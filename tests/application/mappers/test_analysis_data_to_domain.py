@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from datetime import UTC, datetime
+from typing import Any
 from uuid import uuid4
 
 from src.application.interfaces.repositories import AnalysisData
@@ -13,8 +15,8 @@ from src.shared.types import AnalysisId, FilingId, UserId
 
 def _build_analysis_data(
     *,
-    summary: dict[str, object] | None,
-    metadata: dict[str, object],
+    summary: dict[str, Any] | None,
+    metadata: Mapping[str, str | int | float | bool],
 ) -> AnalysisData:
     """Helper to create AnalysisData for mapper tests."""
 
@@ -26,7 +28,7 @@ def _build_analysis_data(
         status=AnalysisStatus.COMPLETED,
         analysis_type=AnalysisType.COMPREHENSIVE.value,
         summary=summary,
-        metadata=metadata,
+        metadata=dict(metadata),
         created_at=datetime.now(UTC),
     )
 

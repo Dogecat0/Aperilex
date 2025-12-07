@@ -1,4 +1,5 @@
 """API tests for learning progress and quiz attempt endpoints."""
+# mypy: ignore-errors
 
 from __future__ import annotations
 
