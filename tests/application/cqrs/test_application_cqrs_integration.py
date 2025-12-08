@@ -35,6 +35,7 @@ from src.application.handlers.schemas.queries.list_company_filings import (
 from src.application.handlers.schemas.queries.search_filings import SearchFilingsQuery
 from src.application.handlers.schemas.responses.task_response import TaskResponse
 from src.application.interfaces.datasource import CompanyInfo, IDataSourceProvider
+from src.application.interfaces.events import AnalysisFailedEvent
 from src.application.interfaces.queue import IQueueProvider, QueueStats
 from src.application.interfaces.repositories import (
     AnalysisData,
@@ -65,12 +66,7 @@ from src.infrastructure.query_services import (
     CompanyQueryService,
     FilingQueryService,
 )
-from src.shared.enums import (
-    AnalysisStatus,
-    FilingType,
-    TaskStatus,
-    UserTier,
-)
+from src.shared.enums import AnalysisStatus, FilingType, TaskStatus, UserTier
 from src.shared.models.queue import TaskMessage
 from src.shared.models.task_data import TaskData
 from src.shared.types import (
@@ -363,10 +359,18 @@ class StubSectionDiffService:
         return {}
 
 
+class EmptyTemplateService(AnalysisTemplateService):
+    def get_all_templates(self) -> dict[str, dict[str, Any]]:
+        return {}
+
+
 @dataclass(slots=True)
 class CQRSHarness:
     application_service: ApplicationService
     handler_registrar: HandlerRegistrar
+    handler_factory: HandlerFactory
+    background_task_coordinator: BackgroundTaskCoordinator
+    event_publisher: StubEventPublisher
     repository_factory: TrackingRepositoryFactory
     queue_provider: StubQueueProvider
     priority_queue: StubPriorityQueue
@@ -525,6 +529,9 @@ async def cqrs_harness(tmp_path: Path, db_engine: AsyncEngine) -> CQRSHarness:
         yield CQRSHarness(
             application_service=application_service,
             handler_registrar=handler_registrar,
+            handler_factory=handler_factory,
+            background_task_coordinator=background_task_coordinator,
+            event_publisher=event_publisher,
             repository_factory=repository_factory,
             queue_provider=queue_provider,
             priority_queue=priority_queue,
@@ -583,6 +590,48 @@ async def test_analyze_command_failure_rolls_back_sessions(
         await cqrs_harness.application_service.execute_command(command)
 
     assert cqrs_harness.repository_factory.close_calls[-1] is False
+
+
+@pytest.mark.asyncio
+async def test_analyze_command_failure_records_status_and_event(
+    cqrs_harness: CQRSHarness,
+) -> None:
+    company = await cqrs_harness.seed_company(
+        cik="0000900000",
+        ticker="FAIL",
+        name="Fail Co",
+    )
+    filing = await cqrs_harness.seed_filing(
+        company_id=company.id,
+        accession_number="0000900000-24-000001",
+    )
+
+    original_mode = cqrs_harness.background_task_coordinator.use_background
+    cqrs_harness.background_task_coordinator.use_background = False
+
+    command = AnalyzeFilingCommand(
+        company_cik=company.cik,
+        accession_number=filing.accession_number,
+        analysis_template=AnalysisTemplate.COMPREHENSIVE,
+        user_email="fail@example.com",
+    )
+
+    try:
+        response = await cqrs_harness.application_service.execute_command(command)
+    finally:
+        cqrs_harness.background_task_coordinator.use_background = original_mode
+
+    assert response.status == TaskStatus.FAILED.value
+
+    analysis_repo = await cqrs_harness.repository_factory.get_analysis_repository()
+    analyses = await analysis_repo.get_by_filing_id(filing.id)
+    assert analyses
+    assert analyses[0].status == AnalysisStatus.ERROR
+
+    assert any(
+        isinstance(event, AnalysisFailedEvent)
+        for event in cqrs_harness.event_publisher.published
+    )
 
 
 @pytest.mark.asyncio
@@ -739,6 +788,27 @@ async def test_get_templates_query_uses_template_service(
 
     assert response.total_count == len(list(AnalysisTemplate))
     assert "comprehensive" in response.templates
+
+
+@pytest.mark.asyncio
+async def test_get_templates_query_errors_when_registry_empty(
+    cqrs_harness: CQRSHarness,
+) -> None:
+    empty_service = EmptyTemplateService()
+    original_service = cqrs_harness.handler_factory.template_service
+    cqrs_harness.handler_factory.template_service = empty_service
+    cqrs_harness.template_service = empty_service
+
+    query = GetTemplatesQuery()
+
+    try:
+        with pytest.raises(ValueError):
+            await cqrs_harness.application_service.execute_query(query)
+    finally:
+        cqrs_harness.handler_factory.template_service = original_service
+        cqrs_harness.template_service = original_service
+
+    assert cqrs_harness.repository_factory.close_calls[-1] is False
 
 
 @pytest.mark.asyncio

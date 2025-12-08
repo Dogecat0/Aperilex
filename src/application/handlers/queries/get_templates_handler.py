@@ -52,6 +52,9 @@ class GetTemplatesQueryHandler(QueryHandler[GetTemplatesQuery, TemplatesResponse
             # Get all templates with metadata from service
             response = TemplatesResponse.from_template_service(self.template_service)
 
+            if response.total_count == 0:
+                raise ValueError("No analysis templates registered in registry")
+
             logger.info(
                 f"Successfully retrieved {response.total_count} templates",
                 extra={
