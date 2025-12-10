@@ -70,7 +70,7 @@ Scope: align validation with `IMPLEMENTATION_PLAN.md` and `docs/deployment/DEPLO
   - [x] RabbitMQQueueProvider deduplication, pending-handle lifecycle, and health-check failure path
   - [x] S3 storage provider contract using offline S3 client stub (no network)
   - [ ] AWS secret/config/LLM provider network-path contracts once concrete implementations exist
-  - [ ] SSE/event provider payload and connection contract coverage (subscribe/unsubscribe/broadcast, payload shape)
+  - [x] SSE/event provider payload and connection contract coverage (subscribe/unsubscribe/broadcast, payload shape)
   - [ ] Edgar datasource provider offline paths (HTTP errors, retry/backoff, SEC limiter integration) without network calls
   - [ ] Worker docker provider env/command resolution, health check, and failure propagation
   - [ ] LLM providers (base/OpenAI/Google) request build, retry/timeout, and token-usage aggregation without network

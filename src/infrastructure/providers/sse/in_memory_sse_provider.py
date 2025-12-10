@@ -295,10 +295,10 @@ class InMemorySSEProvider:
         Returns:
             Number of connections cleaned up
         """
-        async with self._lock:
-            now = datetime.now(UTC)
-            cutoff_time = now - timedelta(seconds=max_age_seconds)
+        now = datetime.now(UTC)
+        cutoff_time = now - timedelta(seconds=max_age_seconds)
 
+        async with self._lock:
             stale_connections = []
             for connection_id, connection in list(self.connections.items()):
                 last_heartbeat = datetime.fromisoformat(
@@ -307,13 +307,13 @@ class InMemorySSEProvider:
                 if last_heartbeat < cutoff_time:
                     stale_connections.append(connection_id)
 
-            cleaned_count = 0
-            for connection_id in stale_connections:
-                if await self.close_connection(connection_id):
-                    cleaned_count += 1
-                    logger.info(f"Cleaned up stale connection {connection_id}")
+        cleaned_count = 0
+        for connection_id in stale_connections:
+            if await self.close_connection(connection_id):
+                cleaned_count += 1
+                logger.info(f"Cleaned up stale connection {connection_id}")
 
-            return cleaned_count
+        return cleaned_count
 
     async def subscribe_to_events(
         self, connection_id: str, event_types: list[str]
