@@ -552,3 +552,12 @@ class S3StorageProvider(IStorageProvider):
         except ClientError as e:
             logger.error(f"Failed to generate presigned URL for {key}: {e}")
             raise StorageError(f"Failed to generate presigned URL: {e}") from e
+
+    async def health_check(self) -> bool:
+        """S3 storage is healthy when the bucket is reachable."""
+        try:
+            self.s3_client.head_bucket(Bucket=self.bucket_name)
+            return True
+        except ClientError as exc:
+            logger.error("S3 storage health check failed: %s", exc)
+            return False

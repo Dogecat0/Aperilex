@@ -68,7 +68,7 @@ Scope: align validation with `IMPLEMENTATION_PLAN.md` and `docs/deployment/DEPLO
   - [x] Environment/Composite config provider precedence, parsing, export, and validation
   - [x] InMemoryRateLimitingProvider + RateLimitMiddleware enforcement and fail-closed resolution
   - [x] RabbitMQQueueProvider deduplication, pending-handle lifecycle, and health-check failure path
-  - [ ] S3 storage provider contract once implementation is available (mocked S3 in docker)
+  - [x] S3 storage provider contract using offline S3 client stub (no network)
   - [ ] AWS secret/config/LLM provider network-path contracts once concrete implementations exist
   - [ ] SSE/event provider payload and connection contract coverage (subscribe/unsubscribe/broadcast, payload shape)
   - [ ] Edgar datasource provider offline paths (HTTP errors, retry/backoff, SEC limiter integration) without network calls
