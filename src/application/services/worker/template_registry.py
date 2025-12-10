@@ -180,7 +180,10 @@ class TemplateRegistry:
     ) -> tuple[str, ...]:
         """Return canonical LLM schema identifiers for the template."""
 
-        return self._template_schemas.get(template, ())
+        if template not in self._template_schemas:
+            raise ValueError(f"Unsupported analysis template: {template.value}")
+
+        return self._template_schemas[template]
 
     def get_section_keys_for_schema(self, schema: str) -> tuple[str, ...]:
         """Return filing section headers mapped to a structured schema."""

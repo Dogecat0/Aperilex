@@ -96,6 +96,10 @@ class PaginatedResponse(SchemaVersionedGenericModel[T]):
     filters_applied: str | None = Field(
         default=None, description="Summary of filters that were applied"
     )
+    rate_limit_headers: dict[str, str] | None = Field(
+        default=None,
+        description="HTTP rate limit headers supplied by upstream providers",
+    )
 
     @classmethod
     def create(
@@ -106,6 +110,7 @@ class PaginatedResponse(SchemaVersionedGenericModel[T]):
         total_items: int,
         query_id: UUID | None = None,
         filters_applied: str | None = None,
+        rate_limit_headers: dict[str, str] | None = None,
     ) -> "PaginatedResponse[T]":
         """Create a paginated response from items and pagination parameters.
 
@@ -116,6 +121,7 @@ class PaginatedResponse(SchemaVersionedGenericModel[T]):
             total_items: Total number of items across all pages
             query_id: Optional query ID for tracking
             filters_applied: Optional summary of applied filters
+            rate_limit_headers: Optional rate limit headers to propagate
 
         Returns:
             PaginatedResponse with items and pagination metadata
@@ -127,6 +133,7 @@ class PaginatedResponse(SchemaVersionedGenericModel[T]):
             pagination=pagination,
             query_id=query_id,
             filters_applied=filters_applied,
+            rate_limit_headers=rate_limit_headers,
         )
 
     @classmethod
@@ -136,6 +143,7 @@ class PaginatedResponse(SchemaVersionedGenericModel[T]):
         page_size: int = 20,
         query_id: UUID | None = None,
         filters_applied: str | None = None,
+        rate_limit_headers: dict[str, str] | None = None,
     ) -> "PaginatedResponse[T]":
         """Create an empty paginated response.
 
@@ -144,6 +152,7 @@ class PaginatedResponse(SchemaVersionedGenericModel[T]):
             page_size: Items per page
             query_id: Optional query ID for tracking
             filters_applied: Optional summary of applied filters
+            rate_limit_headers: Optional rate limit headers to propagate
 
         Returns:
             Empty PaginatedResponse
@@ -155,6 +164,7 @@ class PaginatedResponse(SchemaVersionedGenericModel[T]):
             total_items=0,
             query_id=query_id,
             filters_applied=filters_applied,
+            rate_limit_headers=rate_limit_headers,
         )
 
     @property

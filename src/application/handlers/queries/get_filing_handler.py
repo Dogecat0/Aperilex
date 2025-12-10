@@ -8,6 +8,7 @@ from src.application.base.exceptions import ResourceNotFoundError
 from src.application.base.handlers import QueryHandler
 from src.application.handlers.schemas.queries.get_filing import GetFilingQuery
 from src.application.handlers.schemas.responses.filing_response import FilingResponse
+from src.application.interfaces.authentication import AuthenticationError
 from src.application.interfaces.repositories import (
     IAnalysisRepository,
     IFilingRepository,
@@ -66,6 +67,10 @@ class GetFilingQueryHandler(QueryHandler[GetFilingQuery, FilingResponse]):
         )
 
         try:
+            if not query.user_id:
+                raise AuthenticationError(
+                    "Authenticated user context required for filing retrieval"
+                )
             # Validate required parameters
             if query.filing_id is None:
                 raise ValueError("Filing ID is required")

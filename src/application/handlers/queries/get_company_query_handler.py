@@ -8,6 +8,7 @@ from src.application.handlers.schemas.responses.company_response import (
     AnalysisSummary,
     CompanyResponse,
 )
+from src.application.interfaces.authentication import AuthenticationError
 from src.application.interfaces.datasource import IDataSourceProvider
 from src.application.interfaces.query_services import IAnalysisQueryService
 from src.application.interfaces.repositories import (
@@ -60,6 +61,11 @@ class GetCompanyQueryHandler(QueryHandler[GetCompanyQuery, CompanyResponse]):
             RuntimeError: If EdgarService is unavailable
         """
         lookup_type, lookup_value = query.get_lookup_key()
+
+        if not query.user_id:
+            raise AuthenticationError(
+                "Authenticated user context required for company retrieval"
+            )
 
         logger.info(
             "Processing GetCompanyQuery",

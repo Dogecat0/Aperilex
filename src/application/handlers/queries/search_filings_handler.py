@@ -13,6 +13,7 @@ from src.application.handlers.schemas.responses.filing_search_response import (
 from src.application.handlers.schemas.responses.paginated_response import (
     PaginatedResponse,
 )
+from src.application.interfaces.datasource import IDataSourceProvider
 from src.application.interfaces.query_services import IFilingQueryService
 from src.application.interfaces.repositories import ICompanyRepository
 from src.domain.value_objects.processing_status import ProcessingStatus
@@ -41,6 +42,7 @@ class SearchFilingsHandler(
         self,
         company_repository: ICompanyRepository,
         filing_query_service: IFilingQueryService,
+        data_source_provider: IDataSourceProvider,
     ) -> None:
         """Initialize the handler with required dependencies.
 
@@ -50,6 +52,7 @@ class SearchFilingsHandler(
         """
         self.company_repository = company_repository
         self.filing_query_service = filing_query_service
+        self.data_source_provider = data_source_provider
 
     async def handle(
         self, query: SearchFilingsQuery
@@ -81,6 +84,8 @@ class SearchFilingsHandler(
             },
         )
 
+        rate_limit_headers = await self._get_rate_limit_headers()
+
         try:
             if not query.ticker:
                 raise ValueError("Ticker is required")
@@ -98,6 +103,7 @@ class SearchFilingsHandler(
                     page_size=query.page_size,
                     query_id=uuid4(),
                     filters_applied=query.search_summary,
+                    rate_limit_headers=rate_limit_headers,
                 )
 
             page_size = query.limit if query.limit is not None else query.page_size
@@ -121,6 +127,7 @@ class SearchFilingsHandler(
                     page_size=page_size,
                     query_id=uuid4(),
                     filters_applied=query.search_summary,
+                    rate_limit_headers=rate_limit_headers,
                 )
 
             search_results: list[FilingSearchResult] = []
@@ -152,6 +159,7 @@ class SearchFilingsHandler(
                 total_items=page_result.total_count,
                 query_id=uuid4(),
                 filters_applied=query.search_summary,
+                rate_limit_headers=rate_limit_headers,
             )
 
             logger.info(
@@ -180,6 +188,26 @@ class SearchFilingsHandler(
                 exc_info=True,
             )
             raise
+
+    async def _get_rate_limit_headers(self) -> dict[str, str] | None:
+        """Fetch rate limit status and convert to HTTP headers."""
+        status = await self.data_source_provider.get_rate_limit_status()
+        if not status:
+            return None
+
+        headers: dict[str, str] = {}
+        limit = status.get("requests_limit")
+        remaining = status.get("requests_remaining")
+        reset = status.get("reset_time_seconds")
+
+        if limit is not None:
+            headers["X-RateLimit-Limit"] = str(limit)
+        if remaining is not None:
+            headers["X-RateLimit-Remaining"] = str(remaining)
+        if reset is not None:
+            headers["X-RateLimit-Reset"] = str(reset)
+
+        return headers or None
 
     @classmethod
     def query_type(cls) -> type[SearchFilingsQuery]:

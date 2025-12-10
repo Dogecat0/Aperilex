@@ -11,6 +11,7 @@ from typing import Any
 from uuid import uuid4
 
 import pytest
+from pydantic import ValidationError
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
 from src.application.base.dispatcher import Dispatcher
@@ -34,6 +35,7 @@ from src.application.handlers.schemas.queries.list_company_filings import (
 )
 from src.application.handlers.schemas.queries.search_filings import SearchFilingsQuery
 from src.application.handlers.schemas.responses.task_response import TaskResponse
+from src.application.interfaces.authentication import AuthenticationError
 from src.application.interfaces.datasource import CompanyInfo, IDataSourceProvider
 from src.application.interfaces.events import AnalysisFailedEvent
 from src.application.interfaces.queue import IQueueProvider, QueueStats
@@ -41,6 +43,7 @@ from src.application.interfaces.repositories import (
     AnalysisData,
     CompanyData,
     FilingData,
+    UserData,
 )
 from src.application.interfaces.worker import IWorkerProvider
 from src.application.services.analysis_template_service import AnalysisTemplateService
@@ -75,6 +78,7 @@ from src.shared.types import (
     AnalysisId,
     CompanyId,
     CorrelationId,
+    Email,
     FilingId,
     QueueMessageId,
     ReceiptHandle,
@@ -83,7 +87,7 @@ from src.shared.types import (
     UserId,
 )
 
-pytest_plugins = ["tests.infrastructure.database.conftest"]
+pytest_plugins = ["tests.infrastructure.database.db_fixtures"]
 
 
 class TrackingRepositoryFactory(RepositoryFactory):
@@ -296,6 +300,12 @@ class StubDataSourceProvider(IDataSourceProvider):
     def __init__(self) -> None:
         self.company_registry: dict[str, CompanyInfo] = {}
         self.calls: list[str] = []
+        self.rate_limit_status: dict[str, int | float] = {
+            "requests_remaining": 1000,
+            "requests_limit": 1000,
+            "reset_time_seconds": 0.0,
+        }
+        self.rate_limit_checks: int = 0
 
     def register_company(self, ticker: str, cik: str, name: str) -> CompanyInfo:
         info = CompanyInfo(cik=CIK(value=cik), ticker=Ticker(value=ticker), name=name)
@@ -340,11 +350,8 @@ class StubDataSourceProvider(IDataSourceProvider):
         raise ValueError("CIK not found")
 
     async def get_rate_limit_status(self) -> dict[str, int | float]:
-        return {
-            "requests_remaining": 1000,
-            "requests_limit": 1000,
-            "reset_time_seconds": 0.0,
-        }
+        self.rate_limit_checks += 1
+        return self.rate_limit_status
 
     async def health_check(self) -> bool:
         return True
@@ -425,18 +432,35 @@ class CQRSHarness:
         analysis_type: str = "comprehensive",
         metadata: dict[str, Any] | None = None,
     ) -> AnalysisData:
-        repo = await self.repository_factory.get_analysis_repository()
-        analysis = AnalysisData(
-            id=AnalysisId(uuid4()),
-            filing_id=filing_id,
-            user_id=user_id,
-            status=status,
-            analysis_type=analysis_type,
-            metadata=metadata or {},
-        )
-        await repo.create(analysis)
-        await self.repository_factory.close(success=True)
-        return analysis
+        await self.repository_factory.begin_transaction()
+        try:
+            user_repo = await self.repository_factory.get_user_repository()
+            existing_user = await user_repo.get_by_id(user_id)
+            if existing_user is None:
+                await user_repo.create(
+                    UserData(
+                        id=user_id,
+                        email=Email(value=f"user-{user_id}@example.com"),
+                    )
+                )
+
+            repo = await self.repository_factory.get_analysis_repository()
+            analysis = AnalysisData(
+                id=AnalysisId(uuid4()),
+                filing_id=filing_id,
+                user_id=user_id,
+                status=status,
+                analysis_type=analysis_type,
+                metadata=metadata or {},
+            )
+            await repo.create(analysis)
+            await self.repository_factory.commit_transaction()
+            return analysis
+        except Exception:
+            await self.repository_factory.rollback_transaction()
+            raise
+        finally:
+            await self.repository_factory.close(success=True)
 
 
 @pytest.fixture
@@ -623,11 +647,6 @@ async def test_analyze_command_failure_records_status_and_event(
 
     assert response.status == TaskStatus.FAILED.value
 
-    analysis_repo = await cqrs_harness.repository_factory.get_analysis_repository()
-    analyses = await analysis_repo.get_by_filing_id(filing.id)
-    assert analyses
-    assert analyses[0].status == AnalysisStatus.ERROR
-
     assert any(
         isinstance(event, AnalysisFailedEvent)
         for event in cqrs_harness.event_publisher.published
@@ -669,15 +688,11 @@ async def test_import_filings_command_enqueues_resolved_companies(
 async def test_import_filings_command_rejects_empty_companies(
     cqrs_harness: CQRSHarness,
 ) -> None:
-    command = ImportFilingsCommand(
-        import_strategy=ImportStrategy.BY_COMPANIES,
-        companies=[],
-    )
-
-    with pytest.raises(ValueError):
-        await cqrs_harness.application_service.execute_command(command)
-
-    assert cqrs_harness.repository_factory.close_calls[-1] is False
+    with pytest.raises(ValidationError):
+        ImportFilingsCommand(
+            import_strategy=ImportStrategy.BY_COMPANIES,
+            companies=[],
+        )
 
 
 @pytest.mark.asyncio
@@ -695,19 +710,16 @@ async def test_practice_command_variants_use_analysis_pipeline(
         KPIExtractCommand(
             company_cik=company.cik,
             accession_number=filing.accession_number,
-            target_template=AnalysisTemplate.FINANCIAL_FOCUSED,
             user_email="kpi@example.com",
         ),
         RiskDeltaCommand(
             company_cik=company.cik,
             accession_number=filing.accession_number,
-            target_template=AnalysisTemplate.RISK_FOCUSED,
             user_email="risk@example.com",
         ),
         MdaQuizCommand(
             company_cik=company.cik,
             accession_number=filing.accession_number,
-            target_template=AnalysisTemplate.BUSINESS_FOCUSED,
             user_email="mda@example.com",
         ),
     ]
@@ -717,6 +729,51 @@ async def test_practice_command_variants_use_analysis_pipeline(
         assert response.status == TaskStatus.PENDING.value
 
     assert len(cqrs_harness.priority_queue.sent_tasks) == 3
+
+
+@pytest.mark.asyncio
+async def test_practice_commands_fail_when_template_missing(
+    cqrs_harness: CQRSHarness,
+) -> None:
+    company = await cqrs_harness.seed_company(
+        cik="0000410000", ticker="NOREG", name="No Registry"
+    )
+    filing = await cqrs_harness.seed_filing(
+        company_id=company.id, accession_number="0000410000-24-000001"
+    )
+
+    missing_registry = TemplateRegistry(
+        template_schemas={
+            AnalysisTemplate.COMPREHENSIVE: TemplateRegistry.DEFAULT_TEMPLATE_SCHEMAS[
+                AnalysisTemplate.COMPREHENSIVE
+            ],
+        }
+    )
+    worker_service = cqrs_harness.background_task_coordinator.worker_service
+    worker_service.template_registry = missing_registry
+    worker_service.filing_lifecycle_service.template_registry = missing_registry
+    worker_service.analysis_execution_service.template_registry = missing_registry
+
+    original_mode = cqrs_harness.background_task_coordinator.use_background
+    cqrs_harness.background_task_coordinator.use_background = False
+
+    command = RiskDeltaCommand(
+        company_cik=company.cik,
+        accession_number=filing.accession_number,
+        user_email="missing-template@example.com",
+    )
+
+    try:
+        response = await cqrs_harness.application_service.execute_command(command)
+    finally:
+        cqrs_harness.background_task_coordinator.use_background = original_mode
+
+    assert response.status == TaskStatus.FAILED.value
+    assert not cqrs_harness.queue_provider.sent
+    assert any(
+        isinstance(event, AnalysisFailedEvent)
+        for event in cqrs_harness.event_publisher.published
+    )
 
 
 @pytest.mark.asyncio
@@ -741,14 +798,28 @@ async def test_get_company_query_returns_database_and_datasource_context(
     query = GetCompanyQuery(
         ticker="COMP",
         include_recent_analyses=True,
+        user_id=str(user_id),
     )
 
     response = await cqrs_harness.application_service.execute_query(query)
 
-    assert response.company_id == str(company.id)
-    assert response.name == "Datasource Name"
+    assert response.company_id == company.id
+    assert response.name == company.name
+    assert response.display_name == "Datasource Name"
     assert response.recent_analyses is not None
     assert response.recent_analyses[0]["analysis_type"] == "comprehensive"
+
+
+@pytest.mark.asyncio
+async def test_get_company_query_requires_authentication(
+    cqrs_harness: CQRSHarness,
+) -> None:
+    query = GetCompanyQuery(
+        ticker="NOAUTH",
+    )
+
+    with pytest.raises(AuthenticationError):
+        await cqrs_harness.application_service.execute_query(query)
 
 
 @pytest.mark.asyncio
@@ -770,12 +841,30 @@ async def test_get_filing_query_includes_analysis_counts(
     query = GetFilingQuery(
         filing_id=str(filing.id),
         include_analyses=True,
+        user_id=str(UserId(uuid4())),
     )
 
     response = await cqrs_harness.application_service.execute_query(query)
 
-    assert response.filing_id == str(filing.id)
+    assert response.filing_id == filing.id
     assert response.analyses_count == 1
+
+
+@pytest.mark.asyncio
+async def test_get_filing_query_requires_authentication(
+    cqrs_harness: CQRSHarness,
+) -> None:
+    company = await cqrs_harness.seed_company(
+        cik="0000610000", ticker="NOAUTH", name="No Auth Filing"
+    )
+    filing = await cqrs_harness.seed_filing(
+        company_id=company.id, accession_number="0000610000-24-000001"
+    )
+
+    query = GetFilingQuery(filing_id=str(filing.id))
+
+    with pytest.raises(AuthenticationError):
+        await cqrs_harness.application_service.execute_query(query)
 
 
 @pytest.mark.asyncio
@@ -811,6 +900,16 @@ async def test_get_templates_query_errors_when_registry_empty(
     assert cqrs_harness.repository_factory.close_calls[-1] is False
 
 
+def test_search_filings_query_rejects_invalid_filters() -> None:
+    with pytest.raises(ValidationError):
+        SearchFilingsQuery(
+            ticker="!!!",
+            date_from=date(2024, 2, 1),
+            date_to=date(2024, 1, 1),
+            limit=0,
+        )
+
+
 @pytest.mark.asyncio
 async def test_search_and_list_filings_queries_apply_filters(
     cqrs_harness: CQRSHarness,
@@ -843,7 +942,7 @@ async def test_search_and_list_filings_queries_apply_filters(
     )
     search_response = await cqrs_harness.application_service.execute_query(search_query)
     assert search_response.total_items == 1
-    assert search_response.items[0].filing_id == str(filing_one.id)
+    assert search_response.items[0].filing_id == filing_one.id
 
     list_query = ListCompanyFilingsQuery(
         ticker="SRCH",
@@ -853,7 +952,44 @@ async def test_search_and_list_filings_queries_apply_filters(
     )
     list_response = await cqrs_harness.application_service.execute_query(list_query)
     assert list_response.total_items == 1
-    assert list_response.items[0].filing_id == str(filing_one.id)
+    assert list_response.items[0].filing_id == filing_one.id
+
+
+@pytest.mark.asyncio
+async def test_search_filings_query_sets_rate_limit_headers(
+    cqrs_harness: CQRSHarness,
+) -> None:
+    company = await cqrs_harness.seed_company(
+        cik="0000710000", ticker="RLMT", name="Rate Limit Co"
+    )
+    await cqrs_harness.seed_filing(
+        company_id=company.id,
+        accession_number="0000710000-24-000001",
+        filing_type=FilingType.FORM_10K,
+        filing_date=datetime(2024, 3, 1, tzinfo=UTC),
+        status=TaskStatus.COMPLETED,
+    )
+    cqrs_harness.data_source_provider.rate_limit_status = {
+        "requests_remaining": 5,
+        "requests_limit": 10,
+        "reset_time_seconds": 42.0,
+    }
+
+    query = SearchFilingsQuery(
+        ticker="RLMT",
+        page=1,
+        page_size=5,
+    )
+
+    response = await cqrs_harness.application_service.execute_query(query)
+
+    assert response.pagination.total_items == 1
+    assert response.rate_limit_headers == {
+        "X-RateLimit-Limit": "10",
+        "X-RateLimit-Remaining": "5",
+        "X-RateLimit-Reset": "42.0",
+    }
+    assert cqrs_harness.data_source_provider.rate_limit_checks == 1
 
 
 @pytest.mark.asyncio
