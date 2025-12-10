@@ -241,3 +241,29 @@ def test_analyze_filing_by_id_rejects_invalid_tier(
     detail = response.json()["detail"]
     assert detail["code"] == "auth.user.invalid_tier"
     assert service.executed_commands == []
+
+
+def test_accession_lookup_returns_gone(
+    filings_client_factory: FilingsClientFactory,
+) -> None:
+    client, service = filings_client_factory()
+
+    response = client.get("/api/filings/0000123456-24-000010")
+
+    assert response.status_code == 410
+    assert "no longer supported" in response.json()["detail"]
+    assert service.executed_queries == []
+    assert service.executed_commands == []
+
+
+def test_accession_analysis_lookup_returns_gone(
+    filings_client_factory: FilingsClientFactory,
+) -> None:
+    client, service = filings_client_factory()
+
+    response = client.get("/api/filings/0000123456-24-000010/analysis")
+
+    assert response.status_code == 410
+    assert "no longer supported" in response.json()["detail"]
+    assert service.executed_queries == []
+    assert service.executed_commands == []
