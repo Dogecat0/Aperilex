@@ -71,9 +71,9 @@ Scope: align validation with `IMPLEMENTATION_PLAN.md` and `docs/deployment/DEPLO
   - [x] S3 storage provider contract using offline S3 client stub (no network)
   - [ ] AWS secret/config/LLM provider network-path contracts once concrete implementations exist
   - [x] SSE/event provider payload and connection contract coverage (subscribe/unsubscribe/broadcast, payload shape)
-  - [ ] Edgar datasource provider offline paths (HTTP errors, retry/backoff, SEC limiter integration) without network calls
-  - [ ] Worker docker provider env/command resolution, health check, and failure propagation
-  - [ ] LLM providers (base/OpenAI/Google) request build, retry/timeout, and token-usage aggregation without network
+  - [ ] TODO (Leave it for now): Edgar datasource provider offline paths (HTTP errors, retry/backoff, SEC limiter integration) without network calls
+  - [x] Worker docker provider env/command resolution, health check, and failure propagation
+  - [x] LLM providers (base/OpenAI/Google) request build, retry/timeout, and token-usage aggregation without network
 - Cross-cutting controls: add fail-closed coverage for rate limiting, startup health checks, and queue backpressure paths.
   - [ ] RateLimitMiddleware resolution failures and rate header assertions on auth/filings routes; auth/filings routers exercise PKCE/state tampering, missing/invalid cookies, stale analyses, and repository errors
   - [ ] `sec_rate_limiter` quota/exhaustion/error paths (backoff, jitter) and `PriorityQueueService` dedup/backpressure/visibility/background cleanup
