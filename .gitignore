@@ -149,6 +149,10 @@ dmypy.json
 # ruff
 .ruff_cache/
 
+# pre-commit
+.pre-commit/
+.pre-commit-cache/
+
 # Pyre type checker
 .pyre/
 
