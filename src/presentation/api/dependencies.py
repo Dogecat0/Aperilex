@@ -15,6 +15,7 @@ from dependency_injector import providers
 from dependency_injector.wiring import Provide, inject
 
 from src.application.base.dispatcher import Dispatcher
+from src.application.base.exceptions import DependencyError
 from src.application.containers.application import ApplicationContainer
 from src.application.containers.cqrs import HandlerRegistrar
 from src.application.containers.orchestrator import ApiRateLimiter, SSEConnectionManager
@@ -299,8 +300,17 @@ class ServiceLifecycle:
                 f"Storage: {storage_healthy}, Events: {event_healthy}"
             )
 
-            if not all([queue_healthy, storage_healthy, event_healthy]):
-                logger.warning("Some services are not healthy, but continuing startup")
+            if not all(
+                bool(value) for value in (queue_healthy, storage_healthy, event_healthy)
+            ):
+                raise DependencyError(
+                    "provider.health",
+                    (
+                        "Provider health checks failed: "
+                        f"queue={queue_healthy}, storage={storage_healthy}, "
+                        f"events={event_healthy}"
+                    ),
+                )
 
             if not self._event_subscribers:
                 logging_subscriber = LoggingEventSubscriber()
@@ -312,10 +322,15 @@ class ServiceLifecycle:
 
                 logger.info("Registered default event subscribers")
 
-        except Exception as e:
-            logger.error(f"Failed to initialize DI container and services: {e}")
-            # Don't fail startup completely - some endpoints might still work
-            logger.warning("Continuing startup with limited functionality")
+        except DependencyError:
+            logger.error("Failed to initialize DI container and services", exc_info=True)
+            raise
+        except Exception as e:  # noqa: BLE001
+            logger.error("Failed to initialize DI container and services", exc_info=True)
+            raise DependencyError(
+                "container.startup",
+                f"Failed to initialize DI container and services: {e}",
+            ) from e
 
     async def shutdown(self) -> None:
         """Clean up services during application shutdown.

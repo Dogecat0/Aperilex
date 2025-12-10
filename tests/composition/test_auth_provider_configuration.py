@@ -2,6 +2,7 @@
 
 import pytest
 
+from src.application.base.exceptions import DependencyError
 from src.composition.container import CompositionRoot
 
 
@@ -10,10 +11,10 @@ def test_initialize_requires_auth_provider(monkeypatch: pytest.MonkeyPatch) -> N
 
     monkeypatch.delenv("APERILEX_AUTHENTICATION_PROVIDER", raising=False)
 
-    with pytest.raises(RuntimeError) as exc:
+    with pytest.raises(DependencyError) as exc:
         CompositionRoot.initialize(environment="development")
 
-    assert "APERILEX_AUTHENTICATION_PROVIDER" in str(exc.value)
+    assert exc.value.dependency_name == "authentication.provider"
 
 
 def test_initialize_rejects_unknown_auth_provider(
@@ -23,7 +24,7 @@ def test_initialize_rejects_unknown_auth_provider(
 
     monkeypatch.setenv("APERILEX_AUTHENTICATION_PROVIDER", "UNKNOWN")
 
-    with pytest.raises(RuntimeError) as exc:
+    with pytest.raises(DependencyError) as exc:
         CompositionRoot.initialize(environment="development")
 
     assert "Unsupported authentication provider" in str(exc.value)

@@ -12,6 +12,7 @@ from types import ModuleType
 
 from dependency_injector import containers, providers
 
+from src.application.base.exceptions import DependencyError
 from src.application.containers import ApplicationContainer
 from src.application.interfaces.database import IDatabaseProvider
 from src.shared.enums import (
@@ -151,22 +152,24 @@ class CompositionRoot(containers.DeclarativeContainer):
                 else ""
             )
 
-            if not normalized_value:
-                valid_values = ", ".join(p.value for p in AuthenticationProvider)
-                raise RuntimeError(
-                    "Authentication provider not configured. "
-                    "Set APERILEX_AUTHENTICATION_PROVIDER to one of: "
-                    f"{valid_values}"
-                )
+        if not normalized_value:
+            valid_values = ", ".join(p.value for p in AuthenticationProvider)
+            raise DependencyError(
+                "authentication.provider",
+                "Authentication provider not configured. "
+                "Set APERILEX_AUTHENTICATION_PROVIDER to one of: "
+                f"{valid_values}",
+            )
 
-            try:
-                auth_provider_type = AuthenticationProvider(normalized_value)
-            except ValueError as exc:
-                valid_values = ", ".join(p.value for p in AuthenticationProvider)
-                raise RuntimeError(
-                    f"Unsupported authentication provider '{auth_provider_raw}'. "
-                    f"Valid options: {valid_values}"
-                ) from exc
+        try:
+            auth_provider_type = AuthenticationProvider(normalized_value)
+        except ValueError as exc:
+            valid_values = ", ".join(p.value for p in AuthenticationProvider)
+            raise DependencyError(
+                "authentication.provider",
+                f"Unsupported authentication provider '{auth_provider_raw}'. "
+                f"Valid options: {valid_values}",
+            ) from exc
 
         # Persist resolved provider types for downstream diagnostics
         app_container.providers_container.storage_provider_type.override(
