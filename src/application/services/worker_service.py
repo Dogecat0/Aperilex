@@ -1,9 +1,9 @@
 """
-Worker service implementation with 9-step processing workflow.
+Worker service implementation with a storage-first processing workflow.
 
-This service implements the core task processing workflow using
-provider interfaces and dependency injection. It absorbs the functionality
-from AnalysisOrchestrator for a unified processing pipeline.
+This service implements the core task processing workflow using provider
+interfaces and dependency injection. It absorbs the functionality from
+AnalysisOrchestrator for a unified processing pipeline.
 """
 
 from __future__ import annotations
@@ -19,7 +19,6 @@ from pydantic import BaseModel, Field
 from src.application.handlers.schemas.commands.analyze_filing import (
     AnalyzeFilingCommand,
 )
-from src.application.interfaces.datasource import FilingContent
 from src.application.interfaces.repositories import (
     CompanyData,
     FilingData,
@@ -33,6 +32,7 @@ from src.application.services.worker import (
     AnalysisPersistenceService,
     AnalysisSummaryBuilder,
     AnalysisTaskBuilder,
+    FilingFetchError,
     FilingLifecycleService,
     TemplateRegistry,
     WorkerRetryCoordinator,
@@ -79,24 +79,6 @@ class SchemaVersionError(WorkerServiceError):
     pass
 
 
-class FilingFetchError(WorkerServiceError):
-    """Error fetching filing from data source."""
-
-    pass
-
-
-class LLMProcessingError(WorkerServiceError):
-    """Error during LLM processing."""
-
-    pass
-
-
-class StorageError(WorkerServiceError):
-    """Error storing data."""
-
-    pass
-
-
 class TaskResult(BaseModel):
     """Result of task processing."""
 
@@ -124,14 +106,12 @@ class WorkerService:
 
     Workflow steps:
     1. Version check and schema migration
-    2. Filing validation and existence check
-    3. Fetch from EDGAR if needed
-    4. Store filing using storage interface
-    5. LLM analysis with template-based section extraction
-    6. Store analysis result
-    7. Update database status with progress tracking
-    8. Publish completion event
-    9. Return TaskResult
+    2. Filing metadata + storage existence check
+    3. LLM analysis with template-based section extraction
+    4. Store analysis result
+    5. Update database status with progress tracking
+    6. Publish completion event
+    7. Return TaskResult
     """
 
     def __init__(
@@ -320,7 +300,6 @@ class WorkerService:
         start_time = datetime.now(UTC)
         task_data = None
         analysis_request: AnalysisRequest | None = None
-        fetched_filing_content: FilingContent | None = None
         success = False
 
         try:
@@ -347,59 +326,24 @@ class WorkerService:
                 task_data=task_data,
             )
 
-            # Step 2: Validate filing access and check existence
-            await self.filing_lifecycle_service.validate_filing_access(task_data)
-            filing_exists = await self.filing_lifecycle_service.check_filing_exists(
-                task_data.filing_id
+            # Step 2: Validate filing existence across repository and storage
+            await self.filing_lifecycle_service.ensure_artifacts_available(
+                task_data.filing_id,
+                correlation_id=str(context.correlation_id),
             )
+
             await self.analysis_event_emitter.track_progress(
                 progress_callback,
                 0.2,
-                "Filing validation complete",
+                "Filing artifacts verified",
                 analysis_request=analysis_request,
                 task_data=task_data,
             )
 
-            # Step 3 & 4: Fetch from datasource and store if needed
-            if not filing_exists:
-                await self.analysis_event_emitter.track_progress(
-                    progress_callback,
-                    0.3,
-                    "Fetching filing from datasource",
-                    analysis_request=analysis_request,
-                    task_data=task_data,
-                )
-                fetched_filing_content = await self.filing_lifecycle_service.fetch_filing(
-                    task_data.ticker,
-                    task_data.filing_type,
-                    context.correlation_id,
-                    task_data.metadata,  # Pass metadata for accession_number and cik
-                )
-                filing_bytes = self.filing_lifecycle_service.encode_filing_content(
-                    fetched_filing_content
-                )
-                storage_key = await self.filing_lifecycle_service.store_filing(
-                    task_data.filing_id,
-                    filing_bytes,
-                    task_data,
-                    publish_event=False,
-                )
-                await self.analysis_event_emitter.publish_filing_imported_event(
-                    task_data=task_data,
-                    storage_key=storage_key,
-                )
-                await self.analysis_event_emitter.track_progress(
-                    progress_callback,
-                    0.4,
-                    "Filing stored",
-                    analysis_request=analysis_request,
-                    task_data=task_data,
-                )
-
-            # Step 5: Perform LLM analysis with section extraction
+            # Step 3: Perform LLM analysis with section extraction
             await self.analysis_event_emitter.track_progress(
                 progress_callback,
-                0.5,
+                0.3,
                 "Starting LLM analysis",
                 analysis_request=analysis_request,
                 task_data=task_data,
@@ -410,11 +354,12 @@ class WorkerService:
 
             if analysis_request.analysis_type == AnalysisType.COMPREHENSIVE:
                 try:
-                    structured_sections = await self.filing_lifecycle_service.prepare_structured_sections(
-                        task_data=task_data,
-                        template=template,
-                        correlation_id=context.correlation_id,
-                        fetched_filing=fetched_filing_content,
+                    structured_sections = (
+                        await self.filing_lifecycle_service.prepare_structured_sections(
+                            task_data=task_data,
+                            template=template,
+                            correlation_id=context.correlation_id,
+                        )
                     )
                 except FilingFetchError as exc:
                     logger.error(
@@ -433,24 +378,23 @@ class WorkerService:
                 company_name = self._resolve_company_name(
                     task_data.metadata, task_data.ticker
                 )
-                analysis_result = (
-                    await self.analysis_execution_service.perform_structured_comprehensive_analysis(
-                        request=analysis_request,
-                        filing_id=task_data.filing_id,
-                        filing_type=task_data.filing_type,
-                        filing_sections=structured_sections,
-                        company_name=company_name,
-                        template=template,
-                        metadata=task_data.metadata,
-                        task_data=task_data,
-                    )
+                analysis_result = await self.analysis_execution_service.perform_structured_comprehensive_analysis(
+                    request=analysis_request,
+                    filing_id=task_data.filing_id,
+                    filing_type=task_data.filing_type,
+                    filing_sections=structured_sections,
+                    company_name=company_name,
+                    template=template,
+                    metadata=task_data.metadata,
+                    task_data=task_data,
                 )
             else:
-                extracted_content = await self.filing_lifecycle_service.extract_filing_sections(
-                    task_data=task_data,
-                    template=template,
-                    correlation_id=context.correlation_id,
-                    fetched_filing=fetched_filing_content,
+                extracted_content = (
+                    await self.filing_lifecycle_service.extract_filing_sections(
+                        task_data=task_data,
+                        template=template,
+                        correlation_id=context.correlation_id,
+                    )
                 )
 
                 analysis_result = await self.analysis_execution_service.perform_llm_analysis_with_sections(
@@ -466,7 +410,7 @@ class WorkerService:
                 task_data=task_data,
             )
 
-            # Step 6: Store analysis result
+            # Step 4: Store analysis result
             summary_payload = self.analysis_summary_builder.build_summary_payload(
                 analysis_result,
                 task_data,
@@ -489,7 +433,7 @@ class WorkerService:
                 task_data=task_data,
             )
 
-            # Step 7: Update database status with progress
+            # Step 5: Update database status with progress
             await self.analysis_persistence_service.update_task_status(
                 task_data.task_id,
                 TaskStatus.COMPLETED,
@@ -506,7 +450,7 @@ class WorkerService:
                 task_data=task_data,
             )
 
-            # Step 8: Publish completion event
+            # Step 6: Publish completion event
             await self.analysis_event_emitter.publish_completion_event(
                 task_data,
                 analysis_result,
@@ -520,7 +464,7 @@ class WorkerService:
                 task_data=task_data,
             )
 
-            # Step 9: Return result
+            # Step 7: Return result
             processing_time = int(
                 (datetime.now(UTC) - start_time).total_seconds() * 1000
             )

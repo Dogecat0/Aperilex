@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import uuid
 from datetime import UTC, datetime
 from types import SimpleNamespace
@@ -15,12 +16,11 @@ from src.application.interfaces.datasource import FilingContent, FilingMetadata
 from src.application.services.worker import (
     FilingFetchError,
     FilingLifecycleService,
-    StorageError,
     TemplateRegistry,
 )
 from src.shared.enums import FilingType, TaskPriority, TaskStatus, UserTier
 from src.shared.models import TaskData
-from src.shared.types import CIK, Email, FilingId, StorageKey, TaskId, Ticker, UserId
+from src.shared.types import CIK, Email, FilingId, TaskId, Ticker, UserId
 
 
 def _make_task_data() -> TaskData:
@@ -65,19 +65,26 @@ def _make_filing_content() -> FilingContent:
     )
 
 
+def _serialize_filing_payload(filing: FilingContent) -> bytes:
+    payload = {
+        "schema_version": filing.schema_version,
+        "metadata": filing.metadata.model_dump(mode="json"),
+        "raw_content": filing.raw_content,
+        "parsed_sections": filing.parsed_sections,
+    }
+    return json.dumps(payload, ensure_ascii=False).encode("utf-8")
+
+
 def _build_service(
     *,
-    datasource: MagicMock | None = None,
     storage: MagicMock | None = None,
     repository_factory: MagicMock | None = None,
 ) -> FilingLifecycleService:
-    datasource = datasource or MagicMock()
     storage = storage or MagicMock()
     repository_factory = repository_factory or MagicMock()
     template_registry = TemplateRegistry()
 
     return FilingLifecycleService(
-        datasource=datasource,
         storage=storage,
         repository_factory=repository_factory,
         template_registry=template_registry,
@@ -86,17 +93,12 @@ def _build_service(
 
 @pytest.mark.unit
 @pytest.mark.asyncio
-async def test_validate_filing_access_uses_latest_when_accession_missing() -> None:
-    task_data = _make_task_data()
-    task_data.metadata.pop("accession_number")
+async def test_check_filing_storage_returns_bool() -> None:
+    storage = MagicMock()
+    storage.exists = AsyncMock(return_value=False)
+    service = _build_service(storage=storage)
 
-    datasource = MagicMock()
-    datasource.get_latest_filing = AsyncMock()
-
-    service = _build_service(datasource=datasource)
-    await service.validate_filing_access(task_data)
-
-    datasource.get_latest_filing.assert_awaited_once()
+    assert await service.check_filing_in_storage(FilingId(uuid.uuid4())) is False
 
 
 @pytest.mark.unit
@@ -113,96 +115,105 @@ async def test_check_filing_exists_returns_bool() -> None:
 
 @pytest.mark.unit
 @pytest.mark.asyncio
-async def test_fetch_filing_raises_when_missing() -> None:
-    datasource = MagicMock()
-    datasource.get_filing_by_accession = AsyncMock(return_value=None)
-    service = _build_service(datasource=datasource)
+async def test_ensure_artifacts_available_validates_presence() -> None:
+    filing = _make_filing_content()
+    repository = MagicMock()
+    repository.exists = AsyncMock(return_value=True)
+    repo_factory = MagicMock()
+    repo_factory.get_filing_repository = AsyncMock(return_value=repository)
+    storage = MagicMock()
+    storage.exists = AsyncMock(return_value=True)
+    storage.get_filing = AsyncMock(
+        return_value=SimpleNamespace(data=_serialize_filing_payload(filing))
+    )
 
-    with pytest.raises(FilingFetchError):
-        await service.fetch_filing(
-            ticker=Ticker(value="APXL"),
-            filing_type=FilingType.FORM_10K,
-            correlation_id="corr",
-            metadata={"accession_number": "000123", "cik": "000001"},
-        )
+    service = _build_service(storage=storage, repository_factory=repo_factory)
+    await service.ensure_artifacts_available(filing.metadata.filing_id)
 
 
 @pytest.mark.unit
-def test_encode_and_decode_roundtrip_preserves_sections() -> None:
+@pytest.mark.asyncio
+async def test_ensure_artifacts_available_raises_when_storage_missing() -> None:
+    repository = MagicMock()
+    repository.exists = AsyncMock(return_value=True)
+    repo_factory = MagicMock()
+    repo_factory.get_filing_repository = AsyncMock(return_value=repository)
+    storage = MagicMock()
+    storage.exists = AsyncMock(return_value=False)
+
+    service = _build_service(storage=storage, repository_factory=repo_factory)
+    with pytest.raises(FilingFetchError):
+        await service.ensure_artifacts_available(FilingId(uuid.uuid4()))
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+async def test_ensure_artifacts_available_raises_when_sections_missing() -> None:
+    filing = _make_filing_content()
+    filing.parsed_sections = {}
+
+    repository = MagicMock()
+    repository.exists = AsyncMock(return_value=True)
+    repo_factory = MagicMock()
+    repo_factory.get_filing_repository = AsyncMock(return_value=repository)
+
+    storage = MagicMock()
+    storage.exists = AsyncMock(return_value=True)
+    storage.get_filing = AsyncMock(
+        return_value=SimpleNamespace(data=_serialize_filing_payload(filing))
+    )
+
+    service = _build_service(storage=storage, repository_factory=repo_factory)
+    with pytest.raises(FilingFetchError):
+        await service.ensure_artifacts_available(filing.metadata.filing_id)
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+async def test_load_stored_filing_payload_parses_json() -> None:
     service = _build_service()
     filing = _make_filing_content()
-    encoded = service.encode_filing_content(filing)
-    payload = service.deserialize_filing_payload(encoded)
+    storage = cast(Any, service.storage)
+    storage.exists = AsyncMock(return_value=True)
+    storage.get_filing = AsyncMock(
+        return_value=SimpleNamespace(data=_serialize_filing_payload(filing))
+    )
 
-    assert payload["raw_content"] == filing.raw_content
-    assert payload["parsed_sections"]["Item 1 - Business"] == "Business section"
-    assert isinstance(payload["metadata"], FilingMetadata)
+    payload = await service.load_stored_filing_payload(filing.metadata.filing_id)
+
+    assert payload is not None
+    assert payload.raw_content == filing.raw_content
+    assert payload.parsed_sections["Item 1 - Business"] == "Business section"
 
 
 @pytest.mark.unit
 @pytest.mark.asyncio
-async def test_store_filing_invokes_storage_and_handler() -> None:
-    storage = MagicMock()
-    storage.store_filing = AsyncMock(return_value=StorageKey("filings/123"))
-
-    handler_calls: list[tuple[TaskData, StorageKey]] = []
-
-    async def handler(task: TaskData, key: StorageKey) -> None:
-        handler_calls.append((task, key))
-
-    service = FilingLifecycleService(
-        datasource=MagicMock(),
-        storage=storage,
-        repository_factory=MagicMock(),
-        template_registry=TemplateRegistry(),
-        filing_imported_handler=handler,
+async def test_load_stored_filing_payload_raises_for_invalid_json() -> None:
+    service = _build_service()
+    storage = cast(Any, service.storage)
+    storage.exists = AsyncMock(return_value=True)
+    storage.get_filing = AsyncMock(
+        return_value=SimpleNamespace(data=b"not-json")
     )
 
-    task_data = _make_task_data()
-    key = await service.store_filing(
-        task_data.filing_id,
-        b"filing-bytes",
-        task_data,
-        publish_event=True,
-    )
-
-    assert key == StorageKey("filings/123")
-    storage.store_filing.assert_awaited_once()
-    assert handler_calls == [(task_data, key)]
-
-
-@pytest.mark.unit
-@pytest.mark.asyncio
-async def test_store_filing_raises_storage_error_on_failure() -> None:
-    storage = MagicMock()
-    storage.store_filing = AsyncMock(side_effect=RuntimeError("boom"))
-
-    service = _build_service(storage=storage)
-
-    with pytest.raises(StorageError):
-        await service.store_filing(
-            FilingId(uuid.uuid4()),
-            b"bytes",
-            _make_task_data(),
-        )
+    with pytest.raises(FilingFetchError):
+        await service.load_stored_filing_payload(FilingId(uuid.uuid4()))
 
 
 @pytest.mark.unit
 @pytest.mark.asyncio
 async def test_prepare_structured_sections_filters_by_template() -> None:
-    datasource = MagicMock()
     storage = MagicMock()
     repository_factory = MagicMock()
 
     service = _build_service(
-        datasource=datasource,
         storage=storage,
         repository_factory=repository_factory,
     )
 
     filing = _make_filing_content()
     storage.get_filing = AsyncMock(
-        return_value=SimpleNamespace(data=service.encode_filing_content(filing))
+        return_value=SimpleNamespace(data=_serialize_filing_payload(filing))
     )
     storage.exists = AsyncMock(return_value=True)
 
@@ -225,7 +236,7 @@ async def test_extract_filing_sections_returns_concatenated_text() -> None:
     filing = _make_filing_content()
     storage = cast(Any, service.storage)
     storage.get_filing = AsyncMock(
-        return_value=SimpleNamespace(data=service.encode_filing_content(filing))
+        return_value=SimpleNamespace(data=_serialize_filing_payload(filing))
     )
     storage.exists = AsyncMock(return_value=True)
 
@@ -238,3 +249,24 @@ async def test_extract_filing_sections_returns_concatenated_text() -> None:
 
     assert "--- Item 1 - Business ---" in text
     assert "Business section" in text
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+async def test_get_filing_payload_raises_when_sections_missing() -> None:
+    service = _build_service()
+    storage = cast(Any, service.storage)
+
+    filing = _make_filing_content()
+    filing.parsed_sections.pop("Item 1 - Business")
+    storage.get_filing = AsyncMock(
+        return_value=SimpleNamespace(data=_serialize_filing_payload(filing))
+    )
+    storage.exists = AsyncMock(return_value=True)
+
+    task_data = _make_task_data()
+    with pytest.raises(FilingFetchError):
+        await service.get_filing_payload(
+            task_data=task_data,
+            correlation_id="corr",
+        )

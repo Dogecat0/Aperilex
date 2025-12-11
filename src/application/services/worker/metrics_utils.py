@@ -16,6 +16,24 @@ from src.shared.enums import FilingType
 PrometheusCounter = Any
 
 
+def init_filing_artifact_gap_counter() -> PrometheusCounter | None:
+    """Initialise a counter for missing filing artifacts."""
+
+    try:
+        from prometheus_client import Counter as RuntimeCounter
+    except Exception:  # pragma: no cover - optional dependency
+        return None
+
+    return RuntimeCounter(
+        "filing_artifact_gap_total",
+        "Missing or invalid filing artifacts encountered during analysis",
+        labelnames=("reason",),
+    )
+
+
+FILING_ARTIFACT_GAP_COUNTER = init_filing_artifact_gap_counter()
+
+
 def init_section_failure_counter() -> PrometheusCounter | None:
     """Initialise the Prometheus counter when the client is available."""
 
@@ -34,6 +52,16 @@ def init_section_failure_counter() -> PrometheusCounter | None:
 SECTION_EXTRACTION_FAILURE_COUNTER = init_section_failure_counter()
 
 
+def record_filing_artifact_gap(reason: str) -> None:
+    """Increment filing artifact gap metrics when available."""
+
+    counter = FILING_ARTIFACT_GAP_COUNTER
+    if counter is None:
+        return
+
+    counter.labels(reason=reason).inc()
+
+
 def record_section_failure_metric(
     template: AnalysisTemplate, filing_type: FilingType
 ) -> None:
@@ -50,7 +78,10 @@ def record_section_failure_metric(
 
 
 __all__ = [
+    "FILING_ARTIFACT_GAP_COUNTER",
     "SECTION_EXTRACTION_FAILURE_COUNTER",
+    "init_filing_artifact_gap_counter",
     "init_section_failure_counter",
+    "record_filing_artifact_gap",
     "record_section_failure_metric",
 ]

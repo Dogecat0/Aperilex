@@ -25,7 +25,6 @@ def build_worker_service(
     storage_provider: Any | None = None,
     queue_provider: Any | None = None,
     llm_provider: Any | None = None,
-    datasource_provider: Any | None = None,
     repository_factory: Any | None = None,
     event_publisher: Any | None = None,
     priority_queue: PriorityQueueService | None = None,
@@ -35,14 +34,12 @@ def build_worker_service(
     storage = storage_provider or MagicMock()
     queue = queue_provider or MagicMock()
     llm = llm_provider or MagicMock()
-    datasource = datasource_provider or MagicMock()
     repository = repository_factory or MagicMock()
     publisher = event_publisher or MagicMock()
 
     task_builder = AnalysisTaskBuilder()
     template_registry = TemplateRegistry()
     filing_lifecycle = FilingLifecycleService(
-        datasource=datasource,
         storage=storage,
         repository_factory=repository,
         template_registry=template_registry,

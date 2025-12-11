@@ -3,12 +3,13 @@
 
 from __future__ import annotations
 
+import hashlib
 from dataclasses import dataclass
 from datetime import UTC, date, datetime
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import pytest
 from pydantic import ValidationError
@@ -36,7 +37,12 @@ from src.application.handlers.schemas.queries.list_company_filings import (
 from src.application.handlers.schemas.queries.search_filings import SearchFilingsQuery
 from src.application.handlers.schemas.responses.task_response import TaskResponse
 from src.application.interfaces.authentication import AuthenticationError
-from src.application.interfaces.datasource import CompanyInfo, IDataSourceProvider
+from src.application.interfaces.datasource import (
+    CompanyInfo,
+    FilingContent,
+    FilingMetadata,
+    IDataSourceProvider,
+)
 from src.application.interfaces.events import AnalysisFailedEvent
 from src.application.interfaces.queue import IQueueProvider, QueueStats
 from src.application.interfaces.repositories import (
@@ -44,6 +50,11 @@ from src.application.interfaces.repositories import (
     CompanyData,
     FilingData,
     UserData,
+)
+from src.application.interfaces.storage import (
+    StorageMetadata,
+    StorageObject,
+    StorageRequest,
 )
 from src.application.interfaces.worker import IWorkerProvider
 from src.application.services.analysis_template_service import AnalysisTemplateService
@@ -82,6 +93,7 @@ from src.shared.types import (
     FilingId,
     QueueMessageId,
     ReceiptHandle,
+    StorageKey,
     TaskId,
     Ticker,
     UserId,
@@ -272,8 +284,156 @@ class StubWorkerProvider(IWorkerProvider):
 
 
 class StubStorageProvider:
+    def __init__(self) -> None:
+        self.filings: dict[FilingId, StorageObject] = {}
+        self.analyses: dict[AnalysisId, StorageObject] = {}
+
+    @staticmethod
+    def _default_sections(filing_type: FilingType) -> dict[str, str]:
+        if filing_type == FilingType.FORM_10Q:
+            return {
+                "Part II Item 1A - Risk Factors": "Risk factors section",
+                "Part I Item 2 - Management Discussion & Analysis": "MDA section",
+                "Balance Sheet": "Balance sheet content",
+                "Income Statement": "Income statement content",
+                "Cash Flow Statement": "Cash flow content",
+            }
+
+        return {
+            "Item 1 - Business": "Business section",
+            "Item 1A - Risk Factors": "Risk factors section",
+            "Item 7 - Management Discussion & Analysis": "MDA section",
+            "Balance Sheet": "Balance sheet content",
+            "Income Statement": "Income statement content",
+            "Cash Flow Statement": "Cash flow content",
+        }
+
+    async def seed_filing_payload(
+        self,
+        filing_id: FilingId,
+        filing_type: FilingType,
+        filing_date: date | datetime | None = None,
+        company_cik: CIK | None = None,
+    ) -> None:
+        filing_day = (
+            filing_date.date() if isinstance(filing_date, datetime) else filing_date
+        ) or date.today()
+        metadata = FilingMetadata(
+            filing_id=filing_id,
+            filing_type=filing_type,
+            company_cik=company_cik or CIK(value="0000000000"),
+            filing_date=filing_day,
+        )
+        content = FilingContent(
+            schema_version=1,
+            metadata=metadata,
+            raw_content="Stored filing content",
+            parsed_sections=self._default_sections(filing_type),
+        )
+        await self.store_filing(
+            StorageRequest(
+                filing_id=filing_id,
+                content=content.model_dump_json().encode("utf-8"),
+                metadata={"source": "prefetch_stub"},
+            )
+        )
+
     async def health_check(self) -> bool:  # pragma: no cover - not used directly
         return True
+
+    async def exists(self, filing_id: FilingId) -> bool:
+        return filing_id in self.filings
+
+    async def get_filing(self, filing_id: FilingId) -> StorageObject:
+        if filing_id not in self.filings:
+            raise FileNotFoundError(f"Filing {filing_id} not found")
+        return self.filings[filing_id]
+
+    async def store_filing(self, request: StorageRequest) -> StorageKey:
+        checksum = hashlib.sha256(request.content).hexdigest()
+        metadata = StorageMetadata(
+            schema_version=1,
+            content_type="application/json",
+            size=len(request.content),
+            checksum=checksum,
+            created_at=datetime.now(UTC).isoformat(),
+            updated_at=datetime.now(UTC).isoformat(),
+            tags=request.metadata,
+        )
+        key = StorageKey(f"filing:{request.filing_id}")
+        self.filings[request.filing_id] = StorageObject(
+            schema_version=1,
+            key=key,
+            data=request.content,
+            metadata=metadata,
+        )
+        return key
+
+    async def store_analysis(
+        self,
+        analysis_id: AnalysisId,
+        content: bytes,
+        metadata: Any | None = None,
+    ) -> StorageKey:
+        checksum = hashlib.sha256(content).hexdigest()
+        mime_type = ""
+        if metadata is not None:
+            mime_type = getattr(metadata, "mime_type", "") or ""
+        storage_metadata = StorageMetadata(
+            schema_version=1,
+            content_type="application/json",
+            size=len(content),
+            checksum=checksum,
+            created_at=datetime.now(UTC).isoformat(),
+            updated_at=datetime.now(UTC).isoformat(),
+            tags={"mime_type": mime_type},
+        )
+        key = StorageKey(f"analysis:{analysis_id}")
+        self.analyses[analysis_id] = StorageObject(
+            schema_version=1,
+            key=key,
+            data=content,
+            metadata=storage_metadata,
+        )
+        return key
+
+    async def get_analysis(self, analysis_id: AnalysisId) -> StorageObject:
+        if analysis_id not in self.analyses:
+            raise FileNotFoundError(f"Analysis {analysis_id} not found")
+        return self.analyses[analysis_id]
+
+    async def delete(self, key: StorageKey) -> bool:
+        key_str = str(key)
+        if key_str.startswith("filing:"):
+            raw_id = key_str.split(":", 1)[1]
+            try:
+                filing_id = FilingId(UUID(raw_id))
+            except ValueError:
+                return False
+            return bool(self.filings.pop(filing_id, None))
+        if key_str.startswith("analysis:"):
+            raw_id = key_str.split(":", 1)[1]
+            try:
+                analysis_id = AnalysisId(UUID(raw_id))
+            except ValueError:
+                return False
+            return bool(self.analyses.pop(analysis_id, None))
+        return False
+
+    async def list_keys(
+        self, prefix: str | None = None, limit: int = 1000
+    ) -> list[StorageKey]:
+        keys: list[StorageKey] = []
+        if prefix is None or prefix.startswith("filing"):
+            keys.extend(StorageKey(f"filing:{fid}") for fid in self.filings.keys())
+        if prefix is None or prefix.startswith("analysis"):
+            keys.extend(StorageKey(f"analysis:{aid}") for aid in self.analyses.keys())
+        return keys[:limit]
+
+    async def get_presigned_url(
+        self, key: StorageKey, expiration: int = 3600
+    ) -> str:
+        return f"memory://{key}"
 
 
 class StubEventPublisher:
@@ -381,6 +541,7 @@ class CQRSHarness:
     repository_factory: TrackingRepositoryFactory
     queue_provider: StubQueueProvider
     priority_queue: StubPriorityQueue
+    storage_provider: StubStorageProvider
     data_source_provider: StubDataSourceProvider
     template_service: AnalysisTemplateService
     status_store_path: Path
@@ -420,6 +581,11 @@ class CQRSHarness:
             metadata={},
         )
         await repo.create(filing)
+        await self.storage_provider.seed_filing_payload(
+            filing.id,
+            filing_type,
+            filing_date=filing.filing_date,
+        )
         await self.repository_factory.close(success=True)
         return filing
 
@@ -492,7 +658,6 @@ async def cqrs_harness(tmp_path: Path, db_engine: AsyncEngine) -> CQRSHarness:
         repository_factory=repository_factory,
         analysis_task_builder=AnalysisTaskBuilder(),
         filing_lifecycle_service=FilingLifecycleService(
-            datasource=data_source_provider,
             storage=storage_provider,
             repository_factory=repository_factory,
             template_registry=template_registry,
@@ -559,6 +724,7 @@ async def cqrs_harness(tmp_path: Path, db_engine: AsyncEngine) -> CQRSHarness:
             repository_factory=repository_factory,
             queue_provider=queue_provider,
             priority_queue=priority_queue,
+            storage_provider=storage_provider,
             data_source_provider=data_source_provider,
             template_service=template_service,
             status_store_path=Path(worker_provider.status_store_path),

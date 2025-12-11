@@ -17,6 +17,7 @@ from src.application.services.worker import (
     AnalysisPersistenceService,
     AnalysisSummaryBuilder,
     AnalysisTaskBuilder,
+    FilingFetchError,
     FilingLifecycleService,
     TemplateRegistry,
     WorkerRetryCoordinator,
@@ -178,31 +179,34 @@ class _StubAnalysisTaskBuilder:
 
 
 class _StubFilingLifecycleService:
-    def __init__(self, *, filing_exists: bool = True) -> None:
+    def __init__(
+        self,
+        *,
+        filing_exists: bool = True,
+        storage_exists: bool = True,
+    ) -> None:
         self.filing_exists = filing_exists
+        self.storage_exists = storage_exists
         self.checked: list[FilingId] = []
-        self.validated: list[TaskData] = []
+        self.checked_storage: list[FilingId] = []
         self.extracted: list[TaskData] = []
-        self.fetch_calls: list[tuple[Any, ...]] = []
-        self.stored: list[tuple[Any, ...]] = []
 
-    async def validate_filing_access(self, task_data: TaskData) -> None:
-        self.validated.append(task_data)
+    async def ensure_artifacts_available(
+        self, filing_id: FilingId, *, correlation_id: str | None = None
+    ) -> None:
+        self.checked.append(filing_id)
+        if not self.filing_exists:
+            raise FilingFetchError(f"Filing metadata missing for {filing_id}")
+        if not self.storage_exists:
+            raise FilingFetchError(f"Stored filing payload missing for {filing_id}")
 
     async def check_filing_exists(self, filing_id: FilingId) -> bool:
         self.checked.append(filing_id)
         return self.filing_exists
 
-    async def fetch_filing(self, *args: Any, **kwargs: Any) -> Any:
-        self.fetch_calls.append(args)
-        return {"raw": "content"}
-
-    def encode_filing_content(self, content: Any) -> bytes:
-        return b"encoded-filing"
-
-    async def store_filing(self, *args: Any, **kwargs: Any) -> StorageKey:
-        self.stored.append(args)
-        return StorageKey("storage/filing/key")
+    async def check_filing_in_storage(self, filing_id: FilingId) -> bool:
+        self.checked_storage.append(filing_id)
+        return self.storage_exists
 
     async def prepare_structured_sections(self, *args: Any, **kwargs: Any) -> dict[str, str]:
         return {"Item 1": "Section body"}
@@ -213,7 +217,6 @@ class _StubFilingLifecycleService:
         task_data: TaskData,
         template: Any,
         correlation_id: Any,
-        fetched_filing: Any,
     ) -> dict[str, str]:
         self.extracted.append(task_data)
         return {"Item 1": "Section content"}
@@ -461,11 +464,14 @@ async def test_process_task_data_routes_failure_to_dlq_and_status_store() -> Non
 
 
 @pytest.mark.asyncio
-async def test_process_task_data_fetches_and_stores_when_missing_filing() -> None:
+async def test_process_task_data_fails_when_storage_missing() -> None:
     repository_factory = _StubRepositoryFactory()
     persistence_service = _StubAnalysisPersistenceService()
     event_emitter = _StubAnalysisEventEmitter()
-    filing_lifecycle = _StubFilingLifecycleService(filing_exists=False)
+    filing_lifecycle = _StubFilingLifecycleService(
+        filing_exists=True,
+        storage_exists=False,
+    )
     execution_service = _StubAnalysisExecutionService()
     summary_builder = _StubAnalysisSummaryBuilder()
     retry_coordinator = _StubWorkerRetryCoordinator()
@@ -483,10 +489,11 @@ async def test_process_task_data_fetches_and_stores_when_missing_filing() -> Non
     task_data = _make_task_data()
     result = await worker_service.process_task_data(task_data)
 
-    assert result.status is TaskStatus.COMPLETED
-    assert filing_lifecycle.fetch_calls, "Should fetch filing when not present"
-    assert filing_lifecycle.stored, "Should store fetched filing"
-    assert any("stored:" in msg for _, msg in event_emitter.progress)
+    assert result.status is TaskStatus.FAILED
+    assert result.error_message
+    assert "Stored filing payload missing" in result.error_message
+    assert persistence_service.failed or persistence_service.status_updates
+    assert not event_emitter.completed
 
 
 @pytest.mark.asyncio

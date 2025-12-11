@@ -22,6 +22,7 @@ from src.application.services.priority_queue_service import (
     DuplicationError,
     PriorityQueueService,
 )
+from src.application.services.worker import FilingFetchError
 from src.application.services.worker.analysis_task_builder import AnalysisTaskBuilder
 from src.application.services.worker_service import TaskResult, WorkerService
 from src.shared.enums import AnalysisStatus, TaskStatus, UserTier
@@ -102,16 +103,33 @@ class _StubWorkerProvider:
         return self.cancel_result
 
 
+class _StubFilingLifecycleService:
+    def __init__(self, *, filing_ready: bool = True) -> None:
+        self.filing_ready = filing_ready
+        self.checked: list[FilingId] = []
+
+    async def ensure_artifacts_available(
+        self, filing_id: FilingId, *, correlation_id: str | None = None
+    ) -> None:
+        self.checked.append(filing_id)
+        if not self.filing_ready:
+            raise FilingFetchError("storage missing")
+
+
 class _StubWorkerService:
     def __init__(
         self,
         *,
         repository_factory: _StubRepositoryFactory,
         process_result: TaskResult | Exception,
+        filing_ready: bool = True,
     ) -> None:
         self.repository_factory = repository_factory
         self._process_result = process_result
         self.task_builder = AnalysisTaskBuilder()
+        self.filing_lifecycle_service = _StubFilingLifecycleService(
+            filing_ready=filing_ready
+        )
 
     def prepare_analysis_task_data(
         self,
@@ -142,6 +160,10 @@ class _StubWorkerService:
         if isinstance(self._process_result, Exception):
             raise self._process_result
         return self._process_result
+
+    @property
+    def checked_filings(self) -> list[FilingId]:
+        return self.filing_lifecycle_service.checked
 
 
 def _make_coordinator(
@@ -290,6 +312,36 @@ async def test_queue_duplicate_from_provider_returns_duplicate_status(tmp_path: 
     assert not event_publisher.published
     stored = list((tmp_path / "status-store").rglob("*.json"))
     assert stored == []
+
+
+@pytest.mark.asyncio
+async def test_queue_rejects_when_artifacts_missing(tmp_path: Path) -> None:
+    repository_factory = _StubRepositoryFactory(_StubAnalysisRepository([]))
+    worker_provider = _StubWorkerProvider(tmp_path / "status-store")
+    priority_queue = _StubPriorityQueue(message_id=QueueMessageId("queued-456"))
+    worker_service = _StubWorkerService(
+        repository_factory=repository_factory,
+        process_result=TaskResult(
+            task_id=TaskId(uuid.uuid4()),
+            status=TaskStatus.COMPLETED,
+            processing_time_ms=0,
+        ),
+        filing_ready=False,
+    )
+
+    coordinator = _make_coordinator(
+        worker_service=worker_service,
+        priority_queue=priority_queue,
+        worker_provider=worker_provider,
+    )
+
+    with pytest.raises(ValueError):
+        await coordinator.queue_filing_analysis(
+            _make_command(),
+            user_email=Email(value="analyst@example.com"),
+            user_tier=UserTier.PLUS,
+        )
+    assert worker_service.checked_filings
 
 
 @pytest.mark.asyncio

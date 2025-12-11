@@ -338,7 +338,6 @@ class CQRSContainer(containers.DeclarativeContainer):
 
     filing_lifecycle_service = providers.Singleton(
         FilingLifecycleService,
-        datasource=providers_container.data_source_provider,
         storage=providers_container.storage_provider,
         repository_factory=repository_factory,
         template_registry=template_registry,

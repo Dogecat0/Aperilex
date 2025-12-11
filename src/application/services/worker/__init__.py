@@ -23,7 +23,6 @@ from .filing_lifecycle_service import (
     FilingFetchError,
     FilingLifecycleService,
     FilingLifecycleServiceError,
-    StorageError,
 )
 from .section_diff_service import SectionDiffService
 from .template_registry import TemplateRegistry, WalkthroughConstructionError
@@ -41,7 +40,6 @@ __all__ = [
     "FilingFetchError",
     "FilingLifecycleService",
     "FilingLifecycleServiceError",
-    "StorageError",
     "SectionDiffService",
     "RetryPolicy",
     "TemplateRegistry",

@@ -19,6 +19,7 @@ from src.application.services.priority_queue_service import (
     DuplicationError,
     PriorityQueueService,
 )
+from src.application.services.worker import FilingFetchError
 from src.application.services.worker_service import WorkerService
 from src.shared.enums import AnalysisStatus, TaskStatus, UserTier
 from src.shared.models import TaskData
@@ -101,6 +102,7 @@ class BackgroundTaskCoordinator:
                 user_tier=user_tier,
                 source="API",
             )
+            await self._ensure_filing_artifacts_ready(task_data, filing=filing)
 
             if not command.force_reprocess:
                 existing_analysis = await self._find_existing_analysis(
@@ -167,6 +169,8 @@ class BackgroundTaskCoordinator:
                 task_data=task_data,
             )
 
+        except ValueError:
+            raise
         except Exception as exc:  # noqa: BLE001 - surface errors to callers
             logger.error(
                 "Failed to queue analysis task",
@@ -353,6 +357,35 @@ class BackgroundTaskCoordinator:
                 exc_info=True,
             )
             raise
+
+    async def _ensure_filing_artifacts_ready(
+        self,
+        task_data: TaskData,
+        *,
+        filing: FilingData | None = None,
+    ) -> None:
+        try:
+            await self.worker_service.filing_lifecycle_service.ensure_artifacts_available(
+                task_data.filing_id,
+                correlation_id=task_data.correlation_id,
+            )
+        except FilingFetchError as exc:
+            accession_number = (
+                str(filing.accession_number) if filing is not None else None
+            )
+            logger.warning(
+                "Prefetch artifacts missing for analysis request",
+                extra={
+                    "task_id": str(task_data.task_id),
+                    "filing_id": str(task_data.filing_id),
+                    "accession_number": accession_number,
+                    "correlation_id": task_data.correlation_id,
+                },
+            )
+            raise ValueError(
+                "Filing artifacts are missing from predownloaded storage. "
+                "Import the filing before queuing analysis."
+            ) from exc
 
     async def _publish_queued_event(self, task_data: TaskData) -> None:
         if not self.event_publisher:
