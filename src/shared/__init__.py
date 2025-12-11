@@ -50,7 +50,6 @@ from .types import (
     UserProfileId,
     VisibilityTimeout,
 )
-from .utils import SecRateLimiter
 
 __all__ = [
     # Enums
@@ -102,6 +101,4 @@ __all__ = [
     "QueueMessage",
     # Models - LLM
     "LLMModelInfo",
-    # Utils
-    "SecRateLimiter",
 ]

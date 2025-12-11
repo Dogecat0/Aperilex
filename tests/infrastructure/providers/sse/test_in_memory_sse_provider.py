@@ -35,12 +35,14 @@ async def test_subscribe_unsubscribe_and_cleanup_removes_connection() -> None:
         connection.connection_id, ["analysis.completed", "analysis.started"]
     )
     updated = await provider.get_connection(connection.connection_id)
+    assert updated is not None
     assert set(updated.event_types) == {"analysis.started", "analysis.completed"}
 
     assert await provider.unsubscribe_from_events(
         connection.connection_id, ["analysis.started"]
     )
     trimmed = await provider.get_connection(connection.connection_id)
+    assert trimmed is not None
     assert set(trimmed.event_types) == {"analysis.completed"}
 
     provider.connections[
@@ -88,6 +90,7 @@ async def test_broadcast_event_respects_user_and_event_type_filters() -> None:
     )
 
     for message in (msg_target, msg_all):
+        assert message is not None
         assert message.event == "analysis.completed"
         payload = json.loads(message.data)
         assert payload["event_type"] == "analysis.completed"
@@ -148,6 +151,7 @@ async def test_sse_event_publisher_broadcasts_and_dispatches_handlers() -> None:
     message = await asyncio.wait_for(
         provider.connection_queues[connection.connection_id].get(), timeout=1
     )
+    assert message is not None
     assert message.event == "analysis.progress"
     assert json.loads(message.data)["metadata"]["step"] == "parse"
     assert handled == ["analysis.progress"]

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+from collections.abc import Iterator
 from io import BytesIO
 from typing import Any
 from uuid import uuid4
@@ -29,7 +30,7 @@ class FakePaginator:
         Bucket: str,
         Prefix: str,
         PaginationConfig: dict[str, Any],
-    ):
+    ) -> Iterator[dict[str, Any]]:
         if not self.client.bucket_exists or Bucket != self.client.bucket_name:
             raise self.client.error("404", "Bucket not found", "ListObjectsV2")
 

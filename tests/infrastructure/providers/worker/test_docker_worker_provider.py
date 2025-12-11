@@ -6,7 +6,7 @@ import asyncio
 import json
 from datetime import datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 from uuid import uuid4
 
 import pytest
@@ -203,10 +203,10 @@ async def _attach_stub_client(
     provider: DockerWorkerProvider, client: StubDockerClient
 ) -> StubDockerClient:
     async def _get_client() -> StubDockerClient:
-        provider.docker_client = client
+        provider.docker_client = cast(Any, client)
         return client
 
-    provider._get_client = _get_client  # type: ignore[method-assign]
+    provider._get_client = cast(Any, _get_client)  # type: ignore[method-assign]
     return client
 
 
@@ -277,7 +277,7 @@ async def test_execute_task_builds_container_config_and_records_output(
     assert task_data["task_type"] == "analysis"
 
     host_config = container_config["HostConfig"]
-    assert "/app/data" in "".join(host_config["Binds"])  # type: ignore[index]
+    assert "/app/data" in "".join(host_config["Binds"])
     device_requests = host_config.get("DeviceRequests")
     assert device_requests and device_requests[0]["Capabilities"] == [["gpu"]]
 

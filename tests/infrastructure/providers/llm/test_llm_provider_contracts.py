@@ -5,20 +5,32 @@ from __future__ import annotations
 import asyncio
 from datetime import UTC, datetime
 from types import SimpleNamespace
+from typing import Any, cast
 
 import pytest
 import tenacity.asyncio as tenacity_async
 
 from src.application.interfaces.llm import LLMPrompt, LLMRequest, LLMResponse
-from src.infrastructure.providers.llm.base import BaseLLMProvider
+from src.application.interfaces.secret import (
+    ISecretManager,
+    SecretMetadata,
+    SecretVersion,
+)
+from src.infrastructure.providers.llm.base import (
+    BaseLLMProvider,
+    ComprehensiveAnalysisResponse,
+    SectionAnalysisResponse,
+)
 from src.infrastructure.providers.llm.google import GoogleLLMProvider
 from src.infrastructure.providers.llm.openai import OpenAILLMProvider
 from src.shared.config.providers import LLMConfig
+from src.shared.enums import FilingType
 from src.shared.enums import LLMProvider as LLMProviderEnum
 from src.shared.models import LLMModelInfo
+from src.shared.types import RequestId
 
 
-class StubSecretManager:
+class StubSecretManager(ISecretManager):
     async def get_secret(
         self, secret_name: str, version_id: str | None = None, version_stage: str | None = None
     ) -> str:
@@ -31,12 +43,12 @@ class StubSecretManager:
 
     async def create_secret(
         self, secret_name: str, secret_value: str | bytes, description: str | None = None, tags: dict[str, str] | None = None
-    ):
+    ) -> Any:
         raise NotImplementedError
 
     async def update_secret(
         self, secret_name: str, secret_value: str | bytes, version_stage: str | None = None
-    ):
+    ) -> Any:
         raise NotImplementedError
 
     async def delete_secret(
@@ -44,17 +56,47 @@ class StubSecretManager:
     ) -> bool:
         raise NotImplementedError
 
-    async def restore_secret(self, secret_name: str):
+    async def restore_secret(self, secret_name: str) -> Any:
         raise NotImplementedError
 
-    async def rotate_secret(self, secret_name: str, rotation_config=None) -> bool:  # type: ignore[no-untyped-def]
+    async def rotate_secret(
+        self, secret_name: str, rotation_config: Any | None = None
+    ) -> bool:
         raise NotImplementedError
 
-    async def list_secrets(self):  # type: ignore[no-untyped-def]
+    async def list_secrets(
+        self, prefix: str | None = None, include_deleted: bool = False
+    ) -> list[SecretMetadata]:
+        _ = prefix
+        _ = include_deleted
+        return []
+
+    async def get_secret_metadata(self, secret_name: str) -> SecretMetadata:
         raise NotImplementedError
 
-    async def get_secret_metadata(self, secret_name: str):
-        raise NotImplementedError
+    async def list_secret_versions(
+        self, secret_name: str, include_deprecated: bool = False
+    ) -> list[SecretVersion]:
+        _ = secret_name
+        _ = include_deprecated
+        return []
+
+    async def tag_secret(self, secret_name: str, tags: dict[str, str]) -> bool:
+        _ = secret_name
+        _ = tags
+        return True
+
+    async def untag_secret(self, secret_name: str, tag_keys: list[str]) -> bool:
+        _ = secret_name
+        _ = tag_keys
+        return True
+
+    async def validate_secret(
+        self, secret_name: str, validator_arn: str | None = None
+    ) -> bool:
+        _ = secret_name
+        _ = validator_arn
+        return True
 
 
 class RecordingLLMProvider(BaseLLMProvider):
@@ -74,26 +116,26 @@ class RecordingLLMProvider(BaseLLMProvider):
         )
         self.prompts: list[LLMPrompt] = []
 
-    async def analyze_filing_sections(  # type: ignore[override]
+    async def analyze_filing_sections(
         self,
         filing_sections: dict[str, str],
-        filing_type,
+        filing_type: FilingType,
         company_name: str,
         analysis_focus: list[str] | None = None,
-    ):
+    ) -> ComprehensiveAnalysisResponse:
         raise NotImplementedError
 
-    async def analyze_section(  # type: ignore[override]
+    async def analyze_section(
         self,
         section_text: str,
         section_name: str,
-        filing_type,
+        filing_type: FilingType,
         company_name: str,
-    ):
+    ) -> SectionAnalysisResponse:
         raise NotImplementedError
 
-    async def generate_completion(  # type: ignore[override]
-        self, prompt: LLMPrompt, request_id=None
+    async def generate_completion(
+        self, prompt: LLMPrompt, request_id: str | None = None
     ) -> LLMResponse:
         self.prompts.append(prompt)
         return LLMResponse(
@@ -106,7 +148,7 @@ class RecordingLLMProvider(BaseLLMProvider):
             completion_tokens=0,
             latency_ms=0,
             timestamp=datetime.now(UTC),
-            request_id=request_id,
+            request_id=RequestId(request_id) if request_id else None,
             cost=0.0,
         )
 
@@ -128,7 +170,7 @@ class FakeOpenAIResponse:
 
 class FakeOpenAICompletions:
     def __init__(self, response: FakeOpenAIResponse, *, fail_first: bool = False):
-        self.calls: list[dict[str, object]] = []
+        self.calls: list[dict[str, Any]] = []
         self._response = response
         self._fail_first = fail_first
 
@@ -155,11 +197,11 @@ class FakeGoogleResponse:
 
 class FakeGoogleModels:
     def __init__(self, response: FakeGoogleResponse, *, fail_first: bool = False):
-        self.calls: list[dict[str, object]] = []
+        self.calls: list[dict[str, Any]] = []
         self._response = response
         self._fail_first = fail_first
 
-    async def generate_content(self, *, model: str, contents, config):  # type: ignore[no-untyped-def]
+    async def generate_content(self, *, model: str, contents: list[Any], config: Any) -> FakeGoogleResponse:
         self.calls.append({"model": model, "contents": contents, "config": config})
         if self._fail_first and len(self.calls) == 1:
             raise RuntimeError("temporary outage")
@@ -212,7 +254,7 @@ async def test_openai_generate_completion_builds_payload_and_usage(monkeypatch: 
     provider = OpenAILLMProvider(config, StubSecretManager())
     response = FakeOpenAIResponse("completion text", prompt_tokens=12, completion_tokens=8)
     completions = FakeOpenAICompletions(response)
-    provider.client = FakeOpenAIClient(completions)
+    provider.client = cast(Any, FakeOpenAIClient(completions))
     provider.api_key = "static-key"
 
     async def _noop() -> None:
@@ -255,7 +297,7 @@ async def test_openai_generate_completion_retries_on_transient_error(monkeypatch
     provider = OpenAILLMProvider(config, StubSecretManager())
     response = FakeOpenAIResponse("steady response", prompt_tokens=1, completion_tokens=1)
     completions = FakeOpenAICompletions(response, fail_first=True)
-    provider.client = FakeOpenAIClient(completions)
+    provider.client = cast(Any, FakeOpenAIClient(completions))
     provider.api_key = "static-key"
 
     async def _noop() -> None:
@@ -291,7 +333,7 @@ async def test_google_generate_completion_retries_and_tracks_tokens(monkeypatch:
     provider = GoogleLLMProvider(config, StubSecretManager())
     response = FakeGoogleResponse(text="gemini output", prompt_tokens=5, completion_tokens=9)
     models = FakeGoogleModels(response, fail_first=True)
-    provider.client = FakeGoogleClient(models)
+    provider.client = cast(Any, FakeGoogleClient(models))
 
     async def _noop() -> None:
         return None
