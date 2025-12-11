@@ -97,6 +97,26 @@ class EDGARDataSourceProvider(IDataSourceProvider):
         filing_uuid = uuid.uuid5(uuid.NAMESPACE_DNS, clean_accession)
         return FilingId(filing_uuid)
 
+    def _coerce_filing_type(self, value: str | None) -> FilingType:
+        """Normalize a filing type label into the internal enumeration."""
+
+        label = (value or "").strip().upper()
+        normalized = label.replace("-", "").replace(" ", "")
+        if normalized.endswith("/A"):
+            normalized = normalized[:-2]
+
+        for filing_type in FilingType:
+            candidate = filing_type.value.upper().replace("-", "").replace(" ", "")
+            if candidate == normalized:
+                return filing_type
+
+        raise ValidationError(f"Unsupported filing type: {value}")
+
+    def parse_filing_content(self, filing: Filing) -> FilingContent:
+        """Expose filing parsing for reuse without duplicating logic."""
+
+        return self._parse_filing_content(filing)
+
     def _parse_filing_content(self, filing: Filing) -> FilingContent:
         """Parse filing object into FilingContent model."""
         try:
@@ -112,7 +132,7 @@ class EDGARDataSourceProvider(IDataSourceProvider):
             metadata = FilingMetadata(
                 schema_version=1,
                 filing_id=self._extract_filing_id(filing.accession_number),
-                filing_type=FilingType(filing.form),
+                filing_type=self._coerce_filing_type(getattr(filing, "form", "")),
                 filing_date=filing_date,
                 company_cik=CIK(value=str(filing.cik).zfill(10)),
                 url=filing.url,
@@ -483,7 +503,7 @@ class EDGARDataSourceProvider(IDataSourceProvider):
             if not filing:
                 raise NotFoundError(f"Filing {filing_id} not found")
 
-            return self._parse_filing_content(filing)
+            return self.parse_filing_content(filing)
 
         except NotFoundError:
             raise
@@ -532,7 +552,7 @@ class EDGARDataSourceProvider(IDataSourceProvider):
                     f"CIK mismatch: expected {cik.padded()}, got {filing_cik.padded()}"
                 )
 
-            return self._parse_filing_content(filing)
+            return self.parse_filing_content(filing)
 
         except NotFoundError:
             raise
@@ -650,7 +670,7 @@ class EDGARDataSourceProvider(IDataSourceProvider):
                     f"No {filing_type.value} filing found for {ticker.value}"
                 )
 
-            return self._parse_filing_content(latest_filing)
+            return self.parse_filing_content(latest_filing)
 
         except NotFoundError:
             raise

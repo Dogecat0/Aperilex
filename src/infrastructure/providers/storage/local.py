@@ -37,7 +37,7 @@ class StorageError(Exception):
 class LocalStorageProvider(IStorageProvider):
     """Local filesystem storage provider implementation."""
 
-    def __init__(self, base_path: str = "./data") -> None:
+    def __init__(self, base_path: str = "./data/storage") -> None:
         """
         Initialize local storage provider.
 
@@ -75,7 +75,7 @@ class LocalStorageProvider(IStorageProvider):
         # Use first 2 chars of filing_id for subdirectory to avoid too many files in one dir
         filing_id_str = str(filing_id)
         subdir = filing_id_str[:2]
-        return self.base_path / "filings" / subdir / f"{filing_id_str}.dat"
+        return self.base_path / "filings" / subdir / f"{filing_id_str}.json"
 
     def _get_analysis_path(self, analysis_id: AnalysisId) -> Path:
         """Get file path for an analysis."""
@@ -405,7 +405,7 @@ class LocalStorageProvider(IStorageProvider):
             # List filing keys
             if prefix is None or prefix.startswith("filing"):
                 filings_dir = self.base_path / "filings"
-                for filing_path in filings_dir.rglob("*.dat"):
+                for filing_path in filings_dir.rglob("*.json"):
                     filing_id = filing_path.stem
                     key = StorageKey(f"filing:{filing_id}")
                     if prefix is None or str(key).startswith(prefix):

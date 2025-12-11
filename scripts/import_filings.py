@@ -75,6 +75,7 @@ ensure_database_url()
 
 from sqlalchemy.ext.asyncio import AsyncSession  # noqa: E402
 
+from src.application.interfaces.datasource import FilingContent  # noqa: E402
 from src.application.interfaces.repositories import (  # noqa: E402
     CompanyData,
     FilingData,
@@ -86,6 +87,10 @@ from src.infrastructure.database.repositories.company_repository import (  # noq
 )
 from src.infrastructure.database.repositories.filing_repository import (  # noqa: E402
     FilingRepository,
+)
+from src.infrastructure.providers.datasource.edgar import (  # noqa: E402
+    DataSourceError,
+    EDGARDataSourceProvider,
 )
 from src.infrastructure.providers.storage.local import (  # noqa: E402
     LocalStorageProvider,
@@ -118,13 +123,19 @@ class ImportOptions:
 
 @dataclass
 class FilingImportPayload:
-    filing_id: FilingId
+    filing_content: FilingContent
     accession_number: AccessionNumber
     filing_type: FilingType
     filing_date: datetime
-    content: bytes
     metadata: dict[str, str]
     seed_path: str | None = None
+
+    @property
+    def filing_id(self) -> FilingId:
+        return self.filing_content.metadata.filing_id
+
+    def as_storage_bytes(self) -> bytes:
+        return self.filing_content.model_dump_json().encode("utf-8")
 
 
 @dataclass
@@ -185,6 +196,7 @@ class EdgarFilingsImporter:
         self.identity = options.edgar_identity
         set_identity(self.identity)
         logging.debug("Configured edgartools identity: %s", self.identity)
+        self.data_source = EDGARDataSourceProvider(user_agent=self.identity)
 
         self._forms_allowed: set[str] | None = None
         if self.options.filing_types:
@@ -378,37 +390,56 @@ class EdgarFilingsImporter:
                 if self.options.end_date and filing_date_only > self.options.end_date:
                     continue
 
-                raw_content: Any = ""
-                if not self.options.dry_run:
-                    try:
-                        raw_content = filing.text()
-                    except Exception as exc:  # noqa: BLE001
-                        logging.warning(
-                            "Failed to download filing %s for %s: %s",
-                            accession_number.value,
-                            company_name,
-                            exc,
-                        )
-                        continue
+                try:
+                    filing_content = self.data_source.parse_filing_content(filing)
+                except DataSourceError as exc:
+                    logging.warning(
+                        "Failed to parse filing %s for %s: %s",
+                        accession_number.value,
+                        company_name,
+                        exc,
+                    )
+                    continue
+                except Exception as exc:  # noqa: BLE001
+                    logging.warning(
+                        "Unexpected error parsing filing %s for %s: %s",
+                        accession_number.value,
+                        company_name,
+                        exc,
+                    )
+                    continue
 
-                if isinstance(raw_content, bytes):
-                    content_bytes = raw_content
-                else:
-                    if raw_content is None:
-                        if self.options.dry_run:
-                            content_bytes = b""
-                        else:
-                            logging.warning(
-                                "Filing %s returned no content; skipping.",
-                                accession_number.value,
-                            )
-                            continue
-                    else:
-                        content_bytes = str(raw_content).encode("utf-8", errors="ignore")
+                parsed_metadata = filing_content.metadata
+                if parsed_metadata.company_cik != cik:
+                    parsed_metadata.company_cik = cik
+
+                expected_filing_id = generate_filing_id(accession_number.value)
+                if parsed_metadata.filing_id != expected_filing_id:
+                    logging.warning(
+                        "Discarding filing %s due to filing_id mismatch.",
+                        accession_number.value,
+                    )
+                    continue
+
+                filing_type = parsed_metadata.filing_type
+                filing_date_only = parsed_metadata.filing_date
+                if (
+                    self.options.start_date
+                    and filing_date_only < self.options.start_date
+                ):
+                    continue
+                if self.options.end_date and filing_date_only > self.options.end_date:
+                    continue
                 filing_datetime = datetime.combine(
                     filing_date_only, datetime.min.time()
                 )
-                filing_id = generate_filing_id(accession_number.value)
+
+                if not filing_content.parsed_sections:
+                    logging.warning(
+                        "Parsed sections missing for filing %s; skipping.",
+                        accession_number.value,
+                    )
+                    continue
 
                 metadata = {
                     "company_name": company_name,
@@ -419,17 +450,16 @@ class EdgarFilingsImporter:
                     "filing_date": filing_date_only.isoformat(),
                 }
 
-                url_value = getattr(filing, "url", None)
+                url_value = parsed_metadata.url or getattr(filing, "url", None)
                 if url_value:
                     metadata["edgar_url"] = str(url_value)
 
                 collected.append(
                     FilingImportPayload(
-                        filing_id=filing_id,
+                        filing_content=filing_content,
                         accession_number=accession_number,
                         filing_type=filing_type,
                         filing_date=filing_datetime,
-                        content=content_bytes,
                         metadata=metadata,
                     )
                 )
@@ -563,7 +593,7 @@ class EdgarFilingsImporter:
                 storage_key = await self.storage.store_filing(
                     StorageRequest(
                         filing_id=filing.filing_id,
-                        content=filing.content,
+                        content=filing.as_storage_bytes(),
                         metadata={
                             "company_name": payload.name,
                             "cik": payload.cik.padded(),
