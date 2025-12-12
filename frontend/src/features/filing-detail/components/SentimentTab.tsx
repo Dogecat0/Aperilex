@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useMemo, type CSSProperties } from 'react'
 import { useThemeTokens } from '@/components/ThemeProvider'
 import { hexToRgba } from '@/lib/color'
 import type { SentimentRollup } from '@/lib/types/analysis'
@@ -21,6 +21,15 @@ function formatSentimentScore(score: number | null | undefined) {
   const rounded = Math.round(score * 100) / 100
   const formatted = rounded.toFixed(2)
   return `${formatted}`
+}
+
+function getSentimentHoverColor(score: number | null | undefined) {
+  if (typeof score !== 'number' || Number.isNaN(score)) {
+    return 'var(--brand-accent)'
+  }
+  if (score > 0) return '#3ED79E'
+  if (score < 0) return '#FB7185'
+  return '#AFA5FF'
 }
 
 function describeTrend(trend?: string | null) {
@@ -192,7 +201,7 @@ export function SentimentTab({ rollup, sections }: SentimentTabProps) {
             {sections.map((section) => (
               <li
                 key={section.section}
-                className="group flex items-center justify-between rounded-xl border px-5 py-4 transition-all hover:scale-[1.02] hover:shadow-md"
+                className="group flex items-center justify-between rounded-xl border px-5 py-4 transition-all hover:shadow-md"
                 style={{
                   borderColor: 'var(--lines-subtle)',
                   background: 'var(--surfaces-muted)',
@@ -201,7 +210,14 @@ export function SentimentTab({ rollup, sections }: SentimentTabProps) {
                 <span className="text-sm font-semibold text-[var(--text-primary)]">
                   {section.section}
                 </span>
-                <span className="font-mono text-sm font-bold text-[var(--text-secondary)] group-hover:text-[var(--brand-accent)] transition-colors">
+                <span
+                  className="font-mono text-sm font-bold text-[var(--text-secondary)] group-hover:text-[var(--sentiment-hover)] transition-colors"
+                  style={
+                    {
+                      '--sentiment-hover': getSentimentHoverColor(section.score),
+                    } as CSSProperties
+                  }
+                >
                   {formatSentimentScore(section.score)}
                 </span>
               </li>
