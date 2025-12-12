@@ -10,9 +10,9 @@ Prepared for #backend-refactor to confirm container and composition cleanup.
 ## Commands Executed
 1. `docker compose run --rm --no-deps app poetry run pytest`
    - Result: 77 passed (see `test_results/backend_phase5_2025-10-12.txt`).
-2. `poetry run mypy src/`
+2. `poetry run mypy src/ tests/`
    - Result: Success, no issues in 225 files.
-3. `poetry run ruff check src/`
+3. `poetry run ruff check src/ tests/`
    - Result: All checks passed.
 
 ## Follow-ups

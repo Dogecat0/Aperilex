@@ -30,6 +30,8 @@
 
 ## Frontend Refactor Roadmap
 
+> Note: The dedicated guidance sidebar described in earlier iterations has since been removed along with the "Show guidance" toggle; references that follow capture historical intent only.
+
 1. **Architecture Reset**
 
    - Rebuild React app under `frontend/src/` with feature folders (`features/dashboard`, `features/learning`, `features/filing-detail`).
@@ -66,9 +68,10 @@
 
 7. **Testing & Validation**
 
-   - Write unit tests for API hooks, summary components, and sentiment visualizations.
-   - Add integration tests covering filing selection, deep-dive navigation, and learning prompt triggers.
-   - Run accessibility checks (semantic structure, keyboard nav) and integrate visual regression tests if tooling allows.
+- Write unit tests for API hooks, summary components, and sentiment visualizations.
+- Add integration tests covering filing selection, deep-dive navigation, and learning prompt triggers.
+- Run accessibility checks (semantic structure, keyboard nav) and integrate visual regression tests if tooling allows.
+- Reuse the canonical guided analysis fixture at `frontend/src/test/fixtures/analyses.ts` for Storybook data, React Query tests, and mock wiring, ensuring diff metadata stays in sync.
 
 8. **Documentation & Handover**
    - Update `docs/frontend-ux.md` (new or existing) with information architecture diagrams, component inventory, and data contract details.
@@ -339,7 +342,7 @@ Note: No need to maintain existing frontend code running in parallel. The workin
 - Stand up `frontend/src/features/filings/` with a list-and-detail drawer powered by `GET /filings/search`; once a filing is in the database it is globally visible, and the worker will fetch raw content if it has not been cached yet.
 - Wire an "Analyze this filing" action that invokes `POST /filings/by-id/{filing_id}/analyze`, surfaces task status via `GET /tasks/{task_id}/status`, and disables duplicate requests while polling, so fresh analyses land even when the filing has never been processed before.
 - When the task completes, redirect to `/filing/{analysis_id}` and invalidate `useAnalyses`/`useFilingDetail` caches so the fresh report appears on the dashboard immediately.
-- Within the analyze workspace, surface a callout summarizing the most recent analyses with a link back to the dashboard library so users can review existing insights before triggering a new run.
+- Within the analyze workspace, we initially surfaced a callout summarizing the most recent analyses with a link back to the dashboard library so users could review existing insights before triggering a new run, but this module has since been removed to avoid duplicating the Filing Dashboard review flow.
 
 ### Phase 4.6 – Analysis Library ✅
 
@@ -363,7 +366,7 @@ Note: No need to maintain existing frontend code running in parallel. The workin
 
 #### Phase 5 progress (current) ✅
 
-- `LearningHubPage` now renders authenticated learning modules that pull live filing insights, streak tracker, progress bars, and recent quiz history (`frontend/src/features/learning/LearningHubPage.tsx`).
+- `LearningHubPage` now renders authenticated learning modules that pull live filing insights, progress bars, and recent quiz history (`frontend/src/features/learning/LearningHubPage.tsx`).
 - The new `useLearningModules` hook derives concept cards from recent analyses and attaches filing context plus sentiment metadata for deep links into `/filing/:id` (`frontend/src/lib/hooks/useLearningModules.ts`).
 - React Query hooks (`useLearningProgress`, `useQuizAttempts`) continue to persist learning state through the Stage 5 API surface (`frontend/src/lib/hooks/useLearningProgress.ts`,
   `frontend/src/lib/hooks/useQuizAttempts.ts`).
@@ -371,6 +374,12 @@ Note: No need to maintain existing frontend code running in parallel. The workin
   `frontend/src/lib/hooks/useLearningModules.test.tsx`).
 - Stage 5 identity copy now anchors the login hero, nav prompts, and Learning Hub overview text (`frontend/src/copy/auth.ts`, `frontend/src/features/auth/LoginPage.tsx`,
   `frontend/src/features/learning/LearningHubPage.tsx`).
+- `DashboardPage` now opens with a filings-focused hero plus the “Continue where you left off” rail, while `LearningHubPage` owns the Learning Hub progress snapshot (`frontend/src/features/dashboard/DashboardPage.tsx`,
+  `frontend/src/features/dashboard/components/FilingProgressHero.tsx`,
+  `frontend/src/features/dashboard/components/ContinueWalkthroughRail.tsx`,
+  `frontend/src/features/learning/LearningHubPage.tsx`,
+  `frontend/src/features/dashboard/components/LearningProgressHero.tsx`,
+  `frontend/src/lib/hooks/usePracticeCommands.ts`).
 
 ### Phase 6 – Personalization & Ask the Filing (Refer to guided_llm_analysis_plan.md and guided_llm_execution_plan.md, will come back to this phase later once the llm pipeline plan is done)
 

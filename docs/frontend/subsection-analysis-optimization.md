@@ -28,7 +28,7 @@
   - Split content into “Key Details” (schema-driven) and “Raw Payload”.
   - Add contextual headers, chips, and descriptive copy that leverage semantic tokens (`tokens.status.*`, `tokens.metrics.*`) per the UI refactor docs.
 - Enhance `SectionSummaryPanel` cards to surface at-a-glance signals pulled from the typed analysis (severity, sentiment deltas, trend tags). Keep controls (`View details`, focus filters) unchanged.
-- After implementation, run `npm run lint`, `npm run typecheck`, and `npm run test` for the frontend. If backend stubs or typing helpers are touched, also run `poetry run ruff check src/` and `poetry run mypy src/`.
+- After implementation, run `npm run lint`, `npm run typecheck`, and `npm run test` for the frontend. If backend stubs or typing helpers are touched, also run `poetry run ruff check src/ tests/` and `poetry run mypy src/ tests/`.
 
 ## Executable Implementation Steps ✅
 
@@ -68,6 +68,6 @@
    ```
    - If backend typing helpers are touched, also execute from repository root:
      ```bash
-     poetry run ruff check src/
-     poetry run mypy src/
+     poetry run ruff check src/ tests/
+     poetry run mypy src/ tests/
      ```

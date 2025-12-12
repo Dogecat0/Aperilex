@@ -49,33 +49,50 @@ poetry run pre-commit install
 ```bash
 # Copy environment template
 cp .env.example .env
+cp frontend/.env.example frontend/.env
 ```
 
-Edit `.env` file with your configuration:
+Stage 5 routes all credentials through Docker secrets. After copying the
+templates, bootstrap the secrets volume:
+
+```bash
+mkdir -p .secrets
+
+# Base Postgres secret used by docker-entrypoint
+echo "dev_password" > .secrets/postgres_password
+chmod 600 .secrets/postgres_password
+
+# Generate JWT signing keys (writes JWT_PRIVATE_KEY/JWT_PUBLIC_KEY)
+docker compose run --rm app python scripts/generate_jwt_keys.py
+
+# Add Google OAuth credentials (values provided by platform team)
+echo "your-google-client-id" > .secrets/GOOGLE_CLIENT_ID
+echo "your-google-client-secret" > .secrets/GOOGLE_CLIENT_SECRET
+chmod 600 .secrets/GOOGLE_CLIENT_*
+
+# Add LLM and Google API keys (optional for local analysis/testing)
+echo "your-openai-api-key" > .secrets/openai_api_key
+echo "your-google-api-key" > .secrets/google_api_key
+chmod 600 .secrets/openai_api_key .secrets/google_api_key
+```
+
+Edit `.env` to adjust non-secret settings (feature flags, logging levels, etc.)
+as needed. Database passwords and OAuth keys should remain exclusively in the
+`.secrets/` files configured above.
+
+Edit `frontend/.env` for the Vite dev server:
 
 ```env
-# Database
-DATABASE_URL=postgresql+asyncpg://aperilex:dev_password@localhost:5432/aperilex
-
-# Redis
-REDIS_URL=redis://localhost:6379
-
-# Security (generate secure keys for production)
-SECRET_KEY=your-super-secret-jwt-key-at-least-32-characters-long
-ENCRYPTION_KEY=your-encryption-key-for-sensitive-data-32-chars
-
-# LLM Providers (optional for initial setup)
-OPENAI_API_KEY=your-openai-api-key
-ANTHROPIC_API_KEY=your-anthropic-api-key
-
-# SEC API
-SEC_USER_AGENT=your-email@example.com
+VITE_API_BASE_URL=http://localhost:8000
+VITE_API_TIMEOUT=30000
 ```
+
+The production build pulls values from `frontend/.env.production`, which points the UI to the public API (`https://www.aperilexlabs.com`).
 
 ### 4. Start Development Services
 
 ```bash
-# Start PostgreSQL and Redis
+# Start PostgreSQL and RabbitMQ
 make docker-up
 
 # Or manually:
@@ -108,7 +125,7 @@ The API will be available at:
 - **API**: http://localhost:8000
 - **Docs**: http://localhost:8000/docs (in debug mode)
 - **Database**: localhost:5432
-- **Redis**: localhost:6379
+- **RabbitMQ**: localhost:5672 (management UI at http://localhost:15672)
 
 ### Running Tests
 
@@ -138,6 +155,22 @@ make format        # Code formatting
 make type-check    # Type checking
 make security      # Security scanning
 ```
+
+### Regenerating API contract artifacts
+
+Whenever you update the analysis DTOs or FastAPI routes, regenerate the stored
+OpenAPI schema and the TypeScript client types so the frontend stays in sync:
+
+```bash
+# From the repository root
+poetry run poe generate_openapi
+
+# Rebuild the TypeScript types (produces frontend/src/lib/types/generated.ts)
+poetry run poe generate_client
+```
+
+Both commands run locally against the codebase; no docker containers or running
+API server are required.
 
 ### Making Changes
 

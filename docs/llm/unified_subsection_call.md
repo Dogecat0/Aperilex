@@ -31,7 +31,7 @@ Context: `_analyze_subsection` must now execute concurrently per subsection, con
 4. **Redundant code removal plan** ✅
    - Removed the unused per-section prompt helper and narrowed fallbacks to operate on the new definitions, keeping only the logic required for the single-call concurrency flow.
 5. **Testing & validation prep** ✅
-   - Added async regression tests that prove subsection analyses run in parallel and still emit schema-tagged fallbacks, then executed `docker compose run --rm --no-deps app poetry run pytest tests/infrastructure/providers/llm/test_run_concurrent_subsection_analysis.py`, `poetry run mypy src/`, and `poetry run ruff check src/`.
+  - Added async regression tests that prove subsection analyses run in parallel and still emit schema-tagged fallbacks, then executed `docker compose run --rm --no-deps app poetry run pytest tests/infrastructure/providers/llm/test_run_concurrent_subsection_analysis.py`, `poetry run mypy src/ tests/`, and `poetry run ruff check src/ tests/`.
 6. **Collection fidelity** ✅
    - Added coverage for list-based subsections to guarantee schema extraction, provider prompts, fallbacks, and summary builders all handle multi-entry payloads without adapters; ensured ratio-heavy sections now yield multiple headline metrics rather than a single collapsed object.
 

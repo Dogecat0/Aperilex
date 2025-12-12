@@ -74,6 +74,10 @@ rotating credentials:
    The entrypoint now fails fast when required secrets are missing, preventing
    partial startups with mock authentication paths.
 
+Local storage root for filings: `data/storage/filings` within the repository
+tree (mounted into containers). Keep predownloaded artifacts here; S3 path
+definition will be added when the cloud storage rollout is finalized.
+
 ### Structured Analysis Schema Refresh (2025-10)
 
 - Deploy worker images that include the ranked insight schema (`ProductHighlight`,
@@ -239,7 +243,7 @@ Validated value objects ensure data integrity (Pydantic models with validators):
 - **AnalysisStatus**: 8 states tracking full lifecycle (`INITIATED` → `COMPLETED`/`ERROR`)
 - **FilingType**: SEC form types (`10-K`, `10-Q`, `8-K`, `20-F`, `DEF-14A`, `S-1`)
 - **TaskPriority**: 5 levels (`CRITICAL=0` → `BACKGROUND=9`)
-- **UserTier**: `DEMO`, `BASIC`, `PROFESSIONAL`, `ENTERPRISE`
+- **UserTier**: `ESSENTIAL`, `PLUS`
 
 ### Storage Service Interface
 
@@ -569,43 +573,19 @@ Workers receive `TaskData` (v1) and `WorkerContext` (v1) models:
 
 ### User Tiers & Pricing
 
-**Demo Tier** (Free):
+**ESSENTIAL** (default, 9 USD/EUR/GBP monthly):
 
-- **Rate Limits**: 10 requests/hour, 50 requests/day
-- **Data Access**: Last 2 years only, S&P 500 companies only (pre-cached)
-- **Filing Access**: Free for demo dataset
-- **Analysis Credits**: $0.02 per filing analysis (pay-as-you-go)
-- **Concurrent Analyses**: 1 at a time
+- Hard cap 15 analyses/day and 150/month; reject submissions above the cap
+- Concurrency: 1; queue priority standard (0)
+- Model tier: STANDARD; permissions: `analysis:read`, `analysis:submit`
 
-**Basic Tier** ($X/month):
+**PLUS** (19 USD/EUR/GBP monthly):
 
-- **Rate Limits**: 100 requests/hour, 1000 requests/day
-- **Data Access**: Last 5 years, Russell 1000 companies
-- **Filing Access**: $0.10 per new filing fetched
-- **Analysis Credits**: $0.02 per filing analysis
-- **Bulk Import**: $5 per 100 filings
-- **Concurrent Analyses**: 3 at a time
-- **Monthly Credits**: $5 included for filings + analyses
+- Watchdog at 50 analyses/day and 400/month; throttle to standard priority past watchdog and flag usage above 600/month
+- Concurrency: 3; queue priority boost (-1)
+- Model tier: PREMIUM; permissions: `analysis:read`, `analysis:submit`, `queue:priority`
 
-**Professional Tier** ($XX/month):
-
-- **Rate Limits**: 1000 requests/hour, 10000 requests/day
-- **Data Access**: Last 10 years, all US public companies
-- **Filing Access**: $0.05 per new filing fetched
-- **Analysis Credits**: $0.015 per filing analysis
-- **Bulk Import**: $20 per 1000 filings
-- **Concurrent Analyses**: 10 at a time
-- **Monthly Credits**: $25 included for filings + analyses
-
-**Enterprise Tier** (Custom):
-
-- **Rate Limits**: Custom/unlimited
-- **Data Access**: Full historical data, global companies
-- **Filing Access**: Custom pricing or unlimited
-- **Analysis Credits**: Custom or BYOK (bring your own key)
-- **Bulk Import**: Custom pricing
-- **Concurrent Analyses**: Unlimited
-- **API Access**: Direct API with custom integration
+Enterprise/demo tiers are removed; ULTRA remains locked until a higher price point is defined.
 
 ### Rate Limiting Implementation
 
@@ -684,12 +664,11 @@ UsageTransaction:
 
 ### Data Access Controls
 
-**Demo Data Prefilling**:
+**Sample Data Prefilling (demo mode only)**:
 
-- Pre-fetch and cache 2 years of S&P 500 filings
-- Store in separate "demo" storage bucket
-- Serve from cache for instant response
-- No EDGAR API calls for demo users
+- Optional: pre-fetch a small S&P 500 slice for marketing demos
+- Store in an isolated demo bucket, separate from paid workloads
+- Do not route authenticated ESSENTIAL/PLUS users through demo caches
 
 **Access Control Model** (Pydantic):
 
@@ -862,7 +841,7 @@ Note: SSE connection from Backend to Frontend for real-time updates
   - Visibility timeout for processing guarantees
   - Separate queues or message groups per tier
 - **Deduplication Strategy**: Maximum provider window using filing_id + user_email
-- **Priority Strategy**: Enterprise → Professional → Basic → Demo
+- **Priority Strategy**: PLUS → ESSENTIAL
 - **Cost**: ~$0.50/month
 
 ### Aurora Serverless v2
@@ -905,7 +884,7 @@ Route 53 Hosted Zone:         $0.50
 Domain Name (.com):           $12/year = $1.00/month
 CloudFront Distribution:      $0.00 (pay per request)
 API Gateway (optional):       $3.50 (1M requests free tier)
-Demo Data Storage (S3):       $2.00
+Optional demo data storage (S3): $2.00
 Total Fixed:                  $18.10-21.60
 ```
 
@@ -1123,7 +1102,7 @@ All configurable parameters centralized in Settings model:
 - Request timeout
 - Model quality tiers
 
-**Demo Mode Settings**:
+**Demo Mode Settings (non-subscription sandbox)**:
 
 - Allowed tickers list
 - Years of history

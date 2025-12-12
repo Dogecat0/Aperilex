@@ -18,7 +18,7 @@
 
 ### 2.2 Filing Lifecycle Management
 
-- Methods: `_validate_filing_access`, `_check_filing_exists`, `_fetch_filing`, `_encode_filing_content`, `_deserialize_filing_payload`, `_load_stored_filing_payload`, `_get_filing_payload`, `_store_filing`, `_extract_filing_sections`, `_prepare_structured_sections`, `_filter_sections_by_template`, `_required_section_keys`.
+- Methods: `_validate_filing_access`, `_check_filing_exists`, `_fetch_filing`, `_load_stored_filing_payload`, `_get_filing_payload`, `_extract_filing_sections`, `_prepare_structured_sections`, `_filter_sections_by_template`, `_required_section_keys`.
 - Deliverable: `FilingLifecycleService` coordinating datasource, storage provider, and repository factory; returns immutable value objects (raw content, sections, storage keys).
 - Notes: Respect data-source contracts from `DEPLOYMENT_PLAN.md` (provider interfaces already defined). Ensure Docker-backed DB assumptions are documented.
 
@@ -142,7 +142,7 @@
 
 - [x] Run full backend regression: `docker compose run --rm --no-deps app poetry run pytest`.
   - `77 passed` (containerised run, see `test_results/backend_phase4_2025-10-12.txt` for captured log).
-- [x] Run static checks: `poetry run mypy src/` and `poetry run ruff check src/`.
+- [x] Run static checks: `poetry run mypy src/ tests/` and `poetry run ruff check src/ tests/`.
   - Both commands succeeded locally with no warnings.
 - [x] Coordinate with frontend: revalidate DTO assumptions against `frontend-ux-refactor.md` and `frontend-ui-refactor.md`, updating shared client packages if payloads shift.
   - Confirmed generated client (`frontend/src/api/generated-types.ts`) already encodes the summary segments; no regeneration required. Notes captured in `docs/backend/analysis-contract.md`.
@@ -178,8 +178,8 @@
 - [x] New service modules created with focused unit tests.
 - [x] WorkerService reduced to orchestration logic; no domain-heavy helpers remain inline.
 - [x] Dockerized pytest suite green.
-- [x] `poetry run mypy src/` passes.
-- [x] `poetry run ruff check src/` passes.
+- [x] `poetry run mypy src/ tests/` passes.
+- [x] `poetry run ruff check src/ tests/` passes.
 - [x] Documentation refreshed (this plan + affected backend/frontend notes).
 - [x] Repository factory close semantics verified under success and failure paths.
 - [x] Event publisher behaviour remains optional but functional.

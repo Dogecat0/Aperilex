@@ -24,8 +24,8 @@
 
 ## Validation
 
-- `poetry run mypy src/`
-- `poetry run ruff check src/`
+- `poetry run mypy src/ tests/`
+- `poetry run ruff check src/ tests/`
 
 ## Planned Enhancements
 

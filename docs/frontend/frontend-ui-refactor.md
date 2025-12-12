@@ -2,6 +2,8 @@
 
 ## Current Assessment
 
+> Note: The legacy guidance sidebar and "Show guidance" toggle were removed from the shell; references below remain for historical context only.
+
 - Light theme relies on pale slate neutrals with a single indigo accent across surfaces, sentiment, and CTAs, creating a calm but low-energy feel (`frontend/src/styles/tokens.ts:45`–`frontend/src/styles/tokens.ts:59`).
 - Dark theme mirrors the same palette without additional depth cues for analysis versus learning contexts (`frontend/src/styles/tokens.ts:83`–`frontend/src/styles/tokens.ts:99`).
 - Tailwind `@theme` variables duplicate the React token definitions, introducing drift and complicating palette adjustments (`frontend/src/index.css:12`–`frontend/src/index.css:110`).
@@ -40,7 +42,7 @@ Dark-mode companions trend warmer: navy shifts toward `#071021`, amber toward `#
 | Area                               | Primary Ramp                       | Secondary/Support                | Integration Notes                                                                                    |
 | ---------------------------------- | ---------------------------------- | -------------------------------- | ---------------------------------------------------------------------------------------------------- |
 | App shell background, borders      | Midnight Navy (core + 700)         | Graphite Slate for lines         | Update AppShell containers and Tailwind background utilities.                                        |
-| Global nav identity                | Midnight Navy core + Amber halo    | Emerald for status (auth state)  | Replace `tokens.sentiment.neutral` usage; introduce streak indicator ring.                           |
+| Global nav identity                | Midnight Navy core + Amber halo    | Emerald for status (auth state)  | Replace `tokens.sentiment.neutral` usage; introduce progress indicator badge.                        |
 | Guidance sidebar & learning modals | Learning Amber gradient            | Lilac neutral for text accents   | Recolor `GuidanceSidebar` surfaces/buttons; align onboarding CTA chips.                              |
 | Primary CTA buttons                | Action Emerald core                | Navy for focus ring, white text  | Swap current `var(--sentiment-positive)` references in `SearchBar`, `FirstRunLaunchpad`.             |
 | Data cards & dashboards            | Navy + Slate skeletons             | Emerald highlights, Lilac badges | `FilingSummaryCard`, `FeatureHeroStat`, `RecentAnalysesList` adopt new neutral stack.                |
@@ -51,8 +53,8 @@ Dark-mode companions trend warmer: navy shifts toward `#071021`, amber toward `#
 ## Layout & Interaction Direction
 
 - Refresh the app shell with layered backgrounds or gradients to distinguish analytic dashboards from the learning sidebar (`frontend/src/components/layout/AppShell.tsx:11`–`frontend/src/components/layout/AppShell.tsx:27`).
-- Elevate the global nav into a brand bar with progress or streak indicators; isolate auth/search controls within tinted pills using the new navy/amber palette (`frontend/src/components/layout/GlobalNav.tsx:45`–`frontend/src/components/layout/GlobalNav.tsx:136`).
-- Transform `GuidanceSidebar` cards into streak-aware learning modules using the amber ramp, progress glyphs, and contextual CTAs that trigger onboarding flows (`frontend/src/components/layout/GuidanceSidebar.tsx:65`–`frontend/src/components/layout/GuidanceSidebar.tsx:95`).
+- Elevate the global nav into a brand bar with progress and practice indicators; isolate auth/search controls within tinted pills using the new navy/amber palette (`frontend/src/components/layout/GlobalNav.tsx:45`–`frontend/src/components/layout/GlobalNav.tsx:136`).
+- Transform `GuidanceSidebar` cards into review-aware learning modules using the amber ramp, progress glyphs, and contextual CTAs that trigger onboarding flows (`frontend/src/components/layout/GuidanceSidebar.tsx:65`–`frontend/src/components/layout/GuidanceSidebar.tsx:95`).
 - Reduce rounding on analytic cards to 1rem or 0.75rem and tighten padding to move toward a data-dense dashboard feel (`frontend/src/features/dashboard/components/FilingSummaryCard.tsx:23`–`frontend/src/features/dashboard/components/FilingSummaryCard.tsx:47`).
 - Introduce interaction states (hover/focus/pending) leveraging opacity and tonal shifts rather than purely border color changes to improve accessibility for low-vision users.
 
@@ -156,7 +158,7 @@ Gradient direction update: sunset the old `learning.halo` token and remove pseud
 - **Pre-flight hygiene**: unblock lint by reintroducing `eslint-plugin-react`, converting lingering `import()` type annotations to top-level `import type`, and pruning unused test helpers so semantic token adoption starts from a clean baseline.
 - **App shell semantics**: refactor `frontend/src/components/layout/AppShell.tsx` to rely on `surfaces.base` with no ornamental gradients or raised styling on the `<main>` element. Shell spacing stays intact, but the main outlet is purely structural. A secondary CTA toggles the guidance panel so light mode can stay unobstructed by default. Update: when guidance is dismissed the column collapses entirely and the show CTA now lives alongside the search cluster so the content rail can stretch to the full `max-w-7xl` frame (`frontend/src/components/layout/AppShell.tsx`).
 - **Brand bar pass**: recalibrate `frontend/src/components/layout/GlobalNav.tsx` so pills/buttons source fills and borders from `tokens.brand` and `tokens.action`, ensure hover/focus states use `tokens.focus.ring`, and keep theme-switch/auth flows intact. Update: condensed the brand block, introduced a responsive drawer with simplified actions so the nav reads cleaner on desktop, enforced single-line nav labels, and swapped the theme toggle copy for sun/moon icon buttons with transparent fills so the glyphs stay legible across themes while preserving screen-reader text (`frontend/src/components/layout/GlobalNav.tsx`).
-- **Guidance sidebar refresh**: restyle `frontend/src/components/layout/GuidanceSidebar.tsx` to use `tokens.learning.surface` and `tokens.learning.accent`, add lightweight streak/progress affordances, remove ad-hoc gradients, and expose a dismiss action wired up to the shell toggle so the panel isn't persistent.
+- **Guidance sidebar refresh**: restyle `frontend/src/components/layout/GuidanceSidebar.tsx` to use `tokens.learning.surface` and `tokens.learning.accent`, add lightweight review/progress affordances, remove ad-hoc gradients, and expose a dismiss action wired up to the shell toggle so the panel isn't persistent.
 - **Shadow depth audit**: tighten the semantic shadow ladder to (`soft`: `0 3px 8px rgba(9, 24, 49, 0.12)`, `medium`: `0 8px 20px rgba(9, 24, 49, 0.14)`, `strong`: `0 12px 28px rgba(9, 24, 49, 0.18)` in light mode with proportionally smaller dark-mode spreads) and regenerate artifacts so cards/shell elements keep depth without overpowering light mode.
 - **Search entry alignment**: update `frontend/src/components/layout/SearchBar.tsx` to rely on semantic surfaces/lines, swap the CTA to `tokens.action.primary`, and clean up skeleton state styles that were suppressing `react/no-array-index-key` earlier.
 - **Verification**: confirm shell updates across `/dashboard`, `/analyze`, `/learn`, run `npm run lint && npm run test`, and note any polish work back into this doc.
@@ -179,11 +181,11 @@ Gradient direction update: sunset the old `learning.halo` token and remove pseud
   - Folded the “Recent companies” list into `RecentAnalysesList` to create one recent activity module with aligned tokens and metadata styling.
   - Added skeleton scaffolds for company links alongside the existing analysis loaders to match the tightened grid and radius.
 - **Section intros & CTA affordance**
-  - Standardized dashboard/analyze secondary sections on a new `SectionIntro` composition so headings and support copy track the same rhythm across surfaces (`frontend/src/components/ui/SectionIntro.tsx`; `frontend/src/features/dashboard/components/RecentAnalysesList.tsx`; `frontend/src/features/dashboard/components/AnalysisLibrarySection.tsx`; `frontend/src/features/filings/components/ExistingAnalysesCallout.tsx`).
-  - Enhanced primary analysis/search CTAs to reuse the shared Button styling so analyze/search actions match the learning CTAs while keeping lift/brightness hover feedback and focus-visible rings aligned (`frontend/src/features/filings/components/FilingDetailPanel.tsx`; `frontend/src/features/filings/components/FilingSearchForm.tsx`; `frontend/src/components/ui/Button.tsx`).
-  - Extended the shared intro pattern to the learning streak and recent quiz panels so `/learn` sections align with dashboard surface rhythm (`frontend/src/features/learning/LearningHubPage.tsx`).
+  - Standardized dashboard/analyze secondary sections on a new `SectionIntro` composition so headings and support copy track the same rhythm across surfaces (`frontend/src/components/ui/SectionIntro.tsx`; `frontend/src/features/dashboard/components/RecentAnalysesList.tsx`; `frontend/src/features/dashboard/components/AnalysisLibrarySection.tsx`). The analyze-specific callout was later retired once the dashboard became the canonical place to review existing insights.
+  - Enhanced primary analysis/search CTAs to reuse the shared Button styling so analyze/search actions match the learning CTAs while keeping lift/brightness hover feedback and focus-visible rings aligned (`frontend/src/features/filings/components/FilingDetailPanel.tsx`; `frontend/src/components/analysis/AnalysisFilters.tsx`; `frontend/src/components/ui/Button.tsx`).
+  - Extended the shared intro pattern to the recent quiz panel so `/learn` sections align with dashboard surface rhythm (`frontend/src/features/learning/LearningHubPage.tsx`).
 - **Learning hub panels**
-  - Polish `frontend/src/features/learning/LearningHubPage.tsx` hero to pair progress streak chips (`learning.accent` backdrop, serif headings) with guidance copy (`lineHeights.relaxed`).
+- Polish `frontend/src/features/learning/LearningHubPage.tsx` hero to pair progress badges (`learning.accent` backdrop, serif headings) with guidance copy (`lineHeights.relaxed`).
   - Restyle module cards with progress meters driven by `metrics` tokens, embed action icons that hook into `action.secondary`, and ensure “Resume practice” buttons re-use the CTA styling introduced in dashboard cards.
   - Harmonize quiz history + toast feedback surfaces with `surfaces.overlay` backgrounds and consistent spacing/typography tiers.
 - **Verification**
