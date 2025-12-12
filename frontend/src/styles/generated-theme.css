@@ -28,7 +28,7 @@
   --status-positive: #45C388;
   --status-neutral: #B9B2F2;
   --status-negative: #E75C4A;
-  --status-warning: #E78C1F;
+  --status-warning: #d9a464;
   --metrics-up: #138352;
   --metrics-down: #E75C4A;
   --metrics-stable: #737C91;
@@ -93,7 +93,7 @@
   --status-positive: #45C388;
   --status-neutral: #B9B2F2;
   --status-negative: #E75C4A;
-  --status-warning: #E78C1F;
+  --status-warning: #d9a464;
   --metrics-up: #138352;
   --metrics-down: #E75C4A;
   --metrics-stable: #737C91;
@@ -158,7 +158,7 @@
   --status-positive: #3ED79E;
   --status-neutral: #AFA5FF;
   --status-negative: #FB7185;
-  --status-warning: #C9733A;
+  --status-warning: #d3ac80;
   --metrics-up: #3ED79E;
   --metrics-down: #FB7185;
   --metrics-stable: #AAB7DD;

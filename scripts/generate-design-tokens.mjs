@@ -198,6 +198,9 @@ async function writeOutputs(lightTokens, darkTokens) {
 
   const jsonPayload = {
     generatedAt: new Date().toISOString(),
+    generator: path.relative(repoRoot, __filename),
+    notice:
+      'Auto-generated. Do not edit directly. Update frontend/src/styles/tokens.ts instead.',
     source: path.relative(repoRoot, tokensPath),
     tokens: {
       light: lightTokens,
@@ -205,7 +208,7 @@ async function writeOutputs(lightTokens, darkTokens) {
     },
   }
 
-  await writeFile(generatedJsonPath, `${headerComment}${JSON.stringify(jsonPayload, null, 2)}\n`, 'utf8')
+  await writeFile(generatedJsonPath, `${JSON.stringify(jsonPayload, null, 2)}\n`, 'utf8')
 }
 
 async function main() {

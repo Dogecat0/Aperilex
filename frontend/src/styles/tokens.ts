@@ -130,7 +130,7 @@ export const lightTokens: ThemeTokens = {
     positive: '#45C388',
     neutral: '#B9B2F2',
     negative: '#E75C4A',
-    warning: '#E78C1F',
+    warning: '#d9a464',
   },
   metrics: {
     up: '#138352',
@@ -223,7 +223,7 @@ export const darkTokens: ThemeTokens = {
     positive: '#3ED79E',
     neutral: '#AFA5FF',
     negative: '#FB7185',
-    warning: '#C9733A',
+    warning: '#d3ac80',
   },
   metrics: {
     up: '#3ED79E',
