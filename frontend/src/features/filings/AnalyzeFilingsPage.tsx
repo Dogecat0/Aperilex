@@ -584,7 +584,7 @@ export function AnalyzeFilingsPage() {
         />
       </div>
 
-      <div className="relative z-10 mx-auto w-full max-w-7xl px-2 py-8 flex flex-col gap-8">
+      <div className="relative z-10 mx-auto w-full max-w-7xl py-8 flex flex-col gap-8">
         <FeatureHero
           overline="Analysis launchpad"
           title="Queue your next filing analysis"

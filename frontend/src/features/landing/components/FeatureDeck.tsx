@@ -406,7 +406,7 @@ export function FeatureDeck({
 
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 lg:auto-rows-[minmax(400px,auto)]">
         {/* Dashboard Tile - Spans 2 cols on large screens */}
-        <div className="md:col-span-2 lg:col-span-2 row-span-2">
+        <div className="md:col-span-2 lg:col-span-2">
           <DashboardTile
             content={content.dashboard}
             isAuthenticating={isAuthenticating}
@@ -442,7 +442,7 @@ export function FeatureDeck({
         </div>
 
         {/* Saved Tile */}
-        <div className="md:col-span-2 lg:col-span-2">
+        <div className="lg:col-span-1">
           <SavedTile
             content={content.saved}
             isAuthenticating={isAuthenticating}

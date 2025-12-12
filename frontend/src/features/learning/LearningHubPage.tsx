@@ -185,7 +185,7 @@ export function LearningHubPage() {
   const analysesQuery = useAnalyses(
     {
       status: 'COMPLETED',
-      segment: filters.segment,
+      segment: 'all',
       sort: 'filing_date',
       direction: 'desc',
       page_size: 30,
@@ -204,14 +204,17 @@ export function LearningHubPage() {
     return items.filter((analysis) => {
       const summary = analysis.summary
       const filingType = summary.filing.type ?? ''
+      const templateRaw = summary.filing.analysis_template
+      const templateKey = typeof templateRaw === 'string' ? templateRaw.toLowerCase() : null
       const company = summary.company.name ?? ''
       const ticker = summary.company.ticker ?? ''
       const matchesForm = !filters.filingType || filingType === filters.filingType
+      const matchesSegment = filters.segment === 'all' ? true : templateKey === filters.segment
       const matchesSearch =
         !search || company.toLowerCase().includes(search) || ticker.toLowerCase().includes(search)
       const matchesDate = isWithinFilingDateRange(summary.filing.date ?? null, filters)
 
-      return matchesForm && matchesSearch && matchesDate
+      return matchesForm && matchesSegment && matchesSearch && matchesDate
     })
   }, [analysesQuery.data, filters])
 
@@ -464,7 +467,7 @@ export function LearningHubPage() {
         />
       </div>
 
-      <div className="relative z-10 mx-auto w-full max-w-7xl px-2 py-8 flex flex-col gap-8">
+      <div className="relative z-10 mx-auto w-full max-w-7xl py-8 flex flex-col gap-8">
         {toastMessages.map((toast) => (
           <div
             key={toast.id}
