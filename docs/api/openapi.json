@@ -480,6 +480,18 @@
             "description": "Filing UUID identifier"
           },
           {
+            "name": "force_reprocess",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "description": "Force regeneration even if a recent analysis already exists",
+              "default": false,
+              "title": "Force Reprocess"
+            },
+            "description": "Force regeneration even if a recent analysis already exists"
+          },
+          {
             "name": "application_service",
             "in": "query",
             "required": false,
@@ -514,6 +526,273 @@
         ],
         "responses": {
           "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TaskResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Filing not found"
+          },
+          "422": {
+            "description": "Invalid accession number or filing ID format"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        }
+      }
+    },
+    "/api/filings/by-id/{filing_id}/practice/kpi-extract": {
+      "post": {
+        "tags": [
+          "filings"
+        ],
+        "summary": "Queue KPI extract walkthrough",
+        "description": "Trigger a KPI-focused guided analysis run for the selected filing.",
+        "operationId": "trigger_kpi_extract_practice_api_filings_by_id__filing_id__practice_kpi_extract_post",
+        "parameters": [
+          {
+            "name": "filing_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "description": "Filing UUID identifier",
+              "title": "Filing Id"
+            },
+            "description": "Filing UUID identifier"
+          },
+          {
+            "name": "force_reprocess",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "description": "Force regeneration even if a recent practice task already exists",
+              "default": false,
+              "title": "Force Reprocess"
+            },
+            "description": "Force regeneration even if a recent practice task already exists"
+          },
+          {
+            "name": "application_service",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "title": "Application Service"
+            }
+          },
+          {
+            "name": "auth_provider",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "title": "Auth Provider"
+            }
+          },
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TaskResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Filing not found"
+          },
+          "422": {
+            "description": "Invalid accession number or filing ID format"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        }
+      }
+    },
+    "/api/filings/by-id/{filing_id}/practice/risk-delta": {
+      "post": {
+        "tags": [
+          "filings"
+        ],
+        "summary": "Queue risk delta walkthrough",
+        "description": "Trigger a risk-focused guided analysis run for the selected filing.",
+        "operationId": "trigger_risk_delta_practice_api_filings_by_id__filing_id__practice_risk_delta_post",
+        "parameters": [
+          {
+            "name": "filing_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "description": "Filing UUID identifier",
+              "title": "Filing Id"
+            },
+            "description": "Filing UUID identifier"
+          },
+          {
+            "name": "force_reprocess",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "description": "Force regeneration even if a recent practice task already exists",
+              "default": false,
+              "title": "Force Reprocess"
+            },
+            "description": "Force regeneration even if a recent practice task already exists"
+          },
+          {
+            "name": "application_service",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "title": "Application Service"
+            }
+          },
+          {
+            "name": "auth_provider",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "title": "Auth Provider"
+            }
+          },
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TaskResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Filing not found"
+          },
+          "422": {
+            "description": "Invalid accession number or filing ID format"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        }
+      }
+    },
+    "/api/filings/by-id/{filing_id}/practice/mda-quiz": {
+      "post": {
+        "tags": [
+          "filings"
+        ],
+        "summary": "Queue MD&A quiz walkthrough",
+        "description": "Trigger an MD&A-focused guided analysis run for the selected filing.",
+        "operationId": "trigger_mda_quiz_practice_api_filings_by_id__filing_id__practice_mda_quiz_post",
+        "parameters": [
+          {
+            "name": "filing_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "description": "Filing UUID identifier",
+              "title": "Filing Id"
+            },
+            "description": "Filing UUID identifier"
+          },
+          {
+            "name": "force_reprocess",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "description": "Force regeneration even if a recent practice task already exists",
+              "default": false,
+              "title": "Force Reprocess"
+            },
+            "description": "Force regeneration even if a recent practice task already exists"
+          },
+          {
+            "name": "application_service",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "title": "Application Service"
+            }
+          },
+          {
+            "name": "auth_provider",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "title": "Auth Provider"
+            }
+          },
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
             "description": "Successful Response",
             "content": {
               "application/json": {
@@ -2054,6 +2333,91 @@
         }
       }
     },
+    "/api/learning/progress/{module_key}/walkthrough-events": {
+      "post": {
+        "tags": [
+          "learning"
+        ],
+        "summary": "Record a walkthrough completion event for the authenticated user",
+        "description": "Record a walkthrough completion milestone and return updated progress.",
+        "operationId": "record_walkthrough_event_api_learning_progress__module_key__walkthrough_events_post",
+        "parameters": [
+          {
+            "name": "module_key",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Module Key"
+            }
+          },
+          {
+            "name": "auth_provider",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "title": "Auth Provider"
+            }
+          },
+          {
+            "name": "learning_service",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "title": "Learning Service"
+            }
+          },
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WalkthroughCompletionRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LearningProgressResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/learning/quiz-attempts": {
       "get": {
         "tags": [
@@ -2438,7 +2802,8 @@
         "enum": [
           "created_at",
           "confidence_score",
-          "insight_counts.critical_findings"
+          "insight_counts.critical_findings",
+          "filing_date"
         ],
         "title": "AnalysisSortField",
         "description": "Fields available for ordering analysis results."
@@ -2557,14 +2922,13 @@
           "tier": {
             "anyOf": [
               {
-                "type": "string"
+                "$ref": "#/components/schemas/UserTier"
               },
               {
                 "type": "null"
               }
             ],
-            "title": "Tier",
-            "description": "User subscription tier (BASIC, PROFESSIONAL, etc.)"
+            "description": "User subscription tier (ESSENTIAL or PLUS)"
           },
           "permissions": {
             "items": {
@@ -3099,6 +3463,23 @@
             ],
             "title": "Completed At"
           },
+          "is_unlocked": {
+            "type": "boolean",
+            "title": "Is Unlocked",
+            "default": false
+          },
+          "unlocked_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unlocked At"
+          },
           "metadata": {
             "additionalProperties": true,
             "type": "object",
@@ -3451,6 +3832,11 @@
             "title": "Passed",
             "default": false
           },
+          "is_human_reviewed": {
+            "type": "boolean",
+            "title": "Is Human Reviewed",
+            "default": false
+          },
           "attempted_at": {
             "anyOf": [
               {
@@ -3534,10 +3920,20 @@
             "type": "boolean",
             "title": "Passed"
           },
+          "is_human_reviewed": {
+            "type": "boolean",
+            "title": "Is Human Reviewed",
+            "default": false
+          },
           "attempted_at": {
             "type": "string",
             "format": "date-time",
             "title": "Attempted At"
+          },
+          "responses": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Responses"
           },
           "metadata": {
             "additionalProperties": true,
@@ -4031,6 +4427,144 @@
         "title": "SummaryProcessing",
         "description": "Processing metadata for the analysis run."
       },
+      "SummarySectionSegment": {
+        "properties": {
+          "id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Id",
+            "description": "Stable identifier for the summary segment"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title",
+            "description": "Headline describing the segment focus"
+          },
+          "anchor": {
+            "type": "string",
+            "title": "Anchor",
+            "description": "Destination tab anchor (overview|sections|numbers|sentiment)"
+          },
+          "summary": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Summary",
+            "description": "Short narrative aligned to the segment"
+          },
+          "supporting_points": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Supporting Points",
+            "description": "Supporting highlights reinforcing the segment narrative"
+          },
+          "featured_metric": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SummarySegmentFeaturedMetric"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Optional quantitative metric to feature within the segment"
+          },
+          "cta_label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cta Label",
+            "description": "Optional call-to-action label overriding default button copy"
+          }
+        },
+        "type": "object",
+        "required": [
+          "title",
+          "anchor"
+        ],
+        "title": "SummarySectionSegment",
+        "description": "Segmented overview card powering the filing summary surface."
+      },
+      "SummarySegmentFeaturedMetric": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id",
+            "description": "Stable identifier for the metric"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label",
+            "description": "Human readable metric label"
+          },
+          "current": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Current",
+            "description": "Formatted representation of the current value"
+          },
+          "delta": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Delta",
+            "description": "Formatted representation of the change versus prior period"
+          },
+          "trend": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "up",
+                  "down",
+                  "flat"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Trend",
+            "description": "Directional trend derived from the metric delta"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "label"
+        ],
+        "title": "SummarySegmentFeaturedMetric",
+        "description": "Quantitative highlight rendered within a summary segment."
+      },
       "SummarySentiment": {
         "properties": {
           "average": {
@@ -4286,6 +4820,15 @@
         "title": "TemplatesResponse",
         "description": "Response containing analysis template information.\n\nProvides metadata about all available analysis templates including their\ndescriptions, associated schemas, and configuration details."
       },
+      "UserTier": {
+        "type": "string",
+        "enum": [
+          "ESSENTIAL",
+          "PLUS"
+        ],
+        "title": "UserTier",
+        "description": "User subscription tier levels."
+      },
       "ValidationError": {
         "properties": {
           "loc": {
@@ -4319,6 +4862,54 @@
         ],
         "title": "ValidationError"
       },
+      "WalkthroughCompletionRequest": {
+        "properties": {
+          "analysis_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Analysis Id",
+            "description": "Analysis identifier that emitted the walkthrough event"
+          },
+          "section_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Section Key",
+            "description": "Canonical section key for the walkthrough segment"
+          },
+          "progress_percent": {
+            "type": "integer",
+            "maximum": 100.0,
+            "minimum": 0.0,
+            "title": "Progress Percent"
+          },
+          "completed_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Completed At"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "analysis_id",
+          "progress_percent"
+        ],
+        "title": "WalkthroughCompletionRequest",
+        "description": "Request payload for recording a walkthrough completion event."
+      },
       "src__application__handlers__schemas__responses__analysis_response__AnalysisSummary": {
         "properties": {
           "company": {
@@ -4344,6 +4935,14 @@
           "processing": {
             "$ref": "#/components/schemas/SummaryProcessing",
             "description": "Analyst pipeline processing metadata"
+          },
+          "summary_sections": {
+            "items": {
+              "$ref": "#/components/schemas/SummarySectionSegment"
+            },
+            "type": "array",
+            "title": "Summary Sections",
+            "description": "Segmented overview cards for the summary surface"
           },
           "filing_summary": {
             "anyOf": [
@@ -4418,6 +5017,7 @@
             "title": "Status"
           }
         },
+        "additionalProperties": false,
         "type": "object",
         "required": [
           "analysis_id",
