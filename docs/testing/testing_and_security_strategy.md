@@ -7,11 +7,30 @@ Scope: align validation with `IMPLEMENTATION_PLAN.md` and `docs/deployment/DEPLO
 - Backend tests (containerised pytest per `docs/testing/backend_test_strategy_and_notes.md`): worker collaborators (`analysis_task_builder`, `filing_lifecycle_service`, `analysis_execution_service`, `analysis_persistence_service`, `analysis_event_emitter`, `analysis_summary_builder`, `section_diff_service`, `template_registry`, `worker_retry_coordinator`), CQRS wiring (`tests/application/containers/test_cqrs_worker_service_wiring.py`), practice command handlers, analysis query/response shaping, LLM subsection analysis helpers, Google OAuth provider (token validation, rate limits, refresh), presentation security helper (`test_security.py`), analyses and learning routers, health router messaging/caching coverage, structured analysis migration.
 - Frontend tests (Vitest): routing and protected routes (`router.test.tsx`, `ProtectedRoute`), auth store/session flows (`authStore.test.ts`, `useAuth.test.tsx`, `useAuthSession` helpers), layout components (`GlobalNav`, `SearchBar`), feature shells and pages (dashboard, filings, filing detail panel, learning hub, saved items), Google callback handling.
 - Tooling available: `poetry run pytest`, `poetry run mypy src`, `poetry run ruff check src`, `poetry run bandit -r src`, `poetry run safety check`, `npm run test`, `npm run typecheck`, `npm run lint`, `npm audit` (not wired), Makefile targets for lint/type/security. Docker secrets enforced via `docker-compose.yml` (no env fallback in `DockerSecretManager`).
-- Latest dockerised coverage run (`pytest-cov` inside `docker compose run --rm --no-deps app ...` after API/worker/provider/repository suites): 60.62% total coverage; major misses remain in application command/query handlers, containers, orchestrator wiring, presentation auth/filings routers, rate limit middleware, priority queue, and S3/AWS providers.
+- Latest dockerised coverage run (2025-12-12; transient `pytest-cov` per `docs/testing/coverage.md`): 208 passed in 131s; 59.25% overall coverage (64.34% statements, 37.06% branches). Artifacts: `coverage/backend/html/`, `coverage/backend/coverage.json`, `coverage/backend/coverage.xml`, `coverage/backend/pytest_cov_output.txt`.
+- Coverage by top-level package (statements / branches): application 76.34% / 50.07%, shared 86.86% / 47.03%, presentation 60.87% / 38.04%, infrastructure 52.71% / 24.94%, domain 59.66% / 7.41%, composition 40.86% / 18.97%.
+- Lowest statement coverage hotspots (>=25 statements):
+  - `src/application/patterns/circuit_breaker.py` 0.00%
+  - `src/presentation/api/app.py` 0.00%
+  - `src/main.py` 0.00%
+  - `src/infrastructure/database/repositories/cached_base.py` 0.00%
+  - `src/application/handlers_registry.py` 0.00%
+  - `src/infrastructure/database/repositories/base.py` 0.00%
+  - `src/infrastructure/database/aurora.py` 10.09%
+  - `src/infrastructure/database/sqlalchemy_provider.py` 13.17%
+  - `src/infrastructure/config/json_config_provider.py` 18.13%
+  - `src/composition/provider_factory.py` 23.62%
+  - `src/infrastructure/secret/aws_secrets_manager.py` 23.85%
+- Most missed statements (>=25 statements):
+  - `src/infrastructure/database/aurora.py` 410/456 missed (10.09%)
+  - `src/infrastructure/database/sqlalchemy_provider.py` 277/319 missed (13.17%)
+  - `src/composition/provider_factory.py` 194/254 missed (23.62%)
+  - `src/infrastructure/providers/authentication/google_oauth_provider.py` 191/394 missed (51.52%)
+  - `src/application/services/priority_queue_service.py` 188/253 missed (25.69%)
 
 ## Gaps and Risks
 
-- Backend coverage gaps: coverage deficits remain in application command/query handlers and container/orchestrator wiring; priority queue and `sec_rate_limiter` fail-closed paths; presentation auth/filings routers (PKCE/state, rate-limit, auth error branches); RateLimit middleware resolution/failure handling; ServiceLifecycle/startup health-check failures; infrastructure bootstrap (`repository_factory`, `sqlalchemy_provider`, `main.py`, `app.py`) lacking smoke coverage; S3/AWS providers and LLM provider network paths remain untested until concrete implementations exist; event/SSE providers still without contract tests.
+- Backend coverage gaps (2025-12-12): 59.25% overall (64.34% statements, 37.06% branches). Deficits concentrate in infrastructure (52.71% stmt / 24.94% branch) and composition wiring (40.86% stmt), plus unexercised bootstrap modules (`src/presentation/api/app.py`, `src/main.py`). Priority targets: `src/infrastructure/database/aurora.py`, `src/infrastructure/database/sqlalchemy_provider.py`, `src/composition/provider_factory.py`, `src/application/services/priority_queue_service.py`, and auth/filings/rate-limit error branches. Zero-coverage candidates to delete if unused: `src/application/patterns/circuit_breaker.py`, `src/application/handlers_registry.py`.
 - Frontend coverage gaps: no MSW-backed tests for API hooks/data loaders; minimal error-state coverage for pages; no Playwright E2E despite scripts; no tests for SSE/task-stream handling or multi-tab logout refresh flows beyond hook unit coverage.
 - Security gaps: CORS currently `*` with permissive methods/headers; RateLimit middleware silently disables enforcement on resolution failure; `ServiceLifecycle.startup` continues when provider health checks fail; cookie security flags not asserted by tests (refresh cookie, state/verifier cookies); auth router tests only cover missing refresh cookie, not PKCE/state tampering; dependency audit for npm not enforced; no secret-scanning or container scan (e.g., trivy) in workflow; default dummy secrets still accepted when not in Docker; no test coverage ensuring database access only via Docker-networked Postgres.
 - Redundant/fallback paths to retire per project rules: RateLimit middleware swallowing provider errors and proceeding; ServiceLifecycle warning-only startup; permissive CORS defaults; auth endpoint behaviours that tolerate missing secrets until runtime; any env/dummy secret defaults outside test mode.
@@ -27,6 +46,66 @@ Scope: align validation with `IMPLEMENTATION_PLAN.md` and `docs/deployment/DEPLO
 
 ## Executable Test Plan
 
+- Baseline measurement (full suite + coverage; 5-minute cap; use dedicated `aperilex_test` database):
+  - One-time: create the `aperilex_test` database:
+    ```sh
+    if docker compose exec -T postgres psql -U aperilex -d postgres -tAc \
+      "SELECT 1 FROM pg_database WHERE datname='aperilex_test';" | grep -q 1; then
+      echo "aperilex_test already exists"
+    else
+      docker compose exec -T postgres psql -U aperilex -d postgres -c "CREATE DATABASE aperilex_test;"
+    fi
+    ```
+  - Run suite + coverage (artifacts written to `coverage/backend/` on the host):
+    ```sh
+    timeout 5m docker compose run --rm --no-deps \
+      -e TESTING=true \
+      -e POSTGRES_DB=aperilex_test \
+      -v ./coverage:/app/coverage \
+      app sh -lc '
+        set -euo pipefail
+        coverage_dir=/app/coverage/backend
+        mkdir -p "$coverage_dir" "$coverage_dir/html"
+
+        python -m pip install pytest-cov --target /tmp/.pip-deps >"$coverage_dir/pip_install.log" 2>&1
+        export PYTHONPATH="/tmp/.pip-deps:${PYTHONPATH:-}"
+
+        postgres_password="$(tr -d "\r\n" < /run/secrets/postgres_password)"
+        export DATABASE_URL="postgresql+asyncpg://aperilex:${postgres_password}@postgres/aperilex_test"
+        export COVERAGE_FILE="$coverage_dir/.coverage"
+
+        python -m pytest \
+          --cov=src \
+          --cov-report=term-missing \
+          --cov-report=html:"$coverage_dir/html" \
+          --cov-report=xml:"$coverage_dir/coverage.xml" \
+          --cov-report=json:"$coverage_dir/coverage.json" \
+          2>&1 | tee "$coverage_dir/pytest_cov_output.txt"
+      '
+    ```
+  - Individual coverage percentages:
+    - Per-file table: `coverage/backend/pytest_cov_output.txt`
+    - Drilldown: `coverage/backend/html/index.html`
+    - Programmatic: `coverage/backend/coverage.json`
+- Coverage-driven backlog (ordered; from 2025-12-12 report):
+  - [ ] Bootstrap smoke tests: `src/presentation/api/app.py` (`/`, `/health`, router mounting)
+  - [ ] Lifespan tests: `service_lifecycle.startup()`/`shutdown()` called; startup failure surfaces (no warning-only continuation)
+  - [ ] Exception handler tests: `http_exception_handler` (dict vs string detail) and `general_exception_handler` (500 payload shape)
+  - [ ] Composition entrypoint tests: `src/main.py` `main()` wiring (module filter, handler registration call, provider type logging without side effects)
+  - [ ] CQRS handler registry tests: `src/application/handlers_registry.py` registers all command/query handlers
+  - [ ] Either delete or fully test `src/application/patterns/circuit_breaker.py` (CLOSED/OPEN/HALF_OPEN transitions, timing reset, `get_status()` state fields)
+  - [ ] Repository base tests: `src/infrastructure/database/repositories/base.py` CRUD semantics (create/update/delete/not-found)
+  - [ ] Cached repository base tests: `src/infrastructure/database/repositories/cached_base.py` (`get_by_id` cache hit/miss; update/delete invalidation; query-region invalidation)
+  - [ ] Config provider tests: `src/infrastructure/config/json_config_provider.py` (auto-create, malformed JSON fallback, set/delete persistence, namespace listing, sensitive-key marking)
+  - [ ] ProviderFactory tests: `src/composition/provider_factory.py` (non-AWS secret manager requires `DOCKER_SECRETS_DIR`; optional dependency error paths for SQS/Lambda/Docker)
+  - [ ] SQLAlchemyDatabaseProvider tests: `src/infrastructure/database/sqlalchemy_provider.py` identifier/table validation; task/analysis save/update error branches
+  - [ ] AuroraDatabaseProvider unit tests: `src/infrastructure/database/aurora.py` identifier/table validation; cold-start retry loop (mocked `asyncpg.create_pool` + fake secret manager)
+  - [ ] AWSSecretsManager unit tests (offline): `src/infrastructure/secret/aws_secrets_manager.py` decode paths + error mapping using stubbed boto3 client
+  - [ ] PriorityQueueService unit tests: `src/application/services/priority_queue_service.py` dedup enabled/disabled, metrics updates, visibility timeout clamping, dead-letter routing
+  - [ ] Auth provider tests: `src/infrastructure/providers/authentication/google_oauth_provider.py` token refresh/invalid token/rate-limit branches
+  - [ ] Router error-branch tests: `src/presentation/api/routers/auth.py` + `src/presentation/api/routers/filings.py` (PKCE/state mismatch, cookie flags, invalid filters)
+  - [ ] Worker docker provider tests: `src/infrastructure/providers/worker/docker.py` env parsing + failure propagation
+  - [ ] LLM provider tests (network-disabled): `src/infrastructure/providers/llm/base.py`, `src/infrastructure/providers/llm/openai.py`, `src/infrastructure/providers/llm/google.py` retry/timeout/token accounting branches
 - Backend API surface: add pytest modules under `tests/presentation/api/` for `/api/tasks`, `/api/filings`, `/api/companies`, `/api/health` using dockerised runs (`docker compose run --rm --no-deps app poetry run pytest …`). Stub DI dependencies to assert status codes, auth behaviour, PKCE/state rejection, and rate-limit headers; fail fast when provider resolution errors occur.
   - [x] `/api/health` messaging aggregation and cache coverage
   - [x] `/api/tasks`
@@ -77,7 +156,7 @@ Scope: align validation with `IMPLEMENTATION_PLAN.md` and `docs/deployment/DEPLO
 - Cross-cutting controls: add fail-closed coverage for rate limiting, startup health checks, and queue backpressure paths.
   - [ ] RateLimitMiddleware resolution failures and rate header assertions on auth/filings routes; auth/filings routers exercise PKCE/state tampering, missing/invalid cookies, stale analyses, and repository errors
   - [ ] `sec_rate_limiter` quota/exhaustion/error paths (backoff, jitter) and `PriorityQueueService` dedup/backpressure/visibility/background cleanup
-  - [ ] `ServiceLifecycle` startup halts on provider health-check failures plus smoke for `repository_factory`, `sqlalchemy_provider`, `main.py`, `app.py`; drop unused `application/patterns/circuit_breaker.py`
+  - [ ] `ServiceLifecycle` startup halts on provider health-check failures plus smoke for `repository_factory`, `sqlalchemy_provider`, `main.py`, `app.py`; drop unused `application/patterns/circuit_breaker.py` and `application/handlers_registry.py`
   - [ ] Task status store write failure handling and header propagation on error responses
 - Migrations and repositories: add `tests/infrastructure/database/test_migrations.py` to run `alembic upgrade head` in docker and sanity-check key tables; add repository CRUD/lookup tests for companies/filings/analyses against docker Postgres fixtures.
   - [x] Alembic upgrade head smoke test with table/index assertions
