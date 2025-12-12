@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useMemo, type CSSProperties } from 'react'
 import { Moon, Sun } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { useThemeTokens } from '@/components/ThemeProvider'
@@ -33,17 +33,19 @@ export function ThemeToggleButton({ className = '' }: ThemeToggleButtonProps) {
       variant="ghost"
       onClick={handleThemeToggle}
       className={`flex-shrink-0 rounded-full px-0 shadow-sm hover:[--theme-toggle-bg:var(--theme-toggle-hover)] ${className}`.trim()}
-      style={{
-        color: tokens.text.primary,
-        borderColor: tokens.lines.subtle,
-        background: 'var(--theme-toggle-bg)',
-        ['--theme-toggle-bg' as const]: tokens.surfaces.raised,
-        ['--theme-toggle-hover' as const]: hoverBackground,
-        height: TOGGLE_SIZE,
-        width: TOGGLE_SIZE,
-        minWidth: TOGGLE_SIZE,
-        padding: 0,
-      }}
+      style={
+        {
+          color: tokens.text.primary,
+          borderColor: tokens.lines.subtle,
+          background: 'var(--theme-toggle-bg)',
+          '--theme-toggle-bg': tokens.surfaces.raised,
+          '--theme-toggle-hover': hoverBackground,
+          height: TOGGLE_SIZE,
+          width: TOGGLE_SIZE,
+          minWidth: TOGGLE_SIZE,
+          padding: 0,
+        } as CSSProperties
+      }
       aria-label={nextThemeLabel}
       title={nextThemeLabel}
     >

@@ -201,7 +201,7 @@ async function fetchLearningModules(
   }
 
   return orderedKeys
-    .map((cardKey) => {
+    .map((cardKey): LearningModule | null => {
       const primary = primaryByCardKey.get(cardKey)
       const options = optionsByCardKey.get(cardKey) ?? []
       if (!primary) {
@@ -222,7 +222,7 @@ async function fetchLearningModules(
         analysisOptions: options,
       }
     })
-    .filter((value): value is LearningModule => Boolean(value))
+    .filter((value): value is LearningModule => value !== null)
 }
 
 function toAnalysisOption(module: LearningModule): ModuleAnalysisOption {
