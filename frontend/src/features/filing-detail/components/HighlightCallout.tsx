@@ -14,7 +14,7 @@ export function HighlightCallout({ highlight }: HighlightCalloutProps) {
     <article
       className="rounded-2xl border p-5"
       style={{
-        background: 'var(--surfaces-raised)',
+        background: 'var(--surfaces-base)',
         borderColor: 'var(--lines-subtle)',
         boxShadow: tokens.shadows.soft,
       }}
@@ -28,13 +28,22 @@ export function HighlightCallout({ highlight }: HighlightCalloutProps) {
             {citation}
           </span>
         ) : null}
+        {highlight.delta ? (
+          <span
+            className="rounded-full px-2 py-0.5 text-xs font-bold uppercase tracking-wide"
+            style={{
+              background: 'var(--surfaces-muted)',
+              color: highlight.delta.includes('+') ? 'var(--metrics-up)' : 'var(--metrics-down)',
+            }}
+          >
+            {highlight.delta}
+          </span>
+        ) : null}
       </header>
       <h3 className="mt-3 text-lg font-semibold text-[var(--text-primary)]">{highlight.title}</h3>
-      <p className="mt-2 text-sm leading-relaxed text-[var(--text-secondary)]">
-        {highlight.summary}
-      </p>
+      <p className="mt-2 text-sm leading-relaxed text-[var(--text-primary)]">{highlight.summary}</p>
       {highlight.quote ? (
-        <blockquote className="mt-4 border-l-4 border-[var(--lines-subtle)]/80 pl-4 text-sm italic text-[var(--text-secondary)]">
+        <blockquote className="mt-4 border-l-4 border-[var(--lines-subtle)]/80 pl-4 text-sm italic text-[var(--text-muted)]">
           {highlight.quote}
         </blockquote>
       ) : null}

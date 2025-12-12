@@ -1,4 +1,4 @@
-import { useMemo, type CSSProperties } from 'react'
+import { useMemo } from 'react'
 import { useThemeTokens } from '@/components/ThemeProvider'
 import { hexToRgba } from '@/lib/color'
 import type { SentimentRollup } from '@/lib/types/analysis'
@@ -23,13 +23,16 @@ function formatSentimentScore(score: number | null | undefined) {
   return `${formatted}`
 }
 
-function getSentimentHoverColor(score: number | null | undefined) {
+function getSentimentStatusColor(
+  score: number | null | undefined,
+  colors: { up: string; down: string; stable: string }
+) {
   if (typeof score !== 'number' || Number.isNaN(score)) {
-    return 'var(--brand-accent)'
+    return colors.stable
   }
-  if (score > 0) return '#3ED79E'
-  if (score < 0) return '#FB7185'
-  return '#AFA5FF'
+  if (score > 0) return colors.up
+  if (score < 0) return colors.down
+  return colors.stable
 }
 
 function describeTrend(trend?: string | null) {
@@ -52,6 +55,7 @@ function describeTrend(trend?: string | null) {
 export function SentimentTab({ rollup, sections }: SentimentTabProps) {
   const tokens = useThemeTokens()
   const isLightMode = tokens.name === 'light'
+  const statusColors = tokens.metrics
   const cardStyles = useMemo(
     () => ({
       background: `color-mix(in srgb, ${tokens.surfaces.raised} 60%, transparent)`,
@@ -119,7 +123,10 @@ export function SentimentTab({ rollup, sections }: SentimentTabProps) {
               Overall score
             </p>
             <div className="flex items-baseline gap-2">
-              <p className="text-5xl font-bold tracking-tight text-[var(--text-primary)]">
+              <p
+                className="text-5xl font-bold tracking-tight"
+                style={{ color: getSentimentStatusColor(rollup?.overall, statusColors) }}
+              >
                 {formatSentimentScore(rollup?.overall)}
               </p>
               <span className="text-sm font-medium text-[var(--text-secondary)]">/ 1.0</span>
@@ -201,22 +208,18 @@ export function SentimentTab({ rollup, sections }: SentimentTabProps) {
             {sections.map((section) => (
               <li
                 key={section.section}
-                className="group flex items-center justify-between rounded-xl border px-5 py-4 transition-all hover:shadow-md"
+                className="flex items-center justify-between rounded-xl border px-5 py-4"
                 style={{
                   borderColor: 'var(--lines-subtle)',
                   background: 'var(--surfaces-muted)',
                 }}
               >
-                <span className="text-sm font-semibold text-[var(--text-primary)]">
+                <span className="text-sm font-semibold text-[var(--text-muted)]">
                   {section.section}
                 </span>
                 <span
-                  className="font-mono text-sm font-bold text-[var(--text-secondary)] group-hover:text-[var(--sentiment-hover)] transition-colors"
-                  style={
-                    {
-                      '--sentiment-hover': getSentimentHoverColor(section.score),
-                    } as CSSProperties
-                  }
+                  className="font-mono text-lg font-bold"
+                  style={{ color: getSentimentStatusColor(section.score, statusColors) }}
                 >
                   {formatSentimentScore(section.score)}
                 </span>

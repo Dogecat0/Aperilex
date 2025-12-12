@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, type CSSProperties } from 'react'
 import { useThemeTokens } from '@/components/ThemeProvider'
 import { hexToRgba } from '@/lib/color'
 import type { ComprehensionCheck } from '@/lib/types/analysis'
@@ -137,26 +137,32 @@ export function ComprehensionCheckCard({
               ? correctBackground
               : isSelected && status === 'incorrect'
                 ? incorrectBackground
-                : 'var(--surfaces-raised)'
+                : 'var(--surfaces-base)'
           const textColor =
             resolvedCorrect || (isSelected && status === 'correct')
               ? tokens.status.positive
               : isSelected && status === 'incorrect'
                 ? tokens.status.negative
-                : 'var(--text-primary)'
+                : 'var(--text-muted)'
+          const hoverTextClass =
+            textColor === 'var(--text-muted)' && !completed
+              ? 'hover:text-[var(--text-primary)]'
+              : ''
 
           return (
             <button
               key={option}
               type="button"
               onClick={() => handleSelect(option)}
-              className="rounded-xl border px-4 py-3 text-left text-sm transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--focus-ring)]"
-              style={{
-                borderColor,
-                backgroundColor,
-                color: textColor,
-                cursor: completed ? 'default' : 'pointer',
-              }}
+              className={`rounded-xl border px-4 py-3 text-left text-sm text-[color:var(--option-text-color)] transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--focus-ring)] ${hoverTextClass}`}
+              style={
+                {
+                  borderColor,
+                  backgroundColor,
+                  '--option-text-color': textColor,
+                  cursor: completed ? 'default' : 'pointer',
+                } as CSSProperties
+              }
               disabled={completed}
             >
               {option}

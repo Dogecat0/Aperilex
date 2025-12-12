@@ -97,6 +97,7 @@ export const highlightCalloutSchema = z
     id: z.string(),
     title: z.string(),
     summary: z.string(),
+    delta: z.string().nullable().optional(),
     display_order: z.number().int().min(0),
     source_reference: z.string(),
     confidence: z.number().min(0).max(1).nullable().optional(),

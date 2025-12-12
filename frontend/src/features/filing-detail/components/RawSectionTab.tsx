@@ -13,7 +13,7 @@ export function RawSectionTab({ sections }: RawSectionTabProps) {
 
   const cardStyles = useMemo(
     () => ({
-      background: `color-mix(in srgb, ${tokens.surfaces.raised} 60%, transparent)`,
+      background: `color-mix(in srgb, ${tokens.surfaces.raised} 90%, transparent)`,
       borderColor: tokens.lines.subtle,
       backdropFilter: 'blur(12px)',
       boxShadow: tokens.shadows.soft,
@@ -104,11 +104,10 @@ export function RawSectionTab({ sections }: RawSectionTabProps) {
                 {section.critical_findings.map((finding, i) => (
                   <li
                     key={i}
-                    className="flex gap-4 rounded-xl border border-l-4 p-5 text-sm"
+                    className="flex gap-4 rounded-xl border p-5 text-sm"
                     style={{
                       background: hexToRgba(tokens.status.warning, isLightMode ? 0.08 : 0.16),
                       borderColor: hexToRgba(tokens.status.warning, 0.3),
-                      borderLeftColor: tokens.status.warning,
                       color: tokens.text.primary,
                     }}
                   >

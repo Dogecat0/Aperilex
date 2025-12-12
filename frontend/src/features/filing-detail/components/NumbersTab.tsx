@@ -59,7 +59,7 @@ export function NumbersTab({ metrics }: NumbersTabProps) {
                     {category}
                   </span>
                 ) : null}
-                <h3 className="text-xl font-bold text-[var(--text-primary)]">{metric.name}</h3>
+                <h3 className="text-xl text-[var(--text-muted)]">{metric.name}</h3>
               </div>
               {typeof metric.confidence === 'number' ? (
                 <span className="rounded-full px-2 py-1 text-[10px] font-bold uppercase tracking-wide bg-[var(--surfaces-muted)] text-[var(--text-muted)]">
@@ -76,22 +76,18 @@ export function NumbersTab({ metrics }: NumbersTabProps) {
                   </span>
                   {display.delta ? (
                     <span
-                      className="rounded-full px-2.5 py-0.5 text-xs font-bold uppercase tracking-wide"
+                      className="rounded-full px-2.5 py-0.5 text-lg font-bold uppercase tracking-wide"
                       style={{
                         background: 'var(--surfaces-muted)',
-                        color: 'var(--metrics-up)', // This should ideally be dynamic based on delta direction
+                        color: display.delta?.includes('+')
+                          ? 'var(--metrics-up)' // Positive change
+                          : 'var(--metrics-down)', // Negative change
                       }}
                     >
                       {display.delta}
                     </span>
                   ) : null}
                 </div>
-              ) : null}
-
-              {display.delta_text ? (
-                <p className="text-sm font-medium text-[var(--text-secondary)]">
-                  {display.delta_text}
-                </p>
               ) : null}
             </div>
           </article>

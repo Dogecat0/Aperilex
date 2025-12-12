@@ -345,7 +345,7 @@ export function FilingDetailPage() {
           </div>
         </header>
 
-        <main className="mx-auto w-full max-w-7xl px-6">
+        <main className="mx-auto w-full max-w-7xl">
           {activeTab === 'overview' ? <OverviewTab segments={summarySections} /> : null}
 
           {activeTab === 'sections' ? (
