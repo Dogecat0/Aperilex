@@ -807,34 +807,34 @@ export function GuidedFilingStepper({
 
   function handleCheckCompleted(section: GuidedWalkthroughSection, checkId: string) {
     const sectionKey = section.section_key
-    let shouldMarkComplete = section.comprehension_checks.length === 0
+
+    hasUserNavigatedRef.current = true
+    setFocusNotice(null)
+
+    const nextChecks: Record<string, true> = { ...activeSectionChecks, [checkId]: true }
     setCompletedChecks((prev) => {
       const previousChecks = prev[sectionKey] ?? EMPTY_SECTION_CHECKS
       if (previousChecks[checkId]) {
         return prev
       }
 
-      const updatedSectionChecks: Record<string, true> = { ...previousChecks, [checkId]: true }
-      const allAnswered = section.comprehension_checks.every((check) =>
-        Boolean(updatedSectionChecks[check.id])
-      )
-      if (allAnswered) {
-        shouldMarkComplete = true
-      }
-
       return {
         ...prev,
-        [sectionKey]: updatedSectionChecks,
+        [sectionKey]: { ...previousChecks, [checkId]: true },
       }
     })
 
-    if (shouldMarkComplete) {
-      if (persistedSectionSet.has(sectionKey)) {
-        notifiedSectionsRef.current.add(sectionKey)
-      } else {
-        notifySectionComplete(section, { celebrate: true })
-      }
+    const allAnswered = section.comprehension_checks.every((check) => Boolean(nextChecks[check.id]))
+    if (!allAnswered) {
+      return
     }
+
+    if (persistedSectionSet.has(sectionKey)) {
+      notifiedSectionsRef.current.add(sectionKey)
+      return
+    }
+
+    notifySectionComplete(section, { celebrate: true })
   }
 
   const activeSectionComplete = isSectionComplete(activeSection)

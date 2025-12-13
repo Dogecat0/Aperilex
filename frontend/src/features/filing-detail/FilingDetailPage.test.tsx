@@ -140,8 +140,9 @@ describe('FilingDetailPage', () => {
     renderWithRouter([`/filing/${DETAIL_ID}`])
 
     expect(await screen.findByRole('heading', { name: 'Apple Inc.' })).toBeInTheDocument()
-    expect(screen.getByText(/Guided Filing • 10-Q/i)).toBeInTheDocument()
-    expect(screen.getByText(/0 of 2 sections completed/i)).toBeInTheDocument()
+    expect(screen.getByText('10-Q')).toBeInTheDocument()
+    expect(screen.getByText(/Step 1 of 2/i)).toBeInTheDocument()
+    expect(screen.getByText(/2 steps remaining/i)).toBeInTheDocument()
 
     expect(await screen.findByRole('heading', { name: 'MD&A Guided Review' })).toBeInTheDocument()
     expect(screen.getByText('Services pacing profit growth')).toBeInTheDocument()
@@ -178,9 +179,30 @@ describe('FilingDetailPage', () => {
     })
     await user.click(correctOption)
 
+    await user.click(
+      await screen.findByRole('button', {
+        name: /OpEx grew slower than revenue, adding leverage\./i,
+      })
+    )
+    await user.click(
+      await screen.findByRole('button', {
+        name: /Google Cloud and collaboration workloads\./i,
+      })
+    )
+    await user.click(
+      await screen.findByRole('button', {
+        name: /It drags margins until monetisation catches up\./i,
+      })
+    )
+    await user.click(
+      await screen.findByRole('button', {
+        name: /Operating cash flow plus cash and securities cover planned returns\./i,
+      })
+    )
+
     await waitFor(() => {
       expect(screen.getByText(/1 of 2 sections completed/i)).toBeInTheDocument()
-      expect(panelNextButton).toBeDisabled()
+      expect(panelNextButton).toBeEnabled()
     })
 
     const celebrationDialog = await screen.findByRole('dialog', { name: /Nice work!/i })
@@ -198,8 +220,10 @@ describe('FilingDetailPage', () => {
       )
     })
 
-    const closeButton = within(celebrationDialog).getByRole('button', { name: /^Close$/i })
-    await user.click(closeButton)
+    const dialogNextButton = within(celebrationDialog).getByRole('button', {
+      name: /^Next section$/i,
+    })
+    await user.click(dialogNextButton)
 
     expect(
       await screen.findByRole('heading', { name: 'Risk Factors Deep Dive' })
@@ -215,19 +239,15 @@ describe('FilingDetailPage', () => {
         /Pro tip: New high-severity highlight detected: Regulation pressure remains elevated\./i
       )
     ).toBeInTheDocument()
-    const lessonLink = screen.getByRole('link', {
-      name: /Interpreting regulatory risk language/i,
-    })
-    expect(lessonLink).toHaveAttribute(
-      'href',
-      '/learning?module=risk_mastery&lesson=lesson-risk-regulation'
-    )
 
     const viewChangesButton = screen.getByRole('button', { name: /View changes/i })
     await user.click(viewChangesButton)
 
     const diffDrawer = await screen.findByText(/Sentiment shift/i)
     expect(diffDrawer).toBeInTheDocument()
+    expect(
+      screen.getByText(/Linked lesson: Interpreting regulatory risk language/i)
+    ).toBeInTheDocument()
     expect(screen.getAllByText(/Regulation pressure remains elevated/i).length).toBeGreaterThan(1)
 
     const closeDiffButton = screen.getByRole('button', { name: /^Close$/i })
@@ -241,9 +261,28 @@ describe('FilingDetailPage', () => {
     })
     await user.click(riskCorrectOption)
 
-    await waitFor(() => {
-      expect(screen.getByText(/2 of 2 sections completed/i)).toBeInTheDocument()
-    })
+    await user.click(
+      await screen.findByRole('button', {
+        name: /Reduced signal quality that limits targeting and measurement\./i,
+      })
+    )
+    await user.click(
+      await screen.findByRole('button', {
+        name: /A few ODM partners build most devices, so disruptions can delay launches\./i,
+      })
+    )
+    await user.click(
+      await screen.findByRole('button', {
+        name: /Scarce advanced-node foundry capacity for AI chips\./i,
+      })
+    )
+    await user.click(
+      await screen.findByRole('button', {
+        name: /Advertisers cut budgets, reducing ad spend and growth\./i,
+      })
+    )
+
+    expect(await screen.findByText(/All steps complete/i)).toBeInTheDocument()
     await waitFor(() => {
       expect(apiClient.post).toHaveBeenCalledWith(
         '/learning/progress/risk_mastery/walkthrough-events',
