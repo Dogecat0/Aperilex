@@ -194,10 +194,19 @@ function buildCss(lightTokens, darkTokens) {
 
 async function writeOutputs(lightTokens, darkTokens) {
   const css = buildCss(lightTokens, darkTokens)
-  await writeFile(generatedCssPath, css, 'utf8')
+  let existingCss = null
+  try {
+    existingCss = await readFile(generatedCssPath, 'utf8')
+  } catch (error) {
+    if (error?.code !== 'ENOENT') {
+      throw error
+    }
+  }
+  if (existingCss !== css) {
+    await writeFile(generatedCssPath, css, 'utf8')
+  }
 
-  const jsonPayload = {
-    generatedAt: new Date().toISOString(),
+  const jsonBase = {
     generator: path.relative(repoRoot, __filename),
     notice:
       'Auto-generated. Do not edit directly. Update frontend/src/styles/tokens.ts instead.',
@@ -206,6 +215,34 @@ async function writeOutputs(lightTokens, darkTokens) {
       light: lightTokens,
       dark: darkTokens,
     },
+  }
+
+  let existingJson = null
+  try {
+    existingJson = JSON.parse(await readFile(generatedJsonPath, 'utf8'))
+  } catch (error) {
+    if (error?.code !== 'ENOENT') {
+      existingJson = null
+    }
+  }
+
+  const existingBase =
+    existingJson && typeof existingJson === 'object'
+      ? {
+          generator: existingJson.generator,
+          notice: existingJson.notice,
+          source: existingJson.source,
+          tokens: existingJson.tokens,
+        }
+      : null
+
+  if (existingBase && JSON.stringify(existingBase) === JSON.stringify(jsonBase)) {
+    return
+  }
+
+  const jsonPayload = {
+    generatedAt: new Date().toISOString(),
+    ...jsonBase,
   }
 
   await writeFile(generatedJsonPath, `${JSON.stringify(jsonPayload, null, 2)}\n`, 'utf8')
