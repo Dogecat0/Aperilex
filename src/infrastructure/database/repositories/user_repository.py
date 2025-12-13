@@ -112,15 +112,19 @@ class UserRepository(IUserRepository):
         if not model:
             raise ValueError(f"User {user.id} not found")
 
+        previous_email = model.email
         model.email = self._email_to_str(user.email)
         model.status = user.status.value
         model.tier = user.tier.value
         model.schema_version = user.schema_version
 
         await self.session.flush()
+        await self.session.refresh(model, attribute_names=["created_at", "updated_at"])
 
         updated = self._model_to_data(model)
-        self._invalidate_cache(user_id=updated.id, email=model.email)
+        self._invalidate_cache(user_id=updated.id, email=previous_email)
+        if previous_email.lower() != model.email.lower():
+            self._invalidate_cache(email=model.email)
         return updated
 
     async def delete(self, user_id: UserId) -> bool:

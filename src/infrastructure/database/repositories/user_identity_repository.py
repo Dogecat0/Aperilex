@@ -140,6 +140,9 @@ class UserIdentityRepository(IUserIdentityRepository):
         if not model:
             raise ValueError(f"User identity {identity.id} not found")
 
+        previous_provider = model.provider
+        previous_subject = model.provider_subject
+
         model.provider = identity.provider.upper()
         model.provider_subject = identity.provider_subject
         model.provider_email = self._email_to_optional(identity.provider_email)
@@ -148,13 +151,22 @@ class UserIdentityRepository(IUserIdentityRepository):
         model.schema_version = identity.schema_version
 
         await self.session.flush()
+        await self.session.refresh(model, attribute_names=["created_at", "updated_at"])
 
         updated = self._model_to_data(model)
         self._invalidate_cache(
             identity_id=updated.id,
-            provider=model.provider,
-            provider_subject=model.provider_subject,
+            provider=previous_provider,
+            provider_subject=previous_subject,
         )
+        if (
+            previous_provider.upper() != model.provider.upper()
+            or previous_subject != model.provider_subject
+        ):
+            self._invalidate_cache(
+                provider=model.provider,
+                provider_subject=model.provider_subject,
+            )
         return updated
 
     async def delete(self, identity_id: UserIdentityId) -> bool:

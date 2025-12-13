@@ -101,6 +101,7 @@ class UserProfileRepository(IUserProfileRepository):
             model.time_zone = profile.time_zone
 
         await self.session.flush()
+        await self.session.refresh(model, attribute_names=["created_at", "updated_at"])
 
         data = self._model_to_data(model)
         self._invalidate_cache(profile_id=data.id, user_id=data.user_id)
