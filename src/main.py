@@ -51,8 +51,6 @@ async def main() -> None:
         "src.presentation.api.routers.companies",
         "src.presentation.api.routers.filings",
         "src.presentation.api.routers.tasks",
-        "src.application.commands",
-        "src.application.queries",
     ]
 
     # Filter out modules that don't exist yet
@@ -72,11 +70,8 @@ async def main() -> None:
     handler_registrar = cqrs_container.handler_registrar()
 
     # Register all CQRS handlers
-    try:
-        handler_registrar.register_all_handlers()
-        logger.info("Registered all CQRS handlers")
-    except ImportError as e:
-        logger.warning(f"Some handlers not yet implemented: {e}")
+    handler_registrar.register_all_handlers()
+    logger.info("Registered all CQRS handlers")
 
     # Get provider instances for demonstration from app container
     providers = app_container.providers_container()
