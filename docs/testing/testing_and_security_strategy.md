@@ -13,9 +13,7 @@ Scope: align validation with `IMPLEMENTATION_PLAN.md` and `docs/deployment/DEPLO
   - `src/application/patterns/circuit_breaker.py` 0.00%
   - `src/presentation/api/app.py` 0.00%
   - `src/main.py` 0.00%
-  - `src/infrastructure/database/repositories/cached_base.py` 0.00%
   - `src/application/handlers_registry.py` 0.00%
-  - `src/infrastructure/database/repositories/base.py` 0.00%
   - `src/infrastructure/database/aurora.py` 10.09%
   - `src/infrastructure/database/sqlalchemy_provider.py` 13.17%
   - `src/infrastructure/config/json_config_provider.py` 18.13%
@@ -47,6 +45,7 @@ Scope: align validation with `IMPLEMENTATION_PLAN.md` and `docs/deployment/DEPLO
 ## Executable Test Plan
 
 - Baseline measurement (full suite + coverage; 5-minute cap; use dedicated `aperilex_test` database):
+
   - One-time: create the `aperilex_test` database:
     ```sh
     if docker compose exec -T postgres psql -U aperilex -d postgres -tAc \
@@ -57,6 +56,7 @@ Scope: align validation with `IMPLEMENTATION_PLAN.md` and `docs/deployment/DEPLO
     fi
     ```
   - Run suite + coverage (artifacts written to `coverage/backend/` on the host):
+
     ```sh
     timeout 5m docker compose run --rm --no-deps \
       -e TESTING=true \
@@ -83,19 +83,20 @@ Scope: align validation with `IMPLEMENTATION_PLAN.md` and `docs/deployment/DEPLO
           2>&1 | tee "$coverage_dir/pytest_cov_output.txt"
       '
     ```
+
   - Individual coverage percentages:
     - Per-file table: `coverage/backend/pytest_cov_output.txt`
     - Drilldown: `coverage/backend/html/index.html`
     - Programmatic: `coverage/backend/coverage.json`
+
 - Coverage-driven backlog (ordered; from 2025-12-12 report):
-  - [ ] Bootstrap smoke tests: `src/presentation/api/app.py` (`/`, `/health`, router mounting)
-  - [ ] Lifespan tests: `service_lifecycle.startup()`/`shutdown()` called; startup failure surfaces (no warning-only continuation)
-  - [ ] Exception handler tests: `http_exception_handler` (dict vs string detail) and `general_exception_handler` (500 payload shape)
-  - [ ] Composition entrypoint tests: `src/main.py` `main()` wiring (module filter, handler registration call, provider type logging without side effects)
-  - [ ] CQRS handler registry tests: `src/application/handlers_registry.py` registers all command/query handlers
-  - [ ] Either delete or fully test `src/application/patterns/circuit_breaker.py` (CLOSED/OPEN/HALF_OPEN transitions, timing reset, `get_status()` state fields)
-  - [ ] Repository base tests: `src/infrastructure/database/repositories/base.py` CRUD semantics (create/update/delete/not-found)
-  - [ ] Cached repository base tests: `src/infrastructure/database/repositories/cached_base.py` (`get_by_id` cache hit/miss; update/delete invalidation; query-region invalidation)
+  - [x] Bootstrap smoke tests: `src/presentation/api/app.py` (`/`, `/health`, router mounting) via `tests/presentation/api/test_app_bootstrap.py`
+  - [x] Lifespan tests: `service_lifecycle.startup()`/`shutdown()` called; startup failure surfaces (no warning-only continuation) via `tests/presentation/api/test_app_lifespan.py`
+  - [x] Exception handler tests: `http_exception_handler` (dict vs string detail) and `general_exception_handler` (500 payload shape) via `tests/presentation/api/test_app_exception_handlers.py`
+  - [x] Composition entrypoint tests: `src/main.py` `main()` wiring (module filter, handler registration call, provider type logging without side effects) via `tests/composition/test_main_entrypoint.py` (removed `ImportError` swallow + stale module wiring paths)
+  - [ ] Review CQRS handler registry: `src/application/handlers_registry.py`, see if we need to use it. If no need to use it, delete it and no need to write the code.
+  - [ ] Review `src/application/patterns/circuit_breaker.py`, if its not used, delete it and realted code. No need to test (CLOSED/OPEN/HALF_OPEN transitions, timing reset, `get_status()` state fields)
+  - [x] Remove unused repository base helpers: deleted `src/infrastructure/database/repositories/base.py` and `src/infrastructure/database/repositories/cached_base.py` (no references).
   - [ ] Config provider tests: `src/infrastructure/config/json_config_provider.py` (auto-create, malformed JSON fallback, set/delete persistence, namespace listing, sensitive-key marking)
   - [ ] ProviderFactory tests: `src/composition/provider_factory.py` (non-AWS secret manager requires `DOCKER_SECRETS_DIR`; optional dependency error paths for SQS/Lambda/Docker)
   - [ ] SQLAlchemyDatabaseProvider tests: `src/infrastructure/database/sqlalchemy_provider.py` identifier/table validation; task/analysis save/update error branches
@@ -163,7 +164,7 @@ Scope: align validation with `IMPLEMENTATION_PLAN.md` and `docs/deployment/DEPLO
   - [x] CompanyRepository CRUD + CIK/ticker/name lookup behaviour
   - [x] FilingRepository create/update/status + latest-by-type and ticker filter paths
   - [x] AnalysisRepository create/update/status/save_summary + filter/sort semantics
-  - [ ] Auth/user repositories (user, user_identity, auth_session, auth_rate_limit, user_profile) and learning/quiz repositories cover TTL, rotation, revoke, and cache eviction in `cache_manager`
+  - [x] Auth/user repositories (user, user_identity, auth_session, auth_rate_limit, user_profile) and learning/quiz repositories cover TTL, rotation, revoke, and cache eviction in `cache_manager`
 - Frontend unit/integration: add MSW-backed Vitest suites for API hooks/loaders (`frontend/src/**/__tests__`), covering success/error/empty states; extend page/component tests to assert auth redirect/cookie handling.
 - Frontend E2E: add Playwright specs in `frontend/tests/e2e/` for login callback (mocked), dashboard navigation, analysis detail render, logout multi-tab broadcast; add SSE/task-stream coverage once backend stream stabilises.
 - Quality gates: enforce local/CI sequence `docker compose run --rm --no-deps app poetry run pytest`, `poetry run mypy src`, `poetry run ruff check src`, `poetry run bandit -r src`, `poetry run safety check`, `npm run typecheck`, `npm run lint`, `npm run test`, plus npm audit (high/critical) and trivy/gitleaks when introduced.
