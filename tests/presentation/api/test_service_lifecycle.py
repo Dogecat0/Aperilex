@@ -31,7 +31,52 @@ class StubEventPublisher(StubProvider):
 
 
 @pytest.mark.asyncio
-async def test_startup_raises_on_unhealthy_provider(
+async def test_startup_raises_on_unhealthy_required_provider(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    lifecycle = ServiceLifecycle()
+
+    monkeypatch.setattr(dependencies, "get_container", lambda: object())
+
+    async def get_registrar() -> StubRegistrar:
+        return StubRegistrar()
+
+    async def get_queue_provider() -> StubProvider:
+        return StubProvider(True)
+
+    async def get_storage_provider() -> StubProvider:
+        return StubProvider(False)
+
+    async def get_event_publisher() -> StubEventPublisher:
+        return StubEventPublisher(True)
+
+    async def get_event_store() -> object:
+        return object()
+
+    monkeypatch.setattr(
+        dependencies, "get_cqrs_handler_registrar", get_registrar, raising=False
+    )
+    monkeypatch.setattr(
+        dependencies, "get_queue_provider", get_queue_provider, raising=False
+    )
+    monkeypatch.setattr(
+        dependencies, "get_storage_provider", get_storage_provider, raising=False
+    )
+    monkeypatch.setattr(
+        dependencies, "get_event_publisher", get_event_publisher, raising=False
+    )
+    monkeypatch.setattr(
+        dependencies, "get_event_store", get_event_store, raising=False
+    )
+
+    with pytest.raises(DependencyError) as exc:
+        await lifecycle.startup()
+
+    assert exc.value.dependency_name == "provider.health"
+
+
+@pytest.mark.asyncio
+async def test_startup_continues_when_queue_unhealthy(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     lifecycle = ServiceLifecycle()
@@ -69,10 +114,9 @@ async def test_startup_raises_on_unhealthy_provider(
         dependencies, "get_event_store", get_event_store, raising=False
     )
 
-    with pytest.raises(DependencyError) as exc:
-        await lifecycle.startup()
+    await lifecycle.startup()
 
-    assert exc.value.dependency_name == "provider.health"
+    assert lifecycle.container is not None
 
 
 @pytest.mark.asyncio

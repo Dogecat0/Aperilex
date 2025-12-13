@@ -300,9 +300,7 @@ class ServiceLifecycle:
                 f"Storage: {storage_healthy}, Events: {event_healthy}"
             )
 
-            if not all(
-                bool(value) for value in (queue_healthy, storage_healthy, event_healthy)
-            ):
+            if not all(bool(value) for value in (storage_healthy, event_healthy)):
                 raise DependencyError(
                     "provider.health",
                     (
@@ -310,6 +308,11 @@ class ServiceLifecycle:
                         f"queue={queue_healthy}, storage={storage_healthy}, "
                         f"events={event_healthy}"
                     ),
+                )
+
+            if not queue_healthy:
+                logger.warning(
+                    "Queue provider is unhealthy; API will start without queue access"
                 )
 
             if not self._event_subscribers:
