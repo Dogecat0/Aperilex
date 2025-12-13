@@ -552,6 +552,7 @@ export function LearningHubPage() {
           <div className="flex flex-col gap-2">
             <label className="flex flex-col gap-2 text-xs font-medium uppercase tracking-wide text-[var(--text-secondary)]">
               <select
+                aria-label="Pick analysis"
                 value={selectedAnalysisId ?? ''}
                 onChange={(event) => handleAnalysisSelect(event.target.value)}
                 className="h-11 rounded-xl border px-3 text-sm font-normal text-[var(--text-primary)]"

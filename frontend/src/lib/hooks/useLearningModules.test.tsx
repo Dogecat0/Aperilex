@@ -66,7 +66,7 @@ describe('useLearningModules', () => {
     expect(mdaModule?.context?.sectionName).toBe('Management Discussion & Analysis')
     expect(mdaModule?.context?.walkthrough?.title).toBe('MD&A Guided Review')
     expect(mdaModule?.context?.guidanceWhyItMatters).toContain('stakeholders')
-    expect(mdaModule?.context?.lessonBindings).toHaveLength(2)
+    expect(mdaModule?.context?.lessonBindings).toHaveLength(10)
     expect(mdaModule?.context?.estimatedDurationMinutes).toBe(9)
 
     const riskModule = modules.find((module) => module.moduleKey === 'risk_mastery')

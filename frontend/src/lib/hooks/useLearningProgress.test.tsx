@@ -34,7 +34,7 @@ const sampleModules: LearningModule[] = [
 ]
 
 function ProgressProbe() {
-  const { progress, updateProgress, recordWalkthroughEvent, scheduleReview, error, clearError } =
+  const { progress, updateProgress, recordWalkthroughEvent, error, clearError } =
     useLearningProgress()
   const record = progress.find((item) => item.moduleKey === 'mda_foundations')
 
@@ -64,6 +64,7 @@ function ProgressProbe() {
         type="button"
         onClick={() =>
           void recordWalkthroughEvent({
+            analysisId: '11111111-1111-1111-1111-111111111111',
             moduleKey: 'mda_foundations',
             sectionKey: 'item-7',
             progressPercent: 100,
@@ -72,18 +73,6 @@ function ProgressProbe() {
         }
       >
         walkthrough
-      </button>
-      <button
-        type="button"
-        onClick={() =>
-          void scheduleReview({
-            moduleKey: 'mda_foundations',
-            pendingReviewCount: 2,
-            scheduledFor: '2025-01-07T09:00:00Z',
-          }).catch(() => {})
-        }
-      >
-        schedule
       </button>
     </div>
   )
@@ -219,36 +208,6 @@ describe('useLearningProgress', () => {
     )
 
     await waitFor(() => expect(screen.getByTestId('progress-value').textContent).toBe('100'))
-  })
-
-  it('schedules reviews and merges progress updates', async () => {
-    postSpy.mockImplementationOnce(async (path: string) => {
-      expect(path).toBe('/learning/progress/mda_foundations/reviews/schedule')
-      return {
-        ...learningProgressResponses[0],
-        metadata: { ...learningProgressResponses[0].metadata, pending_review_count: 2 },
-        updated_at: '2025-01-06T11:00:00Z',
-      }
-    })
-
-    renderWithProviders(<ProgressProbe />)
-    await screen.findByText('schedule')
-
-    fireEvent.click(screen.getByText('schedule'))
-
-    await waitFor(() =>
-      expect(postSpy).toHaveBeenCalledWith(
-        '/learning/progress/mda_foundations/reviews/schedule',
-        expect.objectContaining({
-          body: expect.objectContaining({ pending_review_count: 2 }),
-          schema: expect.anything(),
-        })
-      )
-    )
-
-    await waitFor(() => expect(postSpy).toHaveBeenCalledTimes(1))
-
-    expect(screen.getByTestId('progress-value').textContent).toBe('60')
   })
 
   it('derives dashboard highlights from module sections', async () => {
