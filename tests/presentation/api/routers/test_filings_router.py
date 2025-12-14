@@ -193,6 +193,51 @@ def test_search_filings_rejects_invalid_sort_by(
     assert service.executed_queries == []
 
 
+def test_search_filings_rejects_invalid_form_type(
+    filings_client_factory: FilingsClientFactory,
+) -> None:
+    client, service = filings_client_factory()
+
+    response = client.get(
+        "/api/filings/search",
+        params={"ticker": "APRX", "form_type": "not-a-form"},
+    )
+
+    assert response.status_code == 422
+    assert "Invalid form_type" in response.json()["detail"]
+    assert service.executed_queries == []
+
+
+def test_search_filings_rejects_invalid_sort_direction(
+    filings_client_factory: FilingsClientFactory,
+) -> None:
+    client, service = filings_client_factory()
+
+    response = client.get(
+        "/api/filings/search",
+        params={"ticker": "APRX", "sort_direction": "sideways"},
+    )
+
+    assert response.status_code == 422
+    assert "Invalid sort_direction" in response.json()["detail"]
+    assert service.executed_queries == []
+
+
+def test_search_filings_rejects_invalid_date_range(
+    filings_client_factory: FilingsClientFactory,
+) -> None:
+    client, service = filings_client_factory()
+
+    response = client.get(
+        "/api/filings/search",
+        params={"ticker": "APRX", "date_from": "2024-02-02", "date_to": "2024-01-01"},
+    )
+
+    assert response.status_code == 422
+    assert "date_from cannot be later than date_to" in response.json()["detail"]
+    assert service.executed_queries == []
+
+
 def test_analyze_filing_by_id_executes_command(
     filings_client_factory: FilingsClientFactory,
 ) -> None:

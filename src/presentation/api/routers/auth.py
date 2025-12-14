@@ -138,7 +138,6 @@ def _set_cookie(
         key=name,
         value=value,
         max_age=max_age,
-        expires=None if max_age is None else int(max_age),
         path="/api",
         secure=_should_use_secure_cookies(),
         httponly=http_only,

@@ -101,7 +101,7 @@ Scope: align validation with `IMPLEMENTATION_PLAN.md` and `docs/deployment/DEPLO
   - [x] AWSSecretsManager unit tests (offline): `src/infrastructure/secret/aws_secrets_manager.py` decode paths + error mapping using stubbed boto3 client via `tests/infrastructure/providers/secret/test_aws_secrets_manager.py`
   - [x] PriorityQueueService unit tests: `src/application/services/priority_queue_service.py` dedup enabled/disabled, metrics updates, visibility timeout clamping, dead-letter routing via `tests/application/services/test_priority_queue_service.py`
   - [x] Auth provider tests: `src/infrastructure/providers/authentication/google_oauth_provider.py` token refresh/invalid token/rate-limit branches
-  - [ ] Router error-branch tests: `src/presentation/api/routers/auth.py` + `src/presentation/api/routers/filings.py` (PKCE/state mismatch, cookie flags, invalid filters)
+  - [x] Router error-branch tests: `src/presentation/api/routers/auth.py` + `src/presentation/api/routers/filings.py` (PKCE/state mismatch, cookie flags, invalid filters)
   - [ ] Worker docker provider tests: `src/infrastructure/providers/worker/docker.py` env parsing + failure propagation
   - [ ] LLM provider tests (network-disabled): `src/infrastructure/providers/llm/base.py`, `src/infrastructure/providers/llm/openai.py`, `src/infrastructure/providers/llm/google.py` retry/timeout/token accounting branches
 - Backend API surface: add pytest modules under `tests/presentation/api/` for `/api/tasks`, `/api/filings`, `/api/companies`, `/api/health` using dockerised runs (`docker compose run --rm --no-deps app poetry run pytest …`). Stub DI dependencies to assert status codes, auth behaviour, PKCE/state rejection, and rate-limit headers; fail fast when provider resolution errors occur.
