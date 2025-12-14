@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Any, cast
 
 import pytest
 
+from src.application.interfaces import IConfigProvider, ISecretManager
 from src.composition.provider_factory import ProviderFactory
 from src.shared.config.settings import settings
 from src.shared.enums import QueueProvider, WorkerProvider
@@ -52,8 +54,9 @@ def test_create_secret_manager_production_uses_aws_secrets_manager(
 
     secret_manager_provider = ProviderFactory.create_secret_manager("production")
 
-    assert secret_manager_provider.provides is AWSSecretsManager
-    assert secret_manager_provider.kwargs["region_name"] == "us-east-1"
+    singleton_provider = cast(Any, secret_manager_provider)
+    assert singleton_provider.provides is AWSSecretsManager
+    assert singleton_provider.kwargs["region_name"] == "us-east-1"
 
 
 def test_create_queue_provider_sqs_requires_aioboto3(
@@ -69,8 +72,8 @@ def test_create_queue_provider_sqs_requires_aioboto3(
     with pytest.raises(RuntimeError, match="aioboto3") as exc:
         ProviderFactory.create_queue_provider(
             QueueProvider.SQS,
-            _StubConfigProvider(),
-            _StubSecretManager(),
+            cast(IConfigProvider, _StubConfigProvider()),
+            cast(ISecretManager, _StubSecretManager()),
         )
 
     assert isinstance(exc.value.__cause__, ModuleNotFoundError)
@@ -89,8 +92,8 @@ async def test_create_worker_provider_lambda_requires_aioboto3(
 
     worker_provider = ProviderFactory.create_worker_provider(
         WorkerProvider.LAMBDA,
-        _StubConfigProvider(),
-        _StubSecretManager(),
+        cast(IConfigProvider, _StubConfigProvider()),
+        cast(ISecretManager, _StubSecretManager()),
     )
 
     worker = worker_provider()
@@ -111,11 +114,10 @@ async def test_create_worker_provider_docker_requires_aiodocker(
 
     worker_provider = ProviderFactory.create_worker_provider(
         WorkerProvider.DOCKER,
-        _StubConfigProvider(),
-        _StubSecretManager(),
+        cast(IConfigProvider, _StubConfigProvider()),
+        cast(ISecretManager, _StubSecretManager()),
     )
 
     worker = worker_provider()
     with pytest.raises(RuntimeError, match="optional 'aiodocker' dependency"):
         await worker.health_check()
-
