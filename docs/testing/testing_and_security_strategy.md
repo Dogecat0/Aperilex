@@ -13,7 +13,6 @@ Scope: align validation with `IMPLEMENTATION_PLAN.md` and `docs/deployment/DEPLO
   - `src/application/patterns/circuit_breaker.py` 0.00%
   - `src/presentation/api/app.py` 0.00%
   - `src/main.py` 0.00%
-  - `src/application/handlers_registry.py` 0.00%
   - `src/infrastructure/database/aurora.py` 10.09%
   - `src/infrastructure/database/sqlalchemy_provider.py` 13.17%
   - `src/infrastructure/config/json_config_provider.py` 18.13%
@@ -28,7 +27,7 @@ Scope: align validation with `IMPLEMENTATION_PLAN.md` and `docs/deployment/DEPLO
 
 ## Gaps and Risks
 
-- Backend coverage gaps (2025-12-12): 59.25% overall (64.34% statements, 37.06% branches). Deficits concentrate in infrastructure (52.71% stmt / 24.94% branch) and composition wiring (40.86% stmt), plus unexercised bootstrap modules (`src/presentation/api/app.py`, `src/main.py`). Priority targets: `src/infrastructure/database/aurora.py`, `src/infrastructure/database/sqlalchemy_provider.py`, `src/composition/provider_factory.py`, `src/application/services/priority_queue_service.py`, and auth/filings/rate-limit error branches. Zero-coverage candidates to delete if unused: `src/application/patterns/circuit_breaker.py`, `src/application/handlers_registry.py`.
+- Backend coverage gaps (2025-12-12): 59.25% overall (64.34% statements, 37.06% branches). Deficits concentrate in infrastructure (52.71% stmt / 24.94% branch) and composition wiring (40.86% stmt), plus unexercised bootstrap modules (`src/presentation/api/app.py`, `src/main.py`). Priority targets: `src/infrastructure/database/aurora.py`, `src/infrastructure/database/sqlalchemy_provider.py`, `src/composition/provider_factory.py`, `src/application/services/priority_queue_service.py`, and auth/filings/rate-limit error branches. Zero-coverage candidates to delete if unused: `src/application/patterns/circuit_breaker.py` (pending); removed unused `src/application/handlers_registry.py`.
 - Frontend coverage gaps: no MSW-backed tests for API hooks/data loaders; minimal error-state coverage for pages; no Playwright E2E despite scripts; no tests for SSE/task-stream handling or multi-tab logout refresh flows beyond hook unit coverage.
 - Security gaps: CORS currently `*` with permissive methods/headers; RateLimit middleware silently disables enforcement on resolution failure; `ServiceLifecycle.startup` continues when provider health checks fail; cookie security flags not asserted by tests (refresh cookie, state/verifier cookies); auth router tests only cover missing refresh cookie, not PKCE/state tampering; dependency audit for npm not enforced; no secret-scanning or container scan (e.g., trivy) in workflow; default dummy secrets still accepted when not in Docker; no test coverage ensuring database access only via Docker-networked Postgres.
 - Redundant/fallback paths to retire per project rules: RateLimit middleware swallowing provider errors and proceeding; ServiceLifecycle warning-only startup; permissive CORS defaults; auth endpoint behaviours that tolerate missing secrets until runtime; any env/dummy secret defaults outside test mode.
@@ -94,7 +93,7 @@ Scope: align validation with `IMPLEMENTATION_PLAN.md` and `docs/deployment/DEPLO
   - [x] Lifespan tests: `service_lifecycle.startup()`/`shutdown()` called; startup failure surfaces (no warning-only continuation) via `tests/presentation/api/test_app_lifespan.py`
   - [x] Exception handler tests: `http_exception_handler` (dict vs string detail) and `general_exception_handler` (500 payload shape) via `tests/presentation/api/test_app_exception_handlers.py`
   - [x] Composition entrypoint tests: `src/main.py` `main()` wiring (module filter, handler registration call, provider type logging without side effects) via `tests/composition/test_main_entrypoint.py` (removed `ImportError` swallow + stale module wiring paths)
-  - [ ] Review CQRS handler registry: `src/application/handlers_registry.py`, see if we need to use it. If no need to use it, delete it and no need to write the code.
+  - [x] Review CQRS handler registry: deleted unused `src/application/handlers_registry.py` (no runtime references; handler registration runs via `cqrs_container.handler_registrar()`).
   - [ ] Review `src/application/patterns/circuit_breaker.py`, if its not used, delete it and realted code. No need to test (CLOSED/OPEN/HALF_OPEN transitions, timing reset, `get_status()` state fields)
   - [x] Remove unused repository base helpers: deleted `src/infrastructure/database/repositories/base.py` and `src/infrastructure/database/repositories/cached_base.py` (no references).
   - [ ] Config provider tests: `src/infrastructure/config/json_config_provider.py` (auto-create, malformed JSON fallback, set/delete persistence, namespace listing, sensitive-key marking)
@@ -157,7 +156,7 @@ Scope: align validation with `IMPLEMENTATION_PLAN.md` and `docs/deployment/DEPLO
 - Cross-cutting controls: add fail-closed coverage for rate limiting, startup health checks, and queue backpressure paths.
   - [ ] RateLimitMiddleware resolution failures and rate header assertions on auth/filings routes; auth/filings routers exercise PKCE/state tampering, missing/invalid cookies, stale analyses, and repository errors
   - [ ] `sec_rate_limiter` quota/exhaustion/error paths (backoff, jitter) and `PriorityQueueService` dedup/backpressure/visibility/background cleanup
-  - [ ] `ServiceLifecycle` startup halts on provider health-check failures plus smoke for `repository_factory`, `sqlalchemy_provider`, `main.py`, `app.py`; drop unused `application/patterns/circuit_breaker.py` and `application/handlers_registry.py`
+  - [ ] `ServiceLifecycle` startup halts on provider health-check failures plus smoke for `repository_factory`, `sqlalchemy_provider`, `main.py`, `app.py`; drop unused `application/patterns/circuit_breaker.py`
   - [ ] Task status store write failure handling and header propagation on error responses
 - Migrations and repositories: add `tests/infrastructure/database/test_migrations.py` to run `alembic upgrade head` in docker and sanity-check key tables; add repository CRUD/lookup tests for companies/filings/analyses against docker Postgres fixtures.
   - [x] Alembic upgrade head smoke test with table/index assertions
