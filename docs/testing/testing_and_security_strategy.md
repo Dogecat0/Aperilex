@@ -95,7 +95,7 @@ Scope: align validation with `IMPLEMENTATION_PLAN.md` and `docs/deployment/DEPLO
   - [x] Review `src/application/patterns/circuit_breaker.py`, confirm no references, delete it and related code (none).
   - [x] Remove unused repository base helpers: deleted `src/infrastructure/database/repositories/base.py` and `src/infrastructure/database/repositories/cached_base.py` (no references).
   - [x] Config provider tests: `src/infrastructure/config/env_config_provider.py` dotted-key contract (parsing, namespace, masking, set/delete env-key mapping); removed JSON/composite providers.
-  - [ ] ProviderFactory tests: `src/composition/provider_factory.py` (non-AWS secret manager requires `DOCKER_SECRETS_DIR`; optional dependency error paths for SQS/Lambda/Docker)
+  - [x] ProviderFactory tests: `src/composition/provider_factory.py` (non-AWS secret manager requires `DOCKER_SECRETS_DIR`; optional dependency error paths for SQS/Lambda/Docker)
   - [ ] SQLAlchemyDatabaseProvider tests: `src/infrastructure/database/sqlalchemy_provider.py` identifier/table validation; task/analysis save/update error branches
   - [ ] AuroraDatabaseProvider unit tests: `src/infrastructure/database/aurora.py` identifier/table validation; cold-start retry loop (mocked `asyncpg.create_pool` + fake secret manager)
   - [ ] AWSSecretsManager unit tests (offline): `src/infrastructure/secret/aws_secrets_manager.py` decode paths + error mapping using stubbed boto3 client
