@@ -7,25 +7,25 @@ Scope: align validation with `IMPLEMENTATION_PLAN.md` and `docs/deployment/DEPLO
 - Backend tests (containerised pytest per `docs/testing/backend_test_strategy_and_notes.md`): worker collaborators (`analysis_task_builder`, `filing_lifecycle_service`, `analysis_execution_service`, `analysis_persistence_service`, `analysis_event_emitter`, `analysis_summary_builder`, `section_diff_service`, `template_registry`, `worker_retry_coordinator`), CQRS wiring (`tests/application/containers/test_cqrs_worker_service_wiring.py`), practice command handlers, analysis query/response shaping, LLM subsection analysis helpers, Google OAuth provider (token validation, rate limits, refresh), presentation security helper (`test_security.py`), analyses and learning routers, health router messaging/caching coverage, structured analysis migration.
 - Frontend tests (Vitest): routing and protected routes (`router.test.tsx`, `ProtectedRoute`), auth store/session flows (`authStore.test.ts`, `useAuth.test.tsx`, `useAuthSession` helpers), layout components (`GlobalNav`, `SearchBar`), feature shells and pages (dashboard, filings, filing detail panel, learning hub, saved items), Google callback handling.
 - Tooling available: `poetry run pytest`, `poetry run mypy src`, `poetry run ruff check src`, `poetry run bandit -r src`, `poetry run safety check`, `npm run test`, `npm run typecheck`, `npm run lint`, `npm audit` (not wired), Makefile targets for lint/type/security. Docker secrets enforced via `docker-compose.yml` (no env fallback in `DockerSecretManager`).
-- Latest dockerised coverage run (2025-12-12; transient `pytest-cov` per `docs/testing/coverage.md`): 208 passed in 131s; 59.25% overall coverage (64.34% statements, 37.06% branches). Artifacts: `coverage/backend/html/`, `coverage/backend/coverage.json`, `coverage/backend/coverage.xml`, `coverage/backend/pytest_cov_output.txt`.
-- Coverage by top-level package (statements / branches): application 76.34% / 50.07%, shared 86.86% / 47.03%, presentation 60.87% / 38.04%, infrastructure 52.71% / 24.94%, domain 59.66% / 7.41%, composition 40.86% / 18.97%.
+- Latest dockerised coverage run (2025-12-14; transient `pytest-cov` per `docs/testing/coverage.md`): 303 passed in 209s; 66.94% overall coverage (72.05% statements, 44.44% branches). Artifacts: `coverage/backend/html/`, `coverage/backend/coverage.json`, `coverage/backend/coverage.xml`, `coverage/backend/pytest_cov_output.txt`.
+- Coverage by top-level package (statements / branches): application 80.18% / 53.07%, shared 87.36% / 47.52%, presentation 71.85% / 51.44%, infrastructure 64.07% / 35.60%, domain 59.66% / 7.41%, composition 45.81% / 30.00%.
 - Lowest statement coverage hotspots (>=25 statements):
-  - `src/presentation/api/app.py` 0.00%
-  - `src/main.py` 0.00%
-  - `src/infrastructure/database/aurora.py` 10.09%
-  - `src/infrastructure/database/sqlalchemy_provider.py` 13.17%
-  - `src/composition/provider_factory.py` 23.62%
-  - `src/infrastructure/secret/aws_secrets_manager.py` 23.85%
+  - `src/infrastructure/database/aurora.py` 19.87%
+  - `src/infrastructure/providers/events/composite_publisher.py` 20.97%
+  - `src/infrastructure/database/postgres.py` 28.77%
+  - `src/infrastructure/providers/llm/openai.py` 30.57%
+  - `src/composition/provider_factory.py` 30.96%
+  - `src/infrastructure/providers/llm/google.py` 32.07%
 - Most missed statements (>=25 statements):
-  - `src/infrastructure/database/aurora.py` 410/456 missed (10.09%)
-  - `src/infrastructure/database/sqlalchemy_provider.py` 277/319 missed (13.17%)
-  - `src/composition/provider_factory.py` 194/254 missed (23.62%)
-  - `src/infrastructure/providers/authentication/google_oauth_provider.py` 191/394 missed (51.52%)
-  - `src/application/services/priority_queue_service.py` 188/253 missed (25.69%)
+  - `src/infrastructure/database/aurora.py` 367/458 missed (19.87%)
+  - `src/composition/provider_factory.py` 165/239 missed (30.96%)
+  - `src/infrastructure/providers/llm/base.py` 163/388 missed (57.99%)
+  - `src/infrastructure/database/sqlalchemy_provider.py` 160/319 missed (49.84%)
+  - `src/infrastructure/providers/worker/docker.py` 148/312 missed (52.56%)
 
 ## Gaps and Risks
 
-- Backend coverage gaps (2025-12-12): 59.25% overall (64.34% statements, 37.06% branches). Deficits concentrate in infrastructure (52.71% stmt / 24.94% branch) and composition wiring (40.86% stmt), plus unexercised bootstrap modules (`src/presentation/api/app.py`, `src/main.py`). Priority targets: `src/infrastructure/database/aurora.py`, `src/infrastructure/database/sqlalchemy_provider.py`, `src/composition/provider_factory.py`, `src/application/services/priority_queue_service.py`, and auth/filings/rate-limit error branches. Removed unused `src/application/patterns/circuit_breaker.py` and `src/application/handlers_registry.py`.
+- Backend coverage gaps (2025-12-14): 66.94% overall (72.05% statements, 44.44% branches). Deficits concentrate in infrastructure (64.07% stmt / 35.60% branch) and composition wiring (45.81% stmt), with domain branch coverage still lagging (7.41%). Priority targets: `src/infrastructure/database/aurora.py`, `src/infrastructure/database/sqlalchemy_provider.py`, `src/composition/provider_factory.py`, `src/infrastructure/providers/llm/base.py`, and `src/infrastructure/providers/worker/docker.py`. Removed unused `src/application/patterns/circuit_breaker.py` and `src/application/handlers_registry.py`.
 - Frontend coverage gaps: no MSW-backed tests for API hooks/data loaders; minimal error-state coverage for pages; no Playwright E2E despite scripts; no tests for SSE/task-stream handling or multi-tab logout refresh flows beyond hook unit coverage.
 - Security gaps: CORS currently `*` with permissive methods/headers; RateLimit middleware silently disables enforcement on resolution failure; `ServiceLifecycle.startup` continues when provider health checks fail; cookie security flags not asserted by tests (refresh cookie, state/verifier cookies); auth router tests only cover missing refresh cookie, not PKCE/state tampering; dependency audit for npm not enforced; no secret-scanning or container scan (e.g., trivy) in workflow; default dummy secrets still accepted when not in Docker; no test coverage ensuring database access only via Docker-networked Postgres.
 - Redundant/fallback paths to retire per project rules: RateLimit middleware swallowing provider errors and proceeding; ServiceLifecycle warning-only startup; permissive CORS defaults; auth endpoint behaviours that tolerate missing secrets until runtime; any env/dummy secret defaults outside test mode.
@@ -86,7 +86,7 @@ Scope: align validation with `IMPLEMENTATION_PLAN.md` and `docs/deployment/DEPLO
     - Drilldown: `coverage/backend/html/index.html`
     - Programmatic: `coverage/backend/coverage.json`
 
-- Coverage-driven backlog (ordered; from 2025-12-12 report):
+- Coverage-driven backlog (ordered; from 2025-12-14 report):
   - [x] Bootstrap smoke tests: `src/presentation/api/app.py` (`/`, `/health`, router mounting) via `tests/presentation/api/test_app_bootstrap.py`
   - [x] Lifespan tests: `service_lifecycle.startup()`/`shutdown()` called; startup failure surfaces (no warning-only continuation) via `tests/presentation/api/test_app_lifespan.py`
   - [x] Exception handler tests: `http_exception_handler` (dict vs string detail) and `general_exception_handler` (500 payload shape) via `tests/presentation/api/test_app_exception_handlers.py`
