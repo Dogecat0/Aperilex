@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 
-from sqlalchemy import delete, select
+from sqlalchemy import delete, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.application.interfaces.repositories import (
@@ -69,8 +69,15 @@ class AuthSessionRepository(IAuthSessionRepository):
     async def get_by_refresh_token_hash(
         self, refresh_token_hash: str
     ) -> AuthSessionData | None:
-        stmt = select(AuthSession).where(
-            AuthSession.refresh_token_hash == refresh_token_hash
+        stmt = (
+            select(AuthSession)
+            .where(
+                or_(
+                    AuthSession.refresh_token_hash == refresh_token_hash,
+                    AuthSession.previous_refresh_token_hash == refresh_token_hash,
+                )
+            )
+            .limit(1)
         )
         result = await self._session.execute(stmt)
         model = result.scalar_one_or_none()

@@ -9,8 +9,12 @@ from uuid import uuid4
 import pytest
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
+from jose import jwt
 
-from src.application.interfaces.authentication import AuthenticationCredentials
+from src.application.interfaces.authentication import (
+    AuthenticationCredentials,
+    AuthenticationError,
+)
 from src.application.interfaces.config import IConfigProvider
 from src.application.interfaces.database import IDatabaseProvider
 from src.application.interfaces.repositories import (
@@ -125,7 +129,14 @@ class InMemoryAuthSessionRepository:
     ) -> AuthSessionData | None:
         session_id = self.hash_index.get(refresh_token_hash)
         if session_id is None:
-            return None
+            return next(
+                (
+                    session
+                    for session in self.sessions.values()
+                    if session.previous_refresh_token_hash == refresh_token_hash
+                ),
+                None,
+            )
         return self.sessions.get(session_id)
 
     async def list_active_for_user(
@@ -453,6 +464,250 @@ async def test_refresh_rotates_token(provider: GoogleOAuthAuthenticationProvider
     new_hash = provider._hash_refresh_token(refreshed.refresh_token or "")
     assert session.previous_refresh_token_hash == old_hash
     assert session.refresh_token_hash == new_hash
+
+
+@pytest.mark.asyncio
+async def test_refresh_token_requires_value(
+    provider: GoogleOAuthAuthenticationProvider,
+) -> None:
+    with pytest.raises(AuthenticationError) as exc_info:
+        await provider.refresh_token("")
+
+    assert exc_info.value.code == "refresh.missing"
+
+
+@pytest.mark.asyncio
+async def test_refresh_token_unknown_token_raises(
+    provider: GoogleOAuthAuthenticationProvider,
+) -> None:
+    with pytest.raises(AuthenticationError) as exc_info:
+        await provider.refresh_token("unknown-token")
+
+    assert exc_info.value.code == "refresh.unknown"
+
+
+@pytest.mark.asyncio
+async def test_refresh_token_revoked_token_raises(
+    provider: GoogleOAuthAuthenticationProvider,
+) -> None:
+    auth = await provider.authenticate(
+        AuthenticationCredentials(token="auth-code", token_type="authorization_code")
+    )
+
+    assert await provider.revoke_token(auth.refresh_token or "") is True
+
+    with pytest.raises(AuthenticationError) as exc_info:
+        await provider.refresh_token(auth.refresh_token or "")
+
+    assert exc_info.value.code == "refresh.revoked"
+
+
+@pytest.mark.asyncio
+async def test_refresh_token_expired_token_raises(
+    provider: GoogleOAuthAuthenticationProvider,
+) -> None:
+    auth = await provider.authenticate(
+        AuthenticationCredentials(token="auth-code", token_type="authorization_code")
+    )
+
+    factory = cast(InMemoryRepositoryFactory, provider._repository_factory)
+    session_repo = factory.auth_session_repository
+    session = next(iter(session_repo.sessions.values()))
+    session_repo.sessions[session.id] = session.model_copy(
+        update={"expires_at": datetime.now(UTC) - timedelta(seconds=1)}
+    )
+
+    with pytest.raises(AuthenticationError) as exc_info:
+        await provider.refresh_token(auth.refresh_token or "")
+
+    assert exc_info.value.code == "refresh.expired"
+
+
+@pytest.mark.asyncio
+async def test_refresh_token_reuse_revokes_session(
+    provider: GoogleOAuthAuthenticationProvider,
+) -> None:
+    auth = await provider.authenticate(
+        AuthenticationCredentials(token="auth-code", token_type="authorization_code")
+    )
+    refreshed = await provider.refresh_token(auth.refresh_token or "")
+
+    factory = cast(InMemoryRepositoryFactory, provider._repository_factory)
+    session_repo = factory.auth_session_repository
+    session = next(iter(session_repo.sessions.values()))
+    assert session.previous_refresh_token_hash == provider._hash_refresh_token(
+        auth.refresh_token or ""
+    )
+    assert session.refresh_token_hash == provider._hash_refresh_token(
+        refreshed.refresh_token or ""
+    )
+
+    with pytest.raises(AuthenticationError) as exc_info:
+        await provider.refresh_token(auth.refresh_token or "")
+
+    assert exc_info.value.code == "refresh.reused"
+    revoked_session = session_repo.sessions[session.id]
+    assert revoked_session.revoked_at is not None
+    assert revoked_session.revoked_reason == "ROTATED_TOKEN_REUSE"
+
+
+@pytest.mark.asyncio
+async def test_refresh_token_enforces_rate_limit(
+    provider: GoogleOAuthAuthenticationProvider,
+) -> None:
+    auth = await provider.authenticate(
+        AuthenticationCredentials(token="auth-code", token_type="authorization_code")
+    )
+    current_refresh_token = auth.refresh_token or ""
+
+    for _ in range(5):
+        refreshed = await provider.refresh_token(current_refresh_token)
+        current_refresh_token = refreshed.refresh_token or ""
+
+    with pytest.raises(AuthenticationError) as exc_info:
+        await provider.refresh_token(current_refresh_token)
+
+    assert exc_info.value.code == "rate_limit.refresh"
+
+
+@pytest.mark.asyncio
+async def test_authenticate_enforces_login_rate_limit(
+    provider: GoogleOAuthAuthenticationProvider,
+) -> None:
+    for _ in range(5):
+        result = await provider.authenticate(
+            AuthenticationCredentials(token="auth-code", token_type="authorization_code")
+        )
+        assert result.authenticated is True
+
+    with pytest.raises(AuthenticationError) as exc_info:
+        await provider.authenticate(
+            AuthenticationCredentials(token="auth-code", token_type="authorization_code")
+        )
+
+    assert exc_info.value.code == "rate_limit.login"
+
+
+@pytest.mark.asyncio
+async def test_validate_token_rejects_invalid_signature(
+    provider: GoogleOAuthAuthenticationProvider,
+) -> None:
+    with pytest.raises(AuthenticationError) as exc_info:
+        await provider.validate_token("not-a-jwt-token")
+
+    assert exc_info.value.code == "token.invalid"
+
+
+@pytest.mark.asyncio
+async def test_validate_token_missing_subject_raises(
+    provider: GoogleOAuthAuthenticationProvider,
+) -> None:
+    await provider._ensure_jwt_keys()
+    assert provider._jwt_private_key is not None
+
+    issued_at = datetime.now(UTC)
+    token = jwt.encode(
+        {
+            "iss": provider._jwt_issuer,
+            "aud": provider._jwt_audience,
+            "token_type": "access",
+            "iat": int(issued_at.timestamp()),
+            "exp": int((issued_at + timedelta(hours=1)).timestamp()),
+        },
+        provider._jwt_private_key,
+        algorithm=provider._jwt_algorithm,
+        headers={"kid": provider._jwt_key_id},
+    )
+
+    with pytest.raises(AuthenticationError) as exc_info:
+        await provider.validate_token(token)
+
+    assert exc_info.value.code == "token.subject.missing"
+
+
+@pytest.mark.asyncio
+async def test_validate_token_invalid_subject_uuid_raises(
+    provider: GoogleOAuthAuthenticationProvider,
+) -> None:
+    await provider._ensure_jwt_keys()
+    assert provider._jwt_private_key is not None
+
+    issued_at = datetime.now(UTC)
+    token = jwt.encode(
+        {
+            "iss": provider._jwt_issuer,
+            "aud": provider._jwt_audience,
+            "sub": "not-a-uuid",
+            "token_type": "access",
+            "iat": int(issued_at.timestamp()),
+            "exp": int((issued_at + timedelta(hours=1)).timestamp()),
+        },
+        provider._jwt_private_key,
+        algorithm=provider._jwt_algorithm,
+        headers={"kid": provider._jwt_key_id},
+    )
+
+    with pytest.raises(AuthenticationError) as exc_info:
+        await provider.validate_token(token)
+
+    assert exc_info.value.code == "token.subject.invalid"
+
+
+@pytest.mark.asyncio
+async def test_validate_token_wrong_type_raises(
+    provider: GoogleOAuthAuthenticationProvider,
+) -> None:
+    await provider._ensure_jwt_keys()
+    assert provider._jwt_private_key is not None
+
+    user_id = uuid4()
+    issued_at = datetime.now(UTC)
+    token = jwt.encode(
+        {
+            "iss": provider._jwt_issuer,
+            "aud": provider._jwt_audience,
+            "sub": str(user_id),
+            "token_type": "refresh",
+            "iat": int(issued_at.timestamp()),
+            "exp": int((issued_at + timedelta(hours=1)).timestamp()),
+        },
+        provider._jwt_private_key,
+        algorithm=provider._jwt_algorithm,
+        headers={"kid": provider._jwt_key_id},
+    )
+
+    with pytest.raises(AuthenticationError) as exc_info:
+        await provider.validate_token(token)
+
+    assert exc_info.value.code == "token.type.invalid"
+
+
+@pytest.mark.asyncio
+async def test_validate_token_missing_user_raises(
+    provider: GoogleOAuthAuthenticationProvider,
+) -> None:
+    await provider._ensure_jwt_keys()
+    assert provider._jwt_private_key is not None
+
+    issued_at = datetime.now(UTC)
+    token = jwt.encode(
+        {
+            "iss": provider._jwt_issuer,
+            "aud": provider._jwt_audience,
+            "sub": str(uuid4()),
+            "token_type": "access",
+            "iat": int(issued_at.timestamp()),
+            "exp": int((issued_at + timedelta(hours=1)).timestamp()),
+        },
+        provider._jwt_private_key,
+        algorithm=provider._jwt_algorithm,
+        headers={"kid": provider._jwt_key_id},
+    )
+
+    with pytest.raises(AuthenticationError) as exc_info:
+        await provider.validate_token(token)
+
+    assert exc_info.value.code == "user.missing"
 
 
 @pytest.mark.asyncio

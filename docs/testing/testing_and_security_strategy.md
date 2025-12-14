@@ -100,7 +100,7 @@ Scope: align validation with `IMPLEMENTATION_PLAN.md` and `docs/deployment/DEPLO
   - [x] AuroraDatabaseProvider unit tests: `src/infrastructure/database/aurora.py` identifier/table validation; cold-start retry loop (mocked `asyncpg.create_pool` + fake secret manager)
   - [x] AWSSecretsManager unit tests (offline): `src/infrastructure/secret/aws_secrets_manager.py` decode paths + error mapping using stubbed boto3 client via `tests/infrastructure/providers/secret/test_aws_secrets_manager.py`
   - [x] PriorityQueueService unit tests: `src/application/services/priority_queue_service.py` dedup enabled/disabled, metrics updates, visibility timeout clamping, dead-letter routing via `tests/application/services/test_priority_queue_service.py`
-  - [ ] Auth provider tests: `src/infrastructure/providers/authentication/google_oauth_provider.py` token refresh/invalid token/rate-limit branches
+  - [x] Auth provider tests: `src/infrastructure/providers/authentication/google_oauth_provider.py` token refresh/invalid token/rate-limit branches
   - [ ] Router error-branch tests: `src/presentation/api/routers/auth.py` + `src/presentation/api/routers/filings.py` (PKCE/state mismatch, cookie flags, invalid filters)
   - [ ] Worker docker provider tests: `src/infrastructure/providers/worker/docker.py` env parsing + failure propagation
   - [ ] LLM provider tests (network-disabled): `src/infrastructure/providers/llm/base.py`, `src/infrastructure/providers/llm/openai.py`, `src/infrastructure/providers/llm/google.py` retry/timeout/token accounting branches
