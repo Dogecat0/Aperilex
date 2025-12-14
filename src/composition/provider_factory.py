@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from datetime import datetime
-from pathlib import Path
 from typing import TYPE_CHECKING
 
 from dependency_injector import providers
@@ -115,48 +114,10 @@ class ProviderFactory:
             Provider instance for configuration
         """
         from src.infrastructure.config import EnvironmentConfigProvider
-        from src.infrastructure.config.composite_config_provider import (
-            CompositeConfigProvider,
-        )
-        from src.infrastructure.config.json_config_provider import JSONConfigProvider
-
-        config_sources: list[providers.Provider[IConfigProvider]] = []
-
-        # Environment variables always take precedence
-        config_sources.append(
-            providers.Singleton(
-                EnvironmentConfigProvider,
-                prefix="APERILEX",
-            )
-        )
-
-        config_dir = Path("config")
-        if config_dir.exists():
-            env_config_path = config_dir / f"{environment}.json"
-            default_config_path = config_dir / "default.json"
-
-            if env_config_path.exists():
-                config_sources.append(
-                    providers.Singleton(
-                        JSONConfigProvider,
-                        file_path=str(env_config_path),
-                    )
-                )
-
-            if default_config_path.exists():
-                config_sources.append(
-                    providers.Singleton(
-                        JSONConfigProvider,
-                        file_path=str(default_config_path),
-                    )
-                )
-
-        if len(config_sources) == 1:
-            return config_sources[0]
 
         return providers.Singleton(
-            CompositeConfigProvider,
-            providers=providers.List(*config_sources),
+            EnvironmentConfigProvider,
+            prefix="APERILEX",
         )
 
     @staticmethod

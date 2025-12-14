@@ -1003,12 +1003,15 @@ The codebase follows a clean architecture pattern with clear separation:
 
 **Configuration Provider Interface**:
 
-System will support multiple configuration sources through a provider interface:
+Configuration is accessed through `IConfigProvider`. In the Docker baseline, the
+only implementation is:
 
-- **JSONConfigProvider**: Local JSON files for development
-- **AWSParameterStoreProvider**: AWS Systems Manager for production configs
-- **EnvironmentConfigProvider**: Environment variables as override
-- **CompositeConfigProvider**: Merge multiple sources with precedence
+- **EnvironmentConfigProvider**: reads `APERILEX_*` environment variables and
+  maps `__` to `.` (e.g., `APERILEX_DATABASE__POSTGRES__HOST` →
+  `database.postgres.host`).
+
+Defer additional sources (e.g., AWS Parameter Store) until there is a concrete
+production requirement.
 
 **Secret Manager Interface**:
 
@@ -1025,9 +1028,7 @@ ISecretManager (Protocol):
 
 Implementations:
 - AWSSecretsManager: AWS Secrets Manager with rotation support
-- EnvFileSecretManager: .env files for local development
-- InMemorySecretManager: Testing and development
-- VaultSecretManager: HashiCorp Vault (future)
+- DockerSecretManager: Docker secrets (`/run/secrets`) for local Docker runtime
 ```
 
 **Secret Categories**:

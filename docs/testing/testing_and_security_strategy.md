@@ -14,7 +14,6 @@ Scope: align validation with `IMPLEMENTATION_PLAN.md` and `docs/deployment/DEPLO
   - `src/main.py` 0.00%
   - `src/infrastructure/database/aurora.py` 10.09%
   - `src/infrastructure/database/sqlalchemy_provider.py` 13.17%
-  - `src/infrastructure/config/json_config_provider.py` 18.13%
   - `src/composition/provider_factory.py` 23.62%
   - `src/infrastructure/secret/aws_secrets_manager.py` 23.85%
 - Most missed statements (>=25 statements):
@@ -95,7 +94,7 @@ Scope: align validation with `IMPLEMENTATION_PLAN.md` and `docs/deployment/DEPLO
   - [x] Review CQRS handler registry: deleted unused `src/application/handlers_registry.py` (no runtime references; handler registration runs via `cqrs_container.handler_registrar()`).
   - [x] Review `src/application/patterns/circuit_breaker.py`, confirm no references, delete it and related code (none).
   - [x] Remove unused repository base helpers: deleted `src/infrastructure/database/repositories/base.py` and `src/infrastructure/database/repositories/cached_base.py` (no references).
-  - [ ] Config provider tests: `src/infrastructure/config/json_config_provider.py` (auto-create, malformed JSON fallback, set/delete persistence, namespace listing, sensitive-key marking)
+  - [x] Config provider tests: `src/infrastructure/config/env_config_provider.py` dotted-key contract (parsing, namespace, masking, set/delete env-key mapping); removed JSON/composite providers.
   - [ ] ProviderFactory tests: `src/composition/provider_factory.py` (non-AWS secret manager requires `DOCKER_SECRETS_DIR`; optional dependency error paths for SQS/Lambda/Docker)
   - [ ] SQLAlchemyDatabaseProvider tests: `src/infrastructure/database/sqlalchemy_provider.py` identifier/table validation; task/analysis save/update error branches
   - [ ] AuroraDatabaseProvider unit tests: `src/infrastructure/database/aurora.py` identifier/table validation; cold-start retry loop (mocked `asyncpg.create_pool` + fake secret manager)
@@ -143,7 +142,7 @@ Scope: align validation with `IMPLEMENTATION_PLAN.md` and `docs/deployment/DEPLO
 - Provider contracts: create suites for local storage, Docker secret manager, config provider, rate-limiting provider/middleware, and RabbitMQ queue provider under `tests/infrastructure/providers/`; include health-check failure assertions to prevent silent startup.
   - [x] LocalStorageProvider CRUD, metadata, presigned URL, and health-check coverage
   - [x] DockerSecretManager path validation, create/update/list, and empty secret rejection
-  - [x] Environment/Composite config provider precedence, parsing, export, and validation
+  - [x] Environment config provider parsing, export masking, and validation (dotted keys; no JSON/composite source layering)
   - [x] InMemoryRateLimitingProvider + RateLimitMiddleware enforcement and fail-closed resolution
   - [x] RabbitMQQueueProvider deduplication, pending-handle lifecycle, and health-check failure path
   - [x] S3 storage provider contract using offline S3 client stub (no network)

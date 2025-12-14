@@ -20,7 +20,8 @@ class EnvironmentConfigProvider(IConfigProvider):
     Configuration provider that reads from environment variables.
 
     This provider follows a naming convention where configuration keys
-    are prefixed with a namespace (e.g., APERILEX_DATABASE_HOST).
+    are prefixed with a namespace and optional hierarchy using `__`
+    (e.g., APERILEX_DATABASE__POSTGRES__HOST -> database.postgres.host).
     """
 
     def __init__(self, prefix: str = "APERILEX"):
@@ -36,21 +37,20 @@ class EnvironmentConfigProvider(IConfigProvider):
         ] = {}
         self._load_environment()
 
+    def _normalize_key(self, raw_key: str) -> str:
+        return raw_key.lower().replace("__", ".")
+
+    def _to_env_key(self, key: str) -> str:
+        return f"{self.prefix}_{key.replace('.', '__').upper()}"
+
     def _load_environment(self) -> None:
         """Load all environment variables with the configured prefix."""
         for key, value in os.environ.items():
             if key.startswith(f"{self.prefix}_"):
                 raw_key = key[len(self.prefix) + 1 :]
-                normalized_key = raw_key.lower()
-                dotted_key = normalized_key.replace("__", ".")
+                normalized_key = self._normalize_key(raw_key)
                 parsed_value = self._parse_value(value)
-
-                # Store original normalized key
                 self._cache[normalized_key] = parsed_value
-
-                # Store dotted variant to support hierarchical lookups
-                if dotted_key != normalized_key:
-                    self._cache[dotted_key] = parsed_value
 
     def _parse_value(
         self, value: str
@@ -91,7 +91,7 @@ class EnvironmentConfigProvider(IConfigProvider):
 
     def get(self, key: str, default: T | None = None) -> T:
         """Get a configuration value."""
-        value = self._cache.get(key.lower(), default)
+        value = self._cache.get(key.lower().strip(), default)
         if value is None and default is None:
             raise ValueError(
                 f"Configuration key '{key}' not found and no default provided"
@@ -146,9 +146,10 @@ class EnvironmentConfigProvider(IConfigProvider):
         self, key: str, value: str | int | float | bool | list[str] | dict[str, str]
     ) -> bool:
         """Set a configuration value."""
-        self._cache[key.lower()] = value
+        normalized_key = key.lower().strip()
+        self._cache[normalized_key] = value
         # Also set in environment for child processes
-        env_key = f"{self.prefix}_{key.upper()}"
+        env_key = self._to_env_key(normalized_key)
         if isinstance(value, bool):
             os.environ[env_key] = str(value).lower()
         elif isinstance(value, list):
@@ -161,13 +162,14 @@ class EnvironmentConfigProvider(IConfigProvider):
 
     def exists(self, key: str) -> bool:
         """Check if a configuration key exists."""
-        return key.lower() in self._cache
+        return key.lower().strip() in self._cache
 
     def delete(self, key: str) -> bool:
         """Delete a configuration value."""
-        if key.lower() in self._cache:
-            del self._cache[key.lower()]
-            env_key = f"{self.prefix}_{key.upper()}"
+        normalized_key = key.lower().strip()
+        if normalized_key in self._cache:
+            del self._cache[normalized_key]
+            env_key = self._to_env_key(normalized_key)
             if env_key in os.environ:
                 del os.environ[env_key]
             return True
@@ -175,19 +177,22 @@ class EnvironmentConfigProvider(IConfigProvider):
 
     def get_namespace(self, namespace: str) -> ConfigNamespace:
         """Get all configuration values in a namespace."""
-        namespace_prefix = f"{namespace.lower()}_"
-        values = {}
+        normalized_namespace = namespace.lower().strip()
+        prefix = f"{normalized_namespace}." if normalized_namespace else ""
+        values: dict[str, ConfigValue] = {}
 
         for key, value in self._cache.items():
-            if key.startswith(namespace_prefix):
-                config_key = key[len(namespace_prefix) :]
-                values[config_key] = ConfigValue(
-                    schema_version=1,
-                    key=config_key,
-                    value=value,
-                    source="environment",
-                    is_sensitive=self._is_sensitive_key(config_key),
-                )
+            if prefix and not key.startswith(prefix):
+                continue
+
+            config_key = key[len(prefix) :] if prefix else key
+            values[config_key] = ConfigValue(
+                schema_version=1,
+                key=config_key,
+                value=value,
+                source="environment",
+                is_sensitive=self._is_sensitive_key(key),
+            )
 
         return ConfigNamespace(
             schema_version=1,
@@ -200,22 +205,20 @@ class EnvironmentConfigProvider(IConfigProvider):
         """List all configuration keys."""
         keys = list(self._cache.keys())
         if prefix:
-            keys = [k for k in keys if k.startswith(prefix.lower())]
+            keys = [k for k in keys if k.startswith(prefix.lower().strip())]
         return sorted(keys)
 
     def validate(self, rules: list[ConfigValidationRule]) -> dict[str, bool]:
         """Validate configuration against rules."""
-        results = {}
+        results: dict[str, bool] = {}
 
         for rule in rules:
-            # Simple pattern matching (could be enhanced with regex)
             matching_keys = [k for k in self._cache.keys() if rule.key_pattern in k]
 
             for key in matching_keys:
                 value = self._cache[key]
                 is_valid = True
 
-                # Type validation
                 if rule.value_type == "string" and not isinstance(value, str):
                     is_valid = False
                 elif rule.value_type == "int" and not isinstance(value, int):
@@ -225,20 +228,17 @@ class EnvironmentConfigProvider(IConfigProvider):
                 elif rule.value_type == "bool" and not isinstance(value, bool):
                     is_valid = False
 
-                # Range validation for numbers
                 if isinstance(value, int | float):
                     if rule.min_value is not None and value < rule.min_value:
                         is_valid = False
                     if rule.max_value is not None and value > rule.max_value:
                         is_valid = False
 
-                # Allowed values validation
                 if rule.allowed_values and value not in rule.allowed_values:
                     is_valid = False
 
                 results[key] = is_valid
 
-            # Check if required keys are present
             if rule.required and not matching_keys:
                 results[rule.key_pattern] = False
 
@@ -252,18 +252,16 @@ class EnvironmentConfigProvider(IConfigProvider):
 
     def export(self, include_sensitive: bool = False) -> dict[str, ConfigValue]:
         """Export all configuration values."""
-        result = {}
+        result: dict[str, ConfigValue] = {}
 
         for key, value in self._cache.items():
             is_sensitive = self._is_sensitive_key(key)
 
             if is_sensitive and not include_sensitive:
-                # Mask sensitive values
-                masked_value = "***MASKED***"
                 result[key] = ConfigValue(
                     schema_version=1,
                     key=key,
-                    value=masked_value,
+                    value="***MASKED***",
                     source="environment",
                     is_sensitive=True,
                 )
