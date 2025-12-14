@@ -32,7 +32,6 @@ class AWSSecretsManager(ISecretManager):
 
         self._session = session or boto3.session.Session(region_name=region_name)
         self._client = self._session.client("secretsmanager", region_name=region_name)
-        self._region = region_name
 
     async def _call(self, func: Callable[..., Any], *args: Any, **kwargs: Any) -> Any:
         return await asyncio.to_thread(func, *args, **kwargs)
@@ -85,7 +84,7 @@ class AWSSecretsManager(ISecretManager):
                     if v is not None
                 },
             )
-        except ClientError as exc:  # pragma: no cover - requires AWS
+        except ClientError as exc:
             self._handle_client_error(exc, secret_name)
         return self._decode_secret(response)
 
@@ -108,7 +107,7 @@ class AWSSecretsManager(ISecretManager):
                     if v is not None
                 },
             )
-        except ClientError as exc:  # pragma: no cover - requires AWS
+        except ClientError as exc:
             self._handle_client_error(exc, secret_name)
         return self._decode_secret_binary(response)
 
@@ -121,7 +120,7 @@ class AWSSecretsManager(ISecretManager):
     ) -> SecretMetadata:
         params: dict[str, Any] = {"Name": secret_name}
         if isinstance(secret_value, bytes):
-            params["SecretBinary"] = base64.b64encode(secret_value)
+            params["SecretBinary"] = secret_value
         else:
             params["SecretString"] = secret_value
         if description:
@@ -131,7 +130,7 @@ class AWSSecretsManager(ISecretManager):
 
         try:
             response = await self._call(self._client.create_secret, **params)
-        except ClientError as exc:  # pragma: no cover - requires AWS
+        except ClientError as exc:
             self._handle_client_error(exc, secret_name)
 
         now = datetime.now(UTC)
@@ -153,7 +152,7 @@ class AWSSecretsManager(ISecretManager):
     ) -> SecretMetadata:
         params: dict[str, Any] = {"SecretId": secret_name}
         if isinstance(secret_value, bytes):
-            params["SecretBinary"] = base64.b64encode(secret_value)
+            params["SecretBinary"] = secret_value
         else:
             params["SecretString"] = secret_value
         if version_stage:
@@ -161,7 +160,7 @@ class AWSSecretsManager(ISecretManager):
 
         try:
             response = await self._call(self._client.put_secret_value, **params)
-        except ClientError as exc:  # pragma: no cover - requires AWS
+        except ClientError as exc:
             self._handle_client_error(exc, secret_name)
 
         now = datetime.now(UTC)
@@ -188,7 +187,7 @@ class AWSSecretsManager(ISecretManager):
 
         try:
             await self._call(self._client.delete_secret, **params)
-        except ClientError as exc:  # pragma: no cover - requires AWS
+        except ClientError as exc:
             self._handle_client_error(exc, secret_name)
         return True
 
@@ -198,7 +197,7 @@ class AWSSecretsManager(ISecretManager):
                 self._client.restore_secret,
                 SecretId=secret_name,
             )
-        except ClientError as exc:  # pragma: no cover - requires AWS
+        except ClientError as exc:
             self._handle_client_error(exc, secret_name)
 
         now = datetime.now(UTC)
@@ -229,7 +228,7 @@ class AWSSecretsManager(ISecretManager):
 
         try:
             await self._call(self._client.rotate_secret, **params)
-        except ClientError as exc:  # pragma: no cover - requires AWS
+        except ClientError as exc:
             self._handle_client_error(exc, secret_name)
         return True
 
@@ -245,7 +244,7 @@ class AWSSecretsManager(ISecretManager):
             return SecretMetadata(
                 schema_version=1,
                 name=item["Name"],
-                version=item.get("PrimaryRegion", "v1"),
+                version=None,
                 created_at=item.get("CreatedDate", datetime.now(UTC)),
                 updated_at=item.get("LastChangedDate", datetime.now(UTC)),
                 rotation_enabled=item.get("RotationEnabled", False),
@@ -259,7 +258,7 @@ class AWSSecretsManager(ISecretManager):
             paginator.paginate,
             IncludePlannedDelete=include_deleted,
             PaginationConfig={"PageSize": 100},
-        ):  # pragma: no cover - requires AWS
+        ):
             for item in page.get("SecretList", []):
                 name = item.get("Name", "")
                 if prefix and not name.startswith(prefix):
@@ -273,15 +272,20 @@ class AWSSecretsManager(ISecretManager):
                 self._client.describe_secret,
                 SecretId=secret_name,
             )
-        except ClientError as exc:  # pragma: no cover - requires AWS
+        except ClientError as exc:
             self._handle_client_error(exc, secret_name)
 
         created = response.get("CreatedDate", datetime.now(UTC))
         updated = response.get("LastChangedDate", created)
+        current_version: str | None = None
+        for version_id, stages in response.get("VersionIdsToStages", {}).items():
+            if "AWSCURRENT" in stages:
+                current_version = version_id
+                break
         return SecretMetadata(
             schema_version=1,
             name=response.get("Name", secret_name),
-            version=response.get("VersionIdsToStages", {}).get("AWSCURRENT", [None])[0],
+            version=current_version,
             created_at=created,
             updated_at=updated,
             rotation_enabled=response.get("RotationEnabled", False),
@@ -303,7 +307,7 @@ class AWSSecretsManager(ISecretManager):
                 SecretId=secret_name,
                 IncludeDeprecated=include_deprecated,
             )
-        except ClientError as exc:  # pragma: no cover - requires AWS
+        except ClientError as exc:
             self._handle_client_error(exc, secret_name)
 
         versions: list[SecretVersion] = []
@@ -331,7 +335,7 @@ class AWSSecretsManager(ISecretManager):
                 SecretId=secret_name,
                 Tags=[{"Key": key, "Value": value} for key, value in tags.items()],
             )
-        except ClientError as exc:  # pragma: no cover - requires AWS
+        except ClientError as exc:
             self._handle_client_error(exc, secret_name)
         return True
 
@@ -346,7 +350,7 @@ class AWSSecretsManager(ISecretManager):
                 SecretId=secret_name,
                 TagKeys=tag_keys,
             )
-        except ClientError as exc:  # pragma: no cover - requires AWS
+        except ClientError as exc:
             self._handle_client_error(exc, secret_name)
         return True
 

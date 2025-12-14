@@ -98,8 +98,8 @@ Scope: align validation with `IMPLEMENTATION_PLAN.md` and `docs/deployment/DEPLO
   - [x] ProviderFactory tests: `src/composition/provider_factory.py` (non-AWS secret manager requires `DOCKER_SECRETS_DIR`; optional dependency error paths for SQS/Lambda/Docker)
   - [x] SQLAlchemyDatabaseProvider tests: `src/infrastructure/database/sqlalchemy_provider.py` identifier/table validation; task/analysis save/update error branches via `tests/infrastructure/database/test_sqlalchemy_provider.py`
   - [x] AuroraDatabaseProvider unit tests: `src/infrastructure/database/aurora.py` identifier/table validation; cold-start retry loop (mocked `asyncpg.create_pool` + fake secret manager)
-  - [ ] AWSSecretsManager unit tests (offline): `src/infrastructure/secret/aws_secrets_manager.py` decode paths + error mapping using stubbed boto3 client
-  - [ ] PriorityQueueService unit tests: `src/application/services/priority_queue_service.py` dedup enabled/disabled, metrics updates, visibility timeout clamping, dead-letter routing
+  - [x] AWSSecretsManager unit tests (offline): `src/infrastructure/secret/aws_secrets_manager.py` decode paths + error mapping using stubbed boto3 client via `tests/infrastructure/providers/secret/test_aws_secrets_manager.py`
+  - [x] PriorityQueueService unit tests: `src/application/services/priority_queue_service.py` dedup enabled/disabled, metrics updates, visibility timeout clamping, dead-letter routing via `tests/application/services/test_priority_queue_service.py`
   - [ ] Auth provider tests: `src/infrastructure/providers/authentication/google_oauth_provider.py` token refresh/invalid token/rate-limit branches
   - [ ] Router error-branch tests: `src/presentation/api/routers/auth.py` + `src/presentation/api/routers/filings.py` (PKCE/state mismatch, cookie flags, invalid filters)
   - [ ] Worker docker provider tests: `src/infrastructure/providers/worker/docker.py` env parsing + failure propagation
