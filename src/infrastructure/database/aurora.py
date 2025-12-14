@@ -19,6 +19,7 @@ from src.application.interfaces.database import (
     QueryResult,
     TransactionContext,
 )
+from src.application.interfaces.repositories import IRepositoryFactory
 from src.application.interfaces.secret import ISecretManager
 from src.shared.config.providers import AuroraConfig
 from src.shared.enums import AnalysisStatus, AnalysisType, TaskPriority, TaskStatus
@@ -46,6 +47,12 @@ class AuroraDatabaseProvider(IDatabaseProvider):
         self.pool: asyncpg.Pool | None = None
         self._transactions: dict[str, asyncpg.Connection] = {}
         self._logger = logging.getLogger(__name__)
+
+    def get_repository_factory(self) -> IRepositoryFactory:
+        raise NotImplementedError(
+            "AuroraDatabaseProvider does not support repository access; use "
+            "SQLAlchemyDatabaseProvider or PostgresDatabaseProvider."
+        )
 
     def _validate_identifier(self, identifier: str) -> str:
         """
@@ -249,9 +256,9 @@ class AuroraDatabaseProvider(IDatabaseProvider):
                 retries += 1
                 if retries < self.config.retry_attempts:
                     await self._handle_cold_start_retry(retries)
-            except Exception as e:
+            except Exception:
                 # Other errors, don't retry
-                raise e
+                raise
 
         if last_error:
             raise last_error
@@ -262,7 +269,7 @@ class AuroraDatabaseProvider(IDatabaseProvider):
         import asyncio
 
         # Exponential backoff: 1s, 2s, 4s, 8s, etc.
-        wait_time = min(2**attempt, 30)  # Cap at 30 seconds
+        wait_time = min(2 ** (attempt - 1), 30)  # Cap at 30 seconds
         await asyncio.sleep(wait_time)
         # Reset pool to force new connection
         if self.pool:
@@ -303,9 +310,9 @@ class AuroraDatabaseProvider(IDatabaseProvider):
             except ValueError:
                 # Task not found, don't retry
                 raise
-            except Exception as e:
+            except Exception:
                 # Other errors, don't retry
-                raise e
+                raise
 
         if last_error:
             raise last_error
@@ -344,8 +351,8 @@ class AuroraDatabaseProvider(IDatabaseProvider):
                 retries += 1
                 if retries < self.config.retry_attempts:
                     await self._handle_cold_start_retry(retries)
-            except Exception as e:
-                raise e
+            except Exception:
+                raise
 
         if last_error:
             raise last_error
@@ -413,8 +420,8 @@ class AuroraDatabaseProvider(IDatabaseProvider):
                 retries += 1
                 if retries < self.config.retry_attempts:
                     await self._handle_cold_start_retry(retries)
-            except Exception as e:
-                raise e
+            except Exception:
+                raise
 
         if last_error:
             raise last_error
@@ -445,8 +452,8 @@ class AuroraDatabaseProvider(IDatabaseProvider):
             except ValueError:
                 # Analysis not found, don't retry
                 raise
-            except Exception as e:
-                raise e
+            except Exception:
+                raise
 
         if last_error:
             raise last_error
@@ -486,8 +493,8 @@ class AuroraDatabaseProvider(IDatabaseProvider):
                 retries += 1
                 if retries < self.config.retry_attempts:
                     await self._handle_cold_start_retry(retries)
-            except Exception as e:
-                raise e
+            except Exception:
+                raise
 
         if last_error:
             raise last_error
@@ -749,8 +756,8 @@ class AuroraDatabaseProvider(IDatabaseProvider):
                 retries += 1
                 if retries < self.config.retry_attempts:
                     await self._handle_cold_start_retry(retries)
-            except Exception as e:
-                raise e
+            except Exception:
+                raise
 
         if last_error:
             raise last_error
@@ -819,8 +826,8 @@ class AuroraDatabaseProvider(IDatabaseProvider):
                 retries += 1
                 if retries < self.config.retry_attempts:
                     await self._handle_cold_start_retry(retries)
-            except Exception as e:
-                raise e
+            except Exception:
+                raise
 
         if last_error:
             raise last_error
@@ -870,8 +877,8 @@ class AuroraDatabaseProvider(IDatabaseProvider):
                 retries += 1
                 if retries < self.config.retry_attempts:
                     await self._handle_cold_start_retry(retries)
-            except Exception as e:
-                raise e
+            except Exception:
+                raise
 
         if last_error:
             raise last_error
