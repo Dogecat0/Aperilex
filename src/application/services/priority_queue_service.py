@@ -1,18 +1,17 @@
 """
-Priority Queue Service with tier-based routing and deduplication.
+Priority Queue Service with tier-based routing and provider deduplication.
 
 This service manages task queuing with user tier-based prioritization,
-message deduplication, and queue depth monitoring.
+delegates message deduplication to the queue provider, and monitors depth.
 """
 
 import asyncio
-import hashlib
 import json
 from datetime import UTC, datetime, timedelta
 
 from pydantic import BaseModel, Field
 
-from src.application.interfaces.queue import IQueueProvider
+from src.application.interfaces.queue import DuplicationError, IQueueProvider
 from src.shared.enums import TaskPriority, TaskStatus
 from src.shared.models.base import MetadataValue
 from src.shared.models.queue import TaskQueueMessage
@@ -48,15 +47,6 @@ class QueueConfiguration(BaseModel):
         description="Queue name used for dead letter routing",
     )
 
-    # Deduplication settings
-    deduplication_window_seconds: int = Field(
-        default=300,  # 5 minutes
-        description="Window for message deduplication",
-    )
-    enable_deduplication: bool = Field(
-        default=True, description="Enable message deduplication"
-    )
-
     # Queue depth thresholds
     max_queue_depth: int = Field(
         default=10000, description="Maximum allowed queue depth"
@@ -82,20 +72,6 @@ class QueueConfiguration(BaseModel):
     long_poll_wait_seconds: int = Field(
         default=20, description="Long polling wait time"
     )
-
-
-class DeduplicationEntry(BaseModel):
-    """Entry in deduplication cache."""
-
-    schema_version: int = Field(
-        default=1,
-        ge=1,
-        description="Schema version for deduplication entry models",
-    )
-    deduplication_id: str
-    message_id: QueueMessageId
-    timestamp: datetime
-    expiry: datetime
 
 
 class QueueMetrics(BaseModel):
@@ -124,7 +100,7 @@ class PriorityQueueService:
 
     Features:
     - Tier-based priority routing
-    - Message deduplication
+    - Provider deduplication
     - Queue depth monitoring
     - Visibility timeout management
     - Dead letter queue handling
@@ -145,10 +121,6 @@ class PriorityQueueService:
         self.queue_provider = queue_provider
         self.config = config or QueueConfiguration()
 
-        # Deduplication cache
-        self._dedup_cache: dict[str, DeduplicationEntry] = {}
-        self._dedup_lock = asyncio.Lock()
-
         # Metrics
         self.metrics = QueueMetrics()
 
@@ -163,9 +135,6 @@ class PriorityQueueService:
 
     def _start_background_tasks(self) -> None:
         """Start background monitoring tasks."""
-        # Start deduplication cache cleanup
-        asyncio.create_task(self._cleanup_dedup_cache())
-
         # Start queue depth monitoring
         self._depth_monitor_task = asyncio.create_task(self._monitor_queue_depth())
 
@@ -182,7 +151,7 @@ class PriorityQueueService:
         Args:
             task_data: Task data to send
             delay_seconds: Optional delay before message becomes available
-            deduplicate: Whether to apply deduplication checks for this send
+            deduplicate: Whether to request provider deduplication for this send
 
         Returns:
             Message ID of the sent message
@@ -191,21 +160,7 @@ class PriorityQueueService:
             QueueError: If send fails
             DuplicationError: If duplicate detected
         """
-        # Check for duplicates when enabled
-        dedup_enabled = self.config.enable_deduplication and deduplicate
-        dedup_id: str | None = None
-
-        if dedup_enabled:
-            dedup_id = self._generate_deduplication_id(task_data)
-
-            if await self._is_duplicate(dedup_id):
-                logger.warning(
-                    "Duplicate task detected: %s",
-                    dedup_id,
-                    extra={"task_id": str(task_data.task_id)},
-                )
-                self.metrics.total_deduplicated += 1
-                raise DuplicationError(f"Duplicate task: {dedup_id}")
+        dedup_enabled = deduplicate
 
         # Determine target queue based on effective priority
         queue_name = self._get_queue_for_priority(task_data.effective_priority)
@@ -239,6 +194,7 @@ class PriorityQueueService:
             task_message = TaskMessage(
                 schema_version=1,
                 task_id=task_data.task_id,
+                deduplication_id=task_data.deduplication_id,
                 task_type="analysis",  # Could be from task_data metadata
                 priority=task_data.priority,
                 status=task_data.status,
@@ -260,10 +216,6 @@ class PriorityQueueService:
                 message_group_id=queue_name,  # Use queue name as group ID for FIFO
                 deduplicate=dedup_enabled,
             )
-
-            # Add to deduplication cache when enabled
-            if dedup_enabled and dedup_id is not None:
-                await self._add_to_dedup_cache(dedup_id, message_id)
 
             # Update metrics
             self.metrics.total_sent += 1
@@ -289,6 +241,16 @@ class PriorityQueueService:
 
             return message_id
 
+        except DuplicationError:
+            self.metrics.total_deduplicated += 1
+            logger.warning(
+                "Duplicate task detected",
+                extra={
+                    "task_id": str(task_data.task_id),
+                    "deduplication_id": task_data.deduplication_id,
+                },
+            )
+            raise
         except Exception as e:
             logger.error(
                 "Failed to send task %s: %s",
@@ -349,9 +311,6 @@ class PriorityQueueService:
                         "queue_name": self.config.dead_letter_queue_name,
                     },
                 )
-
-        # Remove any cached dedup entry so future submissions can proceed
-        await self._remove_dedup_entry_for_message(message)
 
         if delete_from_source and message.receipt_handle:
             try:
@@ -559,129 +518,6 @@ class PriorityQueueService:
 
         return depths
 
-    def _generate_deduplication_id(self, task_data: TaskData) -> str:
-        """
-        Generate deduplication ID for a task.
-
-        Args:
-            task_data: Task data
-
-        Returns:
-            Deduplication ID string
-        """
-        # Key: filing_id + analysis template + user_email
-        template_hint = task_data.metadata.get("analysis_template", "default")
-        template_segment = (
-            template_hint.strip().lower()
-            if isinstance(template_hint, str) and template_hint.strip()
-            else "default"
-        )
-        dedup_key = f"{task_data.filing_id}_{template_segment}_{task_data.email.value}"
-
-        # Hash for consistent length
-        return hashlib.sha256(dedup_key.encode()).hexdigest()[:16]
-
-    async def _is_duplicate(self, dedup_id: str) -> bool:
-        """
-        Check if a deduplication ID is already in cache.
-
-        Args:
-            dedup_id: Deduplication ID
-
-        Returns:
-            True if duplicate
-        """
-        async with self._dedup_lock:
-            if dedup_id in self._dedup_cache:
-                entry = self._dedup_cache[dedup_id]
-
-                # Check if entry is still valid
-                if entry.expiry > datetime.now(UTC):
-                    return True
-                else:
-                    # Remove expired entry
-                    del self._dedup_cache[dedup_id]
-
-            return False
-
-    async def _add_to_dedup_cache(
-        self,
-        dedup_id: str,
-        message_id: QueueMessageId,
-    ) -> None:
-        """
-        Add entry to deduplication cache.
-
-        Args:
-            dedup_id: Deduplication ID
-            message_id: Message ID
-        """
-        async with self._dedup_lock:
-            self._dedup_cache[dedup_id] = DeduplicationEntry(
-                deduplication_id=dedup_id,
-                message_id=message_id,
-                timestamp=datetime.now(UTC),
-                expiry=datetime.now(UTC)
-                + timedelta(seconds=self.config.deduplication_window_seconds),
-            )
-
-    async def _remove_dedup_entry(self, dedup_id: str) -> None:
-        """Remove deduplication entry if it exists."""
-        async with self._dedup_lock:
-            if dedup_id in self._dedup_cache:
-                del self._dedup_cache[dedup_id]
-
-    async def _remove_dedup_entry_for_message(self, message: TaskQueueMessage) -> None:
-        """Remove dedup entry derived from a queue message."""
-        payload = message.task_data
-        if isinstance(payload, str):
-            try:
-                payload = json.loads(payload)
-            except json.JSONDecodeError:
-                logger.debug(
-                    "Failed to decode task payload for dedup cleanup",
-                    extra={"message_id": str(message.message_id)},
-                )
-                return
-
-        if not isinstance(payload, dict):
-            return
-
-        try:
-            task_data = TaskData(**payload)
-        except Exception as exc:
-            logger.debug(
-                "Unable to reconstruct TaskData for dedup removal",
-                extra={"message_id": str(message.message_id), "error": str(exc)},
-            )
-            return
-
-        dedup_id = self._generate_deduplication_id(task_data)
-        await self._remove_dedup_entry(dedup_id)
-
-    async def _cleanup_dedup_cache(self) -> None:
-        """Background task to clean up expired deduplication entries."""
-        while True:
-            try:
-                await asyncio.sleep(60)  # Check every minute
-
-                async with self._dedup_lock:
-                    now = datetime.now(UTC)
-                    expired_keys = [
-                        k for k, v in self._dedup_cache.items() if v.expiry <= now
-                    ]
-
-                    for key in expired_keys:
-                        del self._dedup_cache[key]
-
-                    if expired_keys:
-                        logger.debug(
-                            f"Cleaned {len(expired_keys)} expired dedup entries"
-                        )
-
-            except Exception as e:
-                logger.error(f"Dedup cache cleanup error: {str(e)}")
-
     async def _monitor_queue_depth(self) -> None:
         """Background task to monitor queue depths."""
         while True:
@@ -736,9 +572,3 @@ class PriorityQueueService:
             self._depth_monitor_task.cancel()
 
         logger.info("Priority queue service shutdown complete")
-
-
-class DuplicationError(Exception):
-    """Raised when a duplicate message is detected."""
-
-    pass

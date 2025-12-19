@@ -50,6 +50,9 @@ class TaskMessage(BaseModel):
 
     schema_version: int = 1
     task_id: TaskId
+    deduplication_id: str = Field(
+        description="Queue provider deduplication key (filing_id + user_email)"
+    )
     task_type: str
     priority: TaskPriority
     status: TaskStatus

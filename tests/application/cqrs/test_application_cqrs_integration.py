@@ -212,6 +212,7 @@ class StubPriorityQueue:
         payload.setdefault("filing_id", str(task_data.filing_id))
         message = TaskMessage(
             task_id=task_data.task_id,
+            deduplication_id=task_data.deduplication_id,
             task_type="analysis",
             priority=task_data.priority,
             status=task_data.status,

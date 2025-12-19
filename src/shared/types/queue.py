@@ -25,8 +25,8 @@ class DeduplicationId(BaseModel):
         if len(v) > 128:
             raise ValueError("Deduplication ID must be 128 characters or less")
 
-        # Allow alphanumeric characters with hyphens, underscores, and dots
-        if not re.match(r"^[a-zA-Z0-9\-_.]+$", v):
+        # Allow UUID + email characters for filing_id + user_email keys
+        if not re.match(r"^[a-zA-Z0-9@._%+\-]+$", v):
             raise ValueError(f"Invalid deduplication ID format: {v}")
 
         return v

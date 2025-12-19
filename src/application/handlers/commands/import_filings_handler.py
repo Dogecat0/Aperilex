@@ -200,6 +200,7 @@ class ImportFilingsCommandHandler(CommandHandler[ImportFilingsCommand, TaskRespo
             # Create TaskMessage for importing filings for this company
             task_message = TaskMessage(
                 task_id=task_id,
+                deduplication_id=str(task_id),
                 task_type="import_company_filings",
                 priority=TaskPriority.LOW,  # Import tasks are typically lower priority
                 status=TaskStatus.PENDING,
@@ -297,6 +298,7 @@ class ImportFilingsCommandHandler(CommandHandler[ImportFilingsCommand, TaskRespo
 
         task_message = TaskMessage(
             task_id=task_id,
+            deduplication_id=str(task_id),
             task_type="import_filings_date_range",
             priority=TaskPriority.LOW,  # Import tasks are typically lower priority
             status=TaskStatus.PENDING,

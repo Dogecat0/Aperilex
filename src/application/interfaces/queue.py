@@ -11,6 +11,14 @@ from src.shared.models.queue import QueueMessage, TaskMessage
 from src.shared.types import QueueMessageId, ReceiptHandle
 
 
+class QueueError(Exception):
+    """Base error for queue provider operations."""
+
+
+class DuplicationError(QueueError):
+    """Raised when a duplicate message is detected."""
+
+
 class QueueStats(BaseModel):
     """Queue statistics and metrics."""
 

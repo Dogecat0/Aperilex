@@ -72,7 +72,7 @@ def _make_task_data() -> TaskData:
         priority=TaskPriority.NORMAL,
         status=TaskStatus.PENDING,
         retry_count=0,
-        deduplication_id=f"{filing_id}:{email.value}",
+        deduplication_id=f"{filing_id}_{email.value}",
         metadata={"analysis_template": "comprehensive"},
         correlation_id=CorrelationId("retry-corr"),
         created_at=FixedDateTime._fixed_now,

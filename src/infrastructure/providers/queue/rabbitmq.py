@@ -3,7 +3,6 @@ RabbitMQ queue provider implementation.
 """
 
 import asyncio
-import hashlib
 import logging
 import uuid
 from datetime import datetime
@@ -20,7 +19,12 @@ from aio_pika.abc import (
 )
 from aio_pika.exceptions import AMQPError, ChannelClosed, ConnectionClosed
 
-from src.application.interfaces.queue import IQueueProvider, QueueStats
+from src.application.interfaces.queue import (
+    DuplicationError,
+    IQueueProvider,
+    QueueError,
+    QueueStats,
+)
 from src.shared.config.providers import RabbitMQConfig
 from src.shared.models import QueueMessage, TaskMessage
 from src.shared.types import QueueMessageId, ReceiptHandle
@@ -144,12 +148,15 @@ class RabbitMQQueueProvider(IQueueProvider):
         dedup_enabled = self.config.enable_deduplication and deduplicate
         dedup_id: str | None = None
         if dedup_enabled:
-            dedup_data = f"{task_message.task_id}_{task_message.task_type}"
-            dedup_id = hashlib.sha256(dedup_data.encode()).hexdigest()
+            dedup_id = task_message.deduplication_id
+            if not dedup_id:
+                raise QueueError(
+                    "Deduplication ID is required when deduplication is enabled"
+                )
 
             # Check for duplicate
             if await self.dedup_cache.is_duplicate(dedup_id):
-                raise Exception(f"Duplicate message detected: {dedup_id}")
+                raise DuplicationError(f"Duplicate message detected: {dedup_id}")
 
         # Prepare message body
         body = task_message.model_dump_json()
@@ -177,7 +184,7 @@ class RabbitMQQueueProvider(IQueueProvider):
 
         try:
             if self.exchange is None:
-                raise Exception("Exchange not initialized")
+                raise QueueError("Exchange not initialized")
 
             await self.exchange.publish(
                 message,
@@ -188,7 +195,7 @@ class RabbitMQQueueProvider(IQueueProvider):
             # Remove from dedup cache on failure
             if dedup_enabled and dedup_id is not None:
                 await self.dedup_cache.remove(dedup_id)
-            raise Exception(f"Failed to send message: {e}") from e
+            raise QueueError(f"Failed to send message: {e}") from e
 
     async def receive_tasks(
         self,

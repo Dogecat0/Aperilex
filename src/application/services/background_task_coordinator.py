@@ -9,16 +9,14 @@ from src.application.handlers.schemas.commands.analyze_filing import (
 )
 from src.application.handlers.schemas.responses.task_response import TaskResponse
 from src.application.interfaces.events import IEventPublisher, TaskQueuedEvent
+from src.application.interfaces.queue import DuplicationError
 from src.application.interfaces.repositories import (
     AnalysisData,
     CompanyData,
     FilingData,
 )
 from src.application.interfaces.worker import IWorkerProvider, WorkerTaskStatus
-from src.application.services.priority_queue_service import (
-    DuplicationError,
-    PriorityQueueService,
-)
+from src.application.services.priority_queue_service import PriorityQueueService
 from src.application.services.worker import FilingFetchError
 from src.application.services.worker_service import WorkerService
 from src.shared.enums import AnalysisStatus, TaskStatus, UserTier

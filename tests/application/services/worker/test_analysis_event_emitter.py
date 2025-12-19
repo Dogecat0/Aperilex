@@ -77,7 +77,7 @@ def _make_task_data() -> TaskData:
         priority=TaskPriority.NORMAL,
         status=TaskStatus.PENDING,
         retry_count=1,
-        deduplication_id=f"{filing_id}:{email.value}",
+        deduplication_id=f"{filing_id}_{email.value}",
         metadata={
             "analysis_template": "comprehensive",
             "requested_by": email.value,

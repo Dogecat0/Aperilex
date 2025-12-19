@@ -2,7 +2,6 @@
 AWS SQS queue provider implementation.
 """
 
-import hashlib
 import json
 from collections.abc import Mapping
 from datetime import datetime
@@ -11,7 +10,12 @@ from typing import Any, Self, cast
 import aioboto3  # type: ignore[import-not-found]  # Optional dependency for SQS provider
 from botocore.exceptions import BotoCoreError, ClientError
 
-from src.application.interfaces.queue import IQueueProvider, QueueStats
+from src.application.interfaces.queue import (
+    DuplicationError,
+    IQueueProvider,
+    QueueError,
+    QueueStats,
+)
 from src.shared.config.providers import SQSConfig
 from src.shared.models import QueueMessage, TaskMessage
 from src.shared.types import QueueMessageId, ReceiptHandle
@@ -150,10 +154,12 @@ class SQSQueueProvider(IQueueProvider):
 
             # Create deduplication ID from task data
             if self.config.enable_content_deduplication and deduplicate:
-                dedup_data = f"{task_message.task_id}_{task_message.task_type}"
-                params["MessageDeduplicationId"] = hashlib.sha256(
-                    dedup_data.encode()
-                ).hexdigest()
+                dedup_id = task_message.deduplication_id
+                if not dedup_id:
+                    raise QueueError(
+                        "Deduplication ID is required when deduplication is enabled"
+                    )
+                params["MessageDeduplicationId"] = dedup_id
 
         try:
             response = await client.send_message(**params)
@@ -161,10 +167,10 @@ class SQSQueueProvider(IQueueProvider):
         except ClientError as e:
             error_code = e.response.get("Error", {}).get("Code", "")
             if error_code == "AWS.SimpleQueueService.DuplicateMessage":
-                raise Exception(
-                    f"Duplicate message detected: {task_message.task_id}"
+                raise DuplicationError(
+                    f"Duplicate message detected: {task_message.deduplication_id}"
                 ) from e
-            raise Exception(f"Failed to send message: {e}") from e
+            raise QueueError(f"Failed to send message: {e}") from e
 
     async def receive_tasks(
         self,
@@ -319,10 +325,12 @@ class SQSQueueProvider(IQueueProvider):
             if self.config.use_fifo:
                 entry["MessageGroupId"] = self.config.message_group_id
                 if self.config.enable_content_deduplication:
-                    dedup_data = f"{task_message.task_id}_{task_message.task_type}"
-                    entry["MessageDeduplicationId"] = hashlib.sha256(
-                        dedup_data.encode()
-                    ).hexdigest()
+                    dedup_id = task_message.deduplication_id
+                    if not dedup_id:
+                        raise QueueError(
+                            "Deduplication ID is required when deduplication is enabled"
+                        )
+                    entry["MessageDeduplicationId"] = dedup_id
 
             entries.append(entry)
 
@@ -341,13 +349,13 @@ class SQSQueueProvider(IQueueProvider):
             # Check for failures
             if response.get("Failed"):
                 failed_indices = [int(f["Id"]) for f in response["Failed"]]
-                raise Exception(
+                raise QueueError(
                     f"Partial batch failure. Failed indices: {failed_indices}"
                 )
 
             return message_ids
         except (ClientError, BotoCoreError) as e:
-            raise Exception(f"Failed to send batch: {e}") from e
+            raise QueueError(f"Failed to send batch: {e}") from e
 
     async def delete_batch(
         self, receipt_handles: list[ReceiptHandle]

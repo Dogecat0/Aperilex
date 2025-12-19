@@ -168,8 +168,10 @@ class StubDockerClient:
 
 
 def _make_task_message(task_id: TaskId | None = None) -> TaskMessage:
+    resolved_task_id = task_id or TaskId(uuid4())
     return TaskMessage(
-        task_id=task_id or TaskId(uuid4()),
+        task_id=resolved_task_id,
+        deduplication_id=str(resolved_task_id),
         task_type="analysis",
         priority=TaskPriority.NORMAL,
         status=TaskStatus.PENDING,

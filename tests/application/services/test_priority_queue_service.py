@@ -9,9 +9,8 @@ from uuid import uuid4
 
 import pytest
 
-from src.application.interfaces.queue import QueueStats
+from src.application.interfaces.queue import DuplicationError, QueueStats
 from src.application.services.priority_queue_service import (
-    DuplicationError,
     PriorityQueueService,
     QueueConfiguration,
 )
@@ -62,6 +61,7 @@ class _StubQueueProvider:
         self.healthy = True
         self._seeded_messages: list[QueueMessage] = []
         self.queue_stats: dict[str | None, QueueStats] = {}
+        self.deduplication_ids: set[str] = set()
 
     def seed_receive_messages(self, messages: list[QueueMessage]) -> None:
         self._seeded_messages = list(messages)
@@ -74,6 +74,12 @@ class _StubQueueProvider:
         *,
         deduplicate: bool = True,
     ) -> QueueMessageId:
+        if deduplicate and task_message.deduplication_id in self.deduplication_ids:
+            raise DuplicationError(
+                f"Duplicate task: {task_message.deduplication_id}"
+            )
+        if deduplicate:
+            self.deduplication_ids.add(task_message.deduplication_id)
         self.send_calls.append(
             _SendCall(
                 task_message=task_message,
@@ -214,6 +220,7 @@ async def test_send_task_deduplicates_and_updates_metrics(
     send_call = provider.send_calls[0]
     assert send_call.deduplicate is True
     assert send_call.task_message.task_id == task_data.task_id
+    assert send_call.task_message.deduplication_id == task_data.deduplication_id
     raw_task_data = send_call.task_message.payload["task_data"]
     assert isinstance(raw_task_data, str)
     assert json.loads(raw_task_data)["filing_id"] == str(filing_id)
@@ -307,15 +314,11 @@ async def test_extend_visibility_timeout_clamps_to_max(monkeypatch: pytest.Monke
 
 
 @pytest.mark.asyncio
-async def test_move_to_dead_letter_removes_dedup_entry_and_deletes_source(
+async def test_move_to_dead_letter_deletes_source(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     service, provider = _make_service(monkeypatch)
     task_data = _make_task_data(metadata={"analysis_template": "risk"})
-
-    await service.send_task(task_data)
-    dedup_id = service._generate_deduplication_id(task_data)
-    assert dedup_id in service._dedup_cache
 
     message = TaskQueueMessage(
         message_id=QueueMessageId("failed-msg"),
@@ -329,9 +332,6 @@ async def test_move_to_dead_letter_removes_dedup_entry_and_deletes_source(
     assert provider.dead_letter_calls == [7]
     assert provider.delete_calls == [ReceiptHandle("receipt-handle")]
     assert service.metrics.total_dead_lettered == 1
-    assert dedup_id not in service._dedup_cache
-
-    assert await service.send_task(task_data) == QueueMessageId("msg-2")
 
 
 @pytest.mark.asyncio

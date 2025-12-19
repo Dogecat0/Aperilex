@@ -18,10 +18,8 @@ from src.application.interfaces.worker import IWorkerProvider, WorkerTaskStatus
 from src.application.services.background_task_coordinator import (
     BackgroundTaskCoordinator,
 )
-from src.application.services.priority_queue_service import (
-    DuplicationError,
-    PriorityQueueService,
-)
+from src.application.interfaces.queue import DuplicationError
+from src.application.services.priority_queue_service import PriorityQueueService
 from src.application.services.worker import FilingFetchError
 from src.application.services.worker.analysis_task_builder import AnalysisTaskBuilder
 from src.application.services.worker_service import TaskResult, WorkerService

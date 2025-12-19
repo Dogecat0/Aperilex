@@ -53,7 +53,7 @@ def _make_task_data() -> TaskData:
         filing_type=FilingType.FORM_10K,
         priority=TaskPriority.HIGH,
         status=TaskStatus.PENDING,
-        deduplication_id=f"{filing_id}:{email.value}",
+        deduplication_id=f"{filing_id}_{email.value}",
         metadata={
             "analysis_template": AnalysisTemplate.COMPREHENSIVE.value,
             "requested_by": email.value,

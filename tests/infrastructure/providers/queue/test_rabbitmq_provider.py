@@ -10,6 +10,7 @@ import aio_pika
 import pytest
 
 from src.infrastructure.providers.queue.rabbitmq import RabbitMQQueueProvider
+from src.application.interfaces.queue import DuplicationError
 from src.shared.config.providers import RabbitMQConfig
 from src.shared.enums import TaskPriority, TaskStatus
 from src.shared.models.queue import TaskMessage
@@ -159,8 +160,10 @@ class StubConnection:
 
 
 def _make_task_message(task_id: TaskId | None = None) -> TaskMessage:
+    resolved_task_id = task_id or TaskId(uuid4())
     return TaskMessage(
-        task_id=task_id or TaskId(uuid4()),
+        task_id=resolved_task_id,
+        deduplication_id=str(resolved_task_id),
         task_type="analysis",
         priority=TaskPriority.NORMAL,
         status=TaskStatus.PENDING,
@@ -198,7 +201,7 @@ async def test_send_receive_and_delete_task_with_dedup(monkeypatch: pytest.Monke
     queue = channel.queues[provider.config.queue_name]
     assert len(queue.messages) == 1
 
-    with pytest.raises(Exception, match="Duplicate message"):
+    with pytest.raises(DuplicationError, match="Duplicate message"):
         await provider.send_task(task_message)
 
     received = await provider.receive_tasks(max_messages=1)
