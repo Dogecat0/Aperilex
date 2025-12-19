@@ -1,17 +1,19 @@
 import asyncio
+import os
 from logging.config import fileConfig
 
-from sqlalchemy import pool
 from sqlalchemy.engine import Connection
-from sqlalchemy.ext.asyncio import AsyncEngine, async_engine_from_config
+from sqlalchemy.ext.asyncio import AsyncEngine
 
 from alembic import context
 
 # Import models to ensure they're registered with Base.metadata
 from src.infrastructure.database.models.base import Base
 
-# Import settings and base for database URL
-from src.shared.config.settings import settings
+from src.infrastructure.config import EnvironmentConfigProvider
+from src.infrastructure.database.config_loader import load_postgres_config
+from src.infrastructure.database.postgres import PostgresDatabaseProvider
+from src.infrastructure.secret import AWSSecretsManager, DockerSecretManager
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
@@ -25,6 +27,37 @@ if config.config_file_name is not None:
 # add your model's MetaData object here
 # for 'autogenerate' support
 target_metadata = Base.metadata
+
+_CONFIG_PROVIDER = EnvironmentConfigProvider(prefix="APERILEX")
+
+
+def _build_secret_manager(
+    config_provider: EnvironmentConfigProvider,
+) -> AWSSecretsManager | DockerSecretManager:
+    environment = config_provider.get_string("environment", "development").lower()
+
+    if environment in {"production", "staging"}:
+        region = os.environ.get("AWS_REGION", "us-east-2")
+        return AWSSecretsManager(region_name=region)
+
+    secrets_dir = os.environ.get("DOCKER_SECRETS_DIR", "/run/secrets")
+    return DockerSecretManager(secrets_dir=secrets_dir)
+
+
+def _build_database_provider() -> PostgresDatabaseProvider:
+    secret_manager = _build_secret_manager(_CONFIG_PROVIDER)
+    return PostgresDatabaseProvider(
+        config=load_postgres_config(_CONFIG_PROVIDER),
+        secret_manager=secret_manager,
+    )
+
+
+def _database_url() -> str:
+    engine = _build_database_provider().get_engine()
+    url = engine.url.render_as_string(hide_password=False)
+    if url.startswith("postgresql+asyncpg://"):
+        return url.replace("postgresql+asyncpg://", "postgresql://", 1)
+    return url
 
 # other values from the config, defined by the needs of env.py,
 # can be acquired:
@@ -44,7 +77,7 @@ def run_migrations_offline() -> None:
     script output.
 
     """
-    url = settings.database_url.replace("postgresql+asyncpg://", "postgresql://")
+    url = _database_url()
     context.configure(
         url=url,
         target_metadata=target_metadata,
@@ -68,16 +101,7 @@ async def run_async_migrations() -> None:
     and associate a connection with the context.
 
     """
-    configuration = config.get_section(config.config_ini_section)
-    if configuration is None:
-        configuration = {}
-    configuration["sqlalchemy.url"] = settings.database_url
-
-    connectable: AsyncEngine = async_engine_from_config(
-        configuration,
-        prefix="sqlalchemy.",
-        poolclass=pool.NullPool,
-    )
+    connectable: AsyncEngine = _build_database_provider().get_engine()
 
     async with connectable.connect() as connection:
         await connection.run_sync(do_run_migrations)

@@ -681,53 +681,12 @@ class ProviderFactory:
             Provider instance for database
         """
         if provider_type == DatabaseProvider.POSTGRES:
-            from src.infrastructure.database.postgres import (
-                PostgresConfig,
-                PostgresDatabaseProvider,
-            )
-
-            # Get PostgreSQL configuration
-            host = config_provider.get("database.postgres.host", "localhost")
-            port = config_provider.get("database.postgres.port", 5432)
-            database = config_provider.get("database.postgres.database", "aperilex")
-            username = config_provider.get("database.postgres.username", "postgres")
-            password_secret = config_provider.get(
-                "database.postgres.password_secret", "postgres_password"
-            )
-            max_connections = config_provider.get(
-                "database.postgres.max_connections", 10
-            )
-            min_connections = config_provider.get(
-                "database.postgres.min_connections", 2
-            )
-            connection_timeout = config_provider.get(
-                "database.postgres.connection_timeout_seconds", 30
-            )
-            query_timeout = config_provider.get(
-                "database.postgres.query_timeout_seconds", 30
-            )
-            enable_ssl = config_provider.get("database.postgres.enable_ssl", False)
-            enable_pooling = config_provider.get(
-                "database.postgres.enable_connection_pooling", True
-            )
-
-            postgres_config = PostgresConfig(
-                host=host,
-                port=port,
-                database=database,
-                username=username,
-                password_secret_name=password_secret,
-                max_connections=max_connections,
-                min_connections=min_connections,
-                connection_timeout_seconds=connection_timeout,
-                query_timeout_seconds=query_timeout,
-                enable_ssl=enable_ssl,
-                enable_connection_pooling=enable_pooling,
-            )
+            from src.infrastructure.database.config_loader import load_postgres_config
+            from src.infrastructure.database.postgres import PostgresDatabaseProvider
 
             return providers.Singleton(
                 PostgresDatabaseProvider,
-                config=postgres_config,
+                config=load_postgres_config(config_provider),
                 secret_manager=secret_manager,
             )
         elif provider_type == DatabaseProvider.AURORA:

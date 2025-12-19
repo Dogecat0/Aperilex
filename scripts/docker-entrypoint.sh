@@ -37,9 +37,6 @@ load_runtime_secrets() {
         exit 1
     fi
 
-    export DATABASE_URL="postgresql+asyncpg://aperilex:${postgres_password}@postgres/aperilex"
-    export APERILEX_DATABASE_PASSWORD_SECRET="$postgres_secret_name"
-
     for secret_var in GOOGLE_CLIENT_ID GOOGLE_CLIENT_SECRET OPENAI_API_KEY GOOGLE_API_KEY; do
         local secret_name_var="${secret_var}_SECRET_NAME"
         local secret_name="${!secret_name_var:-$secret_var}"
@@ -68,14 +65,23 @@ wait_for_db() {
     while ! python -c "
 import asyncio
 import sys
-from sqlalchemy.ext.asyncio import create_async_engine
+import os
 from sqlalchemy import text
-from src.shared.config.settings import Settings
+from src.infrastructure.config import EnvironmentConfigProvider
+from src.infrastructure.database.config_loader import load_postgres_config
+from src.infrastructure.database.postgres import PostgresDatabaseProvider
+from src.infrastructure.secret import DockerSecretManager
 
 async def check_db():
     try:
-        settings = Settings()
-        engine = create_async_engine(settings.database_url)
+        config_provider = EnvironmentConfigProvider(prefix="APERILEX")
+        secrets_dir = os.environ.get("DOCKER_SECRETS_DIR", "/run/secrets")
+        secret_manager = DockerSecretManager(secrets_dir=secrets_dir)
+        db_provider = PostgresDatabaseProvider(
+            config=load_postgres_config(config_provider),
+            secret_manager=secret_manager,
+        )
+        engine = db_provider.get_engine()
         async with engine.connect() as conn:
             await conn.execute(text('SELECT 1'))
         await engine.dispose()

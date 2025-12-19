@@ -7,12 +7,8 @@ from typing import TYPE_CHECKING
 from dependency_injector import containers, providers
 from dependency_injector.providers import Dependency
 
-from src.infrastructure.database.cache.manager import CacheManager
-from src.infrastructure.database.models.base import (
-    async_session_maker,
-    engine,
-)
-from src.infrastructure.database.postgres import PostgresDatabaseProvider
+from src.application.interfaces.database import IDatabaseProvider
+from src.infrastructure.database.sqlalchemy_provider import SQLAlchemyDatabaseProvider
 from src.infrastructure.providers.rate_limiting.in_memory import (
     InMemoryRateLimitingProvider,
 )
@@ -24,77 +20,49 @@ from src.infrastructure.query_services import (
     QuizAttemptQueryService,
     UserQueryService,
 )
-from src.shared.config.providers import PostgresConfig, RateLimitConfig
+from src.shared.config.providers import RateLimitConfig
 
 if TYPE_CHECKING:
-    from src.application.interfaces import IConfigProvider, ISecretManager
+    from src.application.interfaces import IConfigProvider
+
+
+def _require_sqlalchemy_provider(
+    db_provider: IDatabaseProvider,
+) -> SQLAlchemyDatabaseProvider:
+    if not isinstance(db_provider, SQLAlchemyDatabaseProvider):
+        raise RuntimeError(
+            "Infrastructure query services require SQLAlchemyDatabaseProvider. "
+            f"Received {type(db_provider).__name__}."
+        )
+    return db_provider
 
 
 class InfrastructureWiring(containers.DeclarativeContainer):
     """Container for infrastructure implementations."""
 
-    # Config and secret dependencies from parent container
+    # Config dependencies from parent container
     config_provider: Dependency["IConfigProvider"] = providers.Dependency()
-    secret_manager: Dependency["ISecretManager"] = providers.Dependency()
 
     # Parent container reference for accessing abstract providers
     providers_container = providers.DependenciesContainer()
 
-    # Cache Manager as singleton
-    cache_manager = providers.Singleton(
-        CacheManager,
+    # Database Provider (delegate to application container)
+    database_provider = providers.Delegate(
+        providers_container.database_provider,
     )
 
-    # Database Engine (reuse existing engine from base.py)
-    db_engine = providers.Singleton(
-        lambda: engine,
-    )
-
-    # Database Session Factory (reuse existing session factory)
-    db_session_factory = providers.Singleton(
-        lambda: async_session_maker,
+    # Database Session Factory (requires SQLAlchemy-based provider)
+    db_session_factory = providers.Callable(
+        lambda db_provider: _require_sqlalchemy_provider(
+            db_provider
+        ).get_session_factory(),
+        db_provider=database_provider,
     )
 
     # Helper to instantiate lightweight sessions for query services
     session_provider = providers.Callable(
         lambda factory: factory(),
         db_session_factory,
-    )
-
-    # PostgreSQL configuration
-    postgres_config = providers.Factory(
-        lambda cp: PostgresConfig(
-            host=cp.get_string("database.postgres.host", "localhost"),
-            port=cp.get_int("database.postgres.port", 5432),
-            database=cp.get_string("database.postgres.database", "aperilex"),
-            username=cp.get_string("database.postgres.username", "postgres"),
-            password_secret_name=cp.get_string(
-                "database.postgres.password_secret", "postgres_password"
-            ),  # nosec B106 - This is a secret name, not a password
-            max_connections=cp.get_int("database.postgres.max_connections", 10),
-            min_connections=cp.get_int("database.postgres.min_connections", 2),
-            connection_timeout_seconds=cp.get_int(
-                "database.postgres.connection_timeout_seconds", 30
-            ),
-            query_timeout_seconds=cp.get_int(
-                "database.postgres.query_timeout_seconds", 30
-            ),
-            enable_ssl=cp.get_bool("database.postgres.enable_ssl", False),
-            enable_connection_pooling=cp.get_bool(
-                "database.postgres.enable_connection_pooling", True
-            ),
-            retry_attempts=cp.get_int("database.postgres.retry_attempts", 3),
-            echo_sql=cp.get_bool("database.postgres.echo_sql", False),
-        ),
-        cp=config_provider,
-    )
-
-    # Database Provider (concrete implementation)
-    database_provider = providers.Singleton(
-        PostgresDatabaseProvider,
-        config=postgres_config,
-        secret_manager=secret_manager,
-        cache_manager=cache_manager,
     )
 
     # Repository Factory

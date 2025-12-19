@@ -276,7 +276,6 @@ class CompositionRoot(containers.DeclarativeContainer):
             providers.Container(
                 InfrastructureWiring,
                 config_provider=providers.Object(config_provider),
-                secret_manager=providers.Object(secret_manager),
                 providers_container=app_container.providers_container,
             )
         )

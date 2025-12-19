@@ -20,7 +20,6 @@ from dataclasses import dataclass
 from datetime import date, datetime
 from pathlib import Path
 from typing import Any
-from urllib.parse import quote_plus
 from uuid import NAMESPACE_DNS, uuid4, uuid5
 
 from edgar import Company, set_identity
@@ -28,50 +27,6 @@ from edgar import Company, set_identity
 REPO_ROOT = Path(__file__).resolve().parent.parent
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
-
-
-def ensure_database_url() -> None:
-    """Ensure DATABASE_URL is available for settings configuration."""
-
-    if os.environ.get("DATABASE_URL"):
-        return
-
-    host = os.environ.get("APERILEX_DATABASE__POSTGRES__HOST", "postgres")
-    port = os.environ.get("APERILEX_DATABASE__POSTGRES__PORT", "5432")
-    database = os.environ.get("APERILEX_DATABASE__POSTGRES__DATABASE", "aperilex")
-    username = os.environ.get("APERILEX_DATABASE__POSTGRES__USERNAME", "aperilex")
-
-    password = os.environ.get("POSTGRES_PASSWORD")
-    if not password:
-        password_file = os.environ.get("POSTGRES_PASSWORD_FILE")
-        if password_file and Path(password_file).exists():
-            password = Path(password_file).read_text(encoding="utf-8").strip()
-
-    if not password:
-        secrets_dir = os.environ.get("DOCKER_SECRETS_DIR")
-        secret_name = os.environ.get(
-            "POSTGRES_PASSWORD_SECRET_NAME", "postgres_password"
-        )
-        if secrets_dir:
-            secret_path = Path(secrets_dir) / secret_name
-            if secret_path.exists():
-                password = secret_path.read_text(encoding="utf-8").strip()
-
-    if not password:
-        raise RuntimeError(
-            "DATABASE_URL is not set and the Postgres password could not be resolved. "
-            "Set DATABASE_URL explicitly or ensure Postgres credentials are available."
-        )
-
-    scheme = os.environ.get("DATABASE_SCHEME", "postgresql+asyncpg")
-    os.environ["DATABASE_URL"] = (
-        f"{scheme}://{quote_plus(username)}:{quote_plus(password)}"
-        f"@{host}:{port}/{database}"
-    )
-    logging.debug("DATABASE_URL synthesized from Aperilex configuration values.")
-
-
-ensure_database_url()
 
 from sqlalchemy.ext.asyncio import AsyncSession  # noqa: E402
 
@@ -81,7 +36,11 @@ from src.application.interfaces.repositories import (  # noqa: E402
     FilingData,
 )
 from src.application.interfaces.storage import StorageRequest  # noqa: E402
-from src.infrastructure.database.models.base import async_session_maker  # noqa: E402
+from src.infrastructure.config import EnvironmentConfigProvider  # noqa: E402
+from src.infrastructure.database.config_loader import (  # noqa: E402
+    load_postgres_config,
+)
+from src.infrastructure.database.postgres import PostgresDatabaseProvider  # noqa: E402
 from src.infrastructure.database.repositories.company_repository import (  # noqa: E402
     CompanyRepository,
 )
@@ -95,6 +54,7 @@ from src.infrastructure.providers.datasource.edgar import (  # noqa: E402
 from src.infrastructure.providers.storage.local import (  # noqa: E402
     LocalStorageProvider,
 )
+from src.infrastructure.secret import DockerSecretManager  # noqa: E402
 from src.shared.enums import FilingType, TaskStatus  # noqa: E402
 from src.shared.types import (  # noqa: E402
     CIK,
@@ -107,6 +67,16 @@ from src.shared.types import (  # noqa: E402
 DEFAULT_FILING_TYPES = [FilingType.FORM_10K, FilingType.FORM_10Q]
 STORAGE_ENV_VAR = "LOCAL_STORAGE_PATH"
 EDGAR_IDENTITY_ENV_VAR = "EDGAR_IDENTITY"
+
+
+def _build_database_provider() -> PostgresDatabaseProvider:
+    config_provider = EnvironmentConfigProvider(prefix="APERILEX")
+    secrets_dir = os.environ.get("DOCKER_SECRETS_DIR", "/run/secrets")
+    secret_manager = DockerSecretManager(secrets_dir=secrets_dir)
+    return PostgresDatabaseProvider(
+        config=load_postgres_config(config_provider),
+        secret_manager=secret_manager,
+    )
 
 
 @dataclass
@@ -212,40 +182,46 @@ class EdgarFilingsImporter:
 
         results: list[dict[str, Any]] = []
 
-        async with async_session_maker() as session:
-            company_repo = CompanyRepository(session)
-            filing_repo = FilingRepository(session)
+        db_provider = _build_database_provider()
+        session_factory = db_provider.get_session_factory()
 
-            for identifier in identifiers:
-                try:
-                    payload = self._load_company_filings(identifier)
-                except Exception as exc:  # noqa: BLE001
-                    logging.error(
-                        "Failed to prepare filings for %s: %s", identifier, exc
+        try:
+            async with session_factory() as session:
+                company_repo = CompanyRepository(session)
+                filing_repo = FilingRepository(session)
+
+                for identifier in identifiers:
+                    try:
+                        payload = self._load_company_filings(identifier)
+                    except Exception as exc:  # noqa: BLE001
+                        logging.error(
+                            "Failed to prepare filings for %s: %s", identifier, exc
+                        )
+                        continue
+
+                    if payload is None:
+                        logging.warning(
+                            "No EDGAR filings found for %s after filtering; skipping.",
+                            identifier,
+                        )
+                        continue
+
+                    if not payload.filings:
+                        logging.info(
+                            "Filters excluded all filings for %s; nothing to import.",
+                            identifier,
+                        )
+                        continue
+
+                    result = await self._process_company(
+                        session, company_repo, filing_repo, payload
                     )
-                    continue
+                    results.append(result)
 
-                if payload is None:
-                    logging.warning(
-                        "No EDGAR filings found for %s after filtering; skipping.",
-                        identifier,
-                    )
-                    continue
-
-                if not payload.filings:
-                    logging.info(
-                        "Filters excluded all filings for %s; nothing to import.",
-                        identifier,
-                    )
-                    continue
-
-                result = await self._process_company(
-                    session, company_repo, filing_repo, payload
-                )
-                results.append(result)
-
-            if self.options.dry_run:
-                await session.rollback()
+                if self.options.dry_run:
+                    await session.rollback()
+        finally:
+            await db_provider.get_engine().dispose()
 
         self._log_summary(results)
 

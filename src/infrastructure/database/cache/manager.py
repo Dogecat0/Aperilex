@@ -11,11 +11,7 @@ from dogpile.cache.api import NO_VALUE
 from dogpile.cache.region import CacheRegion, make_region
 from sqlalchemy.orm.query import Query
 
-from src.shared.config.settings import Settings
-
 logger = logging.getLogger(__name__)
-
-settings = Settings()
 
 
 class CacheRegionName(str, Enum):

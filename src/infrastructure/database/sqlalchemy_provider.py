@@ -53,6 +53,14 @@ class SQLAlchemyDatabaseProvider(IDatabaseProvider):
         self._active_session: AsyncSession | None = None
         logger.info("Initialized SQLAlchemyDatabaseProvider")
 
+    def get_engine(self) -> AsyncEngine:
+        """Return the underlying SQLAlchemy async engine."""
+        return self._engine
+
+    def get_session_factory(self) -> async_sessionmaker[AsyncSession]:
+        """Return the async session factory for SQLAlchemy sessions."""
+        return self._session_factory
+
     def _validate_identifier(self, identifier: str) -> str:
         """
         Validate and quote an SQL identifier (table/column name).
