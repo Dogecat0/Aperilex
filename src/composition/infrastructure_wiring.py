@@ -46,10 +46,8 @@ class InfrastructureWiring(containers.DeclarativeContainer):
     # Parent container reference for accessing abstract providers
     providers_container = providers.DependenciesContainer()
 
-    # Database Provider (delegate to application container)
-    database_provider = providers.Delegate(
-        providers_container.database_provider,
-    )
+    # Database Provider (reference to application container)
+    database_provider = providers_container.database_provider
 
     # Database Session Factory (requires SQLAlchemy-based provider)
     db_session_factory = providers.Callable(
