@@ -8,6 +8,7 @@
 - High: BackgroundTaskCoordinator contains duplicate business logic, sync execution path, and TaskStatusStore fallback; not thin coordinator per plan; `src/application/services/background_task_coordinator.py`, `src/shared/utils/task_status_store.py`.
 - High: Retry policy fragmented and inconsistent (`TaskData.max_retries=3` vs WorkerService forcing 1 vs RetryPolicy=3 vs queue DLQ thresholds); `src/shared/models/task_data.py`, `src/application/services/worker_service.py`, `src/application/services/worker/worker_retry_coordinator.py`, `src/application/services/priority_queue_service.py`.
 - Medium: Template mapping duplicated and couples application to infrastructure schema names; `src/application/handlers/schemas/commands/analyze_filing.py`, `src/application/services/analysis_template_service.py`, `src/application/services/worker/template_registry.py`.
+- Medium: Review how 'Settings' env are currently used and whether it fits our design/architecture plan.
 
 ## Secondary
 
@@ -20,5 +21,5 @@
 ## Questions
 
 - Resolved: `docs/deployment/DEPLOYMENT_PLAN.md` is the design reference.
-- Choose a single config authority: `IConfigProvider` + secrets or `Settings` env.
-- Choose dedup responsibility: queue provider or `PriorityQueueService`.
+- Choose a single config authority: `IConfigProvider` + secrets or `Settings` env. (`IConfigProvider` + secrets is the one chosen)
+- Choose dedup responsibility: queue provider or `PriorityQueueService`. (queue provider is the one chosen)
