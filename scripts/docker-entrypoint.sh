@@ -74,8 +74,8 @@ from src.infrastructure.secret import DockerSecretManager
 
 async def check_db():
     try:
-        config_provider = EnvironmentConfigProvider(prefix="APERILEX")
-        secrets_dir = os.environ.get("DOCKER_SECRETS_DIR", "/run/secrets")
+        config_provider = EnvironmentConfigProvider(prefix='APERILEX')
+        secrets_dir = os.environ.get('DOCKER_SECRETS_DIR', '/run/secrets')
         secret_manager = DockerSecretManager(secrets_dir=secrets_dir)
         db_provider = PostgresDatabaseProvider(
             config=load_postgres_config(config_provider),
